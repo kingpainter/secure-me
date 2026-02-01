@@ -1,0 +1,7 @@
+{
+  "name": "Secure Me",
+  "render_readme": true,
+  "domains": ["alarm_control_panel", "binary_sensor", "sensor", "switch", "select"],
+  "iot_class": "Local Polling",
+  "homeassistant": "2025.1.0"
+}

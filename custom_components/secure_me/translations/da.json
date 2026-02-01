@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Opsæt Secure Me",
+        "description": "Konfigurer dit alarm system",
+        "data": {
+          "code": "Alarm Kode (4+ cifre)",
+          "exit_delay": "Udgangsforsinkelse (sekunder)",
+          "entry_delay": "Indgangsforsinkelse (sekunder)"
+        }
+      }
+    },
+    "error": {
+      "code_too_short": "Alarm kode skal være mindst 4 tegn"
+    },
+    "abort": {
+      "already_configured": "Secure Me er allerede konfigureret"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Secure Me Indstillinger",
+        "description": "Konfigurer alarm system indstillinger",
+        "data": {
+          "code": "Alarm Kode",
+          "exit_delay": "Udgangsforsinkelse (sekunder)",
+          "entry_delay": "Indgangsforsinkelse (sekunder)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Secure Me",
+        "description": "Configure your alarm system",
+        "data": {
+          "code": "Alarm Code (4+ digits)",
+          "exit_delay": "Exit Delay (seconds)",
+          "entry_delay": "Entry Delay (seconds)"
+        }
+      }
+    },
+    "error": {
+      "code_too_short": "Alarm code must be at least 4 characters"
+    },
+    "abort": {
+      "already_configured": "Secure Me is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Secure Me Options",
+        "description": "Configure alarm system settings",
+        "data": {
+          "code": "Alarm Code",
+          "exit_delay": "Exit Delay (seconds)",
+          "entry_delay": "Entry Delay (seconds)"
+        }
+      }
+    }
+  }
+}
