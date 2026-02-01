@@ -80,16 +80,23 @@ class SecureMeOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
+        # Don't set config_entry - it's already available as self.config_entry from parent
+        # Just call parent __init__
+        super().__init__()
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            # Update config entry data
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={**self.config_entry.data, **user_input}
+            )
+            return self.async_create_entry(title="", data={})
 
-        # Get current values
+        # Get current values from config_entry.data
         current_code = self.config_entry.data.get(CONF_CODE, "")
         current_exit = self.config_entry.data.get(CONF_EXIT_DELAY, DEFAULT_EXIT_DELAY)
         current_entry = self.config_entry.data.get(CONF_ENTRY_DELAY, DEFAULT_ENTRY_DELAY)
