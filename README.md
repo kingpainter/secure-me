@@ -1,7 +1,7 @@
 # 🛡️ Secure Me
 
 <p align="center">
-  <img src="logo.png" alt="Secure Me Logo" width="300"/>
+  <img src="secure-me.png" alt="Secure Me Logo" width="300"/>
 </p>
 
 <p align="center">
