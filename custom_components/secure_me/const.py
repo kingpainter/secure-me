@@ -1,13 +1,15 @@
 """Constants for Secure Me integration."""
-# VERSION = "0.0.1"
+# VERSION = "0.2.0"
 
 from homeassistant.const import Platform
 
 # Integration domain
 DOMAIN = "secure_me"
 
-# Version
-VERSION = "0.0.1"
+# Version and device info
+VERSION = "0.2.0"
+MANUFACTURER = "KingPainter"
+MODEL = "Secure Me Alarm System"
 
 # Platforms
 PLATFORMS = [
@@ -39,22 +41,15 @@ STATE_ALARM_ARMED_VACATION = "armed_vacation"
 STATE_ALARM_PENDING = "pending"
 STATE_ALARM_TRIGGERED = "triggered"
 
-# Module types
-MODULE_CAMERA = "camera"
-MODULE_LOCK = "lock"
-MODULE_LIGHTS = "lights"
-MODULE_CLIMATE = "climate"
-MODULE_CURTAINS = "curtains"
-MODULE_WATER_LEAK = "water_leak"
-MODULE_SIREN = "siren"
-MODULE_TTS = "tts"
-
 # Events
 EVENT_ALARM_ARMED = f"{DOMAIN}_armed"
 EVENT_ALARM_DISARMED = f"{DOMAIN}_disarmed"
 EVENT_ALARM_TRIGGERED = f"{DOMAIN}_triggered"
 EVENT_ALARM_TEST_STARTED = f"{DOMAIN}_test_started"
 EVENT_ALARM_TEST_COMPLETED = f"{DOMAIN}_test_completed"
+EVENT_MODULE_ENABLED = f"{DOMAIN}_module_enabled"
+EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
+EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
 
 # Services
 SERVICE_ARM_AWAY = "arm_away"
@@ -73,3 +68,59 @@ ATTR_ZONES = "zones"
 ATTR_MODULES = "modules"
 ATTR_HEALTH_SCORE = "health_score"
 ATTR_BATTERY_LEVEL = "battery_level"
+ATTR_CHANGED_BY = "changed_by"
+ATTR_CODE_ARM_REQUIRED = "code_arm_required"
+ATTR_MODULE_ENABLED = "module_enabled"
+ATTR_MODULE_STATE = "module_state"
+ATTR_MODULE_STATUS = "module_status"
+ATTR_MODULE_CONFIG = "module_config"
+
+# Update intervals
+SCAN_INTERVAL = 30  # seconds
+STATE_MACHINE_UPDATE_INTERVAL = 1  # Update every second for countdown
+
+# Coordinator
+COORDINATOR = "coordinator"
+UNDO_UPDATE_LISTENER = "undo_update_listener"
+MODULES = "modules"
+
+# Zone types
+ZONE_TYPE_ENTRY = "entry"
+ZONE_TYPE_INSTANT = "instant"
+ZONE_TYPE_INTERIOR = "interior"
+ZONE_TYPE_PERIMETER = "perimeter"
+
+# Zone attributes
+ATTR_ZONE_TYPE = "zone_type"
+ATTR_ZONE_ENABLED = "zone_enabled"
+ATTR_ZONE_SENSORS = "zone_sensors"
+ATTR_ZONE_OPEN_SENSORS = "zone_open_sensors"
+
+# Module types
+MODULE_CAMERA = "camera"
+MODULE_LOCK = "lock"
+MODULE_LIGHTS = "lights"
+MODULE_CLIMATE = "climate"
+MODULE_SIREN = "siren"
+MODULE_TTS = "tts"
+
+# Module status
+STATUS_DISABLED = "disabled"
+STATUS_IDLE = "idle"
+STATUS_ACTIVE = "active"
+STATUS_ERROR = "error"
+
+# Camera module
+CAMERA_MODE_OFF = "off"
+CAMERA_MODE_LIVE = "live"
+CAMERA_MODE_RECORD_24 = "record_24"
+CAMERA_MODE_RECORD_MOTION = "record_motion"
+
+# Light modes
+LIGHT_MODE_NORMAL = "normal"
+LIGHT_MODE_ALARM = "alarm"
+LIGHT_MODE_BLINKING = "blinking"
+
+# TTS languages
+TTS_LANG_DA = "da"  # Danish
+TTS_LANG_EN = "en"  # English

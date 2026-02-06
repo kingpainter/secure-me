@@ -3,11 +3,12 @@
   "name": "Secure Me",
   "codeowners": ["@kingpainter"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["frontend", "http", "websocket_api"],
   "documentation": "https://github.com/kingpainter/secure-me",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/kingpainter/secure-me/issues",
   "requirements": [],
-  "version": "0.0.1"
+  "logo": "secure-me.png",
+  "version": "0.2.0"
 }
