@@ -9,6 +9,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/kingpainter/secure-me/issues",
   "requirements": [],
-  "logo": "secure-me.png",
+  "logo": "logo.png",
   "version": "0.2.0"
 }
