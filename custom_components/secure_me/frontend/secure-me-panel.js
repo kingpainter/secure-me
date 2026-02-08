@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.2.0
+ * VERSION: 0.3.0-alpha (Camera GUI Config)
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,9 +8,9 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "0.2.0";
+const VERSION = "0.3.0-alpha";
 
-// ─── Styles ───────────────────────────────────────────────────
+// === Styles ===
 const panelStyles = `
   :host {
     --sm-accent: #34c759;
@@ -43,7 +43,7 @@ const panelStyles = `
     -webkit-font-smoothing: antialiased;
   }
 
-  /* ─── Sidebar ─── */
+  /* === Sidebar === */
   .sidebar {
     width: 220px;
     min-height: 100vh;
@@ -90,7 +90,7 @@ const panelStyles = `
     box-shadow: 0 0 8px currentColor;
   }
 
-  /* ─── Nav Tabs ─── */
+  /* === Nav Tabs === */
   .nav-tabs {
     padding: 8px 10px;
     flex: 1;
@@ -107,7 +107,7 @@ const panelStyles = `
     font-size: 13px; font-weight: 400;
     font-family: inherit;
     text-align: left; width: 100%;
-    transition: all 0.15s ease;
+    transition: background 0.15s ease;
   }
   .nav-tab:hover { background: rgba(255,255,255,0.04); }
   .nav-tab.active {
@@ -131,15 +131,17 @@ const panelStyles = `
     color: var(--sm-text-tertiary);
   }
 
-  /* ─── Main Content ─── */
+  /* === Main Content === */
   .main-content {
     flex: 1;
     padding: 28px 32px;
     overflow-y: auto;
     max-width: 740px;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
   }
 
-  /* ─── Cards ─── */
+  /* === Cards === */
   .sm-card {
     background: var(--sm-surface);
     border-radius: 16px;
@@ -149,7 +151,7 @@ const panelStyles = `
   }
   .sm-card.no-pad { padding: 0; }
 
-  /* ─── Table-like list ─── */
+  /* === Table === */
   .sm-list-header {
     display: grid; gap: 0; align-items: center;
     padding: 10px 16px;
@@ -168,7 +170,7 @@ const panelStyles = `
   .sm-list-row:last-child { border-bottom: none; }
   .sm-list-row.disabled { opacity: 0.45; }
 
-  /* ─── Badges ─── */
+  /* === Badges === */
   .badge {
     display: inline-block;
     padding: 2px 8px; border-radius: 6px;
@@ -185,7 +187,7 @@ const panelStyles = `
   .badge.accent { color: var(--sm-accent); background: var(--sm-accent-dim); }
   .badge.actions { color: var(--sm-purple); background: var(--sm-purple-dim); }
 
-  /* ─── Checkbox ─── */
+  /* === Checkbox === */
   .sm-checkbox {
     width: 20px; height: 20px; border-radius: 6px;
     border: 2px solid var(--sm-text-tertiary);
@@ -201,7 +203,7 @@ const panelStyles = `
   }
   .sm-checkbox svg { width: 14px; height: 14px; color: #fff; }
 
-  /* ─── Toggle ─── */
+  /* === Toggle === */
   .sm-toggle {
     width: 44px; height: 24px; border-radius: 24px;
     background: rgba(255,255,255,0.15);
@@ -218,7 +220,7 @@ const panelStyles = `
   }
   .sm-toggle.on .dot { left: 23px; }
 
-  /* ─── Buttons ─── */
+  /* === Buttons === */
   .sm-btn {
     border: none; border-radius: 10px;
     padding: 8px 16px; font-size: 13px;
@@ -235,7 +237,7 @@ const panelStyles = `
   .sm-btn:hover { filter: brightness(1.1); }
   .sm-btn svg { width: 14px; height: 14px; }
 
-  /* ─── Inputs ─── */
+  /* === Inputs === */
   .sm-input, .sm-select {
     width: 100%; padding: 8px 12px; border-radius: 8px;
     background: rgba(255,255,255,0.08); color: var(--sm-text);
@@ -248,7 +250,7 @@ const panelStyles = `
     display: block; margin-bottom: 4px;
   }
 
-  /* ─── Section header ─── */
+  /* === Section === */
   .section-header {
     display: flex; justify-content: space-between;
     align-items: center; margin-bottom: 16px;
@@ -262,7 +264,7 @@ const panelStyles = `
     margin: 4px 0 0;
   }
 
-  /* ─── Info card ─── */
+  /* === Info === */
   .info-card {
     padding: 14px 16px; border-radius: 12px;
     display: flex; gap: 12px; align-items: flex-start;
@@ -273,7 +275,7 @@ const panelStyles = `
   .info-card .info-title { font-size: 13px; font-weight: 600; }
   .info-card .info-text { font-size: 12px; color: var(--sm-text-secondary); margin-top: 4px; }
 
-  /* ─── Zone grid ─── */
+  /* === Zone === */
   .zone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .zone-card { cursor: pointer; }
   .zone-modes { display: flex; gap: 4px; margin-top: 8px; }
@@ -282,7 +284,7 @@ const panelStyles = `
     background: rgba(255,255,255,0.08); color: var(--sm-text-secondary);
   }
 
-  /* ─── User card ─── */
+  /* === User === */
   .user-avatar {
     width: 40px; height: 40px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
@@ -297,7 +299,7 @@ const panelStyles = `
   }
   .nfc-tag-id { font-size: 12px; color: var(--sm-purple); font-family: monospace; }
 
-  /* ─── Module cards ─── */
+  /* === Module === */
   .module-header {
     display: flex; align-items: center; gap: 14px;
     padding: 14px 16px; cursor: pointer;
@@ -321,7 +323,7 @@ const panelStyles = `
     border-bottom: 1px solid var(--sm-border);
   }
 
-  /* ─── Segmented control ─── */
+  /* === Segmented === */
   .segment-control {
     display: flex; background: rgba(255,255,255,0.05);
     border-radius: 10px; padding: 3px;
@@ -340,7 +342,7 @@ const panelStyles = `
     color: var(--sm-text);
   }
 
-  /* ─── Notification/Automation card ─── */
+  /* === Notification Automation === */
   .notif-message {
     font-size: 12px; color: var(--sm-text-secondary);
     margin-top: 6px; padding: 6px 10px; border-radius: 6px;
@@ -349,7 +351,7 @@ const panelStyles = `
   }
   .notif-actions { display: flex; gap: 8px; margin-top: 12px; }
 
-  /* ─── Placeholder tab ─── */
+  /* === Placeholder === */
   .placeholder {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -366,7 +368,7 @@ const panelStyles = `
     max-width: 320px; margin-top: 8px;
   }
 
-  /* ─── Narrow mode (mobile) ─── */
+  /* === Narrow === */
   :host([narrow]) .sidebar { width: 56px; }
   :host([narrow]) .sidebar-header span,
   :host([narrow]) .sidebar-status,
@@ -376,9 +378,343 @@ const panelStyles = `
   :host([narrow]) .nav-tab { justify-content: center; padding: 12px; }
   :host([narrow]) .main-content { padding: 16px; }
   :host([narrow]) .zone-grid { grid-template-columns: 1fr; }
-`;
 
-// ─── SVG Icons ────────────────────────────────────────────────
+  /* Mobile Responsive */
+  @media (max-width: 768px) {
+    :host {
+      flex-direction: column;
+    }
+    .sidebar {
+      width: 100%;
+      min-height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--sm-border);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .nav-tabs {
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 8px;
+      gap: 4px;
+    }
+    .nav-tab {
+      min-width: 90px;
+      padding: 8px 10px;
+      justify-content: center;
+    }
+    .main-content {
+      padding: 16px;
+      max-width: 100%;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .main-content {
+      padding: 12px;
+    }
+    .sm-card {
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+  }
+
+
+
+  /* === Dialog System === */
+  .config-dialog-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  .config-dialog {
+    max-width: 650px;
+    max-height: 90vh;
+    width: 90%;
+    background: var(--sm-surface);
+    border-radius: 16px;
+    border: 1px solid var(--sm-border);
+    padding: 24px;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+  }
+  
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--sm-border);
+  }
+  
+  .dialog-title {
+    font-size: 20px;
+    font-weight: 700;
+    flex: 1;
+  }
+  
+  .dialog-close {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sm-text-secondary);
+    transition: all 0.2s;
+  }
+  
+  .dialog-close:hover {
+    background: rgba(255,255,255,0.12);
+  }
+  
+  .item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .item-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--sm-border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  
+  .item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  
+  .item-number {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--sm-text);
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-group:last-child {
+    margin-bottom: 0;
+  }
+  
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--sm-text-secondary);
+  }
+  
+  .form-label .optional-hint {
+    font-size: 12px;
+    color: var(--sm-text-tertiary);
+    font-style: italic;
+    font-weight: 400;
+  }
+  
+  .form-select, .form-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--sm-border);
+    border-radius: 8px;
+    color: var(--sm-text);
+    font-size: 14px;
+    font-family: inherit;
+    box-sizing: border-box;
+  }
+  
+  .form-select {
+    cursor: pointer;
+  }
+  
+  .form-select:focus, .form-input:focus {
+    outline: none;
+    border-color: var(--sm-accent);
+    background: rgba(255,255,255,0.1);
+  }
+  
+  .entity-search {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--sm-border);
+    border-radius: 8px;
+    color: var(--sm-text);
+    font-size: 14px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+  
+  .entity-search:focus {
+    outline: none;
+    border-color: var(--sm-accent);
+  }
+  
+  .entity-search::placeholder {
+    color: var(--sm-text-tertiary);
+  }
+  
+  .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .radio-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: 1px solid transparent;
+  }
+  
+  .radio-option:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  
+  .radio-option.selected {
+    background: rgba(52,199,89,0.12);
+    border-color: var(--sm-accent);
+  }
+  
+  .radio-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+  }
+  
+  .radio-option label {
+    cursor: pointer;
+    font-size: 14px;
+    flex: 1;
+    margin: 0;
+  }
+  
+  .dialog-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 20px;
+    margin-top: 20px;
+    border-top: 1px solid var(--sm-border);
+  }
+  
+  .btn-dialog {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+  
+  .btn-dialog.cancel {
+    background: rgba(255,255,255,0.08);
+    color: var(--sm-text);
+  }
+  
+  .btn-dialog.cancel:hover {
+    background: rgba(255,255,255,0.12);
+  }
+  
+  .btn-dialog.save {
+    background: var(--sm-accent);
+    color: #000;
+  }
+  
+  .btn-dialog.save:hover {
+    filter: brightness(1.1);
+  }
+  
+  .add-item-btn {
+    background: rgba(52,199,89,0.12);
+    color: var(--sm-accent);
+    border: 1px solid rgba(52,199,89,0.3);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 20px;
+    transition: all 0.2s;
+  }
+  
+  .add-item-btn:hover {
+    background: rgba(52,199,89,0.2);
+  }
+  
+  .delete-item-btn {
+    background: rgba(255,69,58,0.12);
+    color: var(--sm-danger);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .delete-item-btn:hover {
+    background: rgba(255,69,58,0.2);
+  }
+  
+  @media (max-width: 768px) {
+    .config-dialog {
+      width: 95%;
+      max-height: 85vh;
+      padding: 20px;
+    }
+    
+    .dialog-header {
+      margin-bottom: 20px;
+    }
+    
+    .dialog-title {
+      font-size: 18px;
+    }
+  }`;
+
+// === Icons ===
 const ICONS = {
   shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
   sensor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
@@ -403,31 +739,31 @@ const ICONS = {
 
 const icon = (name) => ICONS[name] || "";
 
-// ─── Tab Definitions ──────────────────────────────────────────
+// === Tab Definitions ===
 const TABS = [
-  { key: "sensors", label: "Sensorer", icon: "sensor" },
-  { key: "zones", label: "Zoner", icon: "zone" },
-  { key: "users", label: "Brugere", icon: "user" },
-  { key: "modules", label: "Moduler", icon: "module" },
-  { key: "automations", label: "Handlinger", icon: "bell" },
+  { key: "sensors", label: "Sensors", icon: "sensor" },
+  { key: "zones", label: "Zones", icon: "zone" },
+  { key: "users", label: "Users", icon: "user" },
+  { key: "modules", label: "Modules", icon: "module" },
+  { key: "automations", label: "Actions", icon: "bell" },
   { key: "testing", label: "Test", icon: "flask", badge: "SOON" },
-  { key: "future", label: "Fremtid", icon: "rocket" },
+  { key: "future", label: "Future", icon: "rocket" },
 ];
 
 // Module definitions
 const MODULE_DEFS = {
-  camera: { name: "Kamera", icon: "camera", desc: "POE kontrol & optagelse", color: "var(--sm-blue)", domain: "camera" },
-  lock: { name: "Lås", icon: "lock", desc: "Smart lock styring med retry", color: "var(--sm-accent)", domain: "lock" },
-  lights: { name: "Lys", icon: "bulb", desc: "Auto lys & alarm blink", color: "var(--sm-warning)", domain: "light" },
-  climate: { name: "Klima", icon: "thermo", desc: "Multi-zone varme", color: "var(--sm-danger)", domain: "climate" },
-  siren: { name: "Sirene", icon: "siren", desc: "Alarm lyd med failsafe", color: "var(--sm-danger)", domain: "siren" },
-  tts: { name: "TTS", icon: "speaker", desc: "Danske stemme-beskeder", color: "var(--sm-purple)", domain: "tts" },
+  camera: { name: "Camera", icon: "camera", desc: "POE control & recording", color: "var(--sm-blue)", domain: "camera" },
+  lock: { name: "Lock", icon: "lock", desc: "Smart lock control with retry", color: "var(--sm-accent)", domain: "lock" },
+  lights: { name: "Lights", icon: "bulb", desc: "Auto lights & alarm flash", color: "var(--sm-warning)", domain: "light" },
+  climate: { name: "Climate", icon: "thermo", desc: "Multi-zone heating", color: "var(--sm-danger)", domain: "climate" },
+  siren: { name: "Siren", icon: "siren", desc: "Alarm sound with failsafe", color: "var(--sm-danger)", domain: "siren" },
+  tts: { name: "TTS", icon: "speaker", desc: "Danish voice messages", color: "var(--sm-purple)", domain: "tts" },
 };
 
 
-// ═══════════════════════════════════════════════════════════════
+// ===
 // MAIN PANEL ELEMENT
-// ═══════════════════════════════════════════════════════════════
+// ===
 
 class SecureMePanel extends HTMLElement {
   constructor() {
@@ -444,7 +780,22 @@ class SecureMePanel extends HTMLElement {
       automations: {},
     };
     this._expandedModule = null;
+    this._showDialog = null;  // 'camera', 'lock', etc.
+    this._tempConfig = null;  // Temporary config during editing
+    this._availableEntities = {};  // Cache of entities by domain
     this._autoSection = "notifications";
+    this._renderTimeout = null;
+  }
+
+
+  _queueRender() {
+    if (this._renderTimeout) {
+      clearTimeout(this._renderTimeout);
+    }
+    this._renderTimeout = setTimeout(() => {
+      this._render();
+      this._renderTimeout = null;
+    }, 50);
   }
 
   set hass(hass) {
@@ -453,7 +804,8 @@ class SecureMePanel extends HTMLElement {
       this._initialized = true;
       this._loadData();
     }
-    this._render();
+    // DON'T re-render on every hass update - only when needed
+    // This prevents scroll jumping
   }
 
   set narrow(narrow) {
@@ -465,7 +817,15 @@ class SecureMePanel extends HTMLElement {
   set panel(panel) { this._panel = panel; }
   set route(route) { this._route = route; }
 
-  // ─── WebSocket Helpers ───
+  disconnectedCallback() {
+    if (this._renderTimeout) {
+      clearTimeout(this._renderTimeout);
+      this._renderTimeout = null;
+    }
+  }
+
+
+  // === Web Socket Helpers ===
   async _callWS(type, data = {}) {
     if (!this._hass) return null;
     try {
@@ -499,7 +859,7 @@ class SecureMePanel extends HTMLElement {
     this._render();
   }
 
-  // ─── Event handlers ───
+  // === Event ===
   _setTab(tab) { this._activeTab = tab; this._render(); }
 
   async _toggleSensor(entityId) {
@@ -544,25 +904,29 @@ class SecureMePanel extends HTMLElement {
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
-      alert("✅ Test notifikation sendt!");
+      alert("✓ Test notification sent!");
     } else {
-      alert("❌ Kunne ikke sende: " + (result?.error || "Ukendt fejl"));
+      alert("✗ Could not send: " + (result?.error || "Unknown error"));
     }
   }
 
   async _testAutomation(autoId) {
     const result = await this._callWS("test_automation", { automation_id: autoId });
     if (result && result.success) {
-      alert("✅ Test automation udført!");
+      alert("✓ Test automation executed!");
     } else {
-      alert("❌ Kunne ikke udføre: " + (result?.error || "Ukendt fejl"));
+      alert("✗ Could not execute: " + (result?.error || "Unknown error"));
     }
   }
 
   _setAutoSection(section) { this._autoSection = section; this._render(); }
 
-  // ─── Render ───
+  // === Render ===
   _render() {
+    // Save scroll position before re-render
+    const mainContent = this.shadowRoot.querySelector('.main-content');
+    const scrollTop = mainContent ? mainContent.scrollTop : 0;
+
     const stateClass = this._alarmState.includes("armed") ? "armed"
       : this._alarmState === "arming" ? "arming" : "disarmed";
 
@@ -574,7 +938,7 @@ class SecureMePanel extends HTMLElement {
       armed_night: "Armed Night",
       armed_vacation: "Armed Vacation",
       pending: "Pending",
-      triggered: "⚠ TRIGGERED",
+      triggered: "🚨 TRIGGERED",
     }[this._alarmState] || this._alarmState;
 
     this.shadowRoot.innerHTML = `
@@ -610,8 +974,10 @@ class SecureMePanel extends HTMLElement {
 
         <div class="sidebar-footer">
           <div>Secure Me</div>
-          <div>Alarm Manager</div>
-        </div>
+        
+        
+        ${this._showDialog === 'camera' ? this._renderCameraDialog() : ''}
+      </div>
       </nav>
 
       <!-- MAIN CONTENT -->
@@ -620,11 +986,19 @@ class SecureMePanel extends HTMLElement {
       </main>
     `;
 
-    // ─── Attach event listeners ───
+    // === Attach ===
     this.shadowRoot.querySelectorAll(".nav-tab").forEach(btn => {
       btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
     });
     this._attachTabListeners();
+
+    // Restore scroll position after re-render
+    requestAnimationFrame(() => {
+      const newMainContent = this.shadowRoot.querySelector('.main-content');
+      if (newMainContent && scrollTop > 0) {
+        newMainContent.scrollTop = scrollTop;
+      }
+    });
   }
 
   _renderTab() {
@@ -634,24 +1008,24 @@ class SecureMePanel extends HTMLElement {
       case "users": return this._renderUsers();
       case "modules": return this._renderModules();
       case "automations": return this._renderAutomations();
-      case "testing": return this._renderPlaceholder("🧪", "Test Framework", "Kommer i Phase 3 — her kan du køre system-tests, se resultater og overvåge alarm-sundhed.", "warning", "Phase 3 — Planlagt");
-      case "future": return this._renderPlaceholder("🚀", "Kommende funktioner", "Pet immunity, AI person-detektion, cloud sync, stemme-kontrol og meget mere.", "purple", "Fremtidig udvikling");
+      case "testing": return this._renderPlaceholder("🧪", "Test Framework", "Coming in Phase 3 -- here you can run system tests, view results and monitor alarm health.", "warning", "Phase 3 -- Planned");
+      case "future": return this._renderPlaceholder("🚀", "Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
       default: return "";
     }
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // TAB: SENSORS
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderSensors() {
     const sensors = this._data.sensors || [];
     const enabled = sensors.filter(s => s.enabled).length;
-    const typeLabels = { contact: "Kontakt", motion: "Bevægelse", presence: "Tilstedeværelse" };
+    const typeLabels = { contact: "Contact", motion: "Motion", presence: "Presence" };
 
     return `
       <div class="section-header">
         <div>
-          <h3 class="section-title">Tilgængelige sensorer</h3>
+          <h3 class="section-title">Available Sensors</h3>
           <p class="section-subtitle">${enabled} af ${sensors.length} sensorer aktive</p>
         </div>
         <span class="badge accent">${enabled} aktive</span>
@@ -678,30 +1052,30 @@ class SecureMePanel extends HTMLElement {
       </div>
 
       <div class="info-card warning">
-        <span style="font-size:18px">⚠️</span>
+        <span style="font-size:18px">🚨 ⚠️</span>
         <div>
           <div class="info-title" style="color:var(--sm-warning)">Minimumskrav</div>
           <div class="info-text">
-            Alarmen kræver mindst 1 kontaktsensor OG 1 bevægelsessensor for at kunne aktiveres.
-            Tilstedeværelsessensorer er valgfrie men anbefalede.
+            The alarm requires at least 1 contact sensor AND 1 motion sensor to be activated.
+            Presence sensors are optional but recommended.
           </div>
         </div>
       </div>
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // TAB: ZONES
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderZones() {
     const zones = this._data.zones || {};
     const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Zoner</h3>
+        <h3 class="section-title">Zones</h3>
         <button class="sm-btn primary sm" data-action="add-zone">
-          ${icon("plus")} Ny zone
+          ${icon("plus")} Add Zone
         </button>
       </div>
 
@@ -728,22 +1102,22 @@ class SecureMePanel extends HTMLElement {
               ).join("")}
             </div>
           </div>
-        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen zoner oprettet endnu. Klik "Ny zone" for at starte.</div>'}
+        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
       </div>
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // TAB: USERS
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderUsers() {
     const users = this._data.users || {};
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Brugere & koder</h3>
+        <h3 class="section-title">Users & Codes</h3>
         <button class="sm-btn primary sm" data-action="add-user">
-          ${icon("plus")} Ny bruger
+          ${icon("plus")} Add User
         </button>
       </div>
 
@@ -779,29 +1153,29 @@ class SecureMePanel extends HTMLElement {
             </div>
           `}
         </div>
-      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen brugere oprettet endnu.</div>'}
+      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No users created yet.</div>'}
 
       <div class="info-card info">
         <span style="color:var(--sm-blue)">${icon("nfc")}</span>
         <div style="flex:1">
-          <div class="info-title" style="color:var(--sm-blue)">Importér NFC tags</div>
-          <div class="info-text">Importér eksisterende NFC tags fra Home Assistant</div>
+          <div class="info-title" style="color:var(--sm-blue)">Import NFC tags</div>
+          <div class="info-text">Import existing NFC tags from Home Assistant</div>
         </div>
-        <button class="sm-btn default sm" data-action="import-nfc">Importér</button>
+        <button class="sm-btn default sm" data-action="import-nfc">Import</button>
       </div>
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // TAB: MODULES
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderModules() {
     const modules = this._data.modules || {};
     const enabledCount = Object.values(modules).filter(m => m.enabled).length;
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Moduler</h3>
+        <h3 class="section-title">Modules</h3>
         <span class="badge accent">${enabledCount} aktive</span>
       </div>
 
@@ -826,35 +1200,99 @@ class SecureMePanel extends HTMLElement {
                 <div class="dot"></div>
               </button>
             </div>
-            ${expanded ? `
-              <div class="module-config">
-                <div style="font-size:13px;font-weight:600;margin-bottom:12px">
-                  Vælg ${def.name.toLowerCase()} enheder
-                </div>
-                <div style="color:var(--sm-text-secondary);font-size:12px">
-                  Enheder fra <code>${def.domain}</code> domænet vises her når de er tilgængelige i Home Assistant.
-                </div>
-                ${(mod.entities || []).map(e => `
-                  <div class="module-entity-row">
-                    <span style="font-size:13px">${e}</span>
-                    <button class="sm-checkbox checked">${icon("check")}</button>
-                  </div>
-                `).join("") || `
-                  <div style="padding:16px 0;text-align:center;color:var(--sm-text-tertiary);font-size:12px">
-                    Ingen enheder konfigureret endnu
-                  </div>
-                `}
-              </div>
-            ` : ""}
+            ${expanded ? this._renderModuleConfig(key) : ""}
           </div>
         `;
       }).join("")}
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  _renderModuleConfig(moduleKey) {
+    const moduleDef = MODULE_DEFS[moduleKey];
+    const moduleData = this._data.modules[moduleKey] || {};
+    const configJson = JSON.stringify(moduleData, null, 2);
+    
+    return `
+      <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">
+          ${moduleDef.name} Configuration
+        </div>
+        <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
+          Edit konfiguration nedenfor (JSON format):
+        </div>
+        
+        <textarea id="module-config-${moduleKey}" 
+                  style="width:100%;min-height:200px;padding:12px;background:var(--sm-surface);
+                         border:1px solid var(--sm-border);border-radius:8px;color:var(--sm-text);
+                         font-family:monospace;font-size:12px;resize:vertical">${configJson}</textarea>
+        
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="sm-btn primary" data-save-module-config="${moduleKey}">
+            ${icon("check")} Save Changes
+          </button>
+          <button class="sm-btn default" data-cancel-module="${moduleKey}">
+            Cancel
+          </button>
+        </div>
+        
+        <div style="margin-top:16px;padding:12px;background:var(--sm-blue-dim);border-radius:8px;font-size:11px">
+          <strong>ðŸ’¡ Eksempel konfiguration:</strong>
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-weight:600">Vis eksempel for ${moduleDef.name}</summary>
+            <pre style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow-x:auto;font-size:10px">${this._getModuleExample(moduleKey)}</pre>
+          </details>
+        </div>
+      </div>
+    `;
+  }
+
+  _getModuleExample(moduleKey) {
+    const examples = {
+      camera: `{
+  "enabled": true,
+  "poe_switches": [
+    "switch.vision_port_1_poe",
+    "switch.vision_port_5_poe"
+  ],
+  "cameras": [
+    "camera.hallway_cam_high",
+    "camera.g3_flex_high"
+  ],
+  "poe_delay": 120,
+  "auto_record": false
+}`,
+      lock: `{
+  "enabled": true,
+  "locks": ["lock.front_door"],
+  "retry_attempts": 3
+}`,
+      lights: `{
+  "enabled": true,
+  "lights": ["light.living_room"],
+  "brightness": 100
+}`,
+      climate: `{
+  "enabled": true,
+  "climates": ["climate.living_room"],
+  "away_temperature": 15
+}`,
+      siren: `{
+  "enabled": true,
+  "sirens": ["siren.alarm"]
+}`,
+      tts: `{
+  "enabled": true,
+  "media_players": ["media_player.living_room"],
+  "language": "da"
+}`
+    };
+    return examples[moduleKey] || "{}";
+  }
+
+
+  // ===
   // TAB: AUTOMATIONS & NOTIFICATIONS
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderAutomations() {
     const section = this._autoSection;
     const notifications = this._data.notifications || {};
@@ -863,14 +1301,14 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="segment-control">
         <button class="segment-btn ${section === "notifications" ? "active" : ""}"
-                data-auto-section="notifications">Notifikationer</button>
+                data-auto-section="notifications">Notifications</button>
         <button class="segment-btn ${section === "automations" ? "active" : ""}"
-                data-auto-section="automations">Automationer</button>
+                data-auto-section="automations">Automations</button>
       </div>
 
       ${section === "notifications" ? `
         <div class="section-header">
-          <h3 class="section-title">Notifikationer</h3>
+          <h3 class="section-title">Notifications</h3>
           <button class="sm-btn primary sm" data-action="add-notification">
             ${icon("plus")} Ny notifikation
           </button>
@@ -899,10 +1337,10 @@ class SecureMePanel extends HTMLElement {
               </button>
             </div>
           </div>
-        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen notifikationer oprettet endnu.</div>'}
+        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No notifications created yet.</div>'}
       ` : `
         <div class="section-header">
-          <h3 class="section-title">Automationer</h3>
+          <h3 class="section-title">Automations</h3>
           <button class="sm-btn primary sm" data-action="add-automation">
             ${icon("plus")} Ny automation
           </button>
@@ -930,13 +1368,13 @@ class SecureMePanel extends HTMLElement {
               </button>
             </div>
           </div>
-        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen automationer oprettet endnu.</div>'}
+        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No automations created yet.</div>'}
 
         <div class="info-card info">
           <span style="font-size:20px">📘</span>
           <div style="flex:1">
             <div class="info-title" style="color:var(--sm-blue)">Blueprints</div>
-            <div class="info-text">Brug færdige blueprints til alarm-belysning, sirene-styring og mere</div>
+            <div class="info-text">Use ready-made blueprints for alarm lighting, siren control and more</div>
           </div>
           <button class="sm-btn default sm">Gennemse</button>
         </div>
@@ -944,9 +1382,9 @@ class SecureMePanel extends HTMLElement {
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // PLACEHOLDER TAB
-  // ═══════════════════════════════════════════════════════════
+  // ===
   _renderPlaceholder(emoji, title, desc, colorName, badgeText) {
     return `
       <div class="placeholder">
@@ -958,10 +1396,307 @@ class SecureMePanel extends HTMLElement {
     `;
   }
 
-  // ═══════════════════════════════════════════════════════════
+  // ===
   // EVENT LISTENER ATTACHMENT
-  // ═══════════════════════════════════════════════════════════
+  // ===
+  // === Entity Loading ===
+  async _loadEntitiesByDomain(domain) {
+    if (!this._hass) return [];
+    
+    // Cache entities to avoid repeated filtering
+    if (this._availableEntities[domain]) {
+      return this._availableEntities[domain];
+    }
+    
+    const entities = Object.values(this._hass.states)
+      .filter(entity => entity.entity_id.startsWith(domain + '.'))
+      .map(entity => ({
+        entity_id: entity.entity_id,
+        name: entity.attributes.friendly_name || entity.entity_id,
+        state: entity.state
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    this._availableEntities[domain] = entities;
+    return entities;
+  }
+
+  // === Camera Config Dialog ===
+  async _openCameraConfig() {
+    // Load available entities
+    await this._loadEntitiesByDomain('camera');
+    await this._loadEntitiesByDomain('switch');
+    
+    // Initialize temp config from current module config
+    const currentConfig = this._data.modules.camera || {};
+    this._tempConfig = {
+      cameras: currentConfig.cameras || []
+    };
+    
+    // Ensure at least one camera for new config
+    if (this._tempConfig.cameras.length === 0) {
+      this._tempConfig.cameras.push({
+        id: Date.now(),
+        entity_id: '',
+        poe_port: '',
+        recording_mode: 'continuous'
+      });
+    } else {
+      // Add IDs if missing
+      this._tempConfig.cameras = this._tempConfig.cameras.map((cam, idx) => ({
+        ...cam,
+        id: cam.id || Date.now() + idx
+      }));
+    }
+    
+    this._showDialog = 'camera';
+    this._render();
+  }
+
+  _addCameraRow() {
+    this._tempConfig.cameras.push({
+      id: Date.now(),
+      entity_id: '',
+      poe_port: '',
+      recording_mode: 'continuous'
+    });
+    this._render();
+  }
+
+  _removeCameraRow(id) {
+    this._tempConfig.cameras = this._tempConfig.cameras.filter(c => c.id !== id);
+    this._render();
+  }
+
+  _updateCameraField(id, field, value) {
+    const camera = this._tempConfig.cameras.find(c => c.id === id);
+    if (camera) {
+      camera[field] = value;
+    }
+  }
+
+  async _saveCameraConfig() {
+    // Validation
+    const invalid = this._tempConfig.cameras.filter(c => !c.entity_id);
+    if (invalid.length > 0) {
+      alert('Please select a camera entity for all cameras before saving.');
+      return;
+    }
+    
+    // Build config
+    const config = {
+      enabled: true,
+      cameras: this._tempConfig.cameras.map(c => ({
+        entity_id: c.entity_id,
+        poe_port: c.poe_port || null,
+        recording_mode: c.recording_mode || 'continuous'
+      }))
+    };
+    
+    // Save via WebSocket
+    const result = await this._callWS('save_module', {
+      module_id: 'camera',
+      config: config
+    });
+    
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+      alert('✅ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
+    } else {
+      alert('❌ Could not save: ' + (result?.error || 'Unknown error'));
+    }
+  }
+
+  _cancelDialog() {
+    if (confirm('Discard changes?')) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      this._render();
+    }
+  }
+
+  _renderCameraDialog() {
+    const cameras = this._tempConfig?.cameras || [];
+    const availableCameras = this._availableEntities.camera || [];
+    const availableSwitches = this._availableEntities.switch || [];
+    
+    return `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <span style="font-size: 24px;">📷</span>
+            <div class="dialog-title">Camera Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">×</button>
+          </div>
+          
+          <button class="add-item-btn" data-action="add-camera">
+            ${icon("plus")} Add Camera
+          </button>
+          
+          <div class="item-list">
+            ${cameras.length === 0 ? 
+              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">No cameras configured. Click "Add Camera" to start.</div>' :
+              cameras.map((cam, idx) => this._renderCameraRow(cam, idx)).join('')
+            }
+          </div>
+          
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">
+              Cancel
+            </button>
+            <button class="btn-dialog save" data-action="save-camera-config">
+              Save Configuration
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderCameraRow(camera, idx) {
+    const availableCameras = this._availableEntities.camera || [];
+    const availableSwitches = this._availableEntities.switch || [];
+    
+    return `
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-number">Camera ${idx + 1}</div>
+          <button class="delete-item-btn" data-action="remove-camera" data-camera-id="${camera.id}">
+            🗑 Delete
+          </button>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Camera Entity</label>
+          <input type="text" 
+                 class="entity-search" 
+                 placeholder="Search cameras..."
+                 data-search-target="camera-select-${camera.id}">
+          <select class="form-select" 
+                  id="camera-select-${camera.id}"
+                  data-camera-id="${camera.id}"
+                  data-field="entity_id">
+            <option value="">-- Select Camera --</option>
+            ${availableCameras.map(c => `
+              <option value="${c.entity_id}" ${c.entity_id === camera.entity_id ? 'selected' : ''}>
+                ${c.name} (${c.entity_id})
+              </option>
+            `).join('')}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">
+            POE Port Switch 
+            <span class="optional-hint">(Optional)</span>
+          </label>
+          <select class="form-select"
+                  data-camera-id="${camera.id}"
+                  data-field="poe_port">
+            <option value="">-- No POE Control --</option>
+            ${availableSwitches
+              .filter(s => s.entity_id.includes('poe') || s.entity_id.includes('port'))
+              .map(s => `
+                <option value="${s.entity_id}" ${s.entity_id === camera.poe_port ? 'selected' : ''}>
+                  ${s.name} (${s.entity_id})
+                </option>
+              `).join('')}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Recording Mode</label>
+          <div class="radio-group">
+            <div class="radio-option ${camera.recording_mode === 'disabled' ? 'selected' : ''}"
+                 data-camera-id="${camera.id}"
+                 data-field="recording_mode"
+                 data-value="disabled">
+              <input type="radio" 
+                     name="mode-${camera.id}" 
+                     value="disabled"
+                     ${camera.recording_mode === 'disabled' ? 'checked' : ''}>
+              <label>Disabled</label>
+            </div>
+            <div class="radio-option ${camera.recording_mode === 'continuous' ? 'selected' : ''}"
+                 data-camera-id="${camera.id}"
+                 data-field="recording_mode"
+                 data-value="continuous">
+              <input type="radio" 
+                     name="mode-${camera.id}" 
+                     value="continuous"
+                     ${camera.recording_mode === 'continuous' ? 'checked' : ''}>
+              <label>Continuous Recording</label>
+            </div>
+            <div class="radio-option ${camera.recording_mode === 'motion' ? 'selected' : ''}"
+                 data-camera-id="${camera.id}"
+                 data-field="recording_mode"
+                 data-value="motion">
+              <input type="radio" 
+                     name="mode-${camera.id}" 
+                     value="motion"
+                     ${camera.recording_mode === 'motion' ? 'checked' : ''}>
+              <label>Motion-Triggered</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+
   _attachTabListeners() {
+    
+    // Module expansion handlers
+    this.shadowRoot.querySelectorAll("[data-module-expand]").forEach(header => {
+      header.addEventListener("click", (e) => {
+        const moduleKey = header.dataset.moduleExpand;
+        this._expandedModule = this._expandedModule === moduleKey ? null : moduleKey;
+        this._render();
+      });
+    });
+    
+    // Module config save
+    this.shadowRoot.querySelectorAll("[data-save-module-config]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const moduleKey = btn.dataset.saveModuleConfig;
+        const textarea = this.shadowRoot.getElementById(`module-config-${moduleKey}`);
+        
+        try {
+          const config = JSON.parse(textarea.value);
+          const result = await this._callWS("save_module", {
+            module_id: moduleKey,
+            config: config
+          });
+          
+          if (result && result.success !== false) {
+            alert(`âœ… ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
+            this._expandedModule = null;
+    this._showDialog = null;  // 'camera', 'lock', etc.
+    this._tempConfig = null;  // Temporary config during editing
+    this._availableEntities = {};  // Cache of entities by domain
+            await this._loadData();
+          } else {
+            alert(`âŒ Could not save: ${result?.error || "Unknown error"}`);
+          }
+        } catch (err) {
+          alert(`âŒ JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
+        }
+      });
+    });
+    
+    // Module cancel
+    this.shadowRoot.querySelectorAll("[data-cancel-module]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._expandedModule = null;
+    this._showDialog = null;  // 'camera', 'lock', etc.
+    this._tempConfig = null;  // Temporary config during editing
+    this._availableEntities = {};  // Cache of entities by domain
+        this._render();
+      });
+    });
+
     const root = this.shadowRoot;
 
     // Sensor checkboxes
@@ -1016,6 +1751,112 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", () => this._testAutomation(btn.dataset.testAuto));
     });
 
+
+    // Action button handlers
+    root.querySelectorAll("[data-action]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const action = btn.dataset.action;
+        switch(action) {
+          case "add-zone":
+            alert("Add Zone functionality coming in Phase 3.\n\nThis will open a dialog to create new zones with:\n- Zone name\n- Zone type (Entry/Exit, Interior, etc.)\n- Sensor assignment");
+            break;
+          case "add-user":
+            alert("Add User functionality coming in Phase 3.\n\nThis will open a dialog to create new users with:\n- User name\n- Access code\n- Permissions");
+            break;
+          case "import-nfc":
+            alert("Import NFC tags functionality coming in Phase 3.\n\nThis will scan Home Assistant for NFC tag entities and allow you to assign them to users.");
+            break;
+          case "add-notification":
+            alert("Add Notification functionality coming in Phase 3.\n\nThis will create custom notification templates for alarm events.");
+            break;
+          case "add-automation":
+            alert("Add Automation functionality coming in Phase 3.\n\nThis will create custom automation scripts for alarm actions.");
+            break;
+          default:
+            console.warn("Unknown action:", action);
+        }
+      });
+    });
+    // === Dialog Event Listeners ===
+    
+    // Open camera config dialog
+    root.querySelectorAll("[data-action='open-camera-config']").forEach(btn => {
+      btn.addEventListener("click", () => this._openCameraConfig());
+    });
+    
+    // Close/cancel dialog
+    root.querySelectorAll("[data-action='close-dialog'], [data-action='cancel-dialog']").forEach(btn => {
+      btn.addEventListener("click", () => this._cancelDialog());
+    });
+    
+    // Add camera button
+    root.querySelectorAll("[data-action='add-camera']").forEach(btn => {
+      btn.addEventListener("click", () => this._addCameraRow());
+    });
+    
+    // Remove camera buttons
+    root.querySelectorAll("[data-action='remove-camera']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cameraId = parseInt(btn.dataset.cameraId);
+        this._removeCameraRow(cameraId);
+      });
+    });
+    
+    // Save camera config
+    root.querySelectorAll("[data-action='save-camera-config']").forEach(btn => {
+      btn.addEventListener("click", () => this._saveCameraConfig());
+    });
+    
+    // Camera field selects (entity_id, poe_port)
+    root.querySelectorAll(".form-select[data-camera-id]").forEach(select => {
+      select.addEventListener("change", () => {
+        const cameraId = parseInt(select.dataset.cameraId);
+        const field = select.dataset.field;
+        this._updateCameraField(cameraId, field, select.value);
+      });
+    });
+    
+    // Radio options for recording mode
+    root.querySelectorAll(".radio-option[data-camera-id]").forEach(option => {
+      option.addEventListener("click", () => {
+        const cameraId = parseInt(option.dataset.cameraId);
+        const field = option.dataset.field;
+        const value = option.dataset.value;
+        this._updateCameraField(cameraId, field, value);
+        // Update selected state
+        const groupName = `mode-${cameraId}`;
+        root.querySelectorAll(`.radio-option[data-camera-id="${cameraId}"]`).forEach(opt => {
+          opt.classList.remove('selected');
+        });
+        option.classList.add('selected');
+        // Update radio input
+        const radio = option.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+      });
+    });
+    
+    // Entity search functionality
+    root.querySelectorAll(".entity-search[data-search-target]").forEach(input => {
+      input.addEventListener("keyup", () => {
+        const targetId = input.dataset.searchTarget;
+        const select = root.querySelector(`#${targetId}`);
+        if (!select) return;
+        
+        const filter = input.value.toLowerCase();
+        const options = select.querySelectorAll('option');
+        
+        options.forEach(option => {
+          if (option.value === '') {
+            option.style.display = '';
+            return;
+          }
+          const text = option.textContent.toLowerCase();
+          option.style.display = text.includes(filter) ? '' : 'none';
+        });
+      });
+    });
+
+    
     // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {
       btn.addEventListener("click", () => this._setAutoSection(btn.dataset.autoSection));
@@ -1023,5 +1864,5 @@ class SecureMePanel extends HTMLElement {
   }
 }
 
-// ─── Register Custom Element ──────────────────────────────────
+// === Register Custom Element ===
 customElements.define("secure-me-panel", SecureMePanel);
