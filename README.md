@@ -1,4 +1,4 @@
-# Secure Me v0.3.0.1 - Critical Bugfixes
+# Secure Me v0.3.1. - Critical Bugfixes
 
 ## ⚡ QUICK INSTALL - 3 FILES
 
