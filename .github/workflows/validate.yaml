@@ -9,7 +9,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    name: Validate
+    name: Validate with HACS and Hassfest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,6 +18,10 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
+          # Don't fail on brands check (we'll submit later)
+          ignore: brands
 
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
+        with:
+          path: ./custom_components/secure_me
