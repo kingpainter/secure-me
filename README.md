@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 [![HACS](https://img.shields.io/badge/HACS-Ready-purple.svg)](https://hacs.xyz/)
 
-[!secure me logo](https://github.com/kingpainter/secure-me/blob/main/brands/secure_me/logo.png)
+![secure me logo](https://github.com/kingpainter/secure-me/blob/main/brands/secure_me/logo.png)
 
 A comprehensive Home Assistant custom integration for professional alarm system management with smart module control, testing framework, and health monitoring.
 
