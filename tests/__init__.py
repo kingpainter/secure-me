@@ -1,5 +1,5 @@
 """The Secure Me integration."""
-# VERSION = "0.2.0"
+# VERSION = "0.3.0"
 
 import logging
 import os
@@ -41,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data.setdefault(DOMAIN, {})
 
-    # ─── Initialize store ───
+    # === Initialize store ===
     store = SecureMeStore(hass)
     await store.async_load()
     
@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if "store" not in hass.data[DOMAIN]:
         hass.data[DOMAIN]["store"] = store
 
-    # ─── Initialize coordinator (PER ENTRY) ───
+    # === Initialize coordinator (PER ENTRY) ===
     coordinator = SecureMeCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     
@@ -58,20 +58,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         COORDINATOR: coordinator,
     }
 
-    # ─── Register WebSocket API (once) ───
+    # === Register WebSocket API (once) ===
     if not hasattr(hass.data[DOMAIN], "_websocket_registered"):
         async_register_websocket_api(hass)
         hass.data[DOMAIN]["_websocket_registered"] = True
 
-    # ─── Register frontend panel (once) ───
+    # === Register frontend panel (once) ===
     if not hasattr(hass.data[DOMAIN], "_panel_registered"):
         await _async_register_panel(hass)
         hass.data[DOMAIN]["_panel_registered"] = True
 
-    # ─── Set up platforms ───
+    # === Set up platforms ===
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # ─── Listen for option updates ───
+    # === Listen for option updates ===
     undo_listener = entry.add_update_listener(_async_update_options)
     hass.data[DOMAIN][entry.entry_id][UNDO_UPDATE_LISTENER] = undo_listener
 
