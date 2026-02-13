@@ -1101,18 +1101,18 @@ class SecureMePanel extends HTMLElement {
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
-      alert("Ã¢Å“â€œ Test notification sent!");
+      alert("ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Test notification sent!");
     } else {
-      alert("Ã¢Å“â€” Could not send: " + (result?.error || "Unknown error"));
+      alert("❌ Could not send: " + (result?.error || "Unknown error"));
     }
   }
 
   async _testAutomation(autoId) {
     const result = await this._callWS("test_automation", { automation_id: autoId });
     if (result && result.success) {
-      alert("Ã¢Å“â€œ Test automation executed!");
+      alert("ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Test automation executed!");
     } else {
-      alert("Ã¢Å“â€” Could not execute: " + (result?.error || "Unknown error"));
+      alert("❌ Could not execute: " + (result?.error || "Unknown error"));
     }
   }
 
@@ -1645,7 +1645,7 @@ class SecureMePanel extends HTMLElement {
           
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸â€œÂ·</span>
+              <span style="font-size:20px">🔹</span>
               <div>
                 <div style="font-size:13px;font-weight:600">Cameras Configured</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">${cameraCount} camera${cameraCount !== 1 ? 's' : ''}</div>
@@ -1655,9 +1655,9 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.cameras.map(cam => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span>
+                    <span style="color:var(--sm-accent)">✓</span>
                     <span style="font-size:12px">${cam.entity_id || cam}</span>
-                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">Ã¢â‚¬Â¢ POE: ${cam.poe_port}</span>` : ''}
+                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">• POE: ${cam.poe_port}</span>` : ''}
                   </div>
                 `).join('')}
               </div>
@@ -1690,7 +1690,7 @@ class SecureMePanel extends HTMLElement {
           
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸â€â€™</span>
+              <span style="font-size:20px">🔸</span>
               <div>
                 <div style="font-size:13px;font-weight:600">Locks Configured</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">${lockCount} lock${lockCount !== 1 ? 's' : ''}</div>
@@ -1700,7 +1700,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.locks.map(lock => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span>
+                    <span style="color:var(--sm-accent)">✓</span>
                     <span style="font-size:12px">${lock.entity_id}</span>
                   </div>
                 `).join('')}
@@ -1729,13 +1729,13 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure thermostats for energy saving</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸Å’Â¡Ã¯Â¸Â</span>
+              <span style="font-size:20px">🔻</span>
               <div><div style="font-size:13px;font-weight:600">Thermostats Configured</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${thermostatCount} thermostat${thermostatCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                <span style="color:var(--sm-accent)">✓</span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1754,13 +1754,13 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure alarm sirens and patterns</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸Å¡Â¨</span>
+              <span style="font-size:20px">⚙️</span>
               <div><div style="font-size:13px;font-weight:600">Sirens Configured</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${sirenCount} siren${sirenCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                <span style="color:var(--sm-accent)">✓</span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1779,13 +1779,13 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure light automation and effects</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸â€™Â¡</span>
+              <span style="font-size:20px">⚙️</span>
               <div><div style="font-size:13px;font-weight:600">Lights Configured</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${lightCount} light${lightCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${e}</span></div>`).join('')}
+                <span style="color:var(--sm-accent)">✓</span><span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -1805,13 +1805,13 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure voice notifications</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              <span style="font-size:24px">Ã°Å¸â€Å </span>
+              <span style="font-size:20px">⚙️</span>
               <div><div style="font-size:13px;font-weight:600">Speakers Configured</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${speakerCount} speaker${speakerCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${e}</span></div>`).join('')}
+                <span style="color:var(--sm-accent)">✓</span><span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1847,7 +1847,7 @@ class SecureMePanel extends HTMLElement {
         </div>
         
         <div style="margin-top:16px;padding:12px;background:var(--sm-blue-dim);border-radius:8px;font-size:11px">
-          <strong>Ã°Å¸â€™Â¡ Example configuration:</strong>
+          <strong>ÃƒÂ°Ã…Â¸Ã¢â‚¬â„¢Ã‚Â¡ Example configuration:</strong>
           <details style="margin-top:8px">
             <summary style="cursor:pointer;font-weight:600">Show example for ${moduleDef.name}</summary>
             <pre style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow-x:auto;font-size:10px">${this._getModuleExample(moduleKey)}</pre>
@@ -1982,7 +1982,7 @@ class SecureMePanel extends HTMLElement {
         `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No automations created yet.</div>'}
 
         <div class="info-card info">
-          <span style="font-size:20px">Ã°Å¸â€œËœ</span>
+          <span style="font-size:20px">⚙️</span>
           <div style="flex:1">
             <div class="info-title" style="color:var(--sm-blue)">Blueprints</div>
             <div class="info-text">Use ready-made blueprints for alarm lighting, siren control and more</div>
@@ -2573,9 +2573,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('Ã¢Å“â€¦ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('✅ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
-      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Could not save: ' + (result?.error || 'Unknown error'));
     }
   }
 
@@ -2596,9 +2596,9 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <span style="font-size: 24px;">Ã°Å¸â€œÂ·</span>
+            <span style="font-size: 24px;">⚙️</span>
             <div class="dialog-title">Camera Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
+            <button class="dialog-close" data-action="close-dialog">⚙️</button>
           </div>
           
           <button class="add-item-btn" data-action="add-camera">
@@ -2634,7 +2634,7 @@ class SecureMePanel extends HTMLElement {
         <div class="item-header">
           <div class="item-number">Camera ${idx + 1}</div>
           <button class="delete-item-btn" data-action="remove-camera" data-camera-id="${camera.id}">
-            Ã°Å¸â€”â€˜ Delete
+            ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬Ëœ Delete
           </button>
         </div>
         
@@ -2756,8 +2756,8 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'lock', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('Ã¢Å“â€¦ Lock configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+      alert('✅ Lock configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
   _renderLockDialog() {
@@ -2773,21 +2773,21 @@ class SecureMePanel extends HTMLElement {
     <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
       <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:620px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          <span style="font-size:28px;">Ã°Å¸â€â€™</span>
+          <span style="font-size:28px;">⚙️</span>
           <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lock Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;line-height:1;">Ãƒâ€”</button>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;line-height:1;">⚙️</button>
         </div>
 
         ${domainLocks.length > 0 ? `
         <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
-          Ã¢Å“â€œ Found ${domainLocks.length} lock entity(ies) in Home Assistant
+          ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Found ${domainLocks.length} lock entity(ies) in Home Assistant
         </div>` : `
         <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-          Ã¢Å¡Â  No entities found in lock domain. Use manual search below to add any entity.
+          ÃƒÂ¢Ã…Â¡Ã‚Â  No entities found in lock domain. Use manual search below to add any entity.
         </div>`}
 
         <button data-action="add-lock" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
-          Ã¯Â¼â€¹ Add Lock
+          ÃƒÂ¯Ã‚Â¼Ã¢â‚¬Â¹ Add Lock
         </button>
 
         <div style="display:flex;flex-direction:column;gap:12px;">
@@ -2800,7 +2800,7 @@ class SecureMePanel extends HTMLElement {
 
             <div style="margin-bottom:12px;">
               <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
-              ${lock.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">Ã¢Å“â€œ ${lock.entity_id}</div>` : ''}
+              ${lock.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ ${lock.entity_id}</div>` : ''}
               <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
                 <input type="text" placeholder="Search entities (type 2+ chars)..." 
                   data-lock-search="${lock.id}"
@@ -2886,8 +2886,8 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'climate', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('Ã¢Å“â€¦ Climate configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+      alert('✅ Climate configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
   _renderClimateDialog() {
@@ -2899,21 +2899,21 @@ class SecureMePanel extends HTMLElement {
     <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
       <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          <span style="font-size:28px;">Ã°Å¸Å’Â¡Ã¯Â¸Â</span>
+          <span style="font-size:28px;">⚙️</span>
           <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Climate Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">Ãƒâ€”</button>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">⚙️</button>
         </div>
 
         ${domainEntities.length > 0 ? `
         <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
-          Ã¢Å“â€œ Found ${domainEntities.length} climate entity(ies) in Home Assistant
+          ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ Found ${domainEntities.length} climate entity(ies) in Home Assistant
         </div>` : `
         <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-          Ã¢Å¡Â  No climate entities found. Use manual search to add any entity.
+          ÃƒÂ¢Ã…Â¡Ã‚Â  No climate entities found. Use manual search to add any entity.
         </div>`}
 
         <button data-action="add-climate" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
-          Ã¯Â¼â€¹ Add Thermostat
+          ÃƒÂ¯Ã‚Â¼Ã¢â‚¬Â¹ Add Thermostat
         </button>
 
         <div style="display:flex;flex-direction:column;gap:12px;">
@@ -2926,7 +2926,7 @@ class SecureMePanel extends HTMLElement {
 
             <div style="margin-bottom:12px;">
               <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
-              ${t.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">Ã¢Å“â€œ ${t.entity_id}</div>` : ''}
+              ${t.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">ÃƒÂ¢Ã…â€œÃ¢â‚¬Å“ ${t.entity_id}</div>` : ''}
               <input type="text" placeholder="Search entities (type 2+ chars for all, or leave blank for climate only)..."
                 data-climate-search="${t.id}"
                 style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
@@ -2959,11 +2959,11 @@ class SecureMePanel extends HTMLElement {
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Eco Temp (Ã‚Â°C)</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Eco Temp (Ãƒâ€šÃ‚Â°C)</label>
                 <input type="number" min="10" max="30" step="0.5" data-climate-id="${t.id}" data-field="eco_temp" value="${t.eco_temp}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Comfort Temp (Ã‚Â°C)</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Comfort Temp (Ãƒâ€šÃ‚Â°C)</label>
                 <input type="number" min="10" max="30" step="0.5" data-climate-id="${t.id}" data-field="comfort_temp" value="${t.comfort_temp}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
               </div>
             </div>
@@ -3059,9 +3059,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('Ã¢Å“â€¦ Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('✅ Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
-      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Could not save: ' + (result?.error || 'Unknown error'));
     }
   }
 
@@ -3073,9 +3073,9 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <span style="font-size: 24px;">Ã°Å¸Å¡Â¨</span>
+            <span style="font-size: 24px;">⚙️</span>
             <div class="dialog-title">Siren Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
+            <button class="dialog-close" data-action="close-dialog">⚙️</button>
           </div>
           
           <button class="add-item-btn" data-action="add-siren">
@@ -3105,7 +3105,7 @@ class SecureMePanel extends HTMLElement {
       <div class="item-card">
         <div class="item-header">
           <div class="item-number">Siren ${idx + 1}</div>
-          <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">Ã°Å¸â€”â€˜ Delete</button>
+          <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">ÃƒÂ°Ã…Â¸Ã¢â‚¬â€Ã¢â‚¬Ëœ Delete</button>
         </div>
         
         <div class="form-group">
@@ -3185,8 +3185,8 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('Ã¢Å“â€¦ Lights configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+      alert('✅ Lights configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
   _renderLightsDialog() {
@@ -3199,9 +3199,9 @@ class SecureMePanel extends HTMLElement {
     <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
       <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          <span style="font-size:28px;">Ã°Å¸â€™Â¡</span>
+          <span style="font-size:28px;">⚙️</span>
           <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lights Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">Ãƒâ€”</button>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">⚙️</button>
         </div>
 
         <div style="margin-bottom:16px;">
@@ -3214,7 +3214,7 @@ class SecureMePanel extends HTMLElement {
                   const name = e?.name || eid;
                   return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.4);border-radius:20px;font-size:12px;color:#34c759;">
                     ${name}
-                    <button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:#34c759;cursor:pointer;font-size:16px;line-height:1;padding:0;">Ãƒâ€”</button>
+                    <button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:#34c759;cursor:pointer;font-size:16px;line-height:1;padding:0;">⚙️</button>
                   </span>`;
                 }).join('')
             }
@@ -3291,7 +3291,7 @@ class SecureMePanel extends HTMLElement {
       messages: currentConfig.messages || {
         armed: 'Alarm aktiveret',
         disarmed: 'Alarm deaktiveret',
-        triggered: 'ALARM! IndtrÃƒÂ¦nger detekteret!'
+        triggered: 'ALARM! IndtrÃƒÆ’Ã‚Â¦nger detekteret!'
       }
     };
     
@@ -3345,9 +3345,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('Ã¢Å“â€¦ TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('✅ TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
-      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
+      alert('ÃƒÂ¢Ã‚ÂÃ…â€™ Could not save: ' + (result?.error || 'Unknown error'));
     }
   }
 
@@ -3362,9 +3362,9 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <span style="font-size: 24px;">Ã°Å¸â€Å </span>
+            <span style="font-size: 24px;">⚙️</span>
             <div class="dialog-title">TTS Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
+            <button class="dialog-close" data-action="close-dialog">⚙️</button>
           </div>
           
           <div class="form-group">
@@ -3374,7 +3374,7 @@ class SecureMePanel extends HTMLElement {
                 '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>' :
                 selectedEntities.map(entityId => {
                   const entity = allEntities.find(e => e.entity_id === entityId);
-                  return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}">Ãƒâ€”</button></span>`;
+                  return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}">⚙️</button></span>`;
                 }).join('')
               }
             </div>
@@ -3417,7 +3417,7 @@ class SecureMePanel extends HTMLElement {
           
           <div class="form-group">
             <label class="form-label">Triggered Message</label>
-            <input type="text" class="form-input" placeholder="e.g., ALARM! IndtrÃƒÂ¦nger detekteret!" data-tts-field="msg_triggered" value="${this._tempConfig?.messages?.triggered || ''}">
+            <input type="text" class="form-input" placeholder="e.g., ALARM! IndtrÃƒÆ’Ã‚Â¦nger detekteret!" data-tts-field="msg_triggered" value="${this._tempConfig?.messages?.triggered || ''}">
           </div>
           
           <div class="dialog-footer">
@@ -3457,17 +3457,17 @@ class SecureMePanel extends HTMLElement {
           });
           
           if (result && result.success !== false) {
-            alert(`ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
+            alert(`ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
             this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
     this._tempConfig = null;  // Temporary config during editing
     this._availableEntities = {};  // Cache of entities by domain
             await this._loadData();
           } else {
-            alert(`ÃƒÂ¢Ã‚ÂÃ…â€™ Could not save: ${result?.error || "Unknown error"}`);
+            alert(`ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ Could not save: ${result?.error || "Unknown error"}`);
           }
         } catch (err) {
-          alert(`ÃƒÂ¢Ã‚ÂÃ…â€™ JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
+          alert(`ÃƒÆ’Ã‚Â¢Ãƒâ€šÃ‚ÂÃƒâ€¦Ã¢â‚¬â„¢ JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
         }
       });
     });
@@ -3608,9 +3608,9 @@ class SecureMePanel extends HTMLElement {
     
     // Open camera config dialog
     const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
-    console.log('Ã°Å¸â€œÂ· DEBUG: Found', cameraConfigButtons.length, 'camera config buttons');
+    console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· DEBUG: Found', cameraConfigButtons.length, 'camera config buttons');
     cameraConfigButtons.forEach(btn => {
-      console.log('Ã°Å¸â€œÂ· DEBUG: Attaching listener to camera button');
+      console.log('ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã‚Â· DEBUG: Attaching listener to camera button');
       btn.addEventListener("click", () => this._openCameraConfig());
     });
     

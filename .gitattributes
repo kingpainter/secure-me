@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+*.js text eol=lf encoding=utf-8
+*.py text eol=lf encoding=utf-8  
+*.md text eol=lf encoding=utf-8

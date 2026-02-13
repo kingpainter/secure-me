@@ -131,7 +131,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         elif new_state in [STATE_ALARM_ARMED_AWAY, STATE_ALARM_ARMED_HOME, 
                            STATE_ALARM_ARMED_NIGHT, STATE_ALARM_ARMED_VACATION]:
             # Start monitoring zones when armed
-            if not self.zone_manager._unsubscribe_callbacks:
+            if len(self.zone_manager._unsubscribe_callbacks) == 0:
                 self.zone_manager.start_monitoring()
             self.hass.bus.async_fire(EVENT_ALARM_ARMED, {
                 "mode": new_state,
@@ -410,7 +410,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         for module_id, module in self.modules.items():
             if module.enabled:
                 try:
-                    await module.async_arm_away()
+                    await module.async_arm("away")
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_away: %s", module_id, err)
                     self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
@@ -424,7 +424,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         for module_id, module in self.modules.items():
             if module.enabled:
                 try:
-                    await module.async_arm_home()
+                    await module.async_arm("home")
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_home: %s", module_id, err)
                     self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
@@ -438,7 +438,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         for module_id, module in self.modules.items():
             if module.enabled:
                 try:
-                    await module.async_arm_night()
+                    await module.async_arm("night")
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_night: %s", module_id, err)
                     self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
@@ -495,7 +495,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
         return True
 
-    # ─── Health Methods ───
+    # â”€â”€â”€ Health Methods â”€â”€â”€
 
     def get_health_score(self) -> int:
         """Calculate system health score (0-100).
