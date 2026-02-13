@@ -7,8 +7,6 @@
 
 A comprehensive Home Assistant custom integration for professional alarm system management with smart module control, testing framework, and health monitoring.
 
-(https://raw.githubusercontent.com/kingpainter/secure-me/main/brands/secure_me/logo.png)
-
 ---
 
 ## 🎉 What's New in v0.3.0
