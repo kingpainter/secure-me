@@ -1,0 +1,169 @@
+# Services for Secure Me integration
+# VERSION = "0.3.0"
+
+arm_away:
+  name: Arm Away
+  description: Arm the alarm in away mode (all zones active).
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: false
+      example: "1234"
+      selector:
+        text:
+    skip_delay:
+      name: Skip Delay
+      description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+arm_home:
+  name: Arm Home
+  description: Arm the alarm in home mode (perimeter zones only).
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: false
+      example: "1234"
+      selector:
+        text:
+    skip_delay:
+      name: Skip Delay
+      description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+arm_night:
+  name: Arm Night
+  description: Arm the alarm in night mode (perimeter + entry zones).
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: false
+      example: "1234"
+      selector:
+        text:
+    skip_delay:
+      name: Skip Delay
+      description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+arm_vacation:
+  name: Arm Vacation
+  description: Arm the alarm in vacation mode (all zones, extended trigger).
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: false
+      example: "1234"
+      selector:
+        text:
+    skip_delay:
+      name: Skip Delay
+      description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+disarm:
+  name: Disarm
+  description: Disarm the alarm system.
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: true
+      example: "1234"
+      selector:
+        text:
+
+trigger:
+  name: Trigger Alarm
+  description: Manually trigger the alarm.
+  fields:
+    source:
+      name: Source
+      description: What triggered the alarm (for logging).
+      required: false
+      example: "manual"
+      selector:
+        text:
+
+run_test:
+  name: Run Test
+  description: Run a system test.
+  fields:
+    test_type:
+      name: Test Type
+      description: Type of test to run.
+      required: true
+      default: "quick"
+      selector:
+        select:
+          options:
+            - label: Quick Test
+              value: quick
+            - label: Standard Test
+              value: standard
+            - label: Full Test
+              value: full
+
+enable_module:
+  name: Enable Module
+  description: Enable a specific module.
+  fields:
+    module_id:
+      name: Module
+      description: Module to enable.
+      required: true
+      selector:
+        select:
+          options:
+            - label: Camera
+              value: camera
+            - label: Lock
+              value: lock
+            - label: Lights
+              value: lights
+            - label: Climate
+              value: climate
+            - label: Siren
+              value: siren
+            - label: TTS
+              value: tts
+
+disable_module:
+  name: Disable Module
+  description: Disable a specific module.
+  fields:
+    module_id:
+      name: Module
+      description: Module to disable.
+      required: true
+      selector:
+        select:
+          options:
+            - label: Camera
+              value: camera
+            - label: Lock
+              value: lock
+            - label: Lights
+              value: lights
+            - label: Climate
+              value: climate
+            - label: Siren
+              value: siren
+            - label: TTS
+              value: tts

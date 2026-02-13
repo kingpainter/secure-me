@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.3.0-alpha (Camera GUI Config)
+ * VERSION: 0.3.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "0.3.0-alpha";
+const VERSION = "0.3.0";
 
 // === Styles ===
 const panelStyles = `
@@ -69,7 +69,8 @@ const panelStyles = `
     box-shadow: 0 4px 12px var(--sm-accent-glow);
   }
   .sidebar-logo svg { width: 20px; height: 20px; color: #fff; }
-  .sidebar-title { font-size: 15px; font-weight: 700; }
+  .sidebar-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
+  .sidebar-byline { font-size: 11px; color: var(--sm-text-tertiary); font-weight: 400; opacity: 0.7; }
   .sidebar-version { font-size: 11px; color: var(--sm-text-tertiary); }
 
   .sidebar-status {
@@ -234,6 +235,18 @@ const panelStyles = `
   .sm-btn.default { background: rgba(255,255,255,0.08); color: var(--sm-text); }
   .sm-btn.danger { background: var(--sm-danger-dim); color: var(--sm-danger); }
   .sm-btn.ghost { background: transparent; color: var(--sm-text-secondary); }
+  .sm-btn.ghost-outlined {
+    background: transparent;
+    color: var(--sm-text-secondary);
+    border: 1px solid var(--sm-text-tertiary);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+  .sm-btn.ghost-outlined:hover {
+    border-color: var(--sm-text-secondary);
+    background: rgba(255,255,255,0.04);
+  }
   .sm-btn:hover { filter: brightness(1.1); }
   .sm-btn svg { width: 14px; height: 14px; }
 
@@ -302,14 +315,33 @@ const panelStyles = `
   /* === Module === */
   .module-header {
     display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px; cursor: pointer;
+    padding: 14px 16px;
     transition: opacity 0.2s ease;
   }
-  .module-header.disabled { opacity: 0.45; cursor: default; }
+  .module-header.disabled { opacity: 0.45; }
   .module-icon {
     width: 38px; height: 38px; border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
     transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .module-icon:hover {
+    filter: brightness(1.2);
+    transform: scale(1.05);
+  }
+  .module-icon.disabled-icon {
+    cursor: default;
+  }
+  .module-icon.disabled-icon:hover {
+    filter: none;
+    transform: none;
+  }
+  .module-name-area {
+    flex: 1;
+    cursor: pointer;
+  }
+  .module-header.disabled .module-name-area {
+    cursor: default;
   }
   .module-config {
     padding: 0 16px 16px;
@@ -380,32 +412,138 @@ const panelStyles = `
   :host([narrow]) .zone-grid { grid-template-columns: 1fr; }
 
   /* Mobile Responsive */
-  @media (max-width: 768px) {
+
+  .checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 8px;
+  }
+  
+  .checkbox-option:hover {
+    background: rgba(255,255,255,0.05);
+  }
+  
+  .checkbox-option input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin: 0;
+  }
+  
+  .checkbox-option span {
+    cursor: pointer;
+    font-size: 14px;
+    flex: 1;
+  }
+
+  .form-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--sm-border);
+    outline: none;
+    -webkit-appearance: none;
+  }
+  
+  .form-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--sm-accent);
+    cursor: pointer;
+  }
+  
+  .form-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--sm-accent);
+    cursor: pointer;
+    border: none;
+  }
+  
+  .entity-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--sm-accent-dim);
+    border: 1px solid var(--sm-accent);
+    border-radius: 16px;
+    font-size: 12px;
+    margin: 4px;
+  }
+  
+  .entity-chip button {
+    background: none;
+    border: none;
+    color: var(--sm-text);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0;
+    margin-left: 4px;
+  }
+
+
+    @media (max-width: 768px) {
     :host {
       flex-direction: column;
+      height: 100vh;
     }
     .sidebar {
       width: 100%;
       min-height: auto;
+      max-height: none;
       border-right: none;
       border-bottom: 1px solid var(--sm-border);
-      max-height: 200px;
-      overflow-y: auto;
+      order: -1;
+      overflow: visible;
+    }
+    .sidebar-header {
+      padding: 12px 16px 8px;
+    }
+    .sidebar-status {
+      padding: 8px 16px;
     }
     .nav-tabs {
       flex-direction: row;
       overflow-x: auto;
-      padding: 8px;
-      gap: 4px;
+      padding: 4px 8px 8px;
+      gap: 2px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .nav-tabs::-webkit-scrollbar { display: none; }
     .nav-tab {
-      min-width: 90px;
-      padding: 8px 10px;
-      justify-content: center;
+      min-width: auto;
+      padding: 8px 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      font-size: 12px;
     }
+    .nav-tab svg { width: 16px; height: 16px; }
+    .sidebar-footer { display: none; }
     .main-content {
       padding: 16px;
       max-width: 100%;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .zone-grid { grid-template-columns: 1fr; }
+    .config-dialog-overlay { align-items: flex-end; }
+    .config-dialog {
+      width: 100%;
+      max-height: 90vh;
+      border-radius: 16px 16px 0 0;
+      padding: 20px;
     }
   }
   
@@ -416,12 +554,61 @@ const panelStyles = `
     .sm-card {
       padding: 12px;
       margin-bottom: 8px;
+      border-radius: 12px;
     }
+    .section-title { font-size: 15px; }
+    .sidebar-header { padding: 10px 12px 6px; }
+    .sidebar-logo { width: 30px; height: 30px; border-radius: 8px; }
+    .sidebar-logo svg { width: 16px; height: 16px; }
+    .sidebar-title { font-size: 15px; }
+    .sidebar-byline { font-size: 10px; }
+    .status-pill { padding: 6px 10px; font-size: 11px; }
+    .nav-tab { padding: 6px 10px; font-size: 11px; }
   }
 
 
 
   /* === Dialog System === */
+  .collapsible-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 12px 0;
+    user-select: none;
+  }
+  .collapsible-header .chevron {
+    width: 16px; height: 16px;
+    transition: transform 0.2s ease;
+    color: var(--sm-text-tertiary);
+  }
+  .collapsible-header.expanded .chevron {
+    transform: rotate(180deg);
+  }
+  .collapsible-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+  }
+  .collapsible-body.expanded {
+    max-height: 2000px;
+  }
+  .sensor-status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .sensor-status-dot.online { background: var(--sm-accent); box-shadow: 0 0 6px var(--sm-accent); }
+  .sensor-status-dot.offline { background: var(--sm-danger); box-shadow: 0 0 6px var(--sm-danger); }
+  .test-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 600px) {
+    .test-grid-3 { grid-template-columns: 1fr; }
+  }
+
   .config-dialog-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -735,6 +922,8 @@ const ICONS = {
   siren: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="2" x2="12" y2="4"/></svg>',
   speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
   nfc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
@@ -746,7 +935,7 @@ const TABS = [
   { key: "users", label: "Users", icon: "user" },
   { key: "modules", label: "Modules", icon: "module" },
   { key: "automations", label: "Actions", icon: "bell" },
-  { key: "testing", label: "Test", icon: "flask", badge: "SOON" },
+  { key: "testing", label: "Test", icon: "flask" },
   { key: "future", label: "Future", icon: "rocket" },
 ];
 
@@ -785,6 +974,10 @@ class SecureMePanel extends HTMLElement {
     this._availableEntities = {};  // Cache of entities by domain
     this._autoSection = "notifications";
     this._renderTimeout = null;
+    this._testRunning = false;
+    this._batteryOkExpanded = false;  // Collapsible: batteries >50%
+    this._sensorStatusExpanded = true; // Sensor online/offline section
+    this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
   }
 
 
@@ -837,7 +1030,7 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _loadData() {
-    const [sensors, zones, users, modules, notifications, automations, state] =
+    const [sensors, zones, users, modules, notifications, automations, state, health, testResults] =
       await Promise.all([
         this._callWS("get_sensors"),
         this._callWS("get_zones"),
@@ -846,6 +1039,8 @@ class SecureMePanel extends HTMLElement {
         this._callWS("get_notifications"),
         this._callWS("get_automations"),
         this._callWS("get_alarm_state"),
+        this._callWS("get_health_summary"),
+        this._callWS("get_test_results"),
       ]);
 
     if (sensors) this._data.sensors = sensors.sensors || [];
@@ -855,6 +1050,8 @@ class SecureMePanel extends HTMLElement {
     if (notifications) this._data.notifications = notifications.notifications || {};
     if (automations) this._data.automations = automations.automations || {};
     if (state) this._alarmState = state.state || "disarmed";
+    if (health) this._data.health = health;
+    if (testResults) this._data.testResults = testResults.results || [];
 
     this._render();
   }
@@ -904,18 +1101,18 @@ class SecureMePanel extends HTMLElement {
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
-      alert("✓ Test notification sent!");
+      alert("Ã¢Å“â€œ Test notification sent!");
     } else {
-      alert("✗ Could not send: " + (result?.error || "Unknown error"));
+      alert("Ã¢Å“â€” Could not send: " + (result?.error || "Unknown error"));
     }
   }
 
   async _testAutomation(autoId) {
     const result = await this._callWS("test_automation", { automation_id: autoId });
     if (result && result.success) {
-      alert("✓ Test automation executed!");
+      alert("Ã¢Å“â€œ Test automation executed!");
     } else {
-      alert("✗ Could not execute: " + (result?.error || "Unknown error"));
+      alert("Ã¢Å“â€” Could not execute: " + (result?.error || "Unknown error"));
     }
   }
 
@@ -938,7 +1135,7 @@ class SecureMePanel extends HTMLElement {
       armed_night: "Armed Night",
       armed_vacation: "Armed Vacation",
       pending: "Pending",
-      triggered: "🚨 TRIGGERED",
+      triggered: "TRIGGERED",
     }[this._alarmState] || this._alarmState;
 
     this.shadowRoot.innerHTML = `
@@ -950,7 +1147,7 @@ class SecureMePanel extends HTMLElement {
           <div class="sidebar-logo">${icon("shield")}</div>
           <span>
             <div class="sidebar-title">Secure Me</div>
-            <div class="sidebar-version">v${VERSION}</div>
+            <div class="sidebar-byline">by KingPainter</div>
           </span>
         </div>
 
@@ -973,10 +1170,15 @@ class SecureMePanel extends HTMLElement {
         </div>
 
         <div class="sidebar-footer">
-          <div>Secure Me</div>
+          <div>Secure Me v${VERSION}</div>
         
         
-        ${this._showDialog === 'camera' ? this._renderCameraDialog() : ''}
+        ${this._showDialog === 'camera'  ? this._renderCameraDialog()  : ''}
+        ${this._showDialog === 'lock'    ? this._renderLockDialog()    : ''}
+        ${this._showDialog === 'climate' ? this._renderClimateDialog() : ''}
+        ${this._showDialog === 'siren'   ? this._renderSirenDialog()   : ''}
+        ${this._showDialog === 'lights'  ? this._renderLightsDialog()  : ''}
+        ${this._showDialog === 'tts'     ? this._renderTTSDialog()     : ''}
       </div>
       </nav>
 
@@ -1008,8 +1210,8 @@ class SecureMePanel extends HTMLElement {
       case "users": return this._renderUsers();
       case "modules": return this._renderModules();
       case "automations": return this._renderAutomations();
-      case "testing": return this._renderPlaceholder("🧪", "Test Framework", "Coming in Phase 3 -- here you can run system tests, view results and monitor alarm health.", "warning", "Phase 3 -- Planned");
-      case "future": return this._renderPlaceholder("🚀", "Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
+      case "testing": return this._renderTesting();
+      case "future": return this._renderPlaceholder("Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
       default: return "";
     }
   }
@@ -1019,42 +1221,68 @@ class SecureMePanel extends HTMLElement {
   // ===
   _renderSensors() {
     const sensors = this._data.sensors || [];
-    const enabled = sensors.filter(s => s.enabled).length;
+    const enabled = sensors.filter(s => s.enabled);
+    const disabled = sensors.filter(s => !s.enabled);
     const typeLabels = { contact: "Contact", motion: "Motion", presence: "Presence" };
+
+    const renderSensorRow = (s) => `
+      <div class="sm-list-row ${s.enabled ? "" : "disabled"}"
+           style="grid-template-columns:1fr auto auto">
+        <div>
+          <div style="font-size:14px;font-weight:500">${s.name}</div>
+          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+        </div>
+        <span class="badge ${s.sensor_type}">${typeLabels[s.sensor_type] || s.sensor_type}</span>
+        <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
+                data-sensor="${s.entity_id}">
+          ${s.enabled ? icon("check") : ""}
+        </button>
+      </div>
+    `;
 
     return `
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
-          <p class="section-subtitle">${enabled} af ${sensors.length} sensorer aktive</p>
+          <p class="section-subtitle">${enabled.length} of ${sensors.length} sensors active</p>
         </div>
-        <span class="badge accent">${enabled} aktive</span>
+        <span class="badge accent">${enabled.length} active</span>
       </div>
 
       <div class="sm-card no-pad" style="overflow:hidden">
         <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-          <span>Sensor</span><span>Type</span><span style="text-align:right">Aktiv</span>
+          <span>Sensor</span><span>Type</span><span style="text-align:right">Active</span>
         </div>
-        ${sensors.map(s => `
-          <div class="sm-list-row ${s.enabled ? "" : "disabled"}"
-               style="grid-template-columns:1fr auto auto">
-            <div>
-              <div style="font-size:14px;font-weight:500">${s.name}</div>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
-            </div>
-            <span class="badge ${s.sensor_type}">${typeLabels[s.sensor_type] || s.sensor_type}</span>
-            <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
-                    data-sensor="${s.entity_id}">
-              ${s.enabled ? icon("check") : ""}
-            </button>
+
+        <!-- Active sensors (always visible) -->
+        ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
+          <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
+            No sensors activated yet. Enable sensors below.
           </div>
-        `).join("")}
+        `}
+
+        <!-- Inactive sensors (collapsible) -->
+        ${disabled.length > 0 ? `
+          <div style="border-top:1px solid var(--sm-border)">
+            <div class="collapsible-header ${this._sensorsInactiveExpanded ? 'expanded' : ''}"
+                 data-action="toggle-sensors-inactive"
+                 style="padding:12px 16px;margin:0">
+              <span style="font-size:12px;color:var(--sm-text-secondary)">
+                ${disabled.length} inactive sensor${disabled.length !== 1 ? 's' : ''}
+              </span>
+              <span class="chevron">${icon("chevron")}</span>
+            </div>
+            <div class="collapsible-body ${this._sensorsInactiveExpanded ? 'expanded' : ''}">
+              ${disabled.map(s => renderSensorRow(s)).join("")}
+            </div>
+          </div>
+        ` : ''}
       </div>
 
       <div class="info-card warning">
-        <span style="font-size:18px">🚨 ⚠️</span>
+        <span style="font-size:18px">&#9888;&#65039;</span>
         <div>
-          <div class="info-title" style="color:var(--sm-warning)">Minimumskrav</div>
+          <div class="info-title" style="color:var(--sm-warning)">Minimum Requirements</div>
           <div class="info-text">
             The alarm requires at least 1 contact sensor AND 1 motion sensor to be activated.
             Presence sensors are optional but recommended.
@@ -1069,6 +1297,7 @@ class SecureMePanel extends HTMLElement {
   // ===
   _renderZones() {
     const zones = this._data.zones || {};
+    const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
     const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
 
     return `
@@ -1089,22 +1318,125 @@ class SecureMePanel extends HTMLElement {
                 <div style="font-size:15px;font-weight:600">${z.name || id}</div>
                 <span class="badge ${z.type}">${typeLabels[z.type] || z.type}</span>
               </div>
-              <button class="sm-toggle ${z.enabled ? "on" : ""}" data-zone-toggle="${id}">
-                <div class="dot"></div>
-              </button>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="sm-btn ghost sm" data-delete-zone="${id}" title="Delete zone">${icon("trash")}</button>
+                <button class="sm-toggle ${z.enabled ? "on" : ""}" data-zone-toggle="${id}">
+                  <div class="dot"></div>
+                </button>
+              </div>
             </div>
             <div style="margin-top:12px;font-size:12px;color:var(--sm-text-secondary)">
-              ${(z.sensors || []).length} sensorer tildelt
+              ${(z.sensors || []).length} sensors assigned
             </div>
             <div class="zone-modes">
               ${(z.modes || ["away", "home", "night"]).map(m =>
-                `<span class="zone-mode">${m}</span>`
+                '<span class="zone-mode">' + m + '</span>'
               ).join("")}
             </div>
           </div>
         `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
       </div>
+
+      ${this._showDialog === 'zone' ? this._renderZoneDialog() : ''}
     `;
+  }
+
+  _renderZoneDialog() {
+    const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
+    const temp = this._tempConfig || {};
+    const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
+
+    return '<div class="config-dialog-overlay">' +
+      '<div class="config-dialog">' +
+        '<div class="dialog-header">' +
+          '<span style="font-size:24px">&#128737;</span>' +
+          '<div class="dialog-title">Add Zone</div>' +
+          '<button class="dialog-close" data-action="close-dialog">&#10005;</button>' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Zone Name</label>' +
+          '<input type="text" class="form-input" id="zone-name" placeholder="e.g. Front Door, Living Room" value="' + (temp.name || '') + '">' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Zone Type</label>' +
+          '<select class="form-select" id="zone-type">' +
+            '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Entry/Exit - Doors with delay</option>' +
+            '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Interior - Motion sensors</option>' +
+            '<option value="perimeter"' + (temp.type === 'perimeter' ? ' selected' : '') + '>Perimeter - Instant windows</option>' +
+            '<option value="instant"' + (temp.type === 'instant' ? ' selected' : '') + '>Instant - No delay trigger</option>' +
+          '</select>' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Active in Modes</label>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+            ['away', 'home', 'night', 'vacation'].map(m =>
+              '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.05);cursor:pointer;font-size:13px">' +
+                '<input type="checkbox" class="zone-mode-cb" value="' + m + '"' + ((temp.modes || ['away','home','night']).includes(m) ? ' checked' : '') + '> ' + m +
+              '</label>'
+            ).join('') +
+          '</div>' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Assign Sensors (' + enabledSensors.length + ' available)</label>' +
+          (enabledSensors.length > 0 ?
+            enabledSensors.map(s =>
+              '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--sm-border);margin-bottom:6px;font-size:13px">' +
+                '<input type="checkbox" class="zone-sensor-cb" value="' + s.entity_id + '"' + ((temp.sensors || []).includes(s.entity_id) ? ' checked' : '') + '>' +
+                '<span style="flex:1">' + s.name + '</span>' +
+                '<span class="badge ' + s.sensor_type + '" style="font-size:10px">' + s.sensor_type + '</span>' +
+              '</label>'
+            ).join('') :
+            '<div style="padding:12px;text-align:center;color:var(--sm-text-tertiary);font-size:12px">No sensors enabled. Activate sensors in the Sensors tab first.</div>'
+          ) +
+        '</div>' +
+
+        '<div class="dialog-footer">' +
+          '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
+          '<button class="btn-dialog save" data-action="save-zone">Save Zone</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  async _saveZone() {
+    const root = this.shadowRoot;
+    const name = root.querySelector('#zone-name')?.value?.trim();
+    const type = root.querySelector('#zone-type')?.value || 'entry';
+    const modes = Array.from(root.querySelectorAll('.zone-mode-cb:checked')).map(cb => cb.value);
+    const sensors = Array.from(root.querySelectorAll('.zone-sensor-cb:checked')).map(cb => cb.value);
+
+    if (!name) {
+      alert('Please enter a zone name.');
+      return;
+    }
+
+    const zoneId = 'zone_' + Date.now();
+    const config = {
+      name: name,
+      type: type,
+      enabled: true,
+      modes: modes,
+      sensors: sensors,
+    };
+
+    const result = await this._callWS('save_zone', { zone_id: zoneId, config: config });
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+    } else {
+      alert('Could not save zone: ' + (result?.error || 'Unknown error'));
+    }
+  }
+
+  async _deleteZone(zoneId) {
+    if (!confirm('Delete this zone?')) return;
+    await this._callWS('delete_zone', { zone_id: zoneId });
+    await this._loadData();
   }
 
   // ===
@@ -1135,7 +1467,7 @@ class SecureMePanel extends HTMLElement {
                   ${u.admin ? '<span class="badge accent" style="margin-left:8px">Admin</span>' : ""}
                 </div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">
-                  Kode: ${u.code || "••••"}
+                  Code: &#8226;&#8226;&#8226;&#8226;
                 </div>
               </div>
             </div>
@@ -1147,13 +1479,9 @@ class SecureMePanel extends HTMLElement {
               <span class="nfc-tag-id">${u.nfc_tag}</span>
               <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:auto">NFC Tag</span>
             </div>
-          ` : `
-            <div style="margin-top:12px">
-              <button class="sm-btn ghost sm">${icon("nfc")} Tilknyt NFC tag</button>
-            </div>
-          `}
+          ` : ""}
         </div>
-      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No users created yet.</div>'}
+      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No users created yet. Click "Add User" to start.</div>'}
 
       <div class="info-card info">
         <span style="color:var(--sm-blue)">${icon("nfc")}</span>
@@ -1163,7 +1491,98 @@ class SecureMePanel extends HTMLElement {
         </div>
         <button class="sm-btn default sm" data-action="import-nfc">Import</button>
       </div>
+
+      ${this._showDialog === 'user' ? this._renderUserDialog() : ''}
     `;
+  }
+
+  _renderUserDialog() {
+    const temp = this._tempConfig || {};
+
+    return '<div class="config-dialog-overlay">' +
+      '<div class="config-dialog">' +
+        '<div class="dialog-header">' +
+          '<span style="font-size:24px">&#128100;</span>' +
+          '<div class="dialog-title">Add User</div>' +
+          '<button class="dialog-close" data-action="close-dialog">&#10005;</button>' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">User Name</label>' +
+          '<input type="text" class="form-input" id="user-name" placeholder="e.g. Flemming, Sarah" value="' + (temp.name || '') + '">' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Access Code (4-6 digits)</label>' +
+          '<input type="password" class="form-input" id="user-code" placeholder="e.g. 1234" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label class="form-label">Confirm Code</label>' +
+          '<input type="password" class="form-input" id="user-code-confirm" placeholder="Repeat code" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+        '</div>' +
+
+        '<div class="form-group">' +
+          '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:14px">' +
+            '<input type="checkbox" id="user-admin"' + (temp.admin ? ' checked' : '') + '>' +
+            '<span style="flex:1">Administrator</span>' +
+            '<span style="font-size:11px;color:var(--sm-text-tertiary)">Full access</span>' +
+          '</label>' +
+        '</div>' +
+
+        '<div class="dialog-footer">' +
+          '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
+          '<button class="btn-dialog save" data-action="save-user">Save User</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  async _saveUser() {
+    const root = this.shadowRoot;
+    const name = root.querySelector('#user-name')?.value?.trim();
+    const code = root.querySelector('#user-code')?.value?.trim();
+    const codeConfirm = root.querySelector('#user-code-confirm')?.value?.trim();
+    const admin = root.querySelector('#user-admin')?.checked || false;
+
+    if (!name) {
+      alert('Please enter a user name.');
+      return;
+    }
+    if (!code || code.length < 4) {
+      alert('Code must be at least 4 digits.');
+      return;
+    }
+    if (code !== codeConfirm) {
+      alert('Codes do not match.');
+      return;
+    }
+    if (!/^[0-9]+$/.test(code)) {
+      alert('Code must be numbers only.');
+      return;
+    }
+
+    const config = {
+      name: name,
+      code: code,
+      admin: admin,
+      nfc_tag: null,
+    };
+
+    const result = await this._callWS('save_user', { user_id: '', config: config });
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+    } else {
+      alert('Could not save user: ' + (result?.error || 'Unknown error'));
+    }
+  }
+
+  async _deleteUser(userId) {
+    if (!confirm('Delete this user?')) return;
+    await this._callWS('delete_user', { user_id: userId });
+    await this._loadData();
   }
 
   // ===
@@ -1185,13 +1604,14 @@ class SecureMePanel extends HTMLElement {
         return `
           <div class="sm-card" style="padding:0;overflow:hidden;
                border-color:${mod.enabled ? def.color + "33" : "var(--sm-border)"}">
-            <div class="module-header ${mod.enabled ? "" : "disabled"}"
-                 data-module-expand="${key}">
-              <div class="module-icon" style="background:${mod.enabled ? def.color + "22" : "rgba(255,255,255,0.05)"};
+            <div class="module-header ${mod.enabled ? "" : "disabled"}">
+              <div class="module-icon ${mod.enabled ? "" : "disabled-icon"}"
+                   data-module-expand="${key}"
+                   style="background:${mod.enabled ? def.color + "22" : "rgba(255,255,255,0.05)"};
                    color:${mod.enabled ? def.color : "var(--sm-text-tertiary)"}">
                 ${icon(def.icon)}
               </div>
-              <div style="flex:1">
+              <div class="module-name-area" data-module-expand="${key}">
                 <div style="font-size:14px;font-weight:600">${def.name}</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">${def.desc}</div>
               </div>
@@ -1210,15 +1630,206 @@ class SecureMePanel extends HTMLElement {
   _renderModuleConfig(moduleKey) {
     const moduleDef = MODULE_DEFS[moduleKey];
     const moduleData = this._data.modules[moduleKey] || {};
-    const configJson = JSON.stringify(moduleData, null, 2);
     
+    // Camera module gets GUI config dialog
+    if (moduleKey === 'camera') {
+      const cameraCount = moduleData.cameras?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">
+            ${moduleDef.name} Configuration
+          </div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
+            Configure cameras with POE control and recording settings
+          </div>
+          
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸â€œÂ·</span>
+              <div>
+                <div style="font-size:13px;font-weight:600">Cameras Configured</div>
+                <div style="font-size:12px;color:var(--sm-text-secondary)">${cameraCount} camera${cameraCount !== 1 ? 's' : ''}</div>
+              </div>
+            </div>
+            ${cameraCount > 0 ? `
+              <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+                ${moduleData.cameras.map(cam => `
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span>
+                    <span style="font-size:12px">${cam.entity_id || cam}</span>
+                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">Ã¢â‚¬Â¢ POE: ${cam.poe_port}</span>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No cameras configured yet</div>'}
+          </div>
+          
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-camera-config">
+              ${icon("settings")} Configure Cameras
+            </button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Lock module gets GUI config dialog
+    if (moduleKey === 'lock') {
+      const lockCount = moduleData.locks?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">
+            ${moduleDef.name} Configuration
+          </div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
+            Configure smart locks with automatic lock/unlock
+          </div>
+          
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸â€â€™</span>
+              <div>
+                <div style="font-size:13px;font-weight:600">Locks Configured</div>
+                <div style="font-size:12px;color:var(--sm-text-secondary)">${lockCount} lock${lockCount !== 1 ? 's' : ''}</div>
+              </div>
+            </div>
+            ${lockCount > 0 ? `
+              <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+                ${moduleData.locks.map(lock => `
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span>
+                    <span style="font-size:12px">${lock.entity_id}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No locks configured yet</div>'}
+          </div>
+          
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-lock-config">
+              ${icon("settings")} Configure Locks
+            </button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">
+              Close
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+        // Climate module gets GUI config dialog
+    if (moduleKey === 'climate') {
+      const thermostatCount = moduleData.thermostats?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure thermostats for energy saving</div>
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸Å’Â¡Ã¯Â¸Â</span>
+              <div><div style="font-size:13px;font-weight:600">Thermostats Configured</div>
+              <div style="font-size:12px;color:var(--sm-text-secondary)">${thermostatCount} thermostat${thermostatCount !== 1 ? 's' : ''}</div></div>
+            </div>
+            ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+              ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-climate-config">${icon("settings")} Configure Thermostats</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+          </div>
+        </div>`;
+    }
+    
+    // Siren module
+    if (moduleKey === 'siren') {
+      const sirenCount = moduleData.sirens?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure alarm sirens and patterns</div>
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸Å¡Â¨</span>
+              <div><div style="font-size:13px;font-weight:600">Sirens Configured</div>
+              <div style="font-size:12px;color:var(--sm-text-secondary)">${sirenCount} siren${sirenCount !== 1 ? 's' : ''}</div></div>
+            </div>
+            ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+              ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-siren-config">${icon("settings")} Configure Sirens</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+          </div>
+        </div>`;
+    }
+    
+    // Lights module
+    if (moduleKey === 'lights') {
+      const lightCount = moduleData.entities?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure light automation and effects</div>
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸â€™Â¡</span>
+              <div><div style="font-size:13px;font-weight:600">Lights Configured</div>
+              <div style="font-size:12px;color:var(--sm-text-secondary)">${lightCount} light${lightCount !== 1 ? 's' : ''}</div></div>
+            </div>
+            ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+              ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${e}</span></div>`).join('')}
+              ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-lights-config">${icon("settings")} Configure Lights</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+          </div>
+        </div>`;
+    }
+    
+    // TTS module
+    if (moduleKey === 'tts') {
+      const speakerCount = moduleData.entities?.length || 0;
+      return `
+        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure voice notifications</div>
+          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+              <span style="font-size:24px">Ã°Å¸â€Å </span>
+              <div><div style="font-size:13px;font-weight:600">Speakers Configured</div>
+              <div style="font-size:12px;color:var(--sm-text-secondary)">${speakerCount} speaker${speakerCount !== 1 ? 's' : ''}</div></div>
+            </div>
+            ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
+              ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+                <span style="color:var(--sm-accent)">Ã¢Å“â€œ</span><span style="font-size:12px">${e}</span></div>`).join('')}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="sm-btn primary" data-action="open-tts-config">${icon("settings")} Configure TTS</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+          </div>
+        </div>`;
+    }
+    
+        // Other modules still use JSON for now
+    const configJson = JSON.stringify(moduleData, null, 2);
     return `
       <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
         <div style="font-size:14px;font-weight:600;margin-bottom:8px">
           ${moduleDef.name} Configuration
         </div>
         <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
-          Edit konfiguration nedenfor (JSON format):
+          Edit configuration below (JSON format):
         </div>
         
         <textarea id="module-config-${moduleKey}" 
@@ -1236,9 +1847,9 @@ class SecureMePanel extends HTMLElement {
         </div>
         
         <div style="margin-top:16px;padding:12px;background:var(--sm-blue-dim);border-radius:8px;font-size:11px">
-          <strong>ðŸ’¡ Eksempel konfiguration:</strong>
+          <strong>Ã°Å¸â€™Â¡ Example configuration:</strong>
           <details style="margin-top:8px">
-            <summary style="cursor:pointer;font-weight:600">Vis eksempel for ${moduleDef.name}</summary>
+            <summary style="cursor:pointer;font-weight:600">Show example for ${moduleDef.name}</summary>
             <pre style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow-x:auto;font-size:10px">${this._getModuleExample(moduleKey)}</pre>
           </details>
         </div>
@@ -1371,7 +1982,7 @@ class SecureMePanel extends HTMLElement {
         `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No automations created yet.</div>'}
 
         <div class="info-card info">
-          <span style="font-size:20px">📘</span>
+          <span style="font-size:20px">Ã°Å¸â€œËœ</span>
           <div style="flex:1">
             <div class="info-title" style="color:var(--sm-blue)">Blueprints</div>
             <div class="info-text">Use ready-made blueprints for alarm lighting, siren control and more</div>
@@ -1397,6 +2008,450 @@ class SecureMePanel extends HTMLElement {
   }
 
   // ===
+  // TAB: TESTING
+  // ===
+  _renderTesting() {
+    const health = this._data.health || {};
+    const results = this._data.testResults || [];
+    const lastResult = results[0] || null;
+    const score = health.health_score ?? 100;
+    const modules = health.modules || {};
+    const batteries = health.batteries || [];
+    const isRunning = this._testRunning || false;
+
+    const scoreColor = score >= 90 ? "var(--sm-accent)" :
+                       score >= 70 ? "var(--sm-warning)" : "var(--sm-danger)";
+
+    return `
+      <!-- Health Overview -->
+      <div class="section-header">
+        <h3 class="section-title">System Health</h3>
+        <span class="badge accent">${score}%</span>
+      </div>
+
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        <div style="padding:20px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+            <div style="width:64px;height:64px;border-radius:50%;
+                 border:4px solid ${scoreColor};
+                 display:flex;align-items:center;justify-content:center;
+                 font-size:22px;font-weight:700;color:${scoreColor}">
+              ${score}
+            </div>
+            <div>
+              <div style="font-size:16px;font-weight:600">
+                ${score >= 90 ? "All Systems Healthy" :
+                  score >= 70 ? "Minor Issues Detected" : "Critical Issues Found"}
+              </div>
+              <div style="font-size:12px;color:var(--sm-text-secondary)">
+                ${health.available_entities || 0}/${health.total_entities || 0} entities available
+                &middot; ${health.low_battery_count || 0} low batteries
+              </div>
+            </div>
+          </div>
+
+          <!-- Module Status Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+            ${Object.entries(modules).map(([id, m]) => {
+              const color = !m.enabled ? "var(--sm-text-tertiary)" :
+                            m.status === "ok" ? "var(--sm-accent)" : "var(--sm-danger)";
+              const statusIcon = !m.enabled ? "&#9675;" :
+                                 m.status === "ok" ? "&#10003;" : "&#10007;";
+              return `
+                <div style="padding:10px 12px;background:rgba(255,255,255,0.04);
+                     border-radius:8px;border:1px solid ${color}22;
+                     display:flex;align-items:center;gap:8px">
+                  <span style="color:${color};font-weight:700;font-size:14px">${statusIcon}</span>
+                  <div>
+                    <div style="font-size:12px;font-weight:600;text-transform:capitalize">${id}</div>
+                    <div style="font-size:11px;color:var(--sm-text-secondary)">
+                      ${!m.enabled ? "disabled" : m.total === 0 ? "not configured" : m.available + "/" + m.total + " ok"}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      </div>
+
+      <!-- Test Controls -->
+      <div class="section-header" style="margin-top:24px">
+        <h3 class="section-title">Run Tests</h3>
+        ${isRunning ? '<span class="badge entry">Running...</span>' : ''}
+      </div>
+
+      <div class="sm-card">
+        <div class="test-grid-3">
+          <button class="sm-btn primary" data-run-test="quick"
+                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
+                  display:flex;align-items:center;justify-content:center">
+            <span style="font-size:20px">&#9889;</span>
+            <span style="font-size:13px;font-weight:600">Quick Test</span>
+            <span style="font-size:11px;opacity:0.7">Vital checks only</span>
+          </button>
+          <button class="sm-btn default" data-run-test="standard"
+                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
+                  display:flex;align-items:center;justify-content:center">
+            <span style="font-size:20px">&#128202;</span>
+            <span style="font-size:13px;font-weight:600">Standard Test</span>
+            <span style="font-size:11px;opacity:0.7">Extended module tests</span>
+          </button>
+          <button class="sm-btn danger" data-run-test="full"
+                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
+                  display:flex;align-items:center;justify-content:center;background:var(--sm-purple-dim);color:var(--sm-purple)">
+            <span style="font-size:20px">&#128737;</span>
+            <span style="font-size:13px;font-weight:600">Full Test</span>
+            <span style="font-size:11px;opacity:0.7">All configured systems</span>
+          </button>
+        </div>
+
+        <!-- Module-specific test buttons -->
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+          ${Object.entries(modules).filter(([, m]) => m.enabled).map(([id]) => `
+            <button class="sm-btn ghost-outlined" data-run-test="${id}"
+                    ${isRunning ? "disabled" : ""}
+                    style="text-transform:capitalize">
+              Test ${id}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- Last Test Result -->
+      <div class="section-header" style="margin-top:24px">
+        <h3 class="section-title">Last Test Run</h3>
+        ${lastResult ? `<span class="badge ${lastResult.overall === "pass" ? "accent" :
+          lastResult.overall === "warning" ? "entry" : "perimeter"}">${lastResult.overall.toUpperCase()}</span>` : ""}
+      </div>
+
+      ${lastResult ? this._renderTestResult(lastResult) : `
+        <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
+          No tests run yet. Click a test button above to start.
+        </div>
+      `}
+
+      <!-- Sensor Online/Offline Overview -->
+      ${this._renderSensorStatus()}
+
+      <!-- Battery Overview -->
+      ${this._renderBatteryOverview(batteries)}
+
+      <!-- Test History -->
+      ${results.length > 1 ? `
+        <div class="section-header" style="margin-top:24px">
+          <h3 class="section-title">Test History</h3>
+          <span class="badge actions">${results.length} results</span>
+        </div>
+        <div class="sm-card" style="padding:0;overflow:hidden">
+          ${results.slice(0, 5).map((r, i) => `
+            <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;
+                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+              <span style="font-size:16px">
+                ${r.overall === "pass" ? "&#9989;" : r.overall === "warning" ? "&#9888;&#65039;" : "&#10060;"}
+              </span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
+                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:12px;font-weight:600">
+                  ${r.summary ? r.summary.passed : 0}/${(r.summary ? r.summary.passed : 0) + (r.summary ? r.summary.failed : 0)} passed
+                </div>
+                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.duration_seconds}s</div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
+    `;
+  }
+
+  _renderTestResult(result) {
+    const mods = result.modules || {};
+    const bats = result.batteries || {};
+    const summary = result.summary || {};
+
+    return `
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        <div style="padding:16px 20px;background:${
+          result.overall === "pass" ? "var(--sm-accent-dim)" :
+          result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
+        };display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">
+            ${result.overall === "pass" ? "&#9989;" : result.overall === "warning" ? "&#9888;&#65039;" : "&#10060;"}
+          </span>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;text-transform:capitalize">
+              ${result.test_type} Test &mdash; ${result.overall.toUpperCase()}
+            </div>
+            <div style="font-size:12px;opacity:0.8">
+              ${result.timestamp} &middot; ${result.duration_seconds}s
+              &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed, ${summary.skipped || 0} skipped
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:12px 16px">
+          ${Object.entries(mods).map(([id, m]) => {
+            const color = m.status === "pass" ? "var(--sm-accent)" :
+                          m.status === "skipped" ? "var(--sm-text-tertiary)" :
+                          m.status === "fail" ? "var(--sm-danger)" : "var(--sm-warning)";
+            const statusText = m.status === "pass" ? "PASS" :
+                               m.status === "skipped" ? "SKIP" :
+                               m.status === "fail" ? "FAIL" : "ERROR";
+            return `
+              <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
+                   border-bottom:1px solid var(--sm-border)">
+                <span style="color:${color};font-weight:700;font-size:11px;
+                     min-width:40px">${statusText}</span>
+                <div style="flex:1">
+                  <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                  ${m.entities_total != null ? `
+                    <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
+                      ${m.entities_available}/${m.entities_total} entities
+                    </span>
+                  ` : ""}
+                </div>
+                ${m.test_result && m.test_result.message ? `
+                  <span style="font-size:11px;color:var(--sm-text-secondary)">${m.test_result.message}</span>
+                ` : ""}
+                ${m.reason ? `
+                  <span style="font-size:11px;color:var(--sm-text-tertiary)">${m.reason}</span>
+                ` : ""}
+              </div>
+            `;
+          }).join("")}
+
+          ${bats.status ? '' : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSensorStatus() {
+    if (!this._hass) return '';
+    
+    // Discover all sensors that are configured in the alarm
+    const configuredSensors = this._data.sensors || [];
+    if (configuredSensors.length === 0) {
+      return `
+        <div class="section-header" style="margin-top:24px">
+          <h3 class="section-title">Sensor Status</h3>
+        </div>
+        <div class="sm-card" style="text-align:center;padding:24px;color:var(--sm-text-tertiary)">
+          No sensors configured. Enable sensors in the Sensors tab.
+        </div>
+      `;
+    }
+
+    const enabledSensors = configuredSensors.filter(s => s.enabled);
+    const sensorStatuses = enabledSensors.map(s => {
+      const state = this._hass.states[s.entity_id];
+      const isOnline = state && state.state !== 'unavailable' && state.state !== 'unknown';
+      return {
+        entity_id: s.entity_id,
+        name: s.name || s.entity_id,
+        sensor_type: s.sensor_type,
+        online: isOnline,
+        state: state ? state.state : 'unknown',
+      };
+    });
+
+    const online = sensorStatuses.filter(s => s.online).length;
+    const offline = sensorStatuses.filter(s => !s.online).length;
+
+    return `
+      <div class="section-header" style="margin-top:24px">
+        <h3 class="section-title">Sensor Status</h3>
+        <span class="badge ${offline > 0 ? 'perimeter' : 'accent'}">${online}/${sensorStatuses.length} online</span>
+      </div>
+
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        ${sensorStatuses.map((s, i) => `
+          <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
+               ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+            <div class="sensor-status-dot ${s.online ? 'online' : 'offline'}"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;white-space:nowrap;
+                   overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+            </div>
+            <span class="badge ${s.sensor_type}">${s.sensor_type}</span>
+            <span style="font-size:11px;font-weight:600;
+                  color:${s.online ? 'var(--sm-accent)' : 'var(--sm-danger)'};
+                  min-width:50px;text-align:right">
+              ${s.online ? 'ONLINE' : 'OFFLINE'}
+            </span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  _renderBatteryOverview(batteries) {
+    if (!batteries || batteries.length === 0) {
+      return `
+        <div class="section-header" style="margin-top:24px">
+          <h3 class="section-title">Battery Overview</h3>
+        </div>
+        <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
+          No battery sensors discovered. Battery sensors with device_class "battery" will appear here.
+        </div>
+      `;
+    }
+
+    const sorted = [...batteries].sort((a, b) => {
+      if (a.level == null) return 1;
+      if (b.level == null) return -1;
+      return a.level - b.level;
+    });
+
+    // Split into low (<= 50%) and ok (> 50%)
+    const lowBatteries = sorted.filter(b => b.level == null || b.level <= 50);
+    const okBatteries = sorted.filter(b => b.level != null && b.level > 50);
+
+    const renderBatteryRow = (bat, i, showBorder) => {
+      const level = bat.level;
+      const color = level == null ? "var(--sm-text-tertiary)" :
+                    level < 10 ? "var(--sm-danger)" :
+                    level < 20 ? "var(--sm-warning)" : "var(--sm-accent)";
+      const barWidth = level != null ? Math.max(level, 3) : 0;
+      const statusLabel = level == null ? "N/A" :
+                          level < 10 ? "CRITICAL" :
+                          level < 20 ? "LOW" :
+                          level <= 50 ? "FAIR" : "OK";
+      return `
+        <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
+             ${showBorder ? "border-top:1px solid var(--sm-border)" : ""}">
+          <div style="min-width:48px;text-align:right;font-size:14px;font-weight:600;color:${color}">
+            ${level != null ? level + "%" : "&mdash;"}
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;white-space:nowrap;
+                 overflow:hidden;text-overflow:ellipsis">${bat.name}</div>
+            <div style="margin-top:4px;height:4px;background:rgba(255,255,255,0.08);
+                 border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:${barWidth}%;background:${color};
+                   border-radius:2px;transition:width 0.3s"></div>
+            </div>
+          </div>
+          <span style="font-size:10px;font-weight:600;color:${color};min-width:52px;
+               text-align:right">${statusLabel}</span>
+        </div>
+      `;
+    };
+
+    return `
+      <div class="section-header" style="margin-top:24px">
+        <h3 class="section-title">Battery Overview</h3>
+        <span class="badge accent">${batteries.length} tracked</span>
+      </div>
+
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        <!-- Low batteries (always visible) -->
+        ${lowBatteries.length > 0 ? `
+          ${lowBatteries.map((bat, i) => renderBatteryRow(bat, i, i > 0)).join("")}
+        ` : `
+          <div style="padding:16px;text-align:center;color:var(--sm-accent);font-size:13px;font-weight:600">
+            &#10003; All batteries above 50%
+          </div>
+        `}
+
+        <!-- OK batteries (collapsible) -->
+        ${okBatteries.length > 0 ? `
+          <div style="border-top:1px solid var(--sm-border)">
+            <div class="collapsible-header ${this._batteryOkExpanded ? 'expanded' : ''}"
+                 data-action="toggle-battery-ok"
+                 style="padding:12px 16px;margin:0">
+              <span style="font-size:12px;color:var(--sm-text-secondary)">
+                ${okBatteries.length} batteries above 50%
+              </span>
+              <span class="chevron">${icon("chevron")}</span>
+            </div>
+            <div class="collapsible-body ${this._batteryOkExpanded ? 'expanded' : ''}">
+              ${okBatteries.map((bat, i) => renderBatteryRow(bat, i, true)).join("")}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  _renderBatteryTable(batteries) {
+    if (!batteries || batteries.length === 0) {
+      return `
+        <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
+          No battery sensors discovered. Battery sensors with device_class "battery" will appear here.
+        </div>
+      `;
+    }
+
+    const sorted = [...batteries].sort((a, b) => {
+      if (a.level == null) return 1;
+      if (b.level == null) return -1;
+      return a.level - b.level;
+    });
+
+    return `
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        ${sorted.map((bat, i) => {
+          const level = bat.level;
+          const color = level == null ? "var(--sm-text-tertiary)" :
+                        level < 10 ? "var(--sm-danger)" :
+                        level < 20 ? "var(--sm-warning)" : "var(--sm-accent)";
+          const barWidth = level != null ? Math.max(level, 3) : 0;
+          const statusLabel = level == null ? "N/A" :
+                              level < 10 ? "CRITICAL" :
+                              level < 20 ? "LOW" : "OK";
+          return `
+            <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
+                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+              <div style="min-width:48px;text-align:right;font-size:14px;font-weight:600;color:${color}">
+                ${level != null ? level + "%" : "&mdash;"}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:500;white-space:nowrap;
+                     overflow:hidden;text-overflow:ellipsis">${bat.name}</div>
+                <div style="margin-top:4px;height:4px;background:rgba(255,255,255,0.08);
+                     border-radius:2px;overflow:hidden">
+                  <div style="height:100%;width:${barWidth}%;background:${color};
+                       border-radius:2px;transition:width 0.3s"></div>
+                </div>
+              </div>
+              <span style="font-size:10px;font-weight:600;color:${color};min-width:52px;
+                   text-align:right">${statusLabel}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  async _runTest(testType) {
+    if (this._testRunning) return;
+    this._testRunning = true;
+    this._render();
+
+    try {
+      const result = await this._callWS("run_test", { test_type: testType });
+      if (result) {
+        const [health, testResults] = await Promise.all([
+          this._callWS("get_health_summary"),
+          this._callWS("get_test_results"),
+        ]);
+        if (health) this._data.health = health;
+        if (testResults) this._data.testResults = testResults.results || [];
+      }
+    } catch (err) {
+      console.error("Test failed:", err);
+    }
+
+    this._testRunning = false;
+    this._render();
+  }
+
+  // ===
   // EVENT LISTENER ATTACHMENT
   // ===
   // === Entity Loading ===
@@ -1419,6 +2474,21 @@ class SecureMePanel extends HTMLElement {
     
     this._availableEntities[domain] = entities;
     return entities;
+  }
+
+  // Load ALL entities for manual search fallback
+  async _loadAllEntities() {
+    if (this._allEntities) return this._allEntities;
+    if (!this._hass) return [];
+    this._allEntities = Object.values(this._hass.states)
+      .map(e => ({
+        entity_id: e.entity_id,
+        name: e.attributes.friendly_name || e.entity_id,
+        domain: e.entity_id.split('.')[0],
+        state: e.state
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return this._allEntities;
   }
 
   // === Camera Config Dialog ===
@@ -1503,9 +2573,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('✅ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('Ã¢Å“â€¦ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
-      alert('❌ Could not save: ' + (result?.error || 'Unknown error'));
+      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
     }
   }
 
@@ -1526,9 +2596,9 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <span style="font-size: 24px;">📷</span>
+            <span style="font-size: 24px;">Ã°Å¸â€œÂ·</span>
             <div class="dialog-title">Camera Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog">×</button>
+            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
           </div>
           
           <button class="add-item-btn" data-action="add-camera">
@@ -1564,7 +2634,7 @@ class SecureMePanel extends HTMLElement {
         <div class="item-header">
           <div class="item-number">Camera ${idx + 1}</div>
           <button class="delete-item-btn" data-action="remove-camera" data-camera-id="${camera.id}">
-            🗑 Delete
+            Ã°Å¸â€”â€˜ Delete
           </button>
         </div>
         
@@ -1645,6 +2715,722 @@ class SecureMePanel extends HTMLElement {
     `;
   }
 
+  // === Lock Config Dialog ===
+  async _openLockConfig() {
+    await this._loadEntitiesByDomain('lock');
+    await this._loadAllEntities();
+    const currentConfig = this._data.modules?.lock || {};
+    this._tempConfig = {
+      locks: (currentConfig.locks || []).map((l, i) => ({...l, id: l.id || Date.now() + i}))
+    };
+    if (this._tempConfig.locks.length === 0) {
+      this._tempConfig.locks.push({ id: Date.now(), entity_id: '', lock_on_arm: true, unlock_on_disarm: false, retry_attempts: 3, retry_delay: 5 });
+    }
+    this._lockSearch = '';
+    this._showDialog = 'lock';
+    this._render();
+  }
+
+  _addLockRow() {
+    this._tempConfig.locks.push({ id: Date.now(), entity_id: '', lock_on_arm: true, unlock_on_disarm: false, retry_attempts: 3, retry_delay: 5 });
+    this._render();
+  }
+
+  _removeLockRow(id) {
+    this._tempConfig.locks = this._tempConfig.locks.filter(l => l.id !== id);
+    this._render();
+  }
+
+  _updateLockField(id, field, value) {
+    const l = this._tempConfig.locks.find(l => l.id === id);
+    if (!l) return;
+    if (field === 'lock_on_arm' || field === 'unlock_on_disarm') l[field] = (value === true || value === 'true');
+    else if (field === 'retry_attempts' || field === 'retry_delay') l[field] = parseInt(value) || 0;
+    else l[field] = value;
+  }
+
+  async _saveLockConfig() {
+    const invalid = this._tempConfig.locks.filter(l => !l.entity_id);
+    if (invalid.length > 0) { alert('Please select an entity for all locks.'); return; }
+    const config = { enabled: true, locks: this._tempConfig.locks.map(l => ({ entity_id: l.entity_id, lock_on_arm: l.lock_on_arm, unlock_on_disarm: l.unlock_on_disarm, retry_attempts: l.retry_attempts, retry_delay: l.retry_delay })) };
+    const result = await this._callWS('save_module', { module_id: 'lock', config });
+    if (result && result.success !== false) {
+      this._showDialog = null; this._tempConfig = null; await this._loadData();
+      alert('Ã¢Å“â€¦ Lock configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+  }
+
+  _renderLockDialog() {
+    const locks = this._tempConfig?.locks || [];
+    const domainLocks = this._availableEntities.lock || [];
+    const allEntities = this._allEntities || [];
+    const search = (this._lockSearch || '').toLowerCase();
+    const filtered = search.length > 1
+      ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 20)
+      : domainLocks;
+
+    return `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
+      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:620px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span style="font-size:28px;">Ã°Å¸â€â€™</span>
+          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lock Module Configuration</div>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;line-height:1;">Ãƒâ€”</button>
+        </div>
+
+        ${domainLocks.length > 0 ? `
+        <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
+          Ã¢Å“â€œ Found ${domainLocks.length} lock entity(ies) in Home Assistant
+        </div>` : `
+        <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
+          Ã¢Å¡Â  No entities found in lock domain. Use manual search below to add any entity.
+        </div>`}
+
+        <button data-action="add-lock" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
+          Ã¯Â¼â€¹ Add Lock
+        </button>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${locks.map((lock, idx) => `
+          <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-weight:600;font-size:14px;color:var(--sm-text,#fff);">Lock ${idx + 1}</span>
+              <button data-action="remove-lock" data-lock-id="${lock.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Remove</button>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
+              ${lock.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">Ã¢Å“â€œ ${lock.entity_id}</div>` : ''}
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+                <input type="text" placeholder="Search entities (type 2+ chars)..." 
+                  data-lock-search="${lock.id}"
+                  style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;" 
+                  value="${search}">
+              </div>
+              <select data-lock-id="${lock.id}" data-field="entity_id" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                <option value="">-- Select entity --</option>
+                ${filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === lock.entity_id ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('')}
+                ${!filtered.find(e => e.entity_id === lock.entity_id) && lock.entity_id ? `<option value="${lock.entity_id}" selected>${lock.entity_id}</option>` : ''}
+              </select>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Behavior</label>
+              <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
+                <input type="checkbox" data-lock-id="${lock.id}" data-field="lock_on_arm" ${lock.lock_on_arm ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">
+                <span style="font-size:13px;color:var(--sm-text,#fff);">Lock when alarm is armed</span>
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" data-lock-id="${lock.id}" data-field="unlock_on_disarm" ${lock.unlock_on_disarm ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">
+                <span style="font-size:13px;color:var(--sm-text,#fff);">Unlock when alarm is disarmed</span>
+              </label>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Retry attempts</label>
+                <input type="number" min="0" max="10" data-lock-id="${lock.id}" data-field="retry_attempts" value="${lock.retry_attempts}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Retry delay (sec)</label>
+                <input type="number" min="0" max="60" data-lock-id="${lock.id}" data-field="retry_delay" value="${lock.retry_delay}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
+          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
+          <button data-action="save-lock-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // === Climate Config Dialog ===
+  async _openClimateConfig() {
+    await this._loadEntitiesByDomain('climate');
+    await this._loadAllEntities();
+    const cur = this._data.modules?.climate || {};
+    this._tempConfig = {
+      thermostats: (cur.thermostats || []).map((t, i) => ({...t, id: t.id || Date.now() + i}))
+    };
+    if (this._tempConfig.thermostats.length === 0) {
+      this._tempConfig.thermostats.push({ id: Date.now(), entity_id: '', arm_mode: 'eco', disarm_mode: 'heat', eco_temp: 18, comfort_temp: 22 });
+    }
+    this._showDialog = 'climate';
+    this._render();
+  }
+
+  _addClimateRow() {
+    this._tempConfig.thermostats.push({ id: Date.now(), entity_id: '', arm_mode: 'eco', disarm_mode: 'heat', eco_temp: 18, comfort_temp: 22 });
+    this._render();
+  }
+
+  _removeClimateRow(id) {
+    this._tempConfig.thermostats = this._tempConfig.thermostats.filter(t => t.id !== id);
+    this._render();
+  }
+
+  _updateClimateField(id, field, value) {
+    const t = this._tempConfig.thermostats.find(t => t.id === id);
+    if (!t) return;
+    if (field === 'eco_temp' || field === 'comfort_temp') t[field] = parseFloat(value) || 0;
+    else t[field] = value;
+  }
+
+  async _saveClimateConfig() {
+    const invalid = this._tempConfig.thermostats.filter(t => !t.entity_id);
+    if (invalid.length > 0) { alert('Please select an entity for all thermostats.'); return; }
+    const config = { enabled: true, thermostats: this._tempConfig.thermostats.map(t => ({ entity_id: t.entity_id, arm_mode: t.arm_mode, disarm_mode: t.disarm_mode, eco_temp: t.eco_temp, comfort_temp: t.comfort_temp })) };
+    const result = await this._callWS('save_module', { module_id: 'climate', config });
+    if (result && result.success !== false) {
+      this._showDialog = null; this._tempConfig = null; await this._loadData();
+      alert('Ã¢Å“â€¦ Climate configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+  }
+
+  _renderClimateDialog() {
+    const thermostats = this._tempConfig?.thermostats || [];
+    const domainEntities = this._availableEntities.climate || [];
+    const allEntities = this._allEntities || [];
+
+    return `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
+      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span style="font-size:28px;">Ã°Å¸Å’Â¡Ã¯Â¸Â</span>
+          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Climate Module Configuration</div>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">Ãƒâ€”</button>
+        </div>
+
+        ${domainEntities.length > 0 ? `
+        <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
+          Ã¢Å“â€œ Found ${domainEntities.length} climate entity(ies) in Home Assistant
+        </div>` : `
+        <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
+          Ã¢Å¡Â  No climate entities found. Use manual search to add any entity.
+        </div>`}
+
+        <button data-action="add-climate" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
+          Ã¯Â¼â€¹ Add Thermostat
+        </button>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${thermostats.map((t, idx) => `
+          <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <span style="font-weight:600;font-size:14px;color:var(--sm-text,#fff);">Thermostat ${idx + 1}</span>
+              <button data-action="remove-climate" data-climate-id="${t.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Remove</button>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
+              ${t.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;">Ã¢Å“â€œ ${t.entity_id}</div>` : ''}
+              <input type="text" placeholder="Search entities (type 2+ chars for all, or leave blank for climate only)..."
+                data-climate-search="${t.id}"
+                style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
+              <select data-climate-id="${t.id}" data-field="entity_id" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                <option value="">-- Select entity --</option>
+                ${domainEntities.map(e => `<option value="${e.entity_id}" ${e.entity_id === t.entity_id ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('')}
+                ${!domainEntities.find(e => e.entity_id === t.entity_id) && t.entity_id ? `<option value="${t.entity_id}" selected>${t.entity_id}</option>` : ''}
+              </select>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
+                <select data-climate-id="${t.id}" data-field="arm_mode" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                  <option value="off" ${t.arm_mode==='off'?'selected':''}>Turn Off</option>
+                  <option value="eco" ${t.arm_mode==='eco'?'selected':''}>Eco Mode</option>
+                  <option value="away" ${t.arm_mode==='away'?'selected':''}>Away Mode</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
+                <select data-climate-id="${t.id}" data-field="disarm_mode" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                  <option value="heat" ${t.disarm_mode==='heat'?'selected':''}>Heat</option>
+                  <option value="cool" ${t.disarm_mode==='cool'?'selected':''}>Cool</option>
+                  <option value="auto" ${t.disarm_mode==='auto'?'selected':''}>Auto</option>
+                  <option value="restore" ${t.disarm_mode==='restore'?'selected':''}>Restore Previous</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Eco Temp (Ã‚Â°C)</label>
+                <input type="number" min="10" max="30" step="0.5" data-climate-id="${t.id}" data-field="eco_temp" value="${t.eco_temp}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Comfort Temp (Ã‚Â°C)</label>
+                <input type="number" min="10" max="30" step="0.5" data-climate-id="${t.id}" data-field="comfort_temp" value="${t.comfort_temp}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+              </div>
+            </div>
+          </div>`).join('')}
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
+          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
+          <button data-action="save-climate-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // === Siren Config Dialog ===
+  async _openSirenConfig() {
+    await this._loadEntitiesByDomain('siren');
+    
+    const currentConfig = this._data.modules.siren || {};
+    this._tempConfig = {
+      sirens: currentConfig.sirens || []
+    };
+    
+    if (this._tempConfig.sirens.length === 0) {
+      this._tempConfig.sirens.push({
+        id: Date.now(),
+        entity_id: '',
+        pattern: 'continuous',
+        duration: 300,
+        volume: 80
+      });
+    } else {
+      this._tempConfig.sirens = this._tempConfig.sirens.map((s, idx) => ({
+        ...s,
+        id: s.id || Date.now() + idx
+      }));
+    }
+    
+    this._showDialog = 'siren';
+    this._render();
+  }
+
+  _addSirenRow() {
+    this._tempConfig.sirens.push({
+      id: Date.now(),
+      entity_id: '',
+      pattern: 'continuous',
+      duration: 300,
+      volume: 80
+    });
+    this._render();
+  }
+
+  _removeSirenRow(id) {
+    this._tempConfig.sirens = this._tempConfig.sirens.filter(s => s.id !== id);
+    this._render();
+  }
+
+  _updateSirenField(id, field, value) {
+    const siren = this._tempConfig.sirens.find(s => s.id === id);
+    if (siren) {
+      if (field === 'duration' || field === 'volume') {
+        siren[field] = parseInt(value) || 0;
+      } else {
+        siren[field] = value;
+      }
+    }
+  }
+
+  async _saveSirenConfig() {
+    const invalid = this._tempConfig.sirens.filter(s => !s.entity_id);
+    if (invalid.length > 0) {
+      alert('Please select a siren entity for all sirens before saving.');
+      return;
+    }
+    
+    const config = {
+      enabled: true,
+      sirens: this._tempConfig.sirens.map(s => ({
+        entity_id: s.entity_id,
+        pattern: s.pattern,
+        duration: s.duration,
+        volume: s.volume
+      }))
+    };
+    
+    const result = await this._callWS('save_module', {
+      module_id: 'siren',
+      config: config
+    });
+    
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+      alert('Ã¢Å“â€¦ Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
+    } else {
+      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
+    }
+  }
+
+  _renderSirenDialog() {
+    const sirens = this._tempConfig?.sirens || [];
+    const availableSirens = this._availableEntities.siren || [];
+    
+    return `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <span style="font-size: 24px;">Ã°Å¸Å¡Â¨</span>
+            <div class="dialog-title">Siren Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
+          </div>
+          
+          <button class="add-item-btn" data-action="add-siren">
+            ${icon("plus")} Add Siren
+          </button>
+          
+          <div class="item-list">
+            ${sirens.length === 0 ? 
+              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">No sirens configured.</div>' :
+              sirens.map((s, idx) => this._renderSirenRow(s, idx)).join('')
+            }
+          </div>
+          
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-siren-config">Save Configuration</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSirenRow(siren, idx) {
+    const availableSirens = this._availableEntities.siren || [];
+    
+    return `
+      <div class="item-card">
+        <div class="item-header">
+          <div class="item-number">Siren ${idx + 1}</div>
+          <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">Ã°Å¸â€”â€˜ Delete</button>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Siren Entity</label>
+          <input type="text" class="entity-search" placeholder="Search sirens..." data-search-target="siren-select-${siren.id}">
+          <select class="form-select" id="siren-select-${siren.id}" data-siren-id="${siren.id}" data-field="entity_id">
+            <option value="">-- Select Siren --</option>
+            ${availableSirens.map(s => `
+              <option value="${s.entity_id}" ${s.entity_id === siren.entity_id ? 'selected' : ''}>${s.name} (${s.entity_id})</option>
+            `).join('')}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Alarm Pattern</label>
+          <select class="form-select" data-siren-id="${siren.id}" data-field="pattern">
+            <option value="continuous" ${siren.pattern === 'continuous' ? 'selected' : ''}>Continuous</option>
+            <option value="intermittent" ${siren.pattern === 'intermittent' ? 'selected' : ''}>Intermittent</option>
+            <option value="rapid" ${siren.pattern === 'rapid' ? 'selected' : ''}>Rapid Beeps</option>
+          </select>
+        </div>
+        
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Duration (seconds)</label>
+            <input type="number" class="form-input" min="10" max="600" step="10" data-siren-id="${siren.id}" data-field="duration" value="${siren.duration}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Volume (%)</label>
+            <input type="number" class="form-input" min="0" max="100" step="5" data-siren-id="${siren.id}" data-field="volume" value="${siren.volume}">
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+
+
+  // === Lights Config Dialog ===
+  async _openLightsConfig() {
+    await this._loadEntitiesByDomain('light');
+    await this._loadAllEntities();
+    const cur = this._data.modules?.lights || {};
+    this._tempConfig = {
+      entities: cur.entities || [],
+      arm_action: cur.arm_action || 'turn_off',
+      disarm_action: cur.disarm_action || 'restore',
+      trigger_flash: cur.trigger_flash !== false,
+      flash_pattern: cur.flash_pattern || 'rapid',
+      flash_duration: cur.flash_duration || 30
+    };
+    this._showDialog = 'lights';
+    this._render();
+  }
+
+  _addLightEntity(entityId) {
+    if (entityId && !this._tempConfig.entities.includes(entityId)) {
+      this._tempConfig.entities.push(entityId);
+      this._render();
+    }
+  }
+
+  _removeLightEntity(entityId) {
+    this._tempConfig.entities = this._tempConfig.entities.filter(e => e !== entityId);
+    this._render();
+  }
+
+  _updateLightsField(field, value) {
+    if (field === 'trigger_flash') this._tempConfig[field] = (value === true || value === 'true');
+    else if (field === 'flash_duration') this._tempConfig[field] = parseInt(value) || 30;
+    else this._tempConfig[field] = value;
+  }
+
+  async _saveLightsConfig() {
+    if (this._tempConfig.entities.length === 0) { alert('Please add at least one light entity.'); return; }
+    const config = { enabled: true, entities: this._tempConfig.entities, arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
+    const result = await this._callWS('save_module', { module_id: 'lights', config });
+    if (result && result.success !== false) {
+      this._showDialog = null; this._tempConfig = null; await this._loadData();
+      alert('Ã¢Å“â€¦ Lights configuration saved!\nRestart Home Assistant to activate.');
+    } else { alert('Ã¢ÂÅ’ Save failed: ' + (result?.error || 'Unknown error')); }
+  }
+
+  _renderLightsDialog() {
+    const selected = this._tempConfig?.entities || [];
+    const domainLights = this._availableEntities.light || [];
+    const allEntities = this._allEntities || [];
+    const available = domainLights.filter(l => !selected.includes(l.entity_id));
+
+    return `
+    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
+      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span style="font-size:28px;">Ã°Å¸â€™Â¡</span>
+          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lights Module Configuration</div>
+          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;">Ãƒâ€”</button>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Selected Lights (${selected.length})</label>
+          <div style="min-height:48px;padding:8px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;">
+            ${selected.length === 0
+              ? '<span style="color:#666;font-size:12px;padding:6px;">No lights selected yet</span>'
+              : selected.map(eid => {
+                  const e = domainLights.find(l => l.entity_id === eid);
+                  const name = e?.name || eid;
+                  return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.4);border-radius:20px;font-size:12px;color:#34c759;">
+                    ${name}
+                    <button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:#34c759;cursor:pointer;font-size:16px;line-height:1;padding:0;">Ãƒâ€”</button>
+                  </span>`;
+                }).join('')
+            }
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Add Light</label>
+          <input type="text" id="lights-search-input" placeholder="Search entities (type 2+ chars for all, or leave blank for light domain)..."
+            style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
+          <select id="lights-add-select" data-action="add-light-from-select"
+            style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+            <option value="">-- Select light to add --</option>
+            ${available.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
+            <select data-lights-field="arm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+              <option value="turn_off" ${this._tempConfig?.arm_action==='turn_off'?'selected':''}>Turn Off</option>
+              <option value="leave" ${this._tempConfig?.arm_action==='leave'?'selected':''}>Leave As-Is</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
+            <select data-lights-field="disarm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+              <option value="restore" ${this._tempConfig?.disarm_action==='restore'?'selected':''}>Restore Previous</option>
+              <option value="turn_on" ${this._tempConfig?.disarm_action==='turn_on'?'selected':''}>Turn On</option>
+            </select>
+          </div>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
+          <input type="checkbox" data-lights-field="trigger_flash" ${this._tempConfig?.trigger_flash?'checked':''} style="width:16px;height:16px;cursor:pointer;">
+          <span style="font-size:13px;color:var(--sm-text,#fff);">Flash lights when alarm triggers</span>
+        </label>
+
+        ${this._tempConfig?.trigger_flash ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Flash Pattern</label>
+            <select data-lights-field="flash_pattern" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+              <option value="rapid" ${this._tempConfig?.flash_pattern==='rapid'?'selected':''}>Rapid</option>
+              <option value="slow" ${this._tempConfig?.flash_pattern==='slow'?'selected':''}>Slow</option>
+              <option value="intermittent" ${this._tempConfig?.flash_pattern==='intermittent'?'selected':''}>Intermittent</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Duration (seconds)</label>
+            <input type="number" min="5" max="300" data-lights-field="flash_duration" value="${this._tempConfig?.flash_duration||30}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+          </div>
+        </div>` : ''}
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
+          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
+          <button data-action="save-lights-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // === TTS Config Dialog ===
+  async _openTTSConfig() {
+    await this._loadEntitiesByDomain('media_player');
+    await this._loadEntitiesByDomain('tts');
+    
+    const currentConfig = this._data.modules.tts || {};
+    this._tempConfig = {
+      entities: currentConfig.entities || [],
+      language: currentConfig.language || 'da',
+      volume: currentConfig.volume || 70,
+      messages: currentConfig.messages || {
+        armed: 'Alarm aktiveret',
+        disarmed: 'Alarm deaktiveret',
+        triggered: 'ALARM! IndtrÃƒÂ¦nger detekteret!'
+      }
+    };
+    
+    this._showDialog = 'tts';
+    this._render();
+  }
+
+  _addTTSEntity(entityId) {
+    if (!this._tempConfig.entities.includes(entityId)) {
+      this._tempConfig.entities.push(entityId);
+      this._render();
+    }
+  }
+
+  _removeTTSEntity(entityId) {
+    this._tempConfig.entities = this._tempConfig.entities.filter(e => e !== entityId);
+    this._render();
+  }
+
+  _updateTTSField(field, value) {
+    if (field === 'volume') {
+      this._tempConfig[field] = parseInt(value) || 0;
+    } else if (field.startsWith('msg_')) {
+      const msgType = field.replace('msg_', '');
+      this._tempConfig.messages[msgType] = value;
+    } else {
+      this._tempConfig[field] = value;
+    }
+  }
+
+  async _saveTTSConfig() {
+    if (this._tempConfig.entities.length === 0) {
+      alert('Please select at least one media player before saving.');
+      return;
+    }
+    
+    const config = {
+      enabled: true,
+      entities: this._tempConfig.entities,
+      language: this._tempConfig.language,
+      volume: this._tempConfig.volume,
+      messages: this._tempConfig.messages
+    };
+    
+    const result = await this._callWS('save_module', {
+      module_id: 'tts',
+      config: config
+    });
+    
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+      alert('Ã¢Å“â€¦ TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
+    } else {
+      alert('Ã¢ÂÅ’ Could not save: ' + (result?.error || 'Unknown error'));
+    }
+  }
+
+  _renderTTSDialog() {
+    const selectedEntities = this._tempConfig?.entities || [];
+    const availableMP = this._availableEntities.media_player || [];
+    const availableTTS = this._availableEntities.tts || [];
+    const allEntities = [...availableMP, ...availableTTS];
+    const unselected = allEntities.filter(e => !selectedEntities.includes(e.entity_id));
+    
+    return `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <span style="font-size: 24px;">Ã°Å¸â€Å </span>
+            <div class="dialog-title">TTS Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">Ãƒâ€”</button>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Selected Speakers</label>
+            <div style="min-height:60px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--sm-border);border-radius:8px">
+              ${selectedEntities.length === 0 ? 
+                '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>' :
+                selectedEntities.map(entityId => {
+                  const entity = allEntities.find(e => e.entity_id === entityId);
+                  return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}">Ãƒâ€”</button></span>`;
+                }).join('')
+              }
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Add Speaker</label>
+            <input type="text" class="entity-search" placeholder="Search speakers..." data-search-target="tts-add-select">
+            <select class="form-select" id="tts-add-select" data-action="select-tts">
+              <option value="">-- Select Speaker to Add --</option>
+              ${unselected.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
+            </select>
+          </div>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group">
+              <label class="form-label">Language</label>
+              <select class="form-select" data-tts-field="language">
+                <option value="da" ${this._tempConfig?.language === 'da' ? 'selected' : ''}>Danish</option>
+                <option value="en" ${this._tempConfig?.language === 'en' ? 'selected' : ''}>English</option>
+                <option value="de" ${this._tempConfig?.language === 'de' ? 'selected' : ''}>German</option>
+                <option value="sv" ${this._tempConfig?.language === 'sv' ? 'selected' : ''}>Swedish</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Volume: ${this._tempConfig?.volume || 70}%</label>
+              <input type="range" class="form-slider" min="0" max="100" step="5" data-tts-field="volume" value="${this._tempConfig?.volume || 70}">
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Armed Message</label>
+            <input type="text" class="form-input" placeholder="e.g., Alarm aktiveret" data-tts-field="msg_armed" value="${this._tempConfig?.messages?.armed || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Disarmed Message</label>
+            <input type="text" class="form-input" placeholder="e.g., Alarm deaktiveret" data-tts-field="msg_disarmed" value="${this._tempConfig?.messages?.disarmed || ''}">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Triggered Message</label>
+            <input type="text" class="form-input" placeholder="e.g., ALARM! IndtrÃƒÂ¦nger detekteret!" data-tts-field="msg_triggered" value="${this._tempConfig?.messages?.triggered || ''}">
+          </div>
+          
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-tts-config">Save Configuration</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+
+
 
   _attachTabListeners() {
     
@@ -1671,17 +3457,17 @@ class SecureMePanel extends HTMLElement {
           });
           
           if (result && result.success !== false) {
-            alert(`âœ… ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
+            alert(`ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
             this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
     this._tempConfig = null;  // Temporary config during editing
     this._availableEntities = {};  // Cache of entities by domain
             await this._loadData();
           } else {
-            alert(`âŒ Could not save: ${result?.error || "Unknown error"}`);
+            alert(`ÃƒÂ¢Ã‚ÂÃ…â€™ Could not save: ${result?.error || "Unknown error"}`);
           }
         } catch (err) {
-          alert(`âŒ JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
+          alert(`ÃƒÂ¢Ã‚ÂÃ…â€™ JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
         }
       });
     });
@@ -1751,36 +3537,80 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", () => this._testAutomation(btn.dataset.testAuto));
     });
 
+    // Run test buttons (testing tab)
+    root.querySelectorAll("[data-run-test]").forEach(btn => {
+      btn.addEventListener("click", () => this._runTest(btn.dataset.runTest));
+    });
 
-    // Action button handlers
-    root.querySelectorAll("[data-action]").forEach(btn => {
+    // Collapsible sections
+    root.querySelectorAll("[data-action='toggle-battery-ok']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._batteryOkExpanded = !this._batteryOkExpanded;
+        this._render();
+      });
+    });
+    root.querySelectorAll("[data-action='toggle-sensors-inactive']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._sensorsInactiveExpanded = !this._sensorsInactiveExpanded;
+        this._render();
+      });
+    });
+
+
+    // Zone actions
+    root.querySelectorAll("[data-action='add-zone']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._tempConfig = { type: 'entry', modes: ['away','home','night'], sensors: [] };
+        this._showDialog = 'zone';
+        this._render();
+      });
+    });
+    root.querySelectorAll("[data-action='save-zone']").forEach(btn => {
+      btn.addEventListener("click", () => this._saveZone());
+    });
+    root.querySelectorAll("[data-delete-zone]").forEach(btn => {
+      btn.addEventListener("click", () => this._deleteZone(btn.dataset.deleteZone));
+    });
+
+    // User actions
+    root.querySelectorAll("[data-action='add-user']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._tempConfig = { admin: false };
+        this._showDialog = 'user';
+        this._render();
+      });
+    });
+    root.querySelectorAll("[data-action='save-user']").forEach(btn => {
+      btn.addEventListener("click", () => this._saveUser());
+    });
+    root.querySelectorAll("[data-delete-user]").forEach(btn => {
+      btn.addEventListener("click", () => this._deleteUser(btn.dataset.deleteUser));
+    });
+
+    // Still placeholder actions
+    root.querySelectorAll("[data-action='import-nfc'], [data-action='add-notification'], [data-action='add-automation']").forEach(btn => {
       btn.addEventListener("click", () => {
         const action = btn.dataset.action;
         switch(action) {
-          case "add-zone":
-            alert("Add Zone functionality coming in Phase 3.\n\nThis will open a dialog to create new zones with:\n- Zone name\n- Zone type (Entry/Exit, Interior, etc.)\n- Sensor assignment");
-            break;
-          case "add-user":
-            alert("Add User functionality coming in Phase 3.\n\nThis will open a dialog to create new users with:\n- User name\n- Access code\n- Permissions");
-            break;
           case "import-nfc":
-            alert("Import NFC tags functionality coming in Phase 3.\n\nThis will scan Home Assistant for NFC tag entities and allow you to assign them to users.");
+            alert("Import NFC tags - coming soon.");
             break;
           case "add-notification":
-            alert("Add Notification functionality coming in Phase 3.\n\nThis will create custom notification templates for alarm events.");
+            alert("Add Notification - coming soon.");
             break;
           case "add-automation":
-            alert("Add Automation functionality coming in Phase 3.\n\nThis will create custom automation scripts for alarm actions.");
+            alert("Add Automation - coming soon.");
             break;
-          default:
-            console.warn("Unknown action:", action);
         }
       });
     });
     // === Dialog Event Listeners ===
     
     // Open camera config dialog
-    root.querySelectorAll("[data-action='open-camera-config']").forEach(btn => {
+    const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
+    console.log('Ã°Å¸â€œÂ· DEBUG: Found', cameraConfigButtons.length, 'camera config buttons');
+    cameraConfigButtons.forEach(btn => {
+      console.log('Ã°Å¸â€œÂ· DEBUG: Attaching listener to camera button');
       btn.addEventListener("click", () => this._openCameraConfig());
     });
     
@@ -1857,7 +3687,140 @@ class SecureMePanel extends HTMLElement {
     });
 
     
-    // Segment control
+    // === Lock Module Handlers ===
+    root.querySelectorAll("[data-action='open-lock-config']").forEach(b => b.addEventListener("click", () => this._openLockConfig()));
+    root.querySelectorAll("[data-action='add-lock']").forEach(b => b.addEventListener("click", () => this._addLockRow()));
+    root.querySelectorAll("[data-action='save-lock-config']").forEach(b => b.addEventListener("click", () => this._saveLockConfig()));
+    root.querySelectorAll("[data-action='remove-lock']").forEach(b => b.addEventListener("click", () => this._removeLockRow(parseInt(b.dataset.lockId))));
+
+    // Lock entity select
+    root.querySelectorAll("select[data-lock-id][data-field='entity_id']").forEach(sel => {
+      sel.addEventListener("change", () => this._updateLockField(parseInt(sel.dataset.lockId), 'entity_id', sel.value));
+    });
+    // Lock number inputs
+    root.querySelectorAll("input[type='number'][data-lock-id]").forEach(inp => {
+      inp.addEventListener("change", () => this._updateLockField(parseInt(inp.dataset.lockId), inp.dataset.field, inp.value));
+    });
+    // Lock checkboxes
+    root.querySelectorAll("input[type='checkbox'][data-lock-id]").forEach(cb => {
+      cb.addEventListener("change", () => this._updateLockField(parseInt(cb.dataset.lockId), cb.dataset.field, cb.checked));
+    });
+    // Lock search: filter select options live
+    root.querySelectorAll("input[data-lock-search]").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const lockId = inp.dataset.lockSearch;
+        const search = inp.value.toLowerCase();
+        const allEntities = this._allEntities || [];
+        const domainEntities = this._availableEntities.lock || [];
+        const sel = root.querySelector(`select[data-lock-id='${lockId}'][data-field='entity_id']`);
+        if (!sel) return;
+        const filtered = search.length > 1
+          ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
+          : domainEntities;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- Select entity --</option>' +
+          filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
+          (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
+      });
+    });
+
+    // === Climate Module Handlers ===
+    root.querySelectorAll("[data-action='open-climate-config']").forEach(b => b.addEventListener("click", () => this._openClimateConfig()));
+    root.querySelectorAll("[data-action='add-climate']").forEach(b => b.addEventListener("click", () => this._addClimateRow()));
+    root.querySelectorAll("[data-action='save-climate-config']").forEach(b => b.addEventListener("click", () => this._saveClimateConfig()));
+    root.querySelectorAll("[data-action='remove-climate']").forEach(b => b.addEventListener("click", () => this._removeClimateRow(parseInt(b.dataset.climateId))));
+
+    // Climate selects (entity + mode dropdowns)
+    root.querySelectorAll("select[data-climate-id]").forEach(sel => {
+      sel.addEventListener("change", () => this._updateClimateField(parseInt(sel.dataset.climateId), sel.dataset.field, sel.value));
+    });
+    // Climate number inputs
+    root.querySelectorAll("input[type='number'][data-climate-id]").forEach(inp => {
+      inp.addEventListener("change", () => this._updateClimateField(parseInt(inp.dataset.climateId), inp.dataset.field, inp.value));
+    });
+    // Climate search: filter select options live
+    root.querySelectorAll("input[data-climate-search]").forEach(inp => {
+      inp.addEventListener("input", () => {
+        const climateId = inp.dataset.climateSearch;
+        const search = inp.value.toLowerCase();
+        const allEntities = this._allEntities || [];
+        const domainEntities = this._availableEntities.climate || [];
+        const sel = root.querySelector(`select[data-climate-id='${climateId}'][data-field='entity_id']`);
+        if (!sel) return;
+        const filtered = search.length > 1
+          ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
+          : domainEntities;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- Select entity --</option>' +
+          filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
+          (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
+      });
+    });
+
+    // === Siren Module Handlers ===
+    root.querySelectorAll("[data-action='open-siren-config']").forEach(b => b.addEventListener("click", () => this._openSirenConfig()));
+    root.querySelectorAll("[data-action='add-siren']").forEach(b => b.addEventListener("click", () => this._addSirenRow()));
+    root.querySelectorAll("[data-action='save-siren-config']").forEach(b => b.addEventListener("click", () => this._saveSirenConfig()));
+    root.querySelectorAll("[data-action='remove-siren']").forEach(b => b.addEventListener("click", () => this._removeSirenRow(parseInt(b.dataset.sirenId))));
+    root.querySelectorAll("select[data-siren-id], input[data-siren-id]").forEach(inp => {
+      inp.addEventListener("change", () => this._updateSirenField(parseInt(inp.dataset.sirenId), inp.dataset.field, inp.value));
+    });
+
+    // === Lights Module Handlers ===
+    root.querySelectorAll("[data-action='open-lights-config']").forEach(b => b.addEventListener("click", () => this._openLightsConfig()));
+    root.querySelectorAll("[data-action='save-lights-config']").forEach(b => b.addEventListener("click", () => this._saveLightsConfig()));
+    root.querySelectorAll("[data-action='remove-light']").forEach(b => b.addEventListener("click", () => this._removeLightEntity(b.dataset.entity)));
+
+    // Lights: add from select
+    const lightsAddSelect = root.querySelector("#lights-add-select");
+    if (lightsAddSelect) {
+      lightsAddSelect.addEventListener("change", () => {
+        if (lightsAddSelect.value) { this._addLightEntity(lightsAddSelect.value); lightsAddSelect.value = ''; }
+      });
+    }
+    // Lights: search filters select
+    const lightsSearchInput = root.querySelector("#lights-search-input");
+    if (lightsSearchInput) {
+      lightsSearchInput.addEventListener("input", () => {
+        const search = lightsSearchInput.value.toLowerCase();
+        const allEntities = this._allEntities || [];
+        const domainEntities = this._availableEntities.light || [];
+        const selected = this._tempConfig?.entities || [];
+        const filtered = search.length > 1
+          ? allEntities.filter(e => !selected.includes(e.entity_id) && (e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search))).slice(0, 25)
+          : domainEntities.filter(e => !selected.includes(e.entity_id));
+        if (lightsAddSelect) {
+          lightsAddSelect.innerHTML = '<option value="">-- Select light to add --</option>' +
+            filtered.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('');
+        }
+      });
+    }
+    // Lights field selects and checkboxes
+    root.querySelectorAll("select[data-lights-field]").forEach(sel => {
+      sel.addEventListener("change", () => this._updateLightsField(sel.dataset.lightsField, sel.value));
+    });
+    root.querySelectorAll("input[type='number'][data-lights-field]").forEach(inp => {
+      inp.addEventListener("change", () => this._updateLightsField(inp.dataset.lightsField, inp.value));
+    });
+    root.querySelectorAll("input[type='checkbox'][data-lights-field]").forEach(cb => {
+      cb.addEventListener("change", () => { this._updateLightsField(cb.dataset.lightsField, cb.checked); this._render(); });
+    });
+
+    // === TTS Module Handlers ===
+    root.querySelectorAll("[data-action='open-tts-config']").forEach(b => b.addEventListener("click", () => this._openTTSConfig()));
+    root.querySelectorAll("[data-action='save-tts-config']").forEach(b => b.addEventListener("click", () => this._saveTTSConfig()));
+    root.querySelectorAll("[data-action='remove-tts']").forEach(b => b.addEventListener("click", () => this._removeTTSEntity(b.dataset.entity)));
+    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
+      sel.addEventListener("change", () => { if (sel.value) this._addLightEntity(sel.value); });
+    });
+    root.querySelectorAll("select[data-tts-field], input[data-tts-field]").forEach(inp => {
+      inp.addEventListener("change", () => this._updateTTSField(inp.dataset.ttsField, inp.value));
+    });
+    root.querySelectorAll("input[type='range'][data-tts-field]").forEach(inp => {
+      inp.addEventListener("input", () => { this._updateTTSField(inp.dataset.ttsField, inp.value); this._render(); });
+    });
+
+            // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {
       btn.addEventListener("click", () => this._setAutoSection(btn.dataset.autoSection));
     });

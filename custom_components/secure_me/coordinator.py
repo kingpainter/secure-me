@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "0.2.0"
+# VERSION = "0.3.0"
 
 import logging
 from datetime import timedelta
@@ -34,6 +34,12 @@ from .const import (
     MODULE_CLIMATE,
     MODULE_SIREN,
     MODULE_TTS,
+    EVENT_ALARM_ARMED,
+    EVENT_ALARM_DISARMED,
+    EVENT_ALARM_TRIGGERED,
+    EVENT_MODULE_ENABLED,
+    EVENT_MODULE_DISABLED,
+    EVENT_MODULE_ERROR,
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -114,16 +120,28 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Request refresh to update entities
         await self.async_request_refresh()
         
-        # Handle state-specific actions
+        # Fire events for state changes
         if new_state == STATE_ALARM_DISARMED:
             # Clear zone triggers when disarmed
             self.zone_manager.clear_all_triggers()
+            self.hass.bus.async_fire(EVENT_ALARM_DISARMED, {
+                "disarmed_by": self._disarmed_by,
+            })
         
         elif new_state in [STATE_ALARM_ARMED_AWAY, STATE_ALARM_ARMED_HOME, 
                            STATE_ALARM_ARMED_NIGHT, STATE_ALARM_ARMED_VACATION]:
             # Start monitoring zones when armed
             if not self.zone_manager._unsubscribe_callbacks:
                 self.zone_manager.start_monitoring()
+            self.hass.bus.async_fire(EVENT_ALARM_ARMED, {
+                "mode": new_state,
+                "armed_by": self._armed_by,
+            })
+        
+        elif new_state == STATE_ALARM_TRIGGERED:
+            self.hass.bus.async_fire(EVENT_ALARM_TRIGGERED, {
+                "triggered_by": self._triggered_by,
+            })
 
     async def _countdown_updated(self, countdown: int) -> None:
         """Handle countdown update."""
@@ -395,6 +413,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     await module.async_arm_away()
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_away: %s", module_id, err)
+                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
+                        "module": module_id, "action": "arm_away", "error": str(err),
+                    })
 
     async def _execute_modules_arm_home(self) -> None:
         """Execute all modules on arm home."""
@@ -406,6 +427,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     await module.async_arm_home()
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_home: %s", module_id, err)
+                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
+                        "module": module_id, "action": "arm_home", "error": str(err),
+                    })
 
     async def _execute_modules_arm_night(self) -> None:
         """Execute all modules on arm night."""
@@ -417,6 +441,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     await module.async_arm_night()
                 except Exception as err:
                     _LOGGER.error("Module %s failed on arm_night: %s", module_id, err)
+                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
+                        "module": module_id, "action": "arm_night", "error": str(err),
+                    })
 
     async def _execute_modules_disarm(self) -> None:
         """Execute all modules on disarm."""
@@ -428,6 +455,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     await module.async_disarm()
                 except Exception as err:
                     _LOGGER.error("Module %s failed on disarm: %s", module_id, err)
+                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
+                        "module": module_id, "action": "disarm", "error": str(err),
+                    })
 
     async def _execute_modules_trigger(self) -> None:
         """Execute all modules on trigger."""
@@ -439,6 +469,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     await module.async_trigger()
                 except Exception as err:
                     _LOGGER.error("Module %s failed on trigger: %s", module_id, err)
+                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {
+                        "module": module_id, "action": "trigger", "error": str(err),
+                    })
 
     def enable_module(self, module_id: str) -> bool:
         """Enable a module."""
@@ -448,6 +481,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         
         self.modules[module_id].enable()
         _LOGGER.info("Module %s enabled", module_id)
+        self.hass.bus.async_fire(EVENT_MODULE_ENABLED, {"module": module_id})
         return True
 
     def disable_module(self, module_id: str) -> bool:
@@ -458,7 +492,94 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         
         self.modules[module_id].disable()
         _LOGGER.info("Module %s disabled", module_id)
+        self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
         return True
+
+    # ─── Health Methods ───
+
+    def get_health_score(self) -> int:
+        """Calculate system health score (0-100).
+
+        Based on entity availability across all enabled modules.
+        Returns 100 if no entities are configured.
+        """
+        total = 0
+        available = 0
+
+        for module in self.modules.values():
+            if not module.enabled:
+                continue
+            entities = self._get_module_entity_ids(module)
+            for eid in entities:
+                total += 1
+                state = self.hass.states.get(eid)
+                if state and state.state not in ("unavailable", "unknown"):
+                    available += 1
+
+        if total == 0:
+            return 100
+        return round((available / total) * 100)
+
+    def get_module_health(self) -> dict[str, dict]:
+        """Get health status for each module.
+
+        Returns dict mapping module_id to health info:
+            enabled, status ('ok'/'problem'/'disabled'),
+            total entities, available count, unavailable list.
+        """
+        result = {}
+        for mod_id, module in self.modules.items():
+            if not module.enabled:
+                result[mod_id] = {
+                    "enabled": False,
+                    "status": "disabled",
+                    "total": 0,
+                    "available": 0,
+                    "unavailable": [],
+                }
+                continue
+
+            entities = self._get_module_entity_ids(module)
+            unavail = []
+            for eid in entities:
+                state = self.hass.states.get(eid)
+                if not state or state.state in ("unavailable", "unknown"):
+                    unavail.append(eid)
+
+            result[mod_id] = {
+                "enabled": True,
+                "status": "problem" if unavail else "ok",
+                "total": len(entities),
+                "available": len(entities) - len(unavail),
+                "unavailable": unavail,
+            }
+        return result
+
+    def get_enabled_module_count(self) -> int:
+        """Return count of enabled modules."""
+        return sum(1 for m in self.modules.values() if m.enabled)
+
+    @staticmethod
+    def _get_module_entity_ids(module) -> list[str]:
+        """Extract all entity IDs from a module's configuration."""
+        entities: list[str] = []
+        # List attributes
+        for attr in ("poe_switches", "cameras", "recording_entities",
+                     "locks", "lights", "climates", "media_players"):
+            val = getattr(module, attr, None)
+            if isinstance(val, list):
+                entities.extend(val)
+        # Dict attributes (maps lock -> sensor, etc.)
+        for attr in ("door_sensors", "battery_sensors"):
+            val = getattr(module, attr, None)
+            if isinstance(val, dict):
+                entities.extend(val.values())
+        # Single entity attributes
+        for attr in ("gateway_light",):
+            val = getattr(module, attr, None)
+            if isinstance(val, str) and "." in val:
+                entities.append(val)
+        return entities
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator."""

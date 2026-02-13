@@ -10,5 +10,6 @@
   "issue_tracker": "https://github.com/kingpainter/secure-me/issues",
   "requirements": [],
   "logo": "logo.png",
-  "version": "0.2.0"
+  "icon": "mdi:shield-home",
+  "version": "0.3.0"
 }

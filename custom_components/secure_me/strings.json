@@ -30,5 +30,72 @@
         }
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "system_health": {
+        "name": "System Health",
+        "state": {
+          "on": "Problem detected",
+          "off": "Healthy"
+        }
+      },
+      "camera_module": {
+        "name": "Camera Module"
+      },
+      "lock_module": {
+        "name": "Lock Module"
+      },
+      "lights_module": {
+        "name": "Lights Module"
+      },
+      "climate_module": {
+        "name": "Climate Module"
+      },
+      "siren_module": {
+        "name": "Siren Module"
+      },
+      "tts_module": {
+        "name": "TTS Module"
+      },
+      "battery_alert": {
+        "name": "Battery Alert",
+        "state": {
+          "on": "Critical battery",
+          "off": "Batteries OK"
+        }
+      }
+    },
+    "sensor": {
+      "health_score": {
+        "name": "Health Score"
+      },
+      "alarm_status": {
+        "name": "Alarm Status"
+      },
+      "active_modules": {
+        "name": "Active Modules"
+      },
+      "open_sensors": {
+        "name": "Open Sensors"
+      },
+      "last_armed_by": {
+        "name": "Last Armed By"
+      },
+      "last_triggered_by": {
+        "name": "Last Triggered By"
+      },
+      "lowest_battery": {
+        "name": "Lowest Battery"
+      },
+      "low_battery_count": {
+        "name": "Low Battery Count"
+      }
+    },
+    "alarm_control_panel": {
+      "alarm": {
+        "name": "Alarm"
+      }
+    }
   }
 }

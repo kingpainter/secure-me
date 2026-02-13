@@ -1,5 +1,5 @@
 """TTS module for Secure Me alarm system."""
-# VERSION = "0.2.0"
+# VERSION = "0.3.0"
 
 import asyncio
 import logging

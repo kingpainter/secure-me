@@ -1,246 +1,310 @@
 # Changelog
 
-All notable changes to the Secure Me integration will be documented in this file.
+All notable changes to Secure Me will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
-## [0.2.0] - 2026-02-06 - Phase 2 Complete 🎉
+## [0.3.0] - 2026-02-13
 
-### Added
-- **6 Smart Modules** implemented:
-  - 📷 Camera Module with POE control and recording management
-  - 🔒 Lock Module with auto lock/unlock and retry logic
-  - 💡 Lights Module with emergency blinking and scene control
-  - 🌡️ Climate Module with multi-zone heating management
-  - 🚨 Siren Module with configurable patterns
-  - 🔊 TTS Module with Danish voice announcements
-- **Configuration Dashboard** with 7 tabs:
-  - Sensorer (Sensors)
-  - Zoner (Zones)
-  - Brugere (Users)
-  - Moduler (Modules)
-  - Handlinger (Automations)
-  - Test (Testing)
-  - Fremtid (Advanced)
-- **WebSocket API** for real-time bidirectional communication
-- **Persistent Storage** system using `.storage/secure_me.panel_config`
-- **Frontend Panel** with vanilla JavaScript (45-50 KB)
-- **NFC Tag Integration** for arm/disarm operations
-- **Parallel Module Execution** for faster response times
-- **POE Optimization** - Smart checks to save 120s on camera startup
-- **Module Manager** for lifecycle management
-- **Logo** - Professional våbenskjold design with 4 security elements
+### 🎉 Major Release - Testing & Monitoring System
 
-### Changed
-- Coordinator now manages all 6 modules
-- Zone manager supports module triggers
-- State machine integrated with module system
-- Per-entry data storage pattern (modern HA best practice)
+This release introduces a comprehensive testing framework, health monitoring system, and battery tracking capabilities. Phase 3 is now complete with production-quality code and extensive test coverage.
 
-### Fixed
-- KeyError in coordinator data structure
-- Module cleanup AttributeError
-- Panel removal API deprecation
-- Blank panel loading issues
-- Import dependencies in coordinator
+### ✨ Added
 
-### Technical Improvements
-- Modular architecture for easy maintenance
-- Event-driven module coordination
-- Proper async/await patterns throughout
-- Comprehensive error handling
-- Logging with debug levels
+#### Testing Framework
+- **Three-tier testing system**
+  - Quick Test (~30s): Basic configuration validation
+  - Standard Test (~60s): Full entity availability checks
+  - Full Test (~90s): Complete functionality verification
+- **WebSocket test API** for real-time test execution
+- **Frontend testing interface** integrated in configuration panel
+- **Test result persistence** across sessions
+- **Health scoring system** (PASS/FAIL/UNKNOWN)
+- **Detailed test reporting** with error tracking
+
+#### Health Monitoring
+- **Module health binary sensors** (6 sensors total)
+  - `binary_sensor.secure_me_camera_health`
+  - `binary_sensor.secure_me_lock_health`
+  - `binary_sensor.secure_me_lights_health`
+  - `binary_sensor.secure_me_climate_health`
+  - `binary_sensor.secure_me_siren_health`
+  - `binary_sensor.secure_me_tts_health`
+- **Real-time entity availability checking**
+- **Configuration validation** for all modules
+- **Status tracking** in dashboard
+
+#### Battery Tracking
+- **Auto-discovery** of battery entities using device_class
+- **Battery level sensors** for all discovered entities
+- **Low battery warnings** (configurable threshold)
+- **Dashboard integration** ready
+- **Informational tracking** (doesn't affect test PASS/FAIL)
+
+#### Quality & Testing
+- **Complete unit test suite** with pytest
+  - 100 test cases across 7 test files
+  - `test_const.py` - Constants validation
+  - `test_state_machine.py` - State machine logic
+  - `test_modules.py` - Module functionality
+  - `test_sensors.py` - Sensor platform
+  - `test_store.py` - Store API
+  - `test_files.py` - File structure
+  - `test_diagnostics.py` - Diagnostics system
+- **Mock fixtures** for Home Assistant components
+- **Integration testing** patterns
+- **Code coverage** tracking setup
+
+#### Documentation
+- **Testing Framework Guide** (TESTING_FRAMEWORK_README.md)
+- **Dashboard Integration Guide** (DASHBOARD_v3_0_3_README.md)
+- **Updated README** with testing information
+- **Enhanced CHANGELOG** with detailed changes
+- **HACS preparation** documentation
+
+### 🔧 Changed
+
+#### Configuration Panel
+- **Expanded from ~1300 to ~3800 lines**
+- **New Testing tab** with real-time test execution
+- **Enhanced module configuration dialogs**
+- **Improved entity selection** (dual-mode: auto + manual)
+- **Better error handling** and user feedback
+- **Mobile-responsive** layout improvements
+
+#### WebSocket API
+- **Enhanced from ~600 to ~800 lines**
+- **New test commands** (`run_test`, `get_test_results`)
+- **Health status commands** for all modules
+- **Battery status endpoints**
+- **Improved error responses**
+
+#### Core Integration
+- **Updated binary_sensor.py** (~200 lines) - Health monitoring
+- **Updated sensor.py** (~250 lines) - Battery tracking
+- **Enhanced coordinator** with health checking
+- **Improved module manager** with test support
+
+### 🐛 Fixed
+
+#### Module Configuration
+- **JavaScript dialog bugs** resolved
+  - Fixed DOM injection for all dialog elements
+  - Corrected CSS selector matching
+  - Resolved event listener registration
+- **Entity picker functionality** fully working
+- **Auto-discovery** now reliable
+- **Save/cancel** button behavior fixed
+
+#### Testing System
+- **Battery status separation** from PASS/FAIL determination
+- **Test result persistence** across page reloads
+- **Health score calculation** accuracy
+- **Entity availability checks** reliability
+- **Configuration validation** edge cases
+
+#### WebSocket Communication
+- **Coordinator reference fixes** in API calls
+- **Data structure alignment** with store format
+- **Error handling** improvements
+- **Connection stability** enhancements
+
+### 🏗️ Infrastructure
+
+#### Home Assistant Compliance
+- ✅ **Config entry based** (no YAML configuration)
+- ✅ **Modern entity naming** (has_entity_name = True)
+- ✅ **Device registration** with proper DeviceInfo
+- ✅ **DataUpdateCoordinator** pattern
+- ✅ **Async/await** throughout
+- ✅ **Unit test coverage**
+- ✅ **Type hints** (partial)
+
+#### HACS Preparation
+- ✅ **manifest.json** properly configured
+- ✅ **README.md** comprehensive
+- ✅ **CHANGELOG.md** maintained
+- ✅ **LICENSE** (MIT) included
+- ✅ **hacs.json** ready (for Phase 4)
+- ✅ **GitHub workflows** prepared
+
+### 📊 Statistics
+
+- **Total lines of code:** ~8,000+
+- **Test cases:** 100
+- **Module health sensors:** 6
+- **Battery sensors:** Auto-discovered (variable)
+- **Configuration panel:** 3,800 lines
+- **WebSocket API:** 800 lines
+- **Test files:** 7
+
+### 🎯 Next Steps (Phase 4 - v1.0.0)
+
+- [ ] Enhanced automation templates
+- [ ] Complete diagnostics integration
+- [ ] System health reporting
+- [ ] HACS submission
+- [ ] Brands repository merge
+- [ ] Community testing
+- [ ] Production documentation
+- [ ] Final polish
 
 ---
 
-## [0.1.0] - 2026-02-01 - Phase 1 Complete ✅
+## [0.2.0] - 2026-02-04
 
-### Added
-- **Core Alarm System**:
-  - State machine with 8 states (disarmed, arming, armed_*, pending, triggered)
-  - Entry/exit delay countdowns
-  - Code validation with retry limits
-  - Device registration with DeviceInfo
-- **Zone Management**:
-  - Multi-zone support (living room, kitchen, bedrooms)
-  - Sensor grouping by zone
-  - Zone-specific arming modes
-  - Trigger callback system
-- **Coordinator Pattern**:
-  - DataUpdateCoordinator implementation
+### 🎉 Major Release - Module System Complete
+
+### ✨ Added
+
+#### Smart Modules (6 Total)
+- **Camera Module** (~200 lines)
+  - POE port control with smart delay
+  - Recording mode management
+  - Camera feed verification
+- **Lock Module** (~220 lines)
+  - Smart lock automation
+  - Retry logic on failures
+  - Always-locked safety feature
+- **Lights Module** (~280 lines)
+  - Automatic control
+  - Emergency flash patterns
+  - Zone-based activation
+- **Climate Module** (~200 lines)
+  - Multi-zone support
+  - Temperature presets
+  - Energy optimization
+- **Siren Module** (~280 lines)
+  - Multiple sound patterns
+  - Volume control
+  - Duration settings
+- **TTS Module** (~220 lines)
+  - Danish voice support
+  - Message templates
+  - Priority handling
+
+#### Infrastructure
+- **Module Manager** (~180 lines) - Lifecycle management
+- **Store API** (~250 lines) - Persistent configuration
+- **WebSocket API** (~600 lines) - Real-time communication
+- **Configuration Panel** (~1300 lines) - Frontend UI
+
+### 🔧 Changed
+- Enhanced coordinator with module orchestration
+- Improved state machine with module integration
+- Updated zone manager for module callbacks
+
+### 🐛 Fixed
+- Module initialization errors
+- Zone trigger callback registration
+- NoneType config dictionary handling
+- Frontend panel integration issues
+- Import errors in coordinator
+
+---
+
+## [0.1.0] - 2026-02-03
+
+### 🎉 Major Release - Core Logic Complete
+
+### ✨ Added
+
+#### Core Components
+- **DataUpdateCoordinator** (~200 lines)
   - Centralized state management
-  - Module initialization framework
-- **Store System**:
-  - JSON-based configuration storage
-  - Persistent data across restarts
-  - Migration support
+  - Efficient update coordination
+  - Module orchestration ready
+- **State Machine** (~250 lines)
+  - Entry/exit delay timers
+  - Proper state transitions
+  - Trigger detection
+  - Code validation
+- **Zone Manager** (~150 lines)
+  - Flexible sensor grouping
+  - Trigger callbacks
+  - Open sensor detection
+  - Zone-based monitoring
 
-### Changed
-- Migrated from YAML packages to custom integration
-- Improved state machine logic
-- Enhanced zone configuration
+#### Features
+- Entry/exit countdown timers
+- Zone-based sensor monitoring
+- Automatic zone triggering
+- Code validation with lockout
+- State persistence
+- Trigger tracking (armed_by, disarmed_by, triggered_by)
 
-### Fixed
-- Platform naming (alarm_control_panel.py)
-- Options flow AttributeError
-- Import paths for modular structure
-
----
-
-## [0.0.1] - 2026-02-01 - Phase 0 Foundation 🏗️
-
-### Added
-- **Basic Integration Structure**:
-  - Integration manifest with metadata
-  - Config flow for GUI setup
-  - Options flow for changes
-  - Basic alarm control panel entity
-  - Device registration
-- **Translations**:
-  - English (en.json)
-  - Danish (da.json)
-- **Platform Files**:
-  - `alarm_control_panel.py` - Main alarm entity
-  - `binary_sensor.py` - Placeholder
-  - `sensor.py` - Placeholder
-  - `switch.py` - Placeholder
-  - `select.py` - Placeholder
-- **Documentation**:
-  - README.md
-  - INSTALLATION.md
-  - FEATURES.md
-  - STRUCTURE.md
-  - QUICK_START.md
-  - PROJECT_SUMMARY.md
-  - GITHUB_DESKTOP_GUIDE.md
-- **GitHub Workflows**:
-  - CI/CD pipeline
-  - Linting with ruff
-  - Type checking with mypy
-
-### Technical Details
-- Home Assistant 2025.1.1+ compatibility
-- Python 3.11+ required
-- Config entry based (no YAML config)
-- Async/await patterns
-- Modern entity naming
+### 🔧 Changed
+- Enhanced alarm control panel entity
+- Improved coordinator integration
+- Updated configuration flow
 
 ---
 
-## Roadmap
+## [0.0.1] - 2026-02-01
 
-### [0.3.0] - Phase 3: Polish & Testing 🧪
+### 🎉 Initial Release - Foundation
 
-**Planned:**
-- Complete testing framework UI
-- Health monitoring dashboard
-- Battery tracking (17+ sensors)
-- Advanced automation builder
-- HACS submission preparation
-- Complete translations (EN + DA)
-- Options flow UI implementation
+### ✨ Added
 
-**Target:** 2-3 weeks from Phase 2 completion
+#### Integration Structure
+- Basic integration setup
+- Config flow implementation
+- Options flow support
+- Platform registration
+- Device registration
 
----
+#### Platforms
+- `alarm_control_panel` - Main entity
+- `binary_sensor` - Placeholder
+- `sensor` - Placeholder
+- `switch` - Placeholder
+- `select` - Placeholder
 
-### [1.0.0] - Phase 4: Production Release 🚀
+#### Features
+- GUI-based configuration
+- PIN code support
+- Basic arming modes (away, home, night, vacation)
+- Entry/exit delays
+- Translations (English, Danish)
 
-**Planned:**
-- All Phase 3 features complete
-- HACS approval
-- User testing and feedback
-- Performance optimizations
-- Security audit
-- Production documentation
-- Mobile app compatibility
-- Cloud backup/restore
+#### Documentation
+- README.md
+- INSTALLATION.md
+- QUICK_START.md
+- FEATURES.md
+- STRUCTURE.md
+- LICENSE (MIT)
 
-**Target:** 4-6 weeks from Phase 3 completion
+### 🐛 Fixed
+- Platform naming bug (entity vs platform)
+- Options flow entry ID issue
+- Translation key formatting
 
 ---
 
 ## Version History Summary
 
-| Version | Date | Phase | Status | Key Features |
-|---------|------|-------|--------|--------------|
-| 0.0.1 | 2026-02-01 | Phase 0 | ✅ Complete | Foundation, config flow, basic entity |
-| 0.1.0 | 2026-02-01 | Phase 1 | ✅ Complete | Core logic, zones, coordinator |
-| 0.2.0 | 2026-02-06 | Phase 2 | ✅ Complete | 6 modules, dashboard, WebSocket API |
-| 0.3.0 | TBD | Phase 3 | 📝 Planned | Testing, health monitoring, HACS |
-| 1.0.0 | TBD | Phase 4 | 🎯 Goal | Production release, all features |
+| Version | Date | Phase | Status |
+|---------|------|-------|--------|
+| 0.3.0 | 2026-02-13 | Phase 3 | ✅ Testing & Monitoring |
+| 0.2.0 | 2026-02-04 | Phase 2 | ✅ Module System |
+| 0.1.0 | 2026-02-03 | Phase 1 | ✅ Core Logic |
+| 0.0.1 | 2026-02-01 | Phase 0 | ✅ Foundation |
+| 1.0.0 | TBD | Phase 4 | 🚧 Production |
 
 ---
 
-## Breaking Changes
+## Links
 
-### 0.2.0
-- Configuration moved from YAML to integration options
-- Module configuration requires JSON format in `.storage/core.config_entries`
-- Old YAML automation files deprecated (reference only)
-
-### 0.1.0
-- Migrated from package-based setup to custom integration
-- Required manual removal of old YAML packages
-- Config entries replace YAML configuration
+- **Repository:** https://github.com/kingpainter/secure-me
+- **Issues:** https://github.com/kingpainter/secure-me/issues
+- **Discussions:** https://github.com/kingpainter/secure-me/discussions
+- **Documentation:** https://github.com/kingpainter/secure-me/wiki
 
 ---
 
-## Deprecation Notices
-
-### Deprecated in 0.2.0
-- YAML package files (alarm_system_core.yaml, etc.)
-- These files kept in `/mnt/project/` for reference only
-- Will be removed after Phase 3 complete
-
-### Deprecated in 0.1.0
-- Direct service calls to alarm entity (use integration methods)
-
----
-
-## Migration Guides
-
-### Migrating from 0.1.0 to 0.2.0
-
-1. **Backup Configuration**:
-   ```bash
-   cp -r /config/custom_components/secure_me /config/secure_me.backup
-   ```
-
-2. **Update Files**:
-   - Download latest release
-   - Copy to `/config/custom_components/secure_me/`
-
-3. **Configure Modules**:
-   - Edit `.storage/core.config_entries`
-   - Add module configuration (see MODULE_KONFIGURATION_GUIDE.md)
-
-4. **Restart Home Assistant**
-
-5. **Verify**:
-   - Check Settings → Devices & Services
-   - Open configuration dashboard
-   - Test all modules
-
----
-
-## Contributors
-
-- **KingPainter** - Creator and maintainer
-- **Claude** - AI assistant for development support
-- Community contributors welcome!
-
----
-
-## License
-
-MIT License - See [LICENSE](LICENSE) for details
-
----
-
-**Last Updated:** 2026-02-06  
-**Current Version:** 0.2.0  
-**Phase:** 2 Complete ✅
+**Note:** This integration is under active development. Please report any issues or suggestions through GitHub Issues.

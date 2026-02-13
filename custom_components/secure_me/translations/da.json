@@ -30,5 +30,72 @@
         }
       }
     }
+  },
+  "entity": {
+    "binary_sensor": {
+      "system_health": {
+        "name": "System Sundhed",
+        "state": {
+          "on": "Problem fundet",
+          "off": "Sund"
+        }
+      },
+      "camera_module": {
+        "name": "Kamera Modul"
+      },
+      "lock_module": {
+        "name": "Lås Modul"
+      },
+      "lights_module": {
+        "name": "Lys Modul"
+      },
+      "climate_module": {
+        "name": "Klima Modul"
+      },
+      "siren_module": {
+        "name": "Sirene Modul"
+      },
+      "tts_module": {
+        "name": "TTS Modul"
+      },
+      "battery_alert": {
+        "name": "Batteri Advarsel",
+        "state": {
+          "on": "Kritisk batteri",
+          "off": "Batterier OK"
+        }
+      }
+    },
+    "sensor": {
+      "health_score": {
+        "name": "Sundhedsscore"
+      },
+      "alarm_status": {
+        "name": "Alarm Status"
+      },
+      "active_modules": {
+        "name": "Aktive Moduler"
+      },
+      "open_sensors": {
+        "name": "Åbne Sensorer"
+      },
+      "last_armed_by": {
+        "name": "Sidst Tilkoblet Af"
+      },
+      "last_triggered_by": {
+        "name": "Sidst Udløst Af"
+      },
+      "lowest_battery": {
+        "name": "Laveste Batteri"
+      },
+      "low_battery_count": {
+        "name": "Antal Lave Batterier"
+      }
+    },
+    "alarm_control_panel": {
+      "alarm": {
+        "name": "Alarm"
+      }
+    }
   }
 }

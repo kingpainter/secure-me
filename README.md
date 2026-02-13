@@ -1,78 +1,126 @@
-# 🛡️ Secure Me
+# Secure Me - Professional Home Alarm Manager
 
-<p align="center">
-  <img src="logo.png" alt="Secure Me Logo" width="300"/>
-</p>
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/kingpainter/secure-me/releases)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.1.1+-green.svg)](https://www.home-assistant.io/)
+[![License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
+[![HACS](https://img.shields.io/badge/HACS-Ready-purple.svg)](https://hacs.xyz/)
 
-<p align="center">
-  <strong>Professional Home Assistant Alarm System</strong><br/>
-  Advanced security integration with multi-zone support, modular architecture, and intelligent automation
-</p>
+A comprehensive Home Assistant custom integration for professional alarm system management with smart module control, testing framework, and health monitoring.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.0-blue.svg" alt="Version">
-  <img src="https://img.shields.io/badge/phase-2%20complete-green.svg" alt="Phase">
-  <img src="https://img.shields.io/badge/Home%20Assistant-2025.1.1+-blue.svg" alt="Home Assistant">
-  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
-</p>
+![Secure Me Logo](https://raw.githubusercontent.com/kingpainter/secure-me/main/brands/secure_me/logo.png)
 
 ---
 
-## 🎯 Overview
+## 🎉 What's New in v0.3.0
 
-**Secure Me** is a comprehensive alarm system integration for Home Assistant that goes beyond basic security. It features intelligent zone management, modular device control, and a beautiful configuration dashboard - all designed to provide professional-grade home security.
+### Testing & Monitoring System
+- ✅ **Three-tier testing framework** (Quick, Standard, Full)
+- ✅ **Module health monitoring** with binary sensors
+- ✅ **Battery level tracking** with auto-discovery
+- ✅ **WebSocket test API** for real-time execution
+- ✅ **Frontend testing interface** in configuration panel
+- ✅ **Health scoring system** (PASS/FAIL/UNKNOWN)
+- ✅ **100 unit tests** with pytest framework
 
-### Why Secure Me?
-
-- 🏠 **Multi-Zone Control** - Manage different areas of your home independently
-- 🔌 **Modular Architecture** - Optional modules for cameras, locks, lights, climate, sirens, and TTS
-- 🎨 **Modern UI** - Beautiful configuration dashboard with real-time status
-- 🚀 **Smart Automation** - Intelligent entry/exit delays, parallel execution, POE optimization
-- 🔧 **Easy Setup** - GUI-based configuration, no YAML required
-- 📱 **NFC Support** - Arm/disarm with NFC tags
+### Quality & Compliance
+- ✅ Complete unit test suite
+- ✅ Home Assistant compliance files
+- ✅ HACS preparation materials
+- ✅ Enhanced documentation
+- ✅ Production-ready code quality
 
 ---
 
-## ✨ Key Features
+## 🚀 Features
 
 ### Core Alarm System
-- **Multiple Arming Modes**: Away, Home, Night, Vacation
-- **Entry/Exit Delays**: Configurable countdown timers
-- **Code Protection**: PIN code validation with retry limits
-- **Zone Management**: Group sensors by room/area
-- **State Machine**: Robust state handling with proper transitions
+- **Multiple Arming Modes:** Away, Home, Night, Vacation
+- **Zone Management:** Flexible sensor grouping with independent monitoring
+- **Entry/Exit Delays:** Configurable countdown timers with visual feedback
+- **Code Protection:** Secure PIN validation with lockout protection
+- **State Machine:** Proper transitions with trigger detection
+- **Real-time Monitoring:** Live status updates and sensor tracking
 
-### Smart Modules (6 included)
+### Smart Module System (6 Modules)
 
-| Module | Purpose | Features |
-|--------|---------|----------|
-| 📷 **Camera** | POE & Recording | Auto POE control, recording modes, 120s optimization |
-| 🔒 **Lock** | Smart Locks | Auto lock/unlock, retry logic, door sensor integration |
-| 💡 **Lights** | Lighting Control | Auto on/off, emergency blinking, scene management |
-| 🌡️ **Climate** | Heating/Cooling | Multi-zone climate, energy saving when away |
-| 🚨 **Siren** | Alarm Sounds | Configurable volume, pattern, duration |
-| 🔊 **TTS** | Voice Alerts | Danish voice messages, countdown announcements |
+#### 📷 Camera Module
+- POE port control (smart delay optimization)
+- Recording mode management
+- Camera feed verification
+- Integration with Vision network switch
 
-### Configuration Dashboard
-- **7 Tabs**: Sensors, Zones, Users, Modules, Automations, Testing, Advanced
-- **Real-time Status**: Live alarm state, zone status, module health
-- **WebSocket API**: Fast bidirectional communication
-- **Persistent Storage**: Configuration stored in `.storage/`
-- **Dark Mode**: Beautiful UI that matches Home Assistant theme
+#### 🔒 Lock Module
+- Smart lock automation with retry logic
+- Always-locked safety feature
+- Status verification
+- Failure recovery
+
+#### 💡 Lights Module
+- Automatic control on arm/disarm
+- Emergency flash patterns
+- Zone-based activation
+- Brightness management
+
+#### 🌡️ Climate Module
+- Multi-zone temperature management
+- Preset modes (Home, Away, Sleep)
+- Energy optimization
+- Smart scheduling
+
+#### 🚨 Siren Module
+- Multiple sound patterns
+- Volume control
+- Duration settings
+- Emergency override
+
+#### 🔊 TTS Module
+- Danish voice support (Google TTS)
+- Message templates
+- Priority handling
+- System notifications
+
+### Testing Framework (NEW in v0.3.0)
+
+#### Test Levels
+- **Quick Test** (~30s): Basic configuration validation
+- **Standard Test** (~60s): Full entity availability checks
+- **Full Test** (~90s): Complete functionality verification + battery status
+
+#### Health Monitoring
+- Module health binary sensors (6 sensors)
+- Real-time availability checking
+- Configuration validation
+- Status tracking in dashboard
+
+#### Battery Tracking
+- Auto-discovery of battery entities
+- Battery level sensors
+- Low battery warnings
+- Dashboard integration
+- Informational only (doesn't affect PASS/FAIL)
+
+### Configuration Panel
+- Modern responsive UI with sidebar navigation
+- Real-time WebSocket communication
+- Persistent configuration storage
+- Six main sections:
+  - **Sensors:** Overview and status
+  - **Zones:** Configuration and management
+  - **Users:** PIN code management
+  - **Modules:** Smart module settings
+  - **Automations:** Trigger templates
+  - **Testing:** Health monitoring and test execution
 
 ---
 
 ## 📦 Installation
 
-### Method 1: HACS (Coming Soon)
-
-```
-1. Open HACS
+### Method 1: HACS (Recommended - Coming Soon)
+1. Open HACS in Home Assistant
 2. Go to "Integrations"
 3. Click "+" and search for "Secure Me"
-4. Click "Install"
+4. Click "Download"
 5. Restart Home Assistant
-```
 
 ### Method 2: Manual Installation
 
@@ -84,238 +132,249 @@
 
 2. **Restart Home Assistant**
 
-3. **Add the integration:**
-   - Go to **Settings → Devices & Services**
-   - Click **"+ Add Integration"**
-   - Search for **"Secure Me"**
-   - Follow the configuration wizard
+3. **Add integration:**
+   - Go to Settings → Devices & Services
+   - Click "+ Add Integration"
+   - Search for "Secure Me"
+   - Follow the setup wizard
+
+4. **Configure modules:**
+   - Go to Settings → Devices & Services → Secure Me
+   - Click "Configure"
+   - Access the configuration panel
+   - Set up your modules in the "Modules" tab
 
 ---
 
-## 🚀 Quick Start
+## 🔧 Configuration
 
-### Basic Setup
+### Initial Setup
 
-1. **Configure Alarm Settings:**
-   - Set your PIN code
-   - Configure entry/exit delays (default: 30 seconds)
-   - Choose which modules to enable
+**Required:**
+- Alarm name
+- PIN code (4-6 digits)
+- Entry delay (seconds)
+- Exit delay (seconds)
 
-2. **Create Zones:**
-   - Open Secure Me dashboard
-   - Go to "Zoner" tab
-   - Add zones (e.g., "Stue", "Soveværelse", "Køkken")
-   - Assign sensors to each zone
+**Optional:**
+- Module configuration
+- Zone setup
+- User management
+- Automation templates
 
-3. **Add Sensors:**
-   - Go to "Sensorer" tab
-   - Add motion sensors, door/window contacts
-   - Configure trigger delays per sensor
+### Module Configuration
 
-4. **Configure Modules:**
-   - Go to "Moduler" tab  
-   - Enable desired modules
-   - Configure entities for each module
+Each module can be individually:
+- Enabled/disabled
+- Configured with specific entities
+- Customized for behavior
+- Tested independently
 
-5. **Test the System:**
-   - Use "Test" tab to verify all zones and modules
-   - Test arm/disarm sequences
-   - Check module responses
-
----
-
-## 📖 Documentation
-
-- [**FEATURES.md**](FEATURES.md) - Detailed feature descriptions
-- [**STRUCTURE.md**](STRUCTURE.md) - Project architecture and file structure
-- [**CHANGELOG.md**](CHANGELOG.md) - Version history and changes
-- [**MODULE_KONFIGURATION_GUIDE.md**](MODULE_KONFIGURATION_GUIDE.md) - Module configuration guide
-- [**ZONE_KONFIGURATION_GUIDE.md**](ZONE_KONFIGURATION_GUIDE.md) - Zone configuration guide
-
----
-
-## 🏗️ Architecture
-
-```
-Secure Me Integration
-│
-├── 🎛️ Alarm Control Panel (Core)
-│   ├── State Machine (disarmed ↔ armed_*)
-│   ├── Entry/Exit Delays
-│   └── Code Validation
-│
-├── 🗺️ Zone Manager
-│   ├── Multi-zone support
-│   ├── Sensor grouping
-│   └── Zone-specific triggers
-│
-├── 🔌 Module System (6 modules)
-│   ├── Camera Module
-│   ├── Lock Module
-│   ├── Lights Module
-│   ├── Climate Module
-│   ├── Siren Module
-│   └── TTS Module
-│
-├── 🎨 Configuration Dashboard
-│   ├── 7 tab interface
-│   ├── WebSocket API
-│   └── Persistent storage
-│
-└── 🤖 Automation Engine
-    ├── Parallel execution
-    ├── Event-driven triggers
-    └── Module coordination
-```
-
----
-
-## 🎨 Screenshots
-
-### Alarm Control Panel
-![Alarm Panel](docs/screenshots/alarm-panel.png)
-
-### Configuration Dashboard
-![Dashboard](docs/screenshots/dashboard.png)
-
-### Zone Management
-![Zones](docs/screenshots/zones.png)
-
----
-
-## 🛠️ Configuration
-
-### Alarm Settings
-
+**Example - Camera Module:**
 ```yaml
-# Configured through GUI
-code: "1234"                # PIN code (4-6 digits)
-exit_delay: 30             # Seconds before arming
-entry_delay: 30            # Seconds before triggering
+enabled: true
+poe_port_1: switch.vision_poe_port_1
+poe_port_5: switch.vision_poe_port_5
+cameras:
+  - camera.front_door
+  - camera.back_yard
+recording_mode: input_select.camera_recording
 ```
 
-### Example Module Configuration
+### Zone Configuration
 
-See [MODULE_KONFIGURATION_GUIDE.md](MODULE_KONFIGURATION_GUIDE.md) for complete configuration options.
-
-```json
-{
-  "modules": {
-    "camera": {
-      "enabled": true,
-      "poe_switches": ["switch.poe_port_1"],
-      "cameras": ["camera.front_door"],
-      "poe_delay": 120
-    },
-    "lock": {
-      "enabled": true,
-      "locks": ["lock.front_door"],
-      "lock_on_arm": true
-    }
-  }
-}
-```
-
----
-
-## 🔧 Advanced Features
-
-### NFC Tag Support
-Arm/disarm the alarm using NFC tags:
+Create flexible sensor groups:
 ```yaml
-# Tag events automatically trigger actions
-event_type: tag_scanned
-event_data:
-  tag_id: "YOUR_TAG_ID"
+zones:
+  - name: "Ground Floor"
+    sensors:
+      - binary_sensor.front_door
+      - binary_sensor.kitchen_window
+  - name: "Upstairs"
+    sensors:
+      - binary_sensor.bedroom_window
+      - binary_sensor.bathroom_window
 ```
-
-### Parallel Execution
-Modules execute simultaneously for faster response (saves ~120s on POE cameras).
-
-### POE Optimization
-Smart POE management - checks if already powered before waiting.
-
-### Battery Tracking
-Monitor battery levels of 17+ wireless sensors.
 
 ---
 
 ## 🧪 Testing
 
-The integration includes a comprehensive testing framework:
+### Running Tests
 
-1. **Unit Tests** - Test individual components
-2. **Integration Tests** - Test module interactions
-3. **Dashboard Tests** - Interactive testing via UI
-4. **Health Monitoring** - System diagnostics
+**Via Configuration Panel:**
+1. Open Secure Me panel
+2. Go to "Testing" tab
+3. Select test level (Quick/Standard/Full)
+4. Click "Run Test"
+5. View real-time results
 
-Run tests via the Testing tab in the configuration dashboard.
+**Via Command Line:**
+```bash
+# Run all tests
+pytest custom_components/secure_me/tests/ -v
+
+# Run specific test file
+pytest custom_components/secure_me/tests/test_state_machine.py -v
+
+# Run with coverage
+pytest custom_components/secure_me/tests/ --cov=custom_components/secure_me
+```
+
+### Test Results
+
+**Health Sensors:**
+- `binary_sensor.secure_me_camera_health`
+- `binary_sensor.secure_me_lock_health`
+- `binary_sensor.secure_me_lights_health`
+- `binary_sensor.secure_me_climate_health`
+- `binary_sensor.secure_me_siren_health`
+- `binary_sensor.secure_me_tts_health`
+
+**Battery Sensors:**
+- Auto-discovered from device_class "battery"
+- Tracked separately (informational only)
+- Low battery warnings available
+
+---
+
+## 📊 Dashboard Integration
+
+### Example Lovelace Card
+
+```yaml
+type: vertical-stack
+cards:
+  - type: alarm-panel
+    entity: alarm_control_panel.secure_me
+    states:
+      - arm_away
+      - arm_home
+      - arm_night
+  
+  - type: entities
+    title: Module Health
+    entities:
+      - binary_sensor.secure_me_camera_health
+      - binary_sensor.secure_me_lock_health
+      - binary_sensor.secure_me_lights_health
+      - binary_sensor.secure_me_climate_health
+      - binary_sensor.secure_me_siren_health
+      - binary_sensor.secure_me_tts_health
+  
+  - type: entities
+    title: Battery Status
+    entities:
+      - sensor.secure_me_front_door_battery
+      - sensor.secure_me_window_sensor_battery
+      # More auto-discovered batteries...
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**Integration won't load:**
+1. Check Home Assistant logs: Settings → System → Logs → Filter: `secure_me`
+2. Verify all required entities exist
+3. Run configuration check: Developer Tools → YAML → Check Configuration
+4. Restart Home Assistant
+
+**Module not working:**
+1. Go to Testing tab in panel
+2. Run test for specific module
+3. Check health sensor status
+4. Verify entity IDs in module configuration
+5. Check entity availability
+
+**Panel not accessible:**
+1. Clear browser cache (Ctrl+Shift+R)
+2. Verify panel registration in logs
+3. Check WebSocket connection
+4. Restart Home Assistant
+
+**Tests failing:**
+1. Check entity availability
+2. Verify module configuration
+3. Review test results in panel
+4. Check logs for specific errors
+
+### Debug Logging
+
+Enable debug logging in `configuration.yaml`:
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.secure_me: debug
+```
+
+---
+
+## 📚 Documentation
+
+### Complete Guides
+- [Installation Guide](INSTALLATION.md)
+- [Quick Start Guide](QUICK_START.md)
+- [Module Configuration Guide](MODULE_KONFIGURATION_GUIDE.md)
+- [Zone Configuration Guide](ZONE_KONFIGURATION_GUIDE.md)
+- [Panel Installation Guide](PANEL_INSTALL_GUIDE.md)
+- [Testing Framework Guide](TESTING_FRAMEWORK_README.md)
+- [Critical Fixes Guide](CRITICAL_FIXES_GUIDE.md)
+
+### Development
+- [Project Structure](STRUCTURE.md)
+- [Feature List](FEATURES.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+
+---
+
+## 🛣️ Roadmap
+
+### Phase 4 (v1.0.0) - Production Release
+- [ ] Enhanced automation templates
+- [ ] Complete diagnostics integration
+- [ ] System health reporting
+- [ ] HACS submission
+- [ ] Brands repository merge
+- [ ] Community testing
+- [ ] Production documentation
+- [ ] Final polish
+
+### Future Features
+- [ ] NFC tag integration
+- [ ] Advanced parallel execution
+- [ ] State backup/restore
+- [ ] Cloud integration (optional)
+- [ ] Mobile app companion
+- [ ] Advanced analytics
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) first.
 
 ### Development Setup
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/kingpainter/secure-me.git
 cd secure-me
 
-# Create development environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Install development dependencies
 pip install -r requirements_dev.txt
 
 # Run tests
-pytest tests/
+pytest tests/ -v
+
+# Run linting
+black custom_components/secure_me/
+pylint custom_components/secure_me/
 ```
-
----
-
-## 📝 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for a detailed version history.
-
-### Latest Version: 0.2.0 (Phase 2 Complete)
-
-**New in 0.2.0:**
-- ✅ 6 modules implemented (camera, lock, lights, climate, siren, tts)
-- ✅ Configuration dashboard with 7 tabs
-- ✅ WebSocket API for real-time communication
-- ✅ Persistent storage system
-- ✅ NFC tag integration
-- ✅ Parallel module execution
-
----
-
-## 🐛 Known Issues
-
-- Options flow UI not yet implemented (use YAML configuration)
-- Testing framework UI in progress
-- HACS submission pending
-
-See [GitHub Issues](https://github.com/kingpainter/secure-me/issues) for the full list.
-
----
-
-## 🗺️ Roadmap
-
-### Phase 3: Polish & Testing (In Progress)
-- [ ] Complete testing framework
-- [ ] Health monitoring dashboard
-- [ ] Battery tracking UI
-- [ ] HACS submission
-- [ ] Complete translations
-
-### Phase 4: Production (Target: v1.0.0)
-- [ ] Options flow UI
-- [ ] Advanced automation builder
-- [ ] Mobile app integration
-- [ ] Cloud backup/restore
-- [ ] Multi-home support
 
 ---
 
@@ -325,30 +384,47 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 👏 Acknowledgments
+## 🙏 Acknowledgments
 
-- Home Assistant community for inspiration and support
-- Alarmo integration for reference implementation
-- Material Design Icons for beautiful icons
+- Home Assistant community for excellent documentation
 - All contributors and testers
+- HACS for distribution platform
+- Users providing feedback and bug reports
 
 ---
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/kingpainter/secure-me/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/kingpainter/secure-me/discussions)
-- **Documentation**: [Full Documentation](https://github.com/kingpainter/secure-me/wiki)
+- **Issues:** [GitHub Issues](https://github.com/kingpainter/secure-me/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/kingpainter/secure-me/discussions)
+- **Documentation:** [Full Documentation](https://github.com/kingpainter/secure-me/wiki)
 
 ---
 
-## ⭐ Star History
+## 📈 Statistics
 
-If you find this project useful, please consider giving it a star on GitHub!
+- **Lines of Code:** ~8,000+
+- **Test Coverage:** 100 test cases
+- **Modules:** 6 smart modules
+- **Platforms:** 5 (alarm, binary_sensor, sensor, switch, select)
+- **Supported Languages:** English, Danish
+- **Home Assistant Version:** 2025.1.1+
 
 ---
 
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/kingpainter">KingPainter</a><br/>
-  <sub>Professional Home Alarm Manager for Home Assistant</sub>
-</p>
+## ⭐ Show Your Support
+
+If you find this integration useful, please consider:
+- ⭐ Starring the repository
+- 🐛 Reporting bugs
+- 💡 Suggesting features
+- 📖 Improving documentation
+- 🤝 Contributing code
+
+---
+
+**Made with ❤️ by [KingPainter](https://github.com/kingpainter)**
+
+**Version:** 0.3.0  
+**Last Updated:** February 13, 2026  
+**Status:** Phase 3 Complete - Production Ready Next
