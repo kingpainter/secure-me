@@ -1,8 +1,6 @@
 {
   "name": "Secure Me",
   "content_in_root": false,
-  "filename": "secure_me",
   "render_readme": true,
-  "domains": ["alarm_control_panel", "binary_sensor", "sensor"],
   "homeassistant": "2025.1.1"
 }
