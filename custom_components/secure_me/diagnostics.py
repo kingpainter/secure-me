@@ -1,5 +1,5 @@
 """Diagnostics support for Secure Me."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.1"
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry.
 
     This is shown when the user clicks "Download diagnostics"
-    in Settings → Devices & Services → Secure Me → 3-dot menu.
+    in Settings â†’ Devices & Services â†’ Secure Me â†’ 3-dot menu.
     """
     entry_data = hass.data.get(DOMAIN, {}).get(config_entry.entry_id, {})
     coordinator = entry_data.get(COORDINATOR)
@@ -139,6 +139,106 @@ async def async_get_config_entry_diagnostics(
             "all_open_sensors": zone_mgr.get_all_open_sensors(),
         }
 
+    # --- Performance Metrics (NEW) ---
+    performance_info: dict[str, Any] = {}
+    if coordinator:
+        performance_info = {
+            "last_update_success": coordinator.last_update_success,
+            "last_update_success_time": (
+                coordinator.last_update_success_time.isoformat()
+                if coordinator.last_update_success_time
+                else None
+            ),
+            "update_interval": coordinator.update_interval.total_seconds()
+            if coordinator.update_interval
+            else None,
+        }
+
+    # --- Recent Test Results (NEW) ---
+    test_results_info: dict[str, Any] = {}
+    if store:
+        test_data = store.get("test_results", {})
+        if test_data:
+            last_result = test_data.get("last_result", {})
+            test_results_info = {
+                "last_test_status": last_result.get("status", "unknown"),
+                "last_test_time": last_result.get("timestamp", "never"),
+                "last_test_level": last_result.get("level", "unknown"),
+                "last_test_duration": last_result.get("duration", 0),
+                "test_history_available": len(store._data.get("test_history", [])),
+            }
+            
+            # Include last test details if available
+            if last_result:
+                test_results_info["last_test_details"] = {
+                    "passed_checks": last_result.get("passed_checks", 0),
+                    "total_checks": last_result.get("total_checks", 0),
+                    "failed_modules": last_result.get("failed_modules", []),
+                }
+
+    # --- Entity Registry Info (NEW) ---
+    entity_info: dict[str, Any] = {}
+    entity_registry = hass.helpers.entity_registry.async_get(hass)
+    entities = [
+        e
+        for e in entity_registry.entities.values()
+        if e.config_entry_id == config_entry.entry_id
+    ]
+    
+    entities_by_platform: dict[str, list[str]] = {}
+    disabled_entities: list[str] = []
+    
+    for entity in entities:
+        platform = entity.domain
+        if platform not in entities_by_platform:
+            entities_by_platform[platform] = []
+        entities_by_platform[platform].append(entity.entity_id)
+        
+        if entity.disabled:
+            disabled_entities.append(entity.entity_id)
+    
+    entity_info = {
+        "total_entities": len(entities),
+        "enabled_entities": len(entities) - len(disabled_entities),
+        "disabled_entities": len(disabled_entities),
+        "entities_by_platform": {
+            platform: len(entity_list)
+            for platform, entity_list in entities_by_platform.items()
+        },
+        "disabled_entity_list": disabled_entities,
+    }
+
+    # --- WebSocket API Status (NEW) ---
+    websocket_info: dict[str, Any] = {}
+    websocket_commands = hass.data.get(f"{DOMAIN}_websocket_commands", [])
+    websocket_info = {
+        "commands_registered": len(websocket_commands),
+        "command_list": websocket_commands,
+    }
+
+    # --- User Configuration (NEW) ---
+    users_info: dict[str, Any] = {}
+    if store:
+        users = store.get_users()
+        users_info = {
+            "total_users": len(users),
+            "user_names": [u.get("name", "Unknown") for u in users],
+        }
+
+    # --- Zone Details (NEW) ---
+    zones_detail: list[dict[str, Any]] = []
+    if store:
+        zones = store.get_zones()
+        for zone in zones:
+            zone_detail = {
+                "id": zone.get("id"),
+                "name": zone.get("name", "Unknown"),
+                "enabled": zone.get("enabled", True),
+                "zone_type": zone.get("zone_type", "unknown"),
+                "sensor_count": len(zone.get("sensors", [])),
+            }
+            zones_detail.append(zone_detail)
+
     return {
         "integration_version": VERSION,
         "config_entry": {
@@ -149,9 +249,15 @@ async def async_get_config_entry_diagnostics(
             "source": config_entry.source,
         },
         "coordinator": coordinator_info,
+        "performance": performance_info,  # NEW
         "modules": modules_info,
         "health": health_info,
         "store": store_info,
         "batteries": battery_info,
         "zones": zone_info,
+        "zones_detail": zones_detail,  # NEW
+        "test_results": test_results_info,  # NEW
+        "entities": entity_info,  # NEW
+        "websocket": websocket_info,  # NEW
+        "users": users_info,  # NEW
     }

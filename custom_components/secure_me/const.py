@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.1"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -27,6 +27,7 @@ CONF_ENTRY_DELAY = "entry_delay"
 CONF_TRIGGER_TIME = "trigger_time"
 
 # Defaults
+DEFAULT_NAME = "Secure Me"
 DEFAULT_EXIT_DELAY = 30
 DEFAULT_ENTRY_DELAY = 30
 DEFAULT_TRIGGER_TIME = 300  # 5 minutes
