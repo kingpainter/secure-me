@@ -190,3 +190,19 @@ def mock_hass_with_binary_sensors(mock_hass: MockHass) -> MockHass:
         "friendly_name": "Smoke Detector",
     })
     return mock_hass
+
+@pytest.fixture
+def mock_coordinator():
+    """Create a mock coordinator."""
+    coordinator = MagicMock()
+    coordinator.async_config_entry_first_refresh = AsyncMock()
+    coordinator.async_shutdown = MagicMock()
+    return coordinator
+
+
+@pytest.fixture
+def mock_store():
+    """Create a mock store."""
+    store = MagicMock()
+    store.async_load = AsyncMock()
+    return store
