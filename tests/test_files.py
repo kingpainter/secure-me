@@ -9,6 +9,8 @@ import pytest
 # Path to the integration root (adjust for CI vs local)
 INTEGRATION_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
+    "custom_components",
+    "secure_me"
 )
 
 
