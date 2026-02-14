@@ -1,4 +1,4 @@
-# Secure Me v0.3.1
+# Secure Me v0.3.2
 
 **Professional Alarm System Manager for Home Assistant**
 
