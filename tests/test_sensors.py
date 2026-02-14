@@ -2,7 +2,7 @@
 # VERSION = "0.3.0"
 
 import pytest
-from conftest import MockHass, MockState
+from .conftest import MockHass, MockState
 
 
 def _discover_battery_sensors(hass) -> list[dict]:
