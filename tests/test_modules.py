@@ -3,7 +3,7 @@
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from conftest import MockModule, MockHass
+from .conftest import MockModule, MockHass
 
 
 class TestModuleBase:
