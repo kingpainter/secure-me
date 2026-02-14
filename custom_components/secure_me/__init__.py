@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, config_validation as cv
 
 from .const import (
     DOMAIN,
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from homeassistant.components import system_health
 
 _LOGGER = logging.getLogger(__name__)
+
+# Config entry only - no YAML configuration supported
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
@@ -128,44 +132,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     if unload_ok:
         # Remove update listener
-        entry_data = hass.data[DOMAIN][entry.entry_id]
-        undo_listener = entry_data[UNDO_UPDATE_LISTENER]
-        undo_listener()
+        undo_listener = hass.data[DOMAIN][entry.entry_id].get(UNDO_UPDATE_LISTENER)
+        if undo_listener:
+            undo_listener()
         
-        # Remove coordinator
+        # Remove entry data
         hass.data[DOMAIN].pop(entry.entry_id)
         
-        _LOGGER.info("Secure Me integration unloaded")
+        _LOGGER.info("Secure Me integration unloaded successfully")
     
     return unload_ok
-
-
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle removal of an entry."""
-    _LOGGER.debug("Removing Secure Me integration")
-    
-    # Clean up store data if last entry
-    remaining_entries = [
-        e for e in hass.config_entries.async_entries(DOMAIN)
-        if e.entry_id != entry.entry_id
-    ]
-    
-    if not remaining_entries:
-        # Last entry being removed
-        store = hass.data[DOMAIN].get("store")
-        if store:
-            # Optionally clear all data
-            # await store.async_remove()
-            pass
-        
-        # Unregister panel
-        from .panel import async_unregister_panel
-        async_unregister_panel(hass)
-        
-        # Clear global data
-        hass.data[DOMAIN].pop("store", None)
-        hass.data[DOMAIN].pop("_websocket_registered", None)
-        hass.data[DOMAIN].pop("_panel_registered", None)
-        hass.data[DOMAIN].pop("_system_health_registered", None)
-        
-        _LOGGER.info("Secure Me integration removed (last entry)")
