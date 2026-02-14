@@ -31,4 +31,4 @@ class TestDiagnosticsVersion:
     """Test diagnostics includes version info."""
 
     def test_version_matches_const(self):
-        assert VERSION == "0.3.0"
+        assert VERSION == "0.3.1"

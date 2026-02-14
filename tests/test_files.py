@@ -1,16 +1,21 @@
-"""Tests for Secure Me file integrity — manifest, services, strings."""
-# VERSION = "0.3.0"
+"""Tests for Secure Me file integrity – manifest, services, strings."""
+# VERSION = "0.3.1"
 
 import json
 import os
 import pytest
 
 
-# Path to the integration root (adjust for CI vs local)
+# Path to the integration root
 INTEGRATION_DIR = os.path.join(
     os.path.dirname(os.path.dirname(__file__)),
     "custom_components",
     "secure_me"
+)
+
+# Path to repo root
+REPO_ROOT = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)),
 )
 
 
@@ -90,11 +95,12 @@ class TestHacsJson:
     """Test hacs.json validity."""
 
     def test_hacs_exists(self):
-        path = os.path.join(INTEGRATION_DIR, "hacs.json")
+        # hacs.json is in repo root, not in custom_components
+        path = os.path.join(REPO_ROOT, "hacs.json")
         assert os.path.isfile(path), "hacs.json not found"
 
     def test_hacs_is_valid_json(self):
-        path = os.path.join(INTEGRATION_DIR, "hacs.json")
+        path = os.path.join(REPO_ROOT, "hacs.json")
         with open(path) as f:
             data = json.load(f)
         assert "name" in data
