@@ -1,5 +1,5 @@
 """Tests for Secure Me constants."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.1"
 
 import pytest
 
