@@ -1,6 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "0.3.3"
-# SPRINT 1 - F1 FIX APPLIED
+# VERSION = "0.3.0"
 
 import logging
 import uuid
@@ -237,7 +236,7 @@ async def ws_get_users(
     # Don't send plaintext codes to frontend - mask them
     masked = {}
     for uid, user in users.items():
-        masked[uid] = {**user, "code": "****" if user.get("code") else ""}
+        masked[uid] = {**user, "code": "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢" if user.get("code") else ""}
     connection.send_result(msg["id"], {"users": masked})
 
 
@@ -616,94 +615,39 @@ def _discover_batteries(hass: HomeAssistant) -> list[dict[str, Any]]:
 
 
 def _get_module_entity_ids(module) -> list[str]:
-    """Extract entity IDs from a module.
-    
-    F1 FIX (v0.3.3): Enhanced to check ALL possible module attributes and config keys.
-    Fixes panel-backend sync issues where modules show as "not configured".
-    """
+    """Extract entity IDs from a module."""
     entities = []
     
-    # 1. Check all known list attributes
-    list_attributes = (
-        # POE and camera related
-        "poe_switches", "cameras", "recording_entities",
-        # Lock related
-        "locks", "door_locks", "lock_entities",
-        # Light related
-        "lights", "light_entities",
-        # Climate related
-        "climates", "climate_entities",
-        # Media/TTS related
-        "media_players", "speakers",
-        # Siren related
-        "siren_entities", "sirens",
-    )
-    
-    for attr in list_attributes:
+    # Check module attributes (cameras, locks, etc.)
+    for attr in ("poe_switches", "cameras", "recording_entities",
+                 "locks", "lights", "climates", "media_players"):
         val = getattr(module, attr, None)
         if isinstance(val, list):
             entities.extend(val)
     
-    # 2. Check dict attributes (entity mappings)
-    dict_attributes = (
-        "door_sensors",      # lock -> door sensor mapping
-        "battery_sensors",   # entity -> battery mapping
-        "light_groups",      # zone -> light group mapping
-    )
-    
-    for attr in dict_attributes:
+    # Check dict attributes
+    for attr in ("door_sensors", "battery_sensors"):
         val = getattr(module, attr, None)
         if isinstance(val, dict):
             entities.extend(val.values())
     
-    # 3. Check single string attributes
-    single_attributes = ("gateway_light",)
-    
-    for attr in single_attributes:
+    # Check single string attributes
+    for attr in ("gateway_light",):
         val = getattr(module, attr, None)
         if isinstance(val, str) and "." in val:
             entities.append(val)
     
-    # 4. FALLBACK: Check config dict if no entities found
-    # This handles cases where module stores config in dict rather than attributes
-    if not entities and hasattr(module, 'config') and isinstance(module.config, dict):
+    # FALLBACK: If no entities found, try config dict
+    if not entities and hasattr(module, 'config'):
         config = module.config
-        
-        # Check all possible config keys
-        config_keys = (
-            "entities",          # Camera module uses this (F5 fix)
-            "cameras",
-            "locks",
-            "climates",
-            "lights",
-            "media_players",
-            "poe_switches",
-            "recording_entities",
-            "siren_entities",
-            "speakers",
-        )
-        
-        for key in config_keys:
-            if key in config:
-                val = config[key]
-                if isinstance(val, list):
-                    entities.extend(val)
-                elif isinstance(val, str) and "." in val:
-                    entities.append(val)
+        # Fix F5: Camera module uses 'entities' key
+        for key in ("entities", "cameras", "locks", "climates", "lights", "media_players"):
+            if key in config and isinstance(config[key], list):
+                entities.extend(config[key])
     
-    # 5. Clean up and deduplicate
-    # Remove None, empty strings, and non-entity-ID strings
+    # Remove duplicates and filter out None/empty strings
     entities = [e for e in entities if e and isinstance(e, str) and "." in e]
-    
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_entities = []
-    for e in entities:
-        if e not in seen:
-            seen.add(e)
-            unique_entities.append(e)
-    
-    return unique_entities
+    return list(set(entities))  # Remove duplicates
 
 
 @websocket_api.websocket_command({

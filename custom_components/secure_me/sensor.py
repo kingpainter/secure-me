@@ -1,5 +1,5 @@
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.3"
 
 import logging
 from datetime import datetime
