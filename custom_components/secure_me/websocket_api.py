@@ -344,15 +344,14 @@ async def ws_save_module(
 
     await store.async_save_module(msg["module_id"], msg["config"])
 
-    # Sync with coordinator modules
+    # Sync with coordinator: re-initialize module with full new config
+    # This ensures entity lists (cameras, locks, etc.) are immediately reflected
+    # in health checks without requiring a HA restart.
     coordinator = _get_coordinator(hass)
     if coordinator:
         module_id = msg["module_id"]
-        if msg["config"].get("enabled"):
-            coordinator.enable_module(module_id)
-        else:
-            coordinator.disable_module(module_id)
-        _LOGGER.info("Module %s config updated", module_id)
+        coordinator.update_module_config(module_id, msg["config"])
+        _LOGGER.info("Module %s config synced to coordinator", module_id)
 
     connection.send_result(msg["id"], {"success": True})
 

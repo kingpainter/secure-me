@@ -1,4 +1,4 @@
-# VERSION = "0.3.1"
+# VERSION = "0.3.3"
 """The Secure Me integration."""
 from __future__ import annotations
 
@@ -63,7 +63,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     
     # Create coordinator for this entry
     coordinator = SecureMeCoordinator(hass, entry)
-    
+
+    # Load persisted module configs from store into coordinator modules.
+    # This must happen before first refresh so health checks see real entity lists.
+    await coordinator.async_load_store_config(store)
+
     # Initial data fetch
     try:
         await coordinator.async_config_entry_first_refresh()

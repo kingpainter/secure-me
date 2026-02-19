@@ -100,7 +100,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self.zone_manager = ZoneManager(hass)
         self.zone_manager.register_trigger_callback(self._zone_triggered)
         
-        # Initialize modules
+        # Initialize modules (without store - store loaded later via async_load_store_config)
         self._init_modules()
         
         # Register callbacks
@@ -369,12 +369,30 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             entry_delay,
         )
 
-    def _init_modules(self) -> None:
-        """Initialize all available modules."""
+    def _init_modules(self, store=None) -> None:
+        """Initialize all available modules.
+
+        Loads config from store (persistent) first, falling back to
+        config_entry.options. This ensures panel-saved configs survive restarts.
+        """
         _LOGGER.info("Initializing modules")
-        
-        # Get module config from options (if any)
-        module_config = self.config_entry.options.get("modules", {})
+
+        # Priority: store config (saved by panel) > config_entry.options > empty
+        if store is not None:
+            stored_modules = store.get_modules()
+            _LOGGER.info("Loading module config from store: %s", list(stored_modules.keys()))
+        else:
+            stored_modules = {}
+
+        options_modules = self.config_entry.options.get("modules", {})
+
+        def _get_config(module_id: str) -> dict:
+            """Get config for a module, preferring store over options."""
+            return stored_modules.get(module_id) or options_modules.get(module_id, {})
+
+        module_config = {mid: _get_config(mid) for mid in (
+            "camera", "lock", "lights", "climate", "siren", "tts"
+        )}
         
         # Camera module
         self.modules[MODULE_CAMERA] = CameraModule(
@@ -500,13 +518,62 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if module_id not in self.modules:
             _LOGGER.error("Module %s not found", module_id)
             return False
-        
+
         self.modules[module_id].disable()
         _LOGGER.info("Module %s disabled", module_id)
         self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
         return True
 
-    # ???????????????????????? Health Methods ????????????????????????
+    def update_module_config(self, module_id: str, config: dict) -> bool:
+        """Re-initialize a module with updated configuration from store.
+
+        Called by ws_save_module after persisting config to store.
+        This bridges the gap between store (where panel saves config)
+        and coordinator.modules (where health checks read from).
+        """
+        module_classes = {
+            MODULE_CAMERA: CameraModule,
+            MODULE_LOCK: LockModule,
+            MODULE_LIGHTS: LightsModule,
+            MODULE_CLIMATE: ClimateModule,
+            MODULE_SIREN: SirenModule,
+            MODULE_TTS: TTSModule,
+        }
+        cls = module_classes.get(module_id)
+        if not cls:
+            _LOGGER.error("Unknown module id: %s", module_id)
+            return False
+
+        try:
+            self.modules[module_id] = cls(self.hass, config)
+            _LOGGER.info(
+                "Module %s re-initialized with %d config keys",
+                module_id, len(config),
+            )
+            return True
+        except Exception as err:
+            _LOGGER.error("Failed to re-initialize module %s: %s", module_id, err)
+            return False
+
+    async def async_load_store_config(self, store) -> None:
+        """Load module configurations from store and re-initialize modules.
+
+        Called from async_setup_entry after store is loaded.
+        Ensures panel-saved module configs (cameras, locks, etc.)
+        are applied to coordinator modules without requiring a restart.
+        """
+        self.store = store
+        stored = store.get_modules()
+        if not stored:
+            _LOGGER.debug("No module configs in store yet")
+            return
+
+        for module_id, config in stored.items():
+            if config:  # Skip empty configs
+                self.update_module_config(module_id, config)
+                _LOGGER.info("Module %s loaded from store", module_id)
+
+    # --- Health Methods ---
 
     def get_health_score(self) -> int:
         """Calculate system health score (0-100).
