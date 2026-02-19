@@ -56,6 +56,47 @@ from .modules import (
 _LOGGER = logging.getLogger(__name__)
 
 
+
+def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
+    """Normalize panel-saved config (objects) to module class format (flat strings).
+
+    Mirrors _normalize_module_config in websocket_api.py but kept here to avoid
+    circular imports. Panel stores [{entity_id, poe_port, ...}], modules need ["entity.id"].
+    """
+    normalized = dict(config)
+
+    def extract_ids(items) -> list[str]:
+        if not isinstance(items, list):
+            return []
+        result = []
+        for item in items:
+            if isinstance(item, str):
+                result.append(item)
+            elif isinstance(item, dict) and item.get("entity_id"):
+                result.append(item["entity_id"])
+        return [e for e in result if e and "." in e]
+
+    if module_id == "camera":
+        raw = config.get("cameras", [])
+        normalized["cameras"] = extract_ids(raw)
+        poe = [c["poe_port"] for c in raw
+               if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])]
+        if poe:
+            normalized["poe_switches"] = poe
+    elif module_id == "lock":
+        normalized["locks"] = extract_ids(config.get("locks", []))
+    elif module_id == "climate":
+        normalized["climates"] = extract_ids(config.get("thermostats", []))
+    elif module_id == "lights":
+        normalized["lights"] = extract_ids(config.get("lights", []))
+    elif module_id == "tts":
+        normalized["media_players"] = extract_ids(config.get("entities", []))
+    elif module_id == "siren":
+        normalized["lights"] = extract_ids(config.get("lights", []))
+
+    return normalized
+
+
 class SecureMeCoordinator(DataUpdateCoordinator):
     """Secure Me coordinator with state machine and zone management."""
 
@@ -570,7 +611,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         for module_id, config in stored.items():
             if config:  # Skip empty configs
-                self.update_module_config(module_id, config)
+                # Normalize panel object-format to module string-format
+                normalized = _normalize_coordinator_config(module_id, config)
+                self.update_module_config(module_id, normalized)
                 _LOGGER.info("Module %s loaded from store", module_id)
 
     # --- Health Methods ---

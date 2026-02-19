@@ -344,13 +344,13 @@ async def ws_save_module(
 
     await store.async_save_module(msg["module_id"], msg["config"])
 
-    # Sync with coordinator: re-initialize module with full new config
-    # This ensures entity lists (cameras, locks, etc.) are immediately reflected
-    # in health checks without requiring a HA restart.
+    # Sync with coordinator: re-initialize module with normalized config.
+    # Panel saves objects [{entity_id, ...}] but module classes expect flat strings.
     coordinator = _get_coordinator(hass)
     if coordinator:
         module_id = msg["module_id"]
-        coordinator.update_module_config(module_id, msg["config"])
+        normalized = _normalize_module_config(module_id, msg["config"])
+        coordinator.update_module_config(module_id, normalized)
         _LOGGER.info("Module %s config synced to coordinator", module_id)
 
     connection.send_result(msg["id"], {"success": True})
@@ -611,6 +611,61 @@ def _discover_batteries(hass: HomeAssistant) -> list[dict[str, Any]]:
             "available": state.state not in ("unavailable", "unknown", None),
         })
     return batteries
+
+
+
+def _normalize_module_config(module_id: str, config: dict) -> dict:
+    """Normalize panel config format to module class format.
+
+    Panel saves entity lists as objects: [{entity_id, poe_port, ...}]
+    Module classes expect flat string lists: ["entity.id", ...]
+
+    This bridges the two formats so health checks work correctly.
+    """
+    normalized = dict(config)  # copy
+
+    def extract_ids(items) -> list[str]:
+        """Extract entity_id strings from a list of objects or strings."""
+        if not isinstance(items, list):
+            return []
+        result = []
+        for item in items:
+            if isinstance(item, str):
+                result.append(item)
+            elif isinstance(item, dict) and item.get("entity_id"):
+                result.append(item["entity_id"])
+        return [e for e in result if e and "." in e]
+
+    if module_id == "camera":
+        # cameras: [{entity_id, poe_port}] -> cameras: [str], poe_switches: [str]
+        raw_cameras = config.get("cameras", [])
+        normalized["cameras"] = extract_ids(raw_cameras)
+        # Extract POE switches from camera objects
+        poe = [c["poe_port"] for c in raw_cameras
+               if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])]
+        if poe:
+            normalized["poe_switches"] = poe
+
+    elif module_id == "lock":
+        # locks: [{entity_id, ...}] -> locks: [str]
+        normalized["locks"] = extract_ids(config.get("locks", []))
+
+    elif module_id == "climate":
+        # thermostats: [{entity_id, ...}] -> climates: [str]
+        normalized["climates"] = extract_ids(config.get("thermostats", []))
+
+    elif module_id == "lights":
+        # lights: [{entity_id, ...}] -> lights: [str]
+        normalized["lights"] = extract_ids(config.get("lights", []))
+
+    elif module_id == "tts":
+        # entities: already flat strings in TTS - no change needed
+        normalized["media_players"] = extract_ids(config.get("entities", []))
+
+    elif module_id == "siren":
+        normalized["lights"] = extract_ids(config.get("lights", []))
+
+    return normalized
 
 
 def _get_module_entity_ids(module) -> list[str]:
