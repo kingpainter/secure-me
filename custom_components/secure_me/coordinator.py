@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.3"
 
 import logging
 from datetime import timedelta
@@ -166,7 +166,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
         try:
-            return {
+            data = {
                 "state": self.state_machine.current_state,
                 "countdown": self.state_machine.countdown,
                 "armed_by": self._armed_by,
@@ -179,6 +179,17 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 "is_arming": self.state_machine.is_arming,
                 "is_pending": self.state_machine.is_pending,
             }
+            # F2 Fix: Fire health event so panel stays in sync with binary sensors
+            # Both update from the same coordinator cycle, preventing divergence
+            # Structure must match panel expectations: modules + health_score
+            self.hass.bus.async_fire(
+                f"{DOMAIN}_health_updated",
+                {
+                    "modules": self.get_module_health(),
+                    "health_score": self.get_health_score(),
+                },
+            )
+            return data
         except Exception as err:
             raise UpdateFailed(f"Error updating coordinator: {err}") from err
 
@@ -495,7 +506,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
         return True
 
-    # â”€â”€â”€ Health Methods â”€â”€â”€
+    # ???????????????????????? Health Methods ????????????????????????
 
     def get_health_score(self) -> int:
         """Calculate system health score (0-100).
@@ -561,7 +572,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     @staticmethod
     def _get_module_entity_ids(module) -> list[str]:
-        """Extract all entity IDs from a module's configuration."""
+        """Extract all entity IDs from a module's configuration.
+        
+        Checks module attributes first, then falls back to config dict
+        for modules that store entities differently (e.g. Camera uses 'entities').
+        """
         entities: list[str] = []
         # List attributes
         for attr in ("poe_switches", "cameras", "recording_entities",
@@ -579,7 +594,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             val = getattr(module, attr, None)
             if isinstance(val, str) and "." in val:
                 entities.append(val)
-        return entities
+        # F1/F5 Fix: Fallback to config dict if no entities found via attributes
+        # Camera module stores entities under 'entities' key in config
+        if not entities and hasattr(module, "config"):
+            config = module.config
+            for key in ("entities", "cameras", "locks", "climates",
+                        "lights", "media_players", "poe_switches"):
+                val = config.get(key)
+                if isinstance(val, list):
+                    entities.extend(val)
+                elif isinstance(val, dict):
+                    entities.extend(val.values())
+        # Filter invalid entries and deduplicate
+        entities = [e for e in entities if e and isinstance(e, str) and "." in e]
+        return list(set(entities))
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator."""

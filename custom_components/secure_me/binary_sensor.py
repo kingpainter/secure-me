@@ -1,5 +1,5 @@
 """Binary sensor platform for Secure Me - Health Monitoring & Battery Alerts."""
-# VERSION = "0.3.0"
+# VERSION = "0.3.3"
 
 import logging
 from typing import Any
@@ -294,7 +294,7 @@ class SecureMeModuleHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
         self.async_write_ha_state()
 
 
-# ─── Battery Alert Sensor ───
+# ????????? Battery Alert Sensor ?????????
 
 
 def _discover_battery_levels(hass: HomeAssistant) -> list[dict[str, Any]]:
