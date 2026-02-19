@@ -992,6 +992,7 @@ class SecureMePanel extends HTMLElement {
     this._sensorStatusExpanded = true; // Sensor online/offline section
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
+    this._healthSubscribePending = false;
     this._lastHealthUpdate = null;
   }
 
@@ -1008,8 +1009,8 @@ class SecureMePanel extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-	// F2 FIX: Ensure health event subscription
-    if (hass && hass.connection && !this._healthUpdateUnsubscribe) {
+    // F2 FIX: Ensure health event subscription (guard against duplicate async calls)
+    if (hass && hass.connection && !this._healthUpdateUnsubscribe && !this._healthSubscribePending) {
       this._subscribeToHealthUpdates();
     }
     if (!this._initialized) {
@@ -1031,11 +1032,12 @@ class SecureMePanel extends HTMLElement {
 
   disconnectedCallback() {
     // F2 FIX: Unsubscribe from health updates
-    if (this._healthUpdateUnsubscribe) {
+    // Guard: _healthUpdateUnsubscribe is a Promise<fn> resolved to fn - must be a function
+    if (typeof this._healthUpdateUnsubscribe === 'function') {
       this._healthUpdateUnsubscribe();
-      this._healthUpdateUnsubscribe = null;
     }
-    
+    this._healthUpdateUnsubscribe = null;
+
     if (this._renderTimeout) {
       clearTimeout(this._renderTimeout);
       this._renderTimeout = null;
@@ -1043,39 +1045,46 @@ class SecureMePanel extends HTMLElement {
   }
 
 // === F2 FIX: Health Event Subscription ===
-  
-  _subscribeToHealthUpdates() {
+
+  async _subscribeToHealthUpdates() {
     if (!this._hass || !this._hass.connection) {
       console.warn('[Secure Me] Cannot subscribe to health updates: no connection');
       return;
     }
-    
-    if (this._healthUpdateUnsubscribe) {
+
+    if (this._healthUpdateUnsubscribe || this._healthSubscribePending) {
       return;
     }
-    
-    this._healthUpdateUnsubscribe = this._hass.connection.subscribeEvents(
-      (event) => {
-        if (event.data && event.data.modules) {
-          this._healthStatus = event.data.modules;
-          this._healthScore = event.data.health_score || 100;
-          this._lastHealthUpdate = event.data.timestamp;
-          
-          if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
-            this._render();
+
+    this._healthSubscribePending = true;
+    try {
+      // subscribeEvents returns a Promise that resolves to an unsubscribe function
+      this._healthUpdateUnsubscribe = await this._hass.connection.subscribeEvents(
+        (event) => {
+          if (event.data && event.data.modules) {
+            this._healthStatus = event.data.modules;
+            this._healthScore = event.data.health_score || 100;
+            this._lastHealthUpdate = event.data.timestamp;
+
+            if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
+              this._render();
+            }
+
+            console.log('[Secure Me F2] Health updated:', {
+              score: this._healthScore,
+              modules: Object.keys(this._healthStatus).length,
+              timestamp: this._lastHealthUpdate
+            });
           }
-          
-          console.log('[Secure Me F2] Health updated:', {
-            score: this._healthScore,
-            modules: Object.keys(this._healthStatus).length,
-            timestamp: this._lastHealthUpdate
-          });
-        }
-      },
-      'secure_me_health_updated'
-    );
-    
-    console.log('[Secure Me F2] Subscribed to health updates');
+        },
+        'secure_me_health_updated'
+      );
+      console.log('[Secure Me F2] Subscribed to health updates');
+    } catch (err) {
+      console.error('[Secure Me F2] Failed to subscribe to health updates:', err);
+    } finally {
+      this._healthSubscribePending = false;
+    }
   }
 
   _shouldUpdateDisplay(newHealthData) {
@@ -1746,9 +1755,9 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.cameras.map(cam => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    •
+                    â€¢
                     <span style="font-size:12px">${cam.entity_id || cam}</span>
-                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">¢ POE: ${cam.poe_port}</span>` : ''}
+                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">Â¢ POE: ${cam.poe_port}</span>` : ''}
                   </div>
                 `).join('')}
               </div>
@@ -1791,7 +1800,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.locks.map(lock => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    •
+                    â€¢
                     <span style="font-size:12px">${lock.entity_id}</span>
                   </div>
                 `).join('')}
@@ -1826,7 +1835,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                •<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                â€¢<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1851,7 +1860,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                •<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                â€¢<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1876,7 +1885,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                •<span style="font-size:12px">${e}</span></div>`).join('')}
+                â€¢<span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -1902,7 +1911,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                •<span style="font-size:12px">${e}</span></div>`).join('')}
+                â€¢<span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -1930,7 +1939,7 @@ class SecureMePanel extends HTMLElement {
         
         <div style="margin-top:16px;display:flex;gap:8px">
           <button class="sm-btn primary" data-save-module-config="${moduleKey}">
-            • Save Changes
+            â€¢ Save Changes
           </button>
           <button class="sm-btn default" data-cancel-module="${moduleKey}">
             Cancel
@@ -2664,7 +2673,7 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('… Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('â€¦ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
       alert('Could not save: ' + (result?.error || 'Unknown error'));
     }
@@ -2847,7 +2856,7 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'lock', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('… Lock configuration saved!\nRestart Home Assistant to activate.');
+      alert('â€¦ Lock configuration saved!\nRestart Home Assistant to activate.');
     } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
@@ -2874,7 +2883,7 @@ class SecureMePanel extends HTMLElement {
            Found ${domainLocks.length} lock entity(ies) in Home Assistant
         </div>` : `
         <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-            No entities found in lock domain. Use manual search below to add any entity.
+          Â  No entities found in lock domain. Use manual search below to add any entity.
         </div>`}
 
         <button data-action="add-lock" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
@@ -2977,7 +2986,7 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'climate', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('… Climate configuration saved!\nRestart Home Assistant to activate.');
+      alert('â€¦ Climate configuration saved!\nRestart Home Assistant to activate.');
     } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
@@ -3000,7 +3009,7 @@ class SecureMePanel extends HTMLElement {
            Found ${domainEntities.length} climate entity(ies) in Home Assistant
         </div>` : `
         <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-            No climate entities found. Use manual search to add any entity.
+          Â  No climate entities found. Use manual search to add any entity.
         </div>`}
 
         <button data-action="add-climate" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
@@ -3150,7 +3159,7 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('… Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('â€¦ Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
       alert('Could not save: ' + (result?.error || 'Unknown error'));
     }
@@ -3276,7 +3285,7 @@ class SecureMePanel extends HTMLElement {
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('… Lights configuration saved!\nRestart Home Assistant to activate.');
+      alert('â€¦ Lights configuration saved!\nRestart Home Assistant to activate.');
     } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
   }
 
@@ -3436,7 +3445,7 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('… TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
+      alert('â€¦ TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
     } else {
       alert('Could not save: ' + (result?.error || 'Unknown error'));
     }
