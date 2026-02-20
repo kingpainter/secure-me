@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "0.3.6"
+# VERSION = "0.7.0"
 
 import logging
 import uuid

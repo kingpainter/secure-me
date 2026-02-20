@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "0.3.6"
+# VERSION = "0.7.0"
 
 import logging
 from typing import Any

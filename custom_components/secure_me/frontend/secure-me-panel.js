@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.3.6
+ * VERSION: 0.7.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const 0.3.6 = "0.3.6";
+const VERSION = "0.7.0";
 
 // === Styles ===
 const panelStyles = `
@@ -1094,6 +1094,99 @@ const panelStyles = `
     .dialog-title {
       font-size: 18px;
     }
+  }
+
+  /* === v0.7.0: Toast Notifications === */
+  .sm-toast-container {
+    position: fixed;
+    top: 20px; right: 20px;
+    z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px;
+    pointer-events: none;
+  }
+  .sm-toast {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px; font-weight: 500;
+    max-width: 320px;
+    pointer-events: all;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: sm-toast-in 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    backdrop-filter: blur(12px);
+  }
+  .sm-toast.success { background: rgba(52,199,89,0.18); border: 1px solid rgba(52,199,89,0.3); color: var(--sm-accent); }
+  .sm-toast.error   { background: rgba(255,69,58,0.18);  border: 1px solid rgba(255,69,58,0.3);  color: var(--sm-danger); }
+  .sm-toast.warning { background: rgba(255,159,10,0.18); border: 1px solid rgba(255,159,10,0.3); color: var(--sm-warning); }
+  .sm-toast.info    { background: rgba(10,132,255,0.18); border: 1px solid rgba(10,132,255,0.3); color: var(--sm-blue); }
+  .sm-toast svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .sm-toast-msg { flex: 1; }
+  .sm-toast-close { opacity: 0.6; cursor: pointer; background: none; border: none; color: inherit; padding: 0; line-height: 1; }
+  .sm-toast-close:hover { opacity: 1; }
+  .sm-toast.fading { animation: sm-toast-out 0.2s ease forwards; }
+  @keyframes sm-toast-in  { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes sm-toast-out { from { opacity:1; transform:translateX(0);    } to { opacity:0; transform:translateX(20px); } }
+
+  /* === v0.7.0: In-panel Confirm Dialog === */
+  .sm-confirm-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    z-index: 9998;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sm-confirm-dialog {
+    background: var(--sm-surface);
+    border: 1px solid var(--sm-border);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 320px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: sm-toast-in 0.2s ease;
+  }
+  .sm-confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .sm-confirm-msg   { font-size: 13px; color: var(--sm-text-secondary); margin-bottom: 20px; line-height: 1.5; }
+  .sm-confirm-btns  { display: flex; gap: 10px; justify-content: flex-end; }
+  .sm-confirm-cancel { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--sm-border); background: transparent; color: var(--sm-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; }
+  .sm-confirm-ok     { padding: 8px 16px; border-radius: 8px; border: none; background: var(--sm-danger); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .sm-confirm-cancel:hover { background: rgba(255,255,255,0.06); }
+  .sm-confirm-ok:hover     { filter: brightness(1.1); }
+
+  /* === v0.7.0: Module health badge on module card === */
+  .module-health-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 20px;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  .module-health-badge.ok      { background: rgba(52,199,89,0.15);  color: var(--sm-accent);  }
+  .module-health-badge.warn    { background: rgba(255,159,10,0.15); color: var(--sm-warning); }
+  .module-health-badge.error   { background: rgba(255,69,58,0.15);  color: var(--sm-danger);  }
+  .module-health-badge.degraded{ background: rgba(255,69,58,0.15);  color: var(--sm-danger);  }
+  .module-health-badge.unknown { background: rgba(255,255,255,0.07);color: var(--sm-text-tertiary); }
+  .module-health-badge svg { width: 10px; height: 10px; }
+
+  /* === v0.7.0: Triggered state pulse on sidebar status pill === */
+  .status-pill.triggered {
+    background: rgba(255,69,58,0.2);
+    color: var(--sm-danger);
+    animation: sm-pulse-red 1s ease-in-out infinite;
+  }
+  .mobile-status-pill.triggered {
+    background: rgba(255,69,58,0.2);
+    color: var(--sm-danger);
+    animation: sm-pulse-red 1s ease-in-out infinite;
+  }
+  .status-pill.pending {
+    background: rgba(255,159,10,0.18);
+    color: var(--sm-warning);
+  }
+  .mobile-status-pill.pending {
+    background: rgba(255,159,10,0.18);
+    color: var(--sm-warning);
+  }
+  @keyframes sm-pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,69,58,0.4); }
+    50%       { box-shadow: 0 0 0 8px rgba(255,69,58,0); }
   }`;
 
 // === Icons ===
@@ -1196,6 +1289,77 @@ class SecureMePanel extends HTMLElement {
       this._render();
       this._renderTimeout = null;
     }, 50);
+  }
+
+  // === v0.7.0: Toast Notification System ===
+  // Replaces all alert() calls with non-blocking in-panel toasts.
+  // type: 'success' | 'error' | 'warning' | 'info'
+  _toast(message, type = 'success', duration = 4000) {
+    let container = this.shadowRoot.querySelector('.sm-toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.className = 'sm-toast-container';
+      this.shadowRoot.appendChild(container);
+    }
+
+    const toastIcon = {
+      success: icon('ok'),
+      error:   icon('fail'),
+      warning: icon('warn'),
+      info:    icon('circle'),
+    }[type] || icon('circle');
+
+    const toast = document.createElement('div');
+    toast.className = `sm-toast ${type}`;
+    toast.innerHTML = `
+      ${toastIcon}
+      <span class="sm-toast-msg">${message}</span>
+      <button class="sm-toast-close">${icon('close')}</button>
+    `;
+
+    const dismiss = () => {
+      toast.classList.add('fading');
+      toast.addEventListener('animationend', () => toast.remove(), { once: true });
+    };
+
+    toast.querySelector('.sm-toast-close').addEventListener('click', dismiss);
+    container.appendChild(toast);
+    if (duration > 0) setTimeout(dismiss, duration);
+  }
+
+  // === v0.7.0: In-panel Confirm Dialog ===
+  // Replaces browser confirm() with a styled panel-native dialog.
+  // Returns a Promise<boolean>.
+  _confirm(message, title = 'Confirm') {
+    return new Promise((resolve) => {
+      // Remove any existing confirm overlay
+      this.shadowRoot.querySelector('.sm-confirm-overlay')?.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'sm-confirm-overlay';
+      overlay.innerHTML = `
+        <div class="sm-confirm-dialog">
+          <div class="sm-confirm-title">${title}</div>
+          <div class="sm-confirm-msg">${message}</div>
+          <div class="sm-confirm-btns">
+            <button class="sm-confirm-cancel">Cancel</button>
+            <button class="sm-confirm-ok">Delete</button>
+          </div>
+        </div>
+      `;
+
+      overlay.querySelector('.sm-confirm-cancel').addEventListener('click', () => {
+        overlay.remove(); resolve(false);
+      });
+      overlay.querySelector('.sm-confirm-ok').addEventListener('click', () => {
+        overlay.remove(); resolve(true);
+      });
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) { overlay.remove(); resolve(false); }
+      });
+
+      this.shadowRoot.appendChild(overlay);
+    });
   }
 
   set hass(hass) {
@@ -1387,18 +1551,18 @@ class SecureMePanel extends HTMLElement {
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
-      alert("Test notification sent!");
+      this._toast("Test notification sent!", "success");
     } else {
-      alert(" Could not send: " + (result?.error || "Unknown error"));
+      this._toast("Could not send: " + (result?.error || "Unknown error"), "error");
     }
   }
 
   async _testAutomation(autoId) {
     const result = await this._callWS("test_automation", { automation_id: autoId });
     if (result && result.success) {
-      alert("Test automation executed!");
+      this._toast("Test automation executed!", "success");
     } else {
-      alert(" Could not execute: " + (result?.error || "Unknown error"));
+      this._toast("Could not execute: " + (result?.error || "Unknown error"), "error");
     }
   }
 
@@ -1410,7 +1574,9 @@ class SecureMePanel extends HTMLElement {
     const mainContent = this.shadowRoot.querySelector('.main-content');
     const scrollTop = mainContent ? mainContent.scrollTop : 0;
 
-    const stateClass = this._alarmState.includes("armed") ? "armed"
+    const stateClass = this._alarmState === "triggered" ? "triggered"
+      : this._alarmState === "pending" ? "pending"
+      : this._alarmState.includes("armed") ? "armed"
       : this._alarmState === "arming" ? "arming" : "disarmed";
 
     const stateLabel = {
@@ -1770,7 +1936,7 @@ class SecureMePanel extends HTMLElement {
     const sensors = Array.from(root.querySelectorAll('.zone-sensor-cb:checked')).map(cb => cb.value);
 
     if (!name) {
-      alert('Please enter a zone name.');
+      this._toast('Please enter a zone name.', 'warning'); return;
       return;
     }
 
@@ -1789,13 +1955,14 @@ class SecureMePanel extends HTMLElement {
       this._tempConfig = null;
       await this._loadData();
     } else {
-      alert('Could not save zone: ' + (result?.error || 'Unknown error'));
+      this._toast('Could not save zone: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
 
   async _deleteZone(zoneId) {
-    if (!confirm('Delete this zone?')) return;
+    if (!await this._confirm('This zone and all its sensors will be removed.', 'Delete Zone?')) return;
     await this._callWS('delete_zone', { zone_id: zoneId });
+    this._toast('Zone deleted', 'success');
     await this._loadData();
   }
 
@@ -1906,19 +2073,19 @@ class SecureMePanel extends HTMLElement {
     const admin = root.querySelector('#user-admin')?.checked || false;
 
     if (!name) {
-      alert('Please enter a user name.');
+      this._toast('Please enter a user name.', 'warning'); return;
       return;
     }
     if (!code || code.length < 4) {
-      alert('Code must be at least 4 digits.');
+      this._toast('Code must be at least 4 digits.', 'warning'); return;
       return;
     }
     if (code !== codeConfirm) {
-      alert('Codes do not match.');
+      this._toast('Codes do not match.', 'warning'); return;
       return;
     }
     if (!/^[0-9]+$/.test(code)) {
-      alert('Code must be numbers only.');
+      this._toast('Code must be numbers only.', 'warning'); return;
       return;
     }
 
@@ -1935,13 +2102,14 @@ class SecureMePanel extends HTMLElement {
       this._tempConfig = null;
       await this._loadData();
     } else {
-      alert('Could not save user: ' + (result?.error || 'Unknown error'));
+      this._toast('Could not save user: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
 
   async _deleteUser(userId) {
-    if (!confirm('Delete this user?')) return;
+    if (!await this._confirm('This user will be permanently removed.', 'Delete User?')) return;
     await this._callWS('delete_user', { user_id: userId });
+    this._toast('User deleted', 'success');
     await this._loadData();
   }
 
@@ -1961,6 +2129,20 @@ class SecureMePanel extends HTMLElement {
       ${Object.entries(MODULE_DEFS).map(([key, def]) => {
         const mod = modules[key] || { enabled: false };
         const expanded = this._expandedModule === key && mod.enabled;
+
+        // v0.7.0: Module health badge from health data
+        const health = this._data.health?.modules?.[key];
+        const healthBadge = mod.enabled && health ? (() => {
+          const s = health.status || 'unknown';
+          const labels = { ok:'OK', healthy:'OK', pass:'OK', warn:'Warning', warning:'Warning', error:'Error', degraded:'Degraded', unknown:'Unknown' };
+          const cls = s === 'ok' || s === 'healthy' || s === 'pass' ? 'ok'
+                    : s === 'warn' || s === 'warning' ? 'warn'
+                    : s === 'error' ? 'error'
+                    : s === 'degraded' ? 'degraded' : 'unknown';
+          const ico = cls === 'ok' ? icon('ok') : cls === 'warn' ? icon('warn') : icon('fail');
+          return `<span class="module-health-badge ${cls}">${ico} ${labels[s] || s}</span>`;
+        })() : '';
+
         return `
           <div class="sm-card" style="padding:0;overflow:hidden;
                border-color:${mod.enabled ? def.color + "33" : "var(--sm-border)"}">
@@ -1973,7 +2155,10 @@ class SecureMePanel extends HTMLElement {
               </div>
               <div class="module-name-area" data-module-expand="${key}">
                 <div style="font-size:14px;font-weight:600">${def.name}</div>
-                <div style="font-size:12px;color:var(--sm-text-secondary)">${def.desc}</div>
+                <div style="font-size:12px;color:var(--sm-text-secondary);display:flex;align-items:center;gap:6px">
+                  ${def.desc}
+                  ${healthBadge}
+                </div>
               </div>
               <button class="sm-toggle ${mod.enabled ? "on" : ""}"
                       data-module-toggle="${key}">
@@ -2934,7 +3119,7 @@ class SecureMePanel extends HTMLElement {
     // Validation
     const invalid = this._tempConfig.cameras.filter(c => !c.entity_id);
     if (invalid.length > 0) {
-      alert('Please select a camera entity for all cameras before saving.');
+      this._toast('Please select a camera entity for all cameras before saving.', 'warning'); return;
       return;
     }
     
@@ -2958,14 +3143,14 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('â€¦ Camera configuration saved!\n\nRestart Home Assistant to activate changes.');
+      this._toast('Camera configuration saved! Restart HA to activate.', 'success');
     } else {
-      alert('Could not save: ' + (result?.error || 'Unknown error'));
+      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
 
-  _cancelDialog() {
-    if (confirm('Discard changes?')) {
+  async _cancelDialog() {
+    if (await this._confirm('Unsaved changes will be lost.', 'Discard Changes?')) {
       this._showDialog = null;
       this._tempConfig = null;
       this._render();
@@ -3136,13 +3321,13 @@ class SecureMePanel extends HTMLElement {
 
   async _saveLockConfig() {
     const invalid = this._tempConfig.locks.filter(l => !l.entity_id);
-    if (invalid.length > 0) { alert('Please select an entity for all locks.'); return; }
+    if (invalid.length > 0) { this._toast('Please select an entity for all locks.', 'warning'); return; }
     const config = { enabled: true, locks: this._tempConfig.locks.map(l => ({ entity_id: l.entity_id, lock_on_arm: l.lock_on_arm, unlock_on_disarm: l.unlock_on_disarm, retry_attempts: l.retry_attempts, retry_delay: l.retry_delay })) };
     const result = await this._callWS('save_module', { module_id: 'lock', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('â€¦ Lock configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
+      this._toast('Lock configuration saved! Restart HA to activate.', 'success');
+    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
 
   _renderLockDialog() {
@@ -3266,13 +3451,13 @@ class SecureMePanel extends HTMLElement {
 
   async _saveClimateConfig() {
     const invalid = this._tempConfig.thermostats.filter(t => !t.entity_id);
-    if (invalid.length > 0) { alert('Please select an entity for all thermostats.'); return; }
+    if (invalid.length > 0) { this._toast('Please select an entity for all thermostats.', 'warning'); return; }
     const config = { enabled: true, thermostats: this._tempConfig.thermostats.map(t => ({ entity_id: t.entity_id, arm_mode: t.arm_mode, disarm_mode: t.disarm_mode, eco_temp: t.eco_temp, comfort_temp: t.comfort_temp })) };
     const result = await this._callWS('save_module', { module_id: 'climate', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('â€¦ Climate configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
+      this._toast('Climate configuration saved! Restart HA to activate.', 'success');
+    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
 
   _renderClimateDialog() {
@@ -3421,7 +3606,7 @@ class SecureMePanel extends HTMLElement {
   async _saveSirenConfig() {
     const invalid = this._tempConfig.sirens.filter(s => !s.entity_id);
     if (invalid.length > 0) {
-      alert('Please select a siren entity for all sirens before saving.');
+      this._toast('Please select a siren entity for all sirens before saving.', 'warning'); return;
       return;
     }
     
@@ -3444,9 +3629,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('â€¦ Siren configuration saved!\n\nRestart Home Assistant to activate changes.');
+      this._toast('Siren configuration saved! Restart HA to activate.', 'success');
     } else {
-      alert('Could not save: ' + (result?.error || 'Unknown error'));
+      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
 
@@ -3565,13 +3750,13 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveLightsConfig() {
-    if (this._tempConfig.entities.length === 0) { alert('Please add at least one light entity.'); return; }
+    if (this._tempConfig.entities.length === 0) { this._toast('Please add at least one light entity.', 'warning'); return; }
     const config = { enabled: true, entities: this._tempConfig.entities, arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      alert('â€¦ Lights configuration saved!\nRestart Home Assistant to activate.');
-    } else { alert(' Save failed: ' + (result?.error || 'Unknown error')); }
+      this._toast('Lights configuration saved! Restart HA to activate.', 'success');
+    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
 
   _renderLightsDialog() {
@@ -3709,7 +3894,7 @@ class SecureMePanel extends HTMLElement {
 
   async _saveTTSConfig() {
     if (this._tempConfig.entities.length === 0) {
-      alert('Please select at least one media player before saving.');
+      this._toast('Please select at least one media player before saving.', 'warning'); return;
       return;
     }
     
@@ -3730,9 +3915,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      alert('â€¦ TTS configuration saved!\n\nRestart Home Assistant to activate changes.');
+      this._toast('TTS configuration saved! Restart HA to activate.', 'success');
     } else {
-      alert('Could not save: ' + (result?.error || 'Unknown error'));
+      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
 
@@ -3842,17 +4027,17 @@ class SecureMePanel extends HTMLElement {
           });
           
           if (result && result.success !== false) {
-            alert(` ${MODULE_DEFS[moduleKey].name} configuration saved!\n\nRestart Home Assistant to activate changes.`);
+            this._toast(`${MODULE_DEFS[moduleKey].name} configuration saved! Restart HA to activate.`, 'success');
             this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
     this._tempConfig = null;  // Temporary config during editing
     this._availableEntities = {};  // Cache of entities by domain
             await this._loadData();
           } else {
-            alert(` Could not save: ${result?.error || "Unknown error"}`);
+            this._toast(`Could not save: ${result?.error || "Unknown error"}`, 'error');
           }
         } catch (err) {
-          alert(` JSON error: ${err.message}\n\nCheck the syntax in the text field.`);
+          this._toast(`JSON error: ${err.message} - Check syntax in text field.`, 'error');
         }
       });
     });
@@ -3979,13 +4164,13 @@ class SecureMePanel extends HTMLElement {
         const action = btn.dataset.action;
         switch(action) {
           case "import-nfc":
-            alert("Import NFC tags - coming soon.");
+            this._toast("Import NFC tags - coming soon.", "info");
             break;
           case "add-notification":
-            alert("Add Notification - coming soon.");
+            this._toast("Add Notification - coming soon.", "info");
             break;
           case "add-automation":
-            alert("Add Automation - coming soon.");
+            this._toast("Add Automation - coming soon.", "info");
             break;
         }
       });

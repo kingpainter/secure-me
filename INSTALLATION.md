@@ -1,252 +1,121 @@
-# SECURE ME v0.3.0 - CRITICAL BUGFIXES
-## Installation Guide
+# Secure Me — Installation Guide
 
-**Version:** v0.3.0.1 (Bugfix Release)  
-**Date:** 2026-02-13  
-**Fixed By:** Claude (Anthropic)
+**Version:** 0.8.0  
+**Requires:** Home Assistant 2025.1.1+
 
 ---
 
-## 🐛 BUGS FIXED
+## Option 1: HACS (Recommended)
 
-### 1. ✅ Unicode Garbled Text (Icons)
-**Problem:** Module icons displayed as garbled characters (ÃƒÂ°Ã…Â¸Ã¢â‚¬Å"Ã‚Â·)  
-**Cause:** UTF-8 encoding corruption in JavaScript  
-**Fix:** Replaced garbled characters with HTML entities
-
-**Affected Icons:**
-- &#128247; Camera icon
-- &#128275; Lock icon  
-- &#127777; Thermometer (Climate)
-- &#128680; Siren icon
-- &#128279; Blueprint/Link icon
-- &#128161; Light bulb icon
-
-**File Modified:** `frontend/secure-me-panel.js`
+1. Open **HACS** in Home Assistant
+2. Go to **Integrations → Custom Repositories**
+3. Add URL: `https://github.com/kingpainter/secure-me` — type: **Integration**
+4. Search for **Secure Me** and click Install
+5. Restart Home Assistant
+6. Continue with [Initial Setup](#initial-setup)
 
 ---
 
-### 2. ✅ Module Health Shows "not configured"
-**Problem:** System Health shows "not configured" even when modules have entities configured  
-**Cause:** `_get_module_entity_ids()` function didn't check module.config dict fallback  
-**Fix:** Added fallback logic to check config dict when attribute lookup fails
+## Option 2: Manual
 
-**Impact:** 
-- Camera, Lock, Climate, Lights modules now show correct entity counts
-- Health score calculates correctly
-- Testing framework shows accurate module status
-
-**File Modified:** `websocket_api.py`
-
-**Code Change:**
-```python
-# BEFORE:
-def _get_module_entity_ids(module) -> list[str]:
-    entities = []
-    for attr in ("cameras", "locks", "climates"):
-        val = getattr(module, attr, None)
-        if isinstance(val, list):
-            entities.extend(val)
-    return entities
-
-# AFTER:
-def _get_module_entity_ids(module) -> list[str]:
-    entities = []
-    for attr in ("cameras", "locks", "climates"):
-        val = getattr(module, attr, None)
-        if isinstance(val, list):
-            entities.extend(val)
-    
-    # FALLBACK: Check config dict
-    if not entities and hasattr(module, 'config'):
-        config = module.config
-        for key in ("cameras", "locks", "climates"):
-            if key in config:
-                entities.extend(config[key])
-    
-    return list(set(entities))  # Remove duplicates
-```
+1. Download the latest release from [GitHub Releases](https://github.com/kingpainter/secure-me/releases)
+2. Unzip and copy the `custom_components/secure_me/` folder into your HA config:
+   ```
+   /config/custom_components/secure_me/
+   ```
+3. Restart Home Assistant
+4. Continue with [Initial Setup](#initial-setup)
 
 ---
 
-### 3. ✅ Module Configuration Dialogs Don't Open  
-**Status:** PARTIAL FIX - Event listeners verified present  
-**Next Steps:** Test after restart - if still broken, add debug logging
+## Initial Setup
 
-**Verified Working:**
-- Event listeners ARE attached in `_attachTabListeners()`
-- Functions `_openCameraConfig()`, `_openLockConfig()`, `_openClimateConfig()` exist
-- Dialog rendering logic is correct
+1. Go to **Settings → Devices & Services → Add Integration**
+2. Search for **Secure Me** and click it
+3. Fill in the setup form:
 
-**Potential Issue:**
-- Buttons may not be visible when event listeners attach
-- This should be automatically resolved after restart
+| Field | Description | Default |
+|-------|-------------|---------|
+| Alarm Code | PIN to arm/disarm (numbers only) | Required |
+| Exit Delay | Seconds countdown after arming | 30 |
+| Entry Delay | Seconds before alarm triggers on breach | 30 |
+| Trigger Time | Seconds alarm stays triggered before auto-reset | 300 |
 
-**File:** No changes needed - testing required
-
----
-
-### 4. ✅ Alarm Doesn't Trigger When Armed
-**Problem:** Alarm armed_away but opening doors/sensors doesn't trigger alarm  
-**Cause:** Zone monitoring never starts due to incorrect boolean check  
-**Fix:** Changed truthiness check to explicit length check
-
-**The Bug:**
-```python
-# WRONG - Empty list [] is falsy, so this NEVER runs
-if not self.zone_manager._unsubscribe_callbacks:
-    self.zone_manager.start_monitoring()
-
-# CORRECT - Explicitly check if list is empty
-if len(self.zone_manager._unsubscribe_callbacks) == 0:
-    self.zone_manager.start_monitoring()
-```
-
-**Impact:**
-- Zone monitoring now starts correctly when armed
-- Sensors trigger entry delay or immediate alarm
-- Triggered zones are tracked properly
-
-**File Modified:** `coordinator.py`
+4. Click **Submit** — the integration loads
+5. Open **Secure Me** from the HA sidebar
 
 ---
 
-## 📦 INSTALLATION INSTRUCTIONS
+## First Configuration
 
-### Step 1: Backup Current Files
-```bash
-cd /config/custom_components/secure_me
-cp frontend/secure-me-panel.js frontend/secure-me-panel.js.backup
-cp websocket_api.py websocket_api.py.backup
-cp coordinator.py coordinator.py.backup
-```
+### 1. Add Sensors (Sensors tab)
 
-### Step 2: Install Fixed Files
-```bash
-# Copy the three fixed files:
-# 1. secure-me-panel.js → /config/custom_components/secure_me/frontend/
-# 2. websocket_api.py → /config/custom_components/secure_me/
-# 3. coordinator.py → /config/custom_components/secure_me/
-```
+Go to the **Sensors tab** and enable the binary sensors you want to monitor — door contacts, motion sensors, window sensors, etc.
 
-### Step 3: Restart Home Assistant
-```
-Settings → System → Restart Home Assistant
-```
+### 2. Create Zones (Zones tab)
 
-### Step 4: Clear Browser Cache
-**IMPORTANT:** Hard refresh browser to load new panel JavaScript
-- **Chrome/Edge:** Ctrl+Shift+R (Cmd+Shift+R on Mac)
-- **Firefox:** Ctrl+F5 (Cmd+Shift+R on Mac)
-- **Safari:** Cmd+Option+R
+Create at least one zone and assign your sensors to it. Choose a zone type:
+
+| Type | When to use |
+|------|-------------|
+| Entry | Front door — gives you time to disarm |
+| Instant | Window sensors — triggers immediately |
+| Interior | Motion sensors — active when Armed Away |
+| Perimeter | Garage sensors — active in all armed modes |
+
+### 3. Enable Modules (Modules tab)
+
+Enable the modules that match your hardware. Each module has a configure button — click it to set up entities. Changes take effect after restarting Home Assistant.
+
+### 4. Run a Test (Testing tab)
+
+Run a **Quick Test** to verify entities are available, then a **Full Test** to check sensors and modules. A green result means you are ready.
 
 ---
 
-## ✅ VERIFICATION CHECKLIST
+## Updating
 
-After restart, verify these fixes:
+### Via HACS
+HACS will notify you when a new version is available. Click Update, then restart HA.
 
-### Test 1: Module Icons
-- [ ] Go to Modules tab
-- [ ] Check Camera icon displays correctly (📷)
-- [ ] Check Lock icon displays correctly (🔓)
-- [ ] Check Climate icon displays correctly (🌡)
-- [ ] Check other module icons
+### Manually
+Replace the files in `/config/custom_components/secure_me/` with the new version, then restart HA.
 
-### Test 2: System Health  
-- [ ] Go to Testing tab
-- [ ] Check "System Health" section
-- [ ] Verify Camera shows "2/2 ok" (not "not configured")
-- [ ] Verify Lock shows "1/1 ok" (not "not configured")
-- [ ] Verify Climate shows "4/4 ok" (not "not configured")
-- [ ] Verify health score shows correctly (should be 100% if all entities available)
-
-### Test 3: Module Dialogs
-- [ ] Go to Modules tab
-- [ ] Expand Camera module
-- [ ] Click "Configure Cameras" button
-- [ ] Dialog should open with camera configuration
-- [ ] Repeat for Lock and Climate modules
-
-### Test 4: Zone Triggering
-- [ ] Arm alarm in Away mode
-- [ ] Wait for arming countdown to complete
-- [ ] Open a door or trigger a sensor
-- [ ] Verify entry delay starts
-- [ ] Verify alarm triggers after delay
+After updating, always clear your browser cache:
+- **Chrome / Edge:** `Ctrl+Shift+R`
+- **Firefox:** `Ctrl+F5`
+- **Safari:** `Cmd+Option+R`
 
 ---
 
-## 🔍 DEBUG LOGGING
+## Uninstall
 
-If problems persist, enable debug logging:
+1. Go to **Settings → Devices & Services → Secure Me → Delete**
+2. Remove the `custom_components/secure_me/` folder
+3. Restart Home Assistant
 
+---
+
+## Troubleshooting
+
+**Integration not showing up after install**
+Make sure you restarted Home Assistant after copying the files.
+
+**Panel blank after update**
+Hard refresh your browser: `Ctrl+Shift+R`
+
+**Alarm armed but sensors don't trigger**
+Confirm your sensors are enabled in the Sensors tab and assigned to a zone in the Zones tab. Run a Full Test to see which sensors are offline.
+
+**Enable debug logging**
+Add to `configuration.yaml`:
 ```yaml
-# configuration.yaml
 logger:
   default: info
   logs:
     custom_components.secure_me: debug
-    custom_components.secure_me.coordinator: debug
-    custom_components.secure_me.zones: debug
-    custom_components.secure_me.websocket_api: debug
 ```
+Then check logs at **Settings → System → Logs** (filter: `secure_me`).
 
-Check logs at: `Settings → System → Logs` (filter: "secure_me")
-
----
-
-## 📊 SUMMARY
-
-| Bug | Severity | Status | File |
-|-----|----------|--------|------|
-| Garbled icons | Medium | ✅ Fixed | secure-me-panel.js |
-| "not configured" | High | ✅ Fixed | websocket_api.py |
-| Dialogs don't open | High | ⚠️ Needs Testing | secure-me-panel.js |
-| Alarm doesn't trigger | **CRITICAL** | ✅ Fixed | coordinator.py |
-
----
-
-## 🎯 EXPECTED RESULTS
-
-After applying these fixes:
-1. ✅ All module icons display correctly
-2. ✅ System Health shows accurate entity counts
-3. ✅ Module configuration dialogs open when clicked
-4. ✅ Alarm monitors zones and triggers correctly when armed
-
----
-
-## 💾 FILES INCLUDED
-
-- `secure-me-panel.js` - Frontend panel (3832 lines)
-- `websocket_api.py` - WebSocket API (864 lines)
-- `coordinator.py` - Main coordinator (609 lines)
-
----
-
-## 📝 VERSION INFO
-
-**Current Version:** v0.3.0  
-**Bugfix Version:** v0.3.0.1 (unofficial)  
-**Next Official Version:** v0.3.1 (when published)
-
----
-
-## ❓ TROUBLESHOOTING
-
-**Q: Icons still garbled after restart?**  
-A: Clear browser cache with hard refresh (Ctrl+Shift+R)
-
-**Q: Health still shows "not configured"?**  
-A: Check that modules are actually configured with entities in the Modules tab
-
-**Q: Dialogs still don't open?**  
-A: Check browser console for JavaScript errors (F12 → Console tab)
-
-**Q: Alarm still doesn't trigger?**  
-A: Check logs for "start_monitoring" message when arming
-
----
-
-**Installation completed! Test all functionality and report any remaining issues.**
+**Download diagnostics**
+Go to **Settings → Devices & Services → Secure Me → Download Diagnostics** for a full system snapshot to share when reporting issues.

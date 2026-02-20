@@ -5,7 +5,7 @@ Run before every commit to ensure all files have the same version.
 
 Usage:
     python3 validate_version.py           # Auto-detect version from manifest.json
-    python3 validate_version.py 0.3.6     # Validate against specific version
+    python3 validate_version.py 0.7.0     # Validate against specific version
     python3 validate_version.py --fix     # Auto-fix all version mismatches
 """
 import sys
