@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.3.3
+ * VERSION: 0.3.6
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "0.3.3";
+const 0.3.6 = "0.3.6";
 
 // === Styles ===
 const panelStyles = `
@@ -392,8 +392,24 @@ const panelStyles = `
   .placeholder-icon {
     width: 64px; height: 64px; border-radius: 16px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 28px; margin-bottom: 16px;
+    font-size: 0; margin-bottom: 16px;
   }
+  .placeholder-icon svg { width: 32px; height: 32px; }
+
+  /* Status SVG icons inline sizing */
+  .info-card svg { width: 20px; height: 20px; flex-shrink: 0; }
+  .test-overall-icon svg { width: 28px; height: 28px; }
+  .module-status-icon svg { width: 16px; height: 16px; }
+  .dialog-close svg { width: 18px; height: 18px; }
+  .dialog-close {
+    background: none; border: none;
+    color: var(--sm-text-secondary);
+    cursor: pointer; padding: 4px;
+    display: flex; align-items: center;
+    border-radius: 6px;
+    transition: color 0.15s, background 0.15s;
+  }
+  .dialog-close:hover { color: var(--sm-text); background: rgba(255,255,255,0.08); }
   .placeholder h3 { margin: 0; font-size: 18px; font-weight: 600; }
   .placeholder p {
     color: var(--sm-text-secondary); font-size: 14px;
@@ -1104,6 +1120,11 @@ const ICONS = {
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
   dots: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
@@ -1543,7 +1564,7 @@ class SecureMePanel extends HTMLElement {
       case "modules": return this._renderModules();
       case "automations": return this._renderAutomations();
       case "testing": return this._renderTesting();
-      case "future": return this._renderPlaceholder("Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
+      case "future": return this._renderPlaceholder("rocket", "Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
       default: return "";
     }
   }
@@ -1612,7 +1633,7 @@ class SecureMePanel extends HTMLElement {
       </div>
 
       <div class="info-card warning">
-        <span style="font-size:18px">&#9888;&#65039;</span>
+        <span style="color:var(--sm-warning);display:flex;align-items:center">${icon("warn")}</span>
         <div>
           <div class="info-title" style="color:var(--sm-warning)">Minimum Requirements</div>
           <div class="info-text">
@@ -1681,9 +1702,9 @@ class SecureMePanel extends HTMLElement {
     return '<div class="config-dialog-overlay">' +
       '<div class="config-dialog">' +
         '<div class="dialog-header">' +
-          '<span style="font-size:24px">&#128737;</span>' +
+          icon('shield') +
           '<div class="dialog-title">Add Zone</div>' +
-          '<button class="dialog-close" data-action="close-dialog">&#10005;</button>' +
+          '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
         '<div class="form-group">' +
@@ -1834,9 +1855,9 @@ class SecureMePanel extends HTMLElement {
     return '<div class="config-dialog-overlay">' +
       '<div class="config-dialog">' +
         '<div class="dialog-header">' +
-          '<span style="font-size:24px">&#128100;</span>' +
+          icon('user') +
           '<div class="dialog-title">Add User</div>' +
-          '<button class="dialog-close" data-action="close-dialog">&#10005;</button>' +
+          '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
         '<div class="form-group">' +
@@ -1927,7 +1948,7 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="section-header">
         <h3 class="section-title">Modules</h3>
-        <span class="badge accent">${enabledCount} aktive</span>
+        <span class="badge accent">${enabledCount} active</span>
       </div>
 
       ${Object.entries(MODULE_DEFS).map(([key, def]) => {
@@ -1987,9 +2008,9 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.cameras.map(cam => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    â€¢
+                    ${icon("chevron")}
                     <span style="font-size:12px">${cam.entity_id || cam}</span>
-                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">Â¢ POE: ${cam.poe_port}</span>` : ''}
+                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">POE: ${cam.poe_port}</span>` : ''}
                   </div>
                 `).join('')}
               </div>
@@ -2032,7 +2053,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.locks.map(lock => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    â€¢
+                    ${icon("chevron")}
                     <span style="font-size:12px">${lock.entity_id}</span>
                   </div>
                 `).join('')}
@@ -2067,7 +2088,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                â€¢<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2092,7 +2113,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                â€¢<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2117,7 +2138,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                â€¢<span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -2143,7 +2164,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                â€¢<span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2171,7 +2192,7 @@ class SecureMePanel extends HTMLElement {
         
         <div style="margin-top:16px;display:flex;gap:8px">
           <button class="sm-btn primary" data-save-module-config="${moduleKey}">
-            â€¢ Save Changes
+            Save Changes
           </button>
           <button class="sm-btn default" data-cancel-module="${moduleKey}">
             Cancel
@@ -2328,10 +2349,10 @@ class SecureMePanel extends HTMLElement {
   // ===
   // PLACEHOLDER TAB
   // ===
-  _renderPlaceholder(emoji, title, desc, colorName, badgeText) {
+  _renderPlaceholder(iconName, title, desc, colorName, badgeText) {
     return `
       <div class="placeholder">
-        <div class="placeholder-icon" style="background:var(--sm-${colorName}-dim)">${emoji}</div>
+        <div class="placeholder-icon" style="background:var(--sm-${colorName}-dim);color:var(--sm-${colorName})">${icon(iconName)}</div>
         <h3>${title}</h3>
         <p>${desc}</p>
         <span class="badge ${colorName === "warning" ? "entry" : "actions"}">${badgeText}</span>
@@ -2387,8 +2408,8 @@ class SecureMePanel extends HTMLElement {
             ${Object.entries(modules).map(([id, m]) => {
               const color = !m.enabled ? "var(--sm-text-tertiary)" :
                             m.status === "ok" ? "var(--sm-accent)" : "var(--sm-danger)";
-              const statusIcon = !m.enabled ? "&#9675;" :
-                                 m.status === "ok" ? "&#10003;" : "&#10007;";
+              const statusIcon = !m.enabled ? icon("circle") :
+                                 m.status === "ok" ? icon("check") : icon("fail");
               return `
                 <div style="padding:10px 12px;background:rgba(255,255,255,0.04);
                      border-radius:8px;border:1px solid ${color}22;
@@ -2480,7 +2501,7 @@ class SecureMePanel extends HTMLElement {
             <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;
                  ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
               <span style="font-size:16px">
-                ${r.overall === "pass" ? "&#9989;" : r.overall === "warning" ? "&#9888;&#65039;" : "&#10060;"}
+                ${r.overall === "pass" ? icon("ok") : r.overall === "warning" ? icon("warn") : icon("fail")}
               </span>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
@@ -2488,7 +2509,8 @@ class SecureMePanel extends HTMLElement {
               </div>
               <div style="text-align:right">
                 <div style="font-size:12px;font-weight:600">
-                  ${r.summary ? r.summary.passed : 0}/${(r.summary ? r.summary.passed : 0) + (r.summary ? r.summary.failed : 0)} passed
+                  ${r.summary ? r.summary.passed : 0}/${(r.summary ? (r.summary.passed||0) + (r.summary.failed||0) + (r.summary.warned||0) : 0)} passed
+                  ${r.summary?.warned ? `, ${r.summary.warned} warned` : ""}
                 </div>
                 <div style="font-size:11px;color:var(--sm-text-secondary)">${r.duration_seconds}s</div>
               </div>
@@ -2511,7 +2533,7 @@ class SecureMePanel extends HTMLElement {
           result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
         };display:flex;align-items:center;gap:12px">
           <span style="font-size:24px">
-            ${result.overall === "pass" ? "&#9989;" : result.overall === "warning" ? "&#9888;&#65039;" : "&#10060;"}
+            ${result.overall === "pass" ? icon("ok") : result.overall === "warning" ? icon("warn") : icon("fail")}
           </span>
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;text-transform:capitalize">
@@ -2519,19 +2541,24 @@ class SecureMePanel extends HTMLElement {
             </div>
             <div style="font-size:12px;opacity:0.8">
               ${result.timestamp} &middot; ${result.duration_seconds}s
-              &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed, ${summary.skipped || 0} skipped
+              &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed${summary.warned ? ", " + summary.warned + " warned" : ""}, ${summary.skipped || 0} skipped
             </div>
           </div>
         </div>
 
         <div style="padding:12px 16px">
           ${Object.entries(mods).map(([id, m]) => {
-            const color = m.status === "pass" ? "var(--sm-accent)" :
+            const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
-                          m.status === "fail" ? "var(--sm-danger)" : "var(--sm-warning)";
-            const statusText = m.status === "pass" ? "PASS" :
+                          m.status === "warning" ? "var(--sm-warning)" :
+                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-warning)";
+            const statusText = m.status === "pass"    ? "PASS" :
                                m.status === "skipped" ? "SKIP" :
-                               m.status === "fail" ? "FAIL" : "ERROR";
+                               m.status === "warning" ? "WARN" :
+                               m.status === "fail"    ? "FAIL" : "ERR";
+            const detail = m.status === "warning" && m.reason === "no_entities"
+              ? "Not configured - add entities in module settings"
+              : m.test_result?.message || m.message || "";
             return `
               <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
                    border-bottom:1px solid var(--sm-border)">
@@ -2544,18 +2571,37 @@ class SecureMePanel extends HTMLElement {
                       ${m.entities_available}/${m.entities_total} entities
                     </span>
                   ` : ""}
+                  ${detail ? `
+                    <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:2px">${detail}</div>
+                  ` : ""}
                 </div>
-                ${m.test_result && m.test_result.message ? `
-                  <span style="font-size:11px;color:var(--sm-text-secondary)">${m.test_result.message}</span>
-                ` : ""}
-                ${m.reason ? `
+                ${m.reason && m.reason !== "no_entities" ? `
                   <span style="font-size:11px;color:var(--sm-text-tertiary)">${m.reason}</span>
                 ` : ""}
               </div>
             `;
           }).join("")}
 
-          ${bats.status ? '' : ''}
+          ${bats.total > 0 ? `
+            <div style="padding:10px 0;border-top:1px solid var(--sm-border);margin-top:4px">
+              <div style="font-size:11px;font-weight:600;color:var(--sm-text-tertiary);
+                   text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">
+                Batteries (informational)
+              </div>
+              <div style="display:flex;gap:12px;font-size:12px">
+                <span>${bats.total} total</span>
+                ${bats.low_count > 0 ? `
+                  <span style="color:var(--sm-warning)">${bats.low_count} low</span>
+                ` : ""}
+                ${bats.critical_count > 0 ? `
+                  <span style="color:var(--sm-danger)">${bats.critical_count} critical</span>
+                ` : ""}
+                ${bats.low_count === 0 && bats.critical_count === 0 ? `
+                  <span style="color:var(--sm-accent)">All OK</span>
+                ` : ""}
+              </div>
+            </div>
+          ` : ""}
         </div>
       </div>
     `;
@@ -2686,7 +2732,7 @@ class SecureMePanel extends HTMLElement {
           ${lowBatteries.map((bat, i) => renderBatteryRow(bat, i, i > 0)).join("")}
         ` : `
           <div style="padding:16px;text-align:center;color:var(--sm-accent);font-size:13px;font-weight:600">
-            &#10003; All batteries above 50%
+            All batteries above 50%
           </div>
         `}
 

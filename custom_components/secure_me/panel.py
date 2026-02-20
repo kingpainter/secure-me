@@ -1,4 +1,4 @@
-# VERSION = "0.3.1"
+# 0.3.6 = "0.3.6"
 """Panel registration for Secure Me."""
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # Panel configuration
-VERSION = "0.3.1"
+0.3.6 = "0.3.6"
 PANEL_URL = f"/api/{DOMAIN}-panel"
 PANEL_ICON = "mdi:shield-lock"
 PANEL_NAME = "secure-me-panel"

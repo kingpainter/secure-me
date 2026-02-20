@@ -28,3 +28,13 @@ jobs:
 
       - name: Hassfest validation
         uses: home-assistant/actions/hassfest@master
+
+  version:
+    runs-on: ubuntu-latest
+    name: Version Consistency
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check version consistency
+        run: python3 validate_version.py

@@ -1,79 +1,129 @@
-# Test Suite Fix - Secure Me v0.3.1
+# Secure Me
 
-## Ændringer i denne pakke:
+**Professional Home Alarm Manager for Home Assistant**
 
-### 1. test_const.py (OPDATERET)
-- ✅ Version tjek opdateret til `0.3.1` (fra `0.3.0`)
-- Alle andre tests bevaret
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![Version](https://img.shields.io/badge/version-0.3.6-blue.svg)](CHANGELOG.md)
+[![Tests](https://img.shields.io/badge/tests-100%2F100-brightgreen.svg)](tests/)
+[![HA](https://img.shields.io/badge/Home%20Assistant-2025.1%2B-brightgreen.svg)](https://www.home-assistant.io)
 
-### 2. test_diagnostics.py (OPDATERET)
-- ✅ Version tjek opdateret til `0.3.1` (fra `0.3.0`)
-- Alle andre tests bevaret
+---
 
-### 3. test_files.py (OPDATERET)
-- ✅ `hacs.json` sti rettet til REPO_ROOT (fra INTEGRATION_DIR)
-- Alle andre tests bevaret
+## Overview
 
-### 4. test_init_.py (SLETTET)
-- ❌ Denne fil skal slettes helt
-- Tester gammel kode som ikke længere eksisterer
-- 8 fejlende tests fjernet
+Secure Me is a custom Home Assistant integration that turns your smart home into a complete alarm system. It combines zone management, multiple arming modes, and 6 smart modules — all controlled from a professional configuration panel with real-time monitoring.
 
-## Installation:
+---
 
+## Features
+
+### Alarm System
+- **4 arming modes** — Away, Home, Night, Vacation
+- **Zone management** — group sensors by area
+- **Entry/exit delays** — configurable countdown timers
+- **Code protection** — PIN validation
+- **State tracking** — who armed, disarmed, or triggered
+
+### 6 Smart Modules
+| Module | Function |
+|--------|----------|
+| Camera | POE port control, recording management |
+| Lock | Smart lock automation with retry logic |
+| Lights | Auto control, emergency flash patterns |
+| Climate | Multi-zone heating/cooling |
+| Siren | Alarm sounds with multiple patterns |
+| TTS | Danish voice notifications |
+
+### Configuration Panel
+- Modern sidebar navigation (Alarmo-style)
+- Mobile-optimised with bottom navigation bar
+- 7 tabs: Sensors, Zones, Users, Modules, Actions, Test, Future
+- Real-time status via WebSocket
+
+### Testing & Monitoring
+- Three-tier test framework (Quick / Standard / Full)
+- Module health monitoring (6 binary sensors)
+- Battery auto-discovery with low/critical warnings
+- System health integration (10 metrics)
+- Enhanced diagnostics (6 sections)
+
+---
+
+## Installation
+
+### Via HACS (recommended)
+
+1. Open HACS → Integrations → Custom repositories
+2. Add `https://github.com/kingpainter/secure-me` as Integration
+3. Install **Secure Me**
+4. Restart Home Assistant
+
+### Manual
+
+1. Copy `custom_components/secure_me/` to your HA `config/custom_components/`
+2. Restart Home Assistant
+3. Go to Settings → Devices & Services → Add Integration → Secure Me
+
+---
+
+## Requirements
+
+- Home Assistant 2025.1.1+
+- Python 3.11+
+
+---
+
+## Usage
+
+### Setup
+1. Add integration via Settings → Devices & Services
+2. Open **Secure Me** in the sidebar
+3. Configure sensors, zones, users and modules
+4. Run a Quick Test to verify everything works
+
+### Panel Access
+Sidebar → Secure Me
+
+### System Health
+Developer Tools → Info → System Health → secure_me
+
+### Diagnostics
+Settings → Devices & Services → Secure Me → Download Diagnostics
+
+---
+
+## Development
+
+### Run tests
 ```bash
-# Slet gammel test_init_.py
-rm tests/test_init_.py
-
-# Erstat de 3 opdaterede test filer
-cp test_const.py tests/
-cp test_diagnostics.py tests/
-cp test_files.py tests/
+pytest tests/ -v
 ```
 
-## Forventet resultat efter fix:
-
-```
-✅ test_const.py:        11/11 passed
-✅ test_diagnostics.py:   5/5 passed
-✅ test_files.py:        13/13 passed (hacs.json nu fundet)
-✅ test_modules.py:      16/16 passed
-✅ test_sensors.py:      19/19 passed
-✅ test_state_machine.py: 18/18 passed
-✅ test_store.py:        18/18 passed
-
-TOTAL: 100/100 tests passed ✅
+### Validate version consistency
+```bash
+python3 validate_version.py
 ```
 
-## GitHub Actions forventet status:
-
-```
-✅ HACS Validation:     7/8 passed (brands forventet fejl)
-✅ Hassfest Validation: All passed
-✅ Pytest Python 3.11:  100/100 passed
-✅ Pytest Python 3.12:  100/100 passed
+### Validate encoding (no emojis)
+```bash
+python3 validate_encoding.py custom_components/secure_me/frontend/secure-me-panel.js
 ```
 
-## Commit besked forslag:
+---
 
-```
-Fix: Update test suite for v0.3.1
+## Version History
 
-- Updated version checks to 0.3.1 in test_const.py and test_diagnostics.py
-- Fixed hacs.json path in test_files.py (repo root vs integration dir)
-- Removed test_init_.py (tests for deprecated code structure)
-- All 100 remaining tests now pass
-```
+See [CHANGELOG.md](CHANGELOG.md) for full history.
 
-## Hvad er fikset:
+**Current:** v0.3.6 — Phase 3b complete (all 9 bugs fixed)  
+**Next:** v0.4.0 — Enhanced error handling
 
-1. **Version mismatch** - Tests forventede 0.3.0, men integration er 0.3.1
-2. **hacs.json placering** - Test leder nu i rod af repo (korrekt placering)
-3. **Forældede tests** - test_init_.py slettet (testede gammel panel kode)
+---
 
-## Næste skridt:
+## License
 
-1. Implementer disse ændringer
-2. Commit og push
-3. Vent på grønne GitHub Actions checks
-4. Fortsæt med Phase 4 udvikling! 🚀
+MIT — see [LICENSE](LICENSE)
+
+---
+
+*Secure Me by KingPainter*

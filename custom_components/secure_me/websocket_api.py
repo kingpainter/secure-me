@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.5"
 
 import logging
 import uuid
@@ -818,6 +818,19 @@ async def ws_run_test(
             continue
 
         entities = _get_module_entity_ids(module)
+
+        # F7: Enabled module with 0 entities = warning (not configured yet)
+        if len(entities) == 0:
+            results["modules"][mod_id] = {
+                "status": "warning",
+                "reason": "no_entities",
+                "message": "Module is enabled but has no entities configured",
+                "entities_total": 0,
+                "entities_available": 0,
+                "unavailable": [],
+            }
+            continue
+
         unavail = []
         for eid in entities:
             state = hass.states.get(eid)
@@ -877,25 +890,44 @@ async def ws_run_test(
                 "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
             }
 
-    # --- Overall result (batteries excluded - they are info only) ---
+    # --- Battery discovery (standard + full test) - INFORMATIONAL ONLY ---
+    if test_type in ("standard", "full"):
+        batteries = _discover_batteries(hass)
+        low = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
+        critical = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
+        results["batteries"] = {
+            "total": len(batteries),
+            "low_count": len(low),
+            "critical_count": len(critical),
+            "details": batteries,
+            "note": "Battery status is informational only and does not affect PASS/FAIL",
+        }
+
+    # --- Overall result ---
+    # NOTE: Batteries explicitly excluded from overall calculation
+    # WARNING status (unconfigured modules) does NOT fail overall - only FAIL and ERROR do
     duration = round(time.time() - start_time, 1)
     results["duration_seconds"] = duration
 
     any_fail = any(
-        m.get("status") == "fail" or m.get("status") == "error"
+        m.get("status") in ("fail", "error")
         for m in results["modules"].values()
     )
     sensor_fail = results.get("sensors", {}).get("status") == "fail"
     if any_fail or sensor_fail:
         results["overall"] = "fail"
+    elif any(m.get("status") == "warning" for m in results["modules"].values()):
+        results["overall"] = "warning"
 
     # Compute summary counts
     passed = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
     failed = sum(1 for m in results["modules"].values() if m.get("status") in ("fail", "error"))
+    warned = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
     skipped = sum(1 for m in results["modules"].values() if m.get("status") == "skipped")
     results["summary"] = {
         "passed": passed,
         "failed": failed,
+        "warned": warned,
         "skipped": skipped,
     }
 
