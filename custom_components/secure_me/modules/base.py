@@ -1,5 +1,5 @@
 """Base module class for Secure Me alarm system."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.6"
 
 import logging
 from abc import ABC, abstractmethod
