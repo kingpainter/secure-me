@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.6"
 
 import logging
 from datetime import timedelta

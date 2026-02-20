@@ -1,5 +1,5 @@
 """Select platform for Secure Me."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.6"
 
 import logging
 

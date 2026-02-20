@@ -1,5 +1,5 @@
 """Config flow for Secure Me integration."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.6"
 
 import logging
 from typing import Any

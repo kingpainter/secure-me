@@ -1,5 +1,5 @@
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
-# VERSION = "0.3.3"
+# VERSION = "0.3.6"
 
 import logging
 from datetime import datetime
@@ -472,6 +472,9 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
 
     Auto-discovers all sensor entities with device_class 'battery'.
     Shows the lowest percentage and which sensor it belongs to.
+
+    Uses per-update caching to avoid scanning all battery sensors multiple
+    times (native_value, icon and extra_state_attributes all use same data).
     """
 
     _attr_name = "Lowest Battery"
@@ -484,17 +487,29 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
         """Initialize lowest battery sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_lowest_battery"
+        self._battery_summary_cache: dict[str, Any] | None = None
+
+    def _get_summary(self) -> dict[str, Any]:
+        """Return battery summary, cached for current update cycle."""
+        if self._battery_summary_cache is None:
+            self._battery_summary_cache = _get_battery_summary(self.hass)
+        return self._battery_summary_cache
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Invalidate cache on coordinator update, then write state."""
+        self._battery_summary_cache = None
+        super()._handle_coordinator_update()
 
     @property
     def native_value(self) -> int | None:
         """Return the lowest battery level."""
-        summary = _get_battery_summary(self.hass)
-        return summary["lowest_level"]
+        return self._get_summary()["lowest_level"]
 
     @property
     def icon(self) -> str:
         """Return icon based on battery level."""
-        level = self.native_value
+        level = self._get_summary()["lowest_level"]
         if level is None:
             return "mdi:battery-unknown"
         if level < BATTERY_THRESHOLD_CRITICAL:
@@ -508,7 +523,7 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return full battery overview."""
-        summary = _get_battery_summary(self.hass)
+        summary = self._get_summary()
 
         # Build per-sensor detail list
         sensor_details: dict[str, Any] = {}
@@ -545,6 +560,9 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     """Sensor showing count of batteries below the low threshold.
 
     Useful for automations: 'if low_battery_count > 0 then notify'.
+
+    Uses per-update caching to avoid scanning all battery sensors multiple
+    times (native_value, icon and extra_state_attributes all use same data).
     """
 
     _attr_name = "Low Battery Count"
@@ -555,12 +573,24 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
         """Initialize low battery count sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_low_battery_count"
+        self._battery_summary_cache: dict[str, Any] | None = None
+
+    def _get_summary(self) -> dict[str, Any]:
+        """Return battery summary, cached for current update cycle."""
+        if self._battery_summary_cache is None:
+            self._battery_summary_cache = _get_battery_summary(self.hass)
+        return self._battery_summary_cache
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Invalidate cache on coordinator update, then write state."""
+        self._battery_summary_cache = None
+        super()._handle_coordinator_update()
 
     @property
     def native_value(self) -> int:
         """Return count of batteries below low threshold."""
-        summary = _get_battery_summary(self.hass)
-        return summary["low_count"]
+        return self._get_summary()["low_count"]
 
     @property
     def icon(self) -> str:
@@ -570,7 +600,7 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of low/critical battery sensors."""
-        summary = _get_battery_summary(self.hass)
+        summary = self._get_summary()
 
         low_sensors: list[dict[str, Any]] = []
         critical_sensors: list[dict[str, Any]] = []
