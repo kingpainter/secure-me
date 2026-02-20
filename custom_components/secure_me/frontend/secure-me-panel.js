@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "0.3.6";
+const 0.3.6 = "0.3.6";
 
 // === Styles ===
 const panelStyles = `
@@ -1184,6 +1184,10 @@ class SecureMePanel extends HTMLElement {
   }
 
 
+  // PERF v0.6.0: Two render modes:
+  //   _render()       — immediate, for user-initiated actions (tab switch, dialog)
+  //   _queueRender()  — debounced 50ms, for data loads and background updates
+  //                     Batches multiple rapid calls into one DOM update.
   _queueRender() {
     if (this._renderTimeout) {
       clearTimeout(this._renderTimeout);
@@ -1218,9 +1222,11 @@ class SecureMePanel extends HTMLElement {
   set route(route) { this._route = route; }
 
   disconnectedCallback() {
-    // F2 FIX: Unsubscribe from health updates
-    if (this._healthUpdateUnsubscribe) {
+    // Guard: only call if it's actually a function (subscription may still be pending)
+    if (typeof this._healthUpdateUnsubscribe === 'function') {
       this._healthUpdateUnsubscribe();
+      this._healthUpdateUnsubscribe = null;
+    } else {
       this._healthUpdateUnsubscribe = null;
     }
     
@@ -1230,40 +1236,40 @@ class SecureMePanel extends HTMLElement {
     }
   }
 
-// === F2 FIX: Health Event Subscription ===
-  
-  _subscribeToHealthUpdates() {
+// === F2 FIX: Health Event Subscription (v0.5.0: await Promise to get unsubscribe fn) ===
+
+  async _subscribeToHealthUpdates() {
     if (!this._hass || !this._hass.connection) {
       console.warn('[Secure Me] Cannot subscribe to health updates: no connection');
       return;
     }
-    
+
     if (this._healthUpdateUnsubscribe) {
       return;
     }
-    
-    this._healthUpdateUnsubscribe = this._hass.connection.subscribeEvents(
-      (event) => {
-        if (event.data && event.data.modules) {
-          this._healthStatus = event.data.modules;
-          this._healthScore = event.data.health_score || 100;
-          this._lastHealthUpdate = event.data.timestamp;
-          
-          if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
-            this._render();
+
+    // subscribeEvents() returns a Promise<unsubscribe_fn>.
+    // Must be awaited — storing the raw Promise causes "not a function" on disconnectedCallback.
+    try {
+      this._healthUpdateUnsubscribe = await this._hass.connection.subscribeEvents(
+        (event) => {
+          if (event.data && event.data.modules) {
+            this._healthStatus = event.data.modules;
+            this._healthScore = event.data.health_score || 100;
+            this._lastHealthUpdate = event.data.timestamp;
+            if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
+              // PERF v0.6.0: queue, not immediate — health updates arrive frequently
+              this._queueRender();
+            }
           }
-          
-          console.log('[Secure Me F2] Health updated:', {
-            score: this._healthScore,
-            modules: Object.keys(this._healthStatus).length,
-            timestamp: this._lastHealthUpdate
-          });
-        }
-      },
-      'secure_me_health_updated'
-    );
-    
-    console.log('[Secure Me F2] Subscribed to health updates');
+        },
+        'secure_me_health_updated'
+      );
+      console.log('[Secure Me] Subscribed to health updates');
+    } catch (err) {
+      console.warn('[Secure Me] Health subscription failed:', err);
+      this._healthUpdateUnsubscribe = null;
+    }
   }
 
   _shouldUpdateDisplay(newHealthData) {
@@ -1332,7 +1338,8 @@ class SecureMePanel extends HTMLElement {
     if (health) this._data.health = health;
     if (testResults) this._data.testResults = testResults.results || [];
 
-    this._render();
+    // PERF v0.6.0: queue render after data load — batches any parallel _loadData calls
+    this._queueRender();
   }
 
   // === Event ===

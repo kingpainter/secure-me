@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "0.3.6"
+# VERSION = "0.4.0"
 
 from homeassistant.const import Platform
 
@@ -7,9 +7,31 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "0.3.6"
+VERSION = "0.4.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
+
+# ── Error handling ──────────────────────────────────────────────────────────
+# Retry defaults (used by base module and coordinator)
+DEFAULT_RETRY_MAX = 3          # max attempts for service calls
+DEFAULT_RETRY_DELAY = 2.0      # seconds between retries (exponential base)
+DEFAULT_RETRY_BACKOFF = 2.0    # multiplier per retry (2s, 4s, 8s)
+
+# Notification IDs (persistent_notification)
+NOTIFY_ID_MODULE_ERROR = "secure_me_module_error"
+NOTIFY_ID_RECOVERY = "secure_me_recovery"
+
+# Error messages — English
+ERROR_MODULE_FAILED_EN = "Secure Me: Module '{module}' failed during '{action}'. Check logs."
+ERROR_ENTITY_UNAVAILABLE_EN = "Secure Me: Entity '{entity}' is unavailable. Check device connection."
+ERROR_RETRY_EXHAUSTED_EN = "Secure Me: Module '{module}' failed after {retries} retries for '{action}'."
+ERROR_RECOVERY_OK_EN = "Secure Me: Module '{module}' recovered successfully after retry."
+
+# Error messages — Danish
+ERROR_MODULE_FAILED_DA = "Secure Me: Modul '{module}' fejlede under '{action}'. Tjek loggen."
+ERROR_ENTITY_UNAVAILABLE_DA = "Secure Me: Enhed '{entity}' er ikke tilgaengelig. Tjek enhedens forbindelse."
+ERROR_RETRY_EXHAUSTED_DA = "Secure Me: Modul '{module}' fejlede efter {retries} forsoeg paa '{action}'."
+ERROR_RECOVERY_OK_DA = "Secure Me: Modul '{module}' gendannet korrekt efter nyt forsoeg."
 
 # Platforms
 PLATFORMS = [

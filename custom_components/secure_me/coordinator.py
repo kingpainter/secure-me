@@ -1,7 +1,8 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "0.3.6"
+# VERSION = "0.6.0"
 
 import logging
+import time
 from datetime import timedelta
 from typing import Any
 
@@ -154,6 +155,13 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             entry_delay,
         )
 
+        # Performance: throttle health event to max 1x per 5s (not every countdown tick)
+        self._last_health_event_time: float = 0.0
+        self._health_event_interval: float = 5.0
+
+        # Performance: track last countdown value to skip redundant entity refreshes
+        self._last_countdown: int = -1
+
     async def _state_changed(self, new_state: str, countdown: int) -> None:
         """Handle state machine state change."""
         _LOGGER.info("Coordinator received state change: %s (countdown=%d)", new_state, countdown)
@@ -185,23 +193,52 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             })
 
     async def _countdown_updated(self, countdown: int) -> None:
-        """Handle countdown update."""
-        # Request refresh to update countdown in entities
-        await self.async_request_refresh()
+        """Handle countdown tick.
+
+        PERF v0.6.0: Previously called async_request_refresh() every second,
+        which triggered full entity updates + health events for all listeners.
+        Now we only write the new countdown value into self.data directly and
+        call async_update_listeners() — much lighter than a full refresh.
+        Only do a full refresh at key milestones (every 5s or at 0).
+        """
+        self._last_countdown = countdown
+
+        # Update countdown in data in-place (no full coordinator fetch)
+        if self.data:
+            self.data["countdown"] = countdown
+
+        # Notify entity listeners so countdown sensor updates in HA UI
+        self.async_update_listeners()
+
+        # Full refresh only at key milestones: every 5s and at 0
+        if countdown == 0 or countdown % 5 == 0:
+            await self.async_request_refresh()
 
     async def _zone_triggered(self, zone) -> None:
-        """Handle zone trigger."""
+        """Handle zone trigger.
+
+        EDGE CASE v0.5.0: If a sensor opens DURING the exit delay (arming state),
+        we log a warning but do NOT trigger the alarm — the user may still be
+        leaving the building. The sensor will be re-evaluated once fully armed.
+        """
+        current = self.state_machine.current_state
+
+        # Sensor opened during exit delay — warn but don't trigger
+        if current == STATE_ALARM_ARMING:
+            _LOGGER.warning(
+                "Zone %s triggered during exit delay (still arming) — ignoring trigger, "
+                "sensor will be monitored once armed",
+                zone.zone_id,
+            )
+            return
+
         if not self.state_machine.is_armed:
             return
-        
+
         _LOGGER.warning(
             "Zone %s triggered (type=%s, sensors=%s)",
-            zone.zone_id,
-            zone.zone_type,
-            zone.open_sensors,
+            zone.zone_id, zone.zone_type, zone.open_sensors,
         )
-        
-        # Trigger entry delay or immediate alarm based on zone type
         await self.state_machine.trigger_entry_delay(zone.zone_type)
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -220,16 +257,19 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 "is_arming": self.state_machine.is_arming,
                 "is_pending": self.state_machine.is_pending,
             }
-            # F2 Fix: Fire health event so panel stays in sync with binary sensors
-            # Both update from the same coordinator cycle, preventing divergence
-            # Structure must match panel expectations: modules + health_score
-            self.hass.bus.async_fire(
-                f"{DOMAIN}_health_updated",
-                {
-                    "modules": self.get_module_health(),
-                    "health_score": self.get_health_score(),
-                },
-            )
+            # PERF v0.6.0: Throttle health event — max once per 5s.
+            # Previously fired every second during countdown, causing frontend
+            # to re-render the testing/health tab on every tick.
+            now = time.monotonic()
+            if now - self._last_health_event_time >= self._health_event_interval:
+                self._last_health_event_time = now
+                self.hass.bus.async_fire(
+                    f"{DOMAIN}_health_updated",
+                    {
+                        "modules": self.get_module_health(),
+                        "health_score": self.get_health_score(),
+                    },
+                )
             return data
         except Exception as err:
             raise UpdateFailed(f"Error updating coordinator: {err}") from err
