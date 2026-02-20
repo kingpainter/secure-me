@@ -14,7 +14,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 # Panel configuration
-0.3.6 = "0.3.6"
+VERSION = "0.3.6"
 PANEL_URL = f"/api/{DOMAIN}-panel"
 PANEL_ICON = "mdi:shield-lock"
 PANEL_NAME = "secure-me-panel"
