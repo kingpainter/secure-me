@@ -493,51 +493,96 @@ const panelStyles = `
   }
 
 
-    @media (max-width: 768px) {
+  /* === Mobile Header (hidden on desktop) === */
+  .mobile-header {
+    display: none;
+  }
+
+  /* === Bottom Navigation Bar (hidden on desktop) === */
+  .bottom-nav {
+    display: none;
+  }
+
+  /* === More Drawer (hidden on desktop) === */
+  .more-drawer-overlay {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
     :host {
       flex-direction: column;
       height: 100vh;
+      overflow: hidden;
     }
+
+    /* Hide desktop sidebar completely */
     .sidebar {
-      width: 100%;
-      min-height: auto;
-      max-height: none;
-      border-right: none;
+      display: none;
+    }
+
+    /* Mobile top header */
+    .mobile-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--sm-surface);
       border-bottom: 1px solid var(--sm-border);
-      order: -1;
-      overflow: visible;
-    }
-    .sidebar-header {
-      padding: 12px 16px 8px;
-    }
-    .sidebar-status {
-      padding: 8px 16px;
-    }
-    .nav-tabs {
-      flex-direction: row;
-      overflow-x: auto;
-      padding: 4px 8px 8px;
-      gap: 2px;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .nav-tabs::-webkit-scrollbar { display: none; }
-    .nav-tab {
-      min-width: auto;
-      padding: 8px 12px;
-      white-space: nowrap;
       flex-shrink: 0;
-      font-size: 12px;
+      z-index: 10;
+      min-height: 52px;
     }
-    .nav-tab svg { width: 16px; height: 16px; }
-    .sidebar-footer { display: none; }
+    .mobile-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .mobile-header-logo {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, var(--sm-accent), var(--sm-blue));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 3px 8px var(--sm-accent-glow);
+      flex-shrink: 0;
+    }
+    .mobile-header-logo svg { width: 17px; height: 17px; color: #fff; }
+    .mobile-header-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .mobile-header-subtitle {
+      font-size: 10px;
+      color: var(--sm-text-tertiary);
+      opacity: 0.7;
+    }
+    .mobile-status-pill {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px; font-weight: 600;
+      flex-shrink: 0;
+    }
+    .mobile-status-pill.disarmed { background: var(--sm-accent-dim); color: var(--sm-accent); }
+    .mobile-status-pill.armed    { background: var(--sm-danger-dim); color: var(--sm-danger); }
+    .mobile-status-pill.arming   { background: var(--sm-warning-dim); color: var(--sm-warning); }
+    .mobile-status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
+    }
+
+    /* Main content fills between header and bottom nav */
     .main-content {
       padding: 16px;
       max-width: 100%;
       flex: 1;
       overflow-y: auto;
+      padding-bottom: 80px; /* room for bottom nav */
     }
+
     .zone-grid { grid-template-columns: 1fr; }
+
     .config-dialog-overlay { align-items: flex-end; }
     .config-dialog {
       width: 100%;
@@ -545,11 +590,139 @@ const panelStyles = `
       border-radius: 16px 16px 0 0;
       padding: 20px;
     }
+
+    /* === Bottom Navigation Bar === */
+    .bottom-nav {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 64px;
+      background: var(--sm-surface);
+      border-top: 1px solid var(--sm-border);
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .bottom-nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      border: none;
+      background: transparent;
+      color: var(--sm-text-tertiary);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 4px;
+      transition: color 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+      position: relative;
+    }
+    .bottom-nav-item svg {
+      width: 22px; height: 22px;
+      opacity: 0.5;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .bottom-nav-item.active {
+      color: var(--sm-accent);
+    }
+    .bottom-nav-item.active svg {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    .bottom-nav-item.active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 32px;
+      height: 2px;
+      background: var(--sm-accent);
+      border-radius: 0 0 2px 2px;
+    }
+    .bottom-nav-item.more-active {
+      color: var(--sm-text-secondary);
+    }
+    .bottom-nav-item.more-active svg {
+      opacity: 0.8;
+    }
+
+    /* === More Drawer === */
+    .more-drawer-overlay {
+      display: block;
+      position: fixed;
+      bottom: 0; left: 0; right: 0; top: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 200;
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      animation: fadeIn 0.15s ease;
+    }
+    .more-drawer-overlay.hidden {
+      display: none;
+    }
+    .more-drawer {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: var(--sm-surface);
+      border-radius: 20px 20px 0 0;
+      border-top: 1px solid var(--sm-border);
+      padding: 12px 16px 32px;
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .more-drawer-handle {
+      width: 36px; height: 4px;
+      background: var(--sm-border);
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+    .more-drawer-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--sm-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding: 0 4px;
+    }
+    .more-drawer-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 12px;
+      border-radius: 12px;
+      border: none;
+      background: transparent;
+      color: var(--sm-text);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .more-drawer-item:active { background: rgba(255,255,255,0.06); }
+    .more-drawer-item svg { width: 22px; height: 22px; color: var(--sm-text-secondary); flex-shrink: 0; }
+    .more-drawer-item.active { color: var(--sm-accent); }
+    .more-drawer-item.active svg { color: var(--sm-accent); }
   }
-  
+
   @media (max-width: 480px) {
     .main-content {
       padding: 12px;
+      padding-bottom: 80px;
     }
     .sm-card {
       padding: 12px;
@@ -557,13 +730,6 @@ const panelStyles = `
       border-radius: 12px;
     }
     .section-title { font-size: 15px; }
-    .sidebar-header { padding: 10px 12px 6px; }
-    .sidebar-logo { width: 30px; height: 30px; border-radius: 8px; }
-    .sidebar-logo svg { width: 16px; height: 16px; }
-    .sidebar-title { font-size: 15px; }
-    .sidebar-byline { font-size: 10px; }
-    .status-pill { padding: 6px 10px; font-size: 11px; }
-    .nav-tab { padding: 6px 10px; font-size: 11px; }
   }
 
 
@@ -937,6 +1103,7 @@ const ICONS = {
   nfc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>',
   chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
+  dots: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
@@ -992,7 +1159,6 @@ class SecureMePanel extends HTMLElement {
     this._sensorStatusExpanded = true; // Sensor online/offline section
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
-    this._healthSubscribePending = false;
     this._lastHealthUpdate = null;
   }
 
@@ -1009,8 +1175,8 @@ class SecureMePanel extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    // F2 FIX: Ensure health event subscription (guard against duplicate async calls)
-    if (hass && hass.connection && !this._healthUpdateUnsubscribe && !this._healthSubscribePending) {
+	// F2 FIX: Ensure health event subscription
+    if (hass && hass.connection && !this._healthUpdateUnsubscribe) {
       this._subscribeToHealthUpdates();
     }
     if (!this._initialized) {
@@ -1032,12 +1198,11 @@ class SecureMePanel extends HTMLElement {
 
   disconnectedCallback() {
     // F2 FIX: Unsubscribe from health updates
-    // Guard: _healthUpdateUnsubscribe is a Promise<fn> resolved to fn - must be a function
-    if (typeof this._healthUpdateUnsubscribe === 'function') {
+    if (this._healthUpdateUnsubscribe) {
       this._healthUpdateUnsubscribe();
+      this._healthUpdateUnsubscribe = null;
     }
-    this._healthUpdateUnsubscribe = null;
-
+    
     if (this._renderTimeout) {
       clearTimeout(this._renderTimeout);
       this._renderTimeout = null;
@@ -1045,46 +1210,39 @@ class SecureMePanel extends HTMLElement {
   }
 
 // === F2 FIX: Health Event Subscription ===
-
-  async _subscribeToHealthUpdates() {
+  
+  _subscribeToHealthUpdates() {
     if (!this._hass || !this._hass.connection) {
       console.warn('[Secure Me] Cannot subscribe to health updates: no connection');
       return;
     }
-
-    if (this._healthUpdateUnsubscribe || this._healthSubscribePending) {
+    
+    if (this._healthUpdateUnsubscribe) {
       return;
     }
-
-    this._healthSubscribePending = true;
-    try {
-      // subscribeEvents returns a Promise that resolves to an unsubscribe function
-      this._healthUpdateUnsubscribe = await this._hass.connection.subscribeEvents(
-        (event) => {
-          if (event.data && event.data.modules) {
-            this._healthStatus = event.data.modules;
-            this._healthScore = event.data.health_score || 100;
-            this._lastHealthUpdate = event.data.timestamp;
-
-            if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
-              this._render();
-            }
-
-            console.log('[Secure Me F2] Health updated:', {
-              score: this._healthScore,
-              modules: Object.keys(this._healthStatus).length,
-              timestamp: this._lastHealthUpdate
-            });
+    
+    this._healthUpdateUnsubscribe = this._hass.connection.subscribeEvents(
+      (event) => {
+        if (event.data && event.data.modules) {
+          this._healthStatus = event.data.modules;
+          this._healthScore = event.data.health_score || 100;
+          this._lastHealthUpdate = event.data.timestamp;
+          
+          if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
+            this._render();
           }
-        },
-        'secure_me_health_updated'
-      );
-      console.log('[Secure Me F2] Subscribed to health updates');
-    } catch (err) {
-      console.error('[Secure Me F2] Failed to subscribe to health updates:', err);
-    } finally {
-      this._healthSubscribePending = false;
-    }
+          
+          console.log('[Secure Me F2] Health updated:', {
+            score: this._healthScore,
+            modules: Object.keys(this._healthStatus).length,
+            timestamp: this._lastHealthUpdate
+          });
+        }
+      },
+      'secure_me_health_updated'
+    );
+    
+    console.log('[Secure Me F2] Subscribed to health updates');
   }
 
   _shouldUpdateDisplay(newHealthData) {
@@ -1238,10 +1396,30 @@ class SecureMePanel extends HTMLElement {
       triggered: "TRIGGERED",
     }[this._alarmState] || this._alarmState;
 
+    // Bottom nav: first 5 tabs + "More" for the rest
+    const BOTTOM_TABS = TABS.slice(0, 5);
+    const MORE_TABS   = TABS.slice(5);
+    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
+
     this.shadowRoot.innerHTML = `
       <style>${panelStyles}</style>
 
-      <!-- SIDEBAR -->
+      <!-- MOBILE HEADER (hidden on desktop) -->
+      <header class="mobile-header">
+        <div class="mobile-header-left">
+          <div class="mobile-header-logo">${icon("shield")}</div>
+          <div>
+            <div class="mobile-header-title">Secure Me</div>
+            <div class="mobile-header-subtitle">by KingPainter</div>
+          </div>
+        </div>
+        <div class="mobile-status-pill ${stateClass}">
+          <div class="mobile-status-dot"></div>
+          ${stateLabel}
+        </div>
+      </header>
+
+      <!-- SIDEBAR (desktop only) -->
       <nav class="sidebar">
         <div class="sidebar-header">
           <div class="sidebar-logo">${icon("shield")}</div>
@@ -1271,27 +1449,81 @@ class SecureMePanel extends HTMLElement {
 
         <div class="sidebar-footer">
           <div>Secure Me v${VERSION}</div>
-        
-        
-        ${this._showDialog === 'camera'  ? this._renderCameraDialog()  : ''}
-        ${this._showDialog === 'lock'    ? this._renderLockDialog()    : ''}
-        ${this._showDialog === 'climate' ? this._renderClimateDialog() : ''}
-        ${this._showDialog === 'siren'   ? this._renderSirenDialog()   : ''}
-        ${this._showDialog === 'lights'  ? this._renderLightsDialog()  : ''}
-        ${this._showDialog === 'tts'     ? this._renderTTSDialog()     : ''}
-      </div>
+        </div>
       </nav>
 
       <!-- MAIN CONTENT -->
       <main class="main-content">
         ${this._renderTab()}
       </main>
+
+      <!-- BOTTOM NAVIGATION BAR (mobile only) -->
+      <nav class="bottom-nav">
+        ${BOTTOM_TABS.map(t => `
+          <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
+                  data-tab="${t.key}">
+            ${icon(t.icon)}
+            <span>${t.label}</span>
+          </button>
+        `).join("")}
+        <button class="bottom-nav-item ${moreIsActive ? "more-active" : ""}" id="more-btn">
+          ${icon("dots")}
+          <span>More</span>
+        </button>
+      </nav>
+
+      <!-- MORE DRAWER OVERLAY (mobile only) -->
+      <div class="more-drawer-overlay hidden" id="more-overlay">
+        <div class="more-drawer">
+          <div class="more-drawer-handle"></div>
+          <div class="more-drawer-title">More</div>
+          ${MORE_TABS.map(t => `
+            <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
+                    data-tab="${t.key}">
+              ${icon(t.icon)}
+              <span>${t.label}</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- DIALOGS -->
+      ${this._showDialog === 'camera'  ? this._renderCameraDialog()  : ''}
+      ${this._showDialog === 'lock'    ? this._renderLockDialog()    : ''}
+      ${this._showDialog === 'climate' ? this._renderClimateDialog() : ''}
+      ${this._showDialog === 'siren'   ? this._renderSirenDialog()   : ''}
+      ${this._showDialog === 'lights'  ? this._renderLightsDialog()  : ''}
+      ${this._showDialog === 'tts'     ? this._renderTTSDialog()     : ''}
     `;
 
-    // === Attach ===
+    // === Attach desktop nav ===
     this.shadowRoot.querySelectorAll(".nav-tab").forEach(btn => {
       btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
     });
+
+    // === Attach bottom nav (mobile) ===
+    this.shadowRoot.querySelectorAll(".bottom-nav-item[data-tab]").forEach(btn => {
+      btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
+    });
+
+    // === More drawer ===
+    const moreBtn     = this.shadowRoot.getElementById("more-btn");
+    const moreOverlay = this.shadowRoot.getElementById("more-overlay");
+    if (moreBtn && moreOverlay) {
+      moreBtn.addEventListener("click", () => {
+        moreOverlay.classList.toggle("hidden");
+      });
+      moreOverlay.addEventListener("click", (e) => {
+        if (e.target === moreOverlay) moreOverlay.classList.add("hidden");
+      });
+      moreOverlay.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          moreOverlay.classList.add("hidden");
+          this._setTab(btn.dataset.tab);
+        });
+      });
+    }
+
     this._attachTabListeners();
 
     // Restore scroll position after re-render
