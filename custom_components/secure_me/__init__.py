@@ -1,4 +1,4 @@
-# VERSION = "0.7.0"
+# VERSION = "0.9.0"
 """The Secure Me integration."""
 from __future__ import annotations
 

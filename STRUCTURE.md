@@ -1,158 +1,177 @@
-# 🏗️ Secure Me - Project Structure
+# Secure Me - Project Structure
 
 Complete technical documentation of the Secure Me integration architecture and file organization.
 
-**Version:** 0.3.0  
-**Last Updated:** 2026-02-13
+**Version:** 0.9.0
+**Last Updated:** 2026-02-21
 
 ---
 
-## 📂 Directory Structure
+## Directory Structure
 
 ```
-custom_components/secure_me/
-│
-├── 📄 __init__.py                    # Integration entry point (6-7 KB)
-├── 📄 manifest.json                  # Integration metadata
-├── 📄 const.py                       # Constants and enums (3 KB)
-├── 📄 config_flow.py                 # GUI configuration wizard
-│
-├── 🎛️ Core Components
-├── 📄 alarm_control_panel.py         # Main alarm entity
-├── 📄 coordinator.py                 # Data coordinator (18 KB)
-├── 📄 state_machine.py               # State logic (10 KB)
-├── 📄 zones.py                       # Zone manager (9 KB)
-├── 📄 module_manager.py              # Module lifecycle manager
-├── 📄 store.py                       # Persistent storage
-├── 📄 websocket_api.py               # WebSocket API (~800 lines) ✨ NEW
-│
-├── 🧪 Testing & Monitoring (NEW in v0.3.0)
-├── 📄 binary_sensor.py               # Module health sensors (~200 lines)
-├── 📄 sensor.py                      # Battery level sensors (~250 lines)
-│
-├── 🔌 Modules
-├── 📁 modules/
-│   ├── 📄 __init__.py               # Module exports (426 bytes)
-│   ├── 📄 base.py                   # Base module class
-│   ├── 📄 camera.py                 # Camera control
-│   ├── 📄 lock.py                   # Lock management
-│   ├── 📄 lights.py                 # Light control
-│   ├── 📄 climate.py                # Climate management
-│   ├── 📄 siren.py                  # Siren control
-│   └── 📄 tts.py                    # TTS announcements
-│
-├── 🎨 Frontend
-├── 📁 frontend/
-│   └── 📄 secure-me-panel.js        # Configuration dashboard (~3800 lines) ✨ EXPANDED
-│
-├── 🧪 Tests (NEW in v0.3.0)
-├── 📁 tests/
-│   ├── 📄 __init__.py               # Test package init
-│   ├── 📄 conftest.py               # Pytest fixtures
-│   ├── 📄 test_init.py              # Integration tests
-│   ├── 📄 test_const.py             # Constants tests
-│   ├── 📄 test_state_machine.py     # State machine tests
-│   ├── 📄 test_modules.py           # Module tests
-│   ├── 📄 test_sensors.py           # Sensor tests
-│   ├── 📄 test_store.py             # Store tests
-│   ├── 📄 test_files.py             # File structure tests
-│   └── 📄 test_diagnostics.py       # Diagnostics tests
-│
-├── 🌍 Translations
-├── 📁 translations/
-│   ├── 📄 en.json                   # English
-│   └── 📄 da.json                   # Danish
-│
-├── 🖼️ Assets
-├── 📄 logo.png                       # Integration logo (256×256)
-├── 📄 logo@2x.png                    # High-res logo (512×512)
-├── 📄 icon.png                       # Integration icon (256×256)
-├── 📄 icon@2x.png                    # High-res icon (512×512)
-│
-└── 📝 Platform Files
-    ├── 📄 switch.py                  # Switch entities
-    └── 📄 select.py                  # Select entities
-```
-
----
-
-## 🏛️ Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Home Assistant Core                      │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-                     ↓
-┌─────────────────────────────────────────────────────────────┐
-│                   Secure Me Integration                      │
-│                                                               │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              Integration Entry (__init__.py)         │   │
-│  │  • Setup & Initialization                           │   │
-│  │  • Config Entry Management                          │   │
-│  │  • Device Registration                              │   │
-│  └──────────────────┬──────────────────────────────────┘   │
-│                     │                                        │
-│                     ↓                                        │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │            Coordinator (coordinator.py)             │   │
-│  │  • State Management                                 │   │
-│  │  • Module Coordination                              │   │
-│  │  • Event Handling                                   │   │
-│  │  • Health Monitoring ✨ NEW                         │   │
-│  └──────┬──────────────┬─────────────┬─────────────────┘   │
-│         │              │             │                      │
-│    ┌────┴───┐    ┌────┴───┐    ┌───┴────┐                │
-│    │ State  │    │  Zone  │    │ Module │                │
-│    │Machine │    │Manager │    │Manager │                │
-│    └────┬───┘    └────┬───┘    └───┬────┘                │
-│         │              │            │                      │
-│         ↓              ↓            ↓                      │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │         Alarm Control Panel Entity                  │  │
-│  │  • States: disarmed, arming, armed_*, pending...   │  │
-│  │  • Attributes: zones, sensors, modules, health     │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │        Testing & Monitoring ✨ NEW v0.3.0           │  │
-│  │  ┌──────────────┐ ┌──────────────┐                 │  │
-│  │  │Module Health │ │ Battery      │                 │  │
-│  │  │Binary Sensors│ │ Sensors      │                 │  │
-│  │  │(6 sensors)   │ │(Auto-discover)│                │  │
-│  │  └──────────────┘ └──────────────┘                 │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │              Smart Modules (6 total)                │  │
-│  │  ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐     │  │
-│  │  │Camera│ │ Lock │ │Lights│ │Climate│ │Siren │ ...│  │
-│  │  └──────┘ └──────┘ └──────┘ └──────┘ └──────┘     │  │
-│  │  Each module includes health monitoring            │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │          Frontend Panel (secure-me-panel.js)        │  │
-│  │  • 7 tabs for configuration                        │  │
-│  │  • Testing tab with test execution ✨ NEW          │  │
-│  │  • WebSocket API integration                       │  │
-│  │  • Real-time updates                               │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │           Persistent Storage (store.py)             │  │
-│  │  • Configuration data                               │  │
-│  │  • User preferences                                 │  │
-│  │  • Test results ✨ NEW                              │  │
-│  │  • Audit logs                                       │  │
-│  └─────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────┘
+secure-me/                              # GitHub repo root
+|
++-- custom_components/secure_me/        # Integration root
+|   |
+|   +-- __init__.py                     # Integration entry point
+|   +-- manifest.json                   # Integration metadata (v0.9.0, panel_custom dep)
+|   +-- const.py                        # Constants, retry config, error messages
+|   +-- config_flow.py                  # GUI configuration wizard
+|   +-- panel.py                        # Panel registration (Alarmo-style)
+|   |
+|   +-- coordinator.py                  # DataUpdateCoordinator (perf optimized v0.6.0)
+|   +-- state_machine.py                # Alarm state logic (race-safe, auto-reset v0.5.0)
+|   +-- zones.py                        # Zone manager (debounced v0.6.0, edge-case safe v0.5.0)
+|   +-- module_manager.py               # Module lifecycle manager
+|   +-- store.py                        # Persistent storage
+|   +-- websocket_api.py                # WebSocket API (~800 lines)
+|   +-- system_health.py                # HA system health integration (10 metrics)
+|   +-- diagnostics.py                  # Enhanced diagnostics (6 sections)
+|   |
+|   +-- alarm_control_panel.py          # Main alarm entity
+|   +-- binary_sensor.py                # Module health sensors (6 sensors)
+|   +-- sensor.py                       # Battery sensors (auto-discovery, cached)
+|   +-- switch.py                       # Switch entities
+|   +-- select.py                       # Select entities
+|   |
+|   +-- modules/
+|   |   +-- __init__.py                 # Module exports
+|   |   +-- base.py                     # Base class: retry + degraded state (v0.4.0)
+|   |   +-- camera.py                   # Camera: POE control, recording, smart delay
+|   |   +-- lock.py                     # Lock: exponential backoff retry
+|   |   +-- lights.py                   # Lights: auto control, emergency flash
+|   |   +-- climate.py                  # Climate: multi-zone heating/cooling
+|   |   +-- siren.py                    # Siren: alarm sounds and patterns
+|   |   +-- tts.py                      # TTS: announcements (Danish support)
+|   |
+|   +-- frontend/
+|   |   +-- secure-me-panel.js          # ~4400 lines, EMOJI-FREE
+|   |
+|   +-- translations/
+|       +-- en.json                     # English
+|       +-- da.json                     # Danish
+|
++-- tests/                              # Unit tests (repo root, NOT custom_components)
+|   +-- __init__.py
+|   +-- conftest.py                     # Pytest fixtures and mocks
+|   +-- test_const.py                   # Constants tests
+|   +-- test_diagnostics.py             # Diagnostics tests
+|   +-- test_files.py                   # File structure / manifest tests
+|   +-- test_modules.py                 # Module system tests
+|   +-- test_sensors.py                 # Battery sensor tests
+|   +-- test_state_machine.py           # State machine tests (v0.3.0 baseline)
+|   +-- test_store.py                   # Store tests
+|   +-- test_base_module.py             # Retry/degraded state tests (NEW v0.9.0)
+|   +-- test_zones_edge_cases.py        # Sensor edge case tests (NEW v0.9.0)
+|   +-- test_state_machine_v2.py        # State machine v0.5.0 edge case tests (NEW v0.9.0)
+|
++-- .github/workflows/
+|   +-- validate.yaml                   # HACS + Hassfest + version consistency
+|   +-- pytest.yaml                     # Pytest 3.11 + 3.12
+|
++-- brands/secure_me/                   # 8 branding images (HACS requirement)
+|   +-- icon.png / icon@2x.png
+|   +-- logo.png / logo@2x.png
+|   +-- dark versions of the above
+|
++-- validate_version.py                 # Version consistency checker (26+ files)
++-- validate_encoding.py                # UTF-8 / emoji validator
++-- clean_encoding.py                   # Encoding cleanup tool
+|
++-- hacs.json                           # HACS metadata
++-- README.md                           # v0.9.0 full documentation
++-- CHANGELOG.md                        # v0.0.1 through v0.9.0
++-- INSTALLATION.md                     # Clean install guide
++-- info.md                             # HACS store page
++-- LICENSE                             # MIT
++-- requirements.txt
 ```
 
 ---
 
-## 📋 Core Components
+## Architecture Overview
+
+```
++-------------------------------------------------------------+
+|                     Home Assistant Core                      |
++------------------------+------------------------------------+
+                         |
+                         v
++-------------------------------------------------------------+
+|                   Secure Me Integration                      |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |            Integration Entry (__init__.py)            |  |
+|  |  - Setup & initialization                             |  |
+|  |  - Config entry management                            |  |
+|  |  - Device registration                                |  |
+|  |  - Panel registration                                 |  |
+|  +-------------------------+-----------------------------+  |
+|                            |                                 |
+|                            v                                 |
+|  +-------------------------------------------------------+  |
+|  |          Coordinator (coordinator.py)                 |  |
+|  |  - State management (perf optimized v0.6.0)          |  |
+|  |  - Module coordination (graceful degradation v0.4.0) |  |
+|  |  - Event handling                                     |  |
+|  |  - Health event throttling (max 1x/5s v0.6.0)        |  |
+|  +------+----------------+---------------+---------------+  |
+|         |                |               |                   |
+|   +-----+-----+   +------+----+   +------+-----+           |
+|   |   State   |   |   Zone    |   |   Module   |           |
+|   |  Machine  |   |  Manager  |   |  Manager   |           |
+|   | (v0.5.0)  |   | (v0.5.0+  |   |            |           |
+|   |           |   |  v0.6.0)  |   |            |           |
+|   +-----------+   +-----------+   +------------+           |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |         Alarm Control Panel Entity                    |  |
+|  |  States: disarmed, arming, armed_*, pending,         |  |
+|  |          triggered                                    |  |
+|  +-------------------------------------------------------+  |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |         Smart Modules (6 total)                       |  |
+|  |  +--------+ +------+ +--------+ +-------+            |  |
+|  |  | Camera | | Lock | | Lights | |Climate|            |  |
+|  |  +--------+ +------+ +--------+ +-------+            |  |
+|  |  +-------+ +-----+                                   |  |
+|  |  | Siren | | TTS |                                   |  |
+|  |  +-------+ +-----+                                   |  |
+|  |  All modules: retry + degraded state (v0.4.0)        |  |
+|  +-------------------------------------------------------+  |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |  Health & Battery Monitoring                          |  |
+|  |  - 6 module health binary sensors                    |  |
+|  |  - Battery auto-discovery (3 tracking entities)      |  |
+|  |  - System health integration (10 metrics)            |  |
+|  |  - Enhanced diagnostics (6 sections)                 |  |
+|  +-------------------------------------------------------+  |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |  Frontend Panel (secure-me-panel.js ~4400 lines)     |  |
+|  |  - Toast notifications (replaces all alert() calls)  |  |
+|  |  - Async confirm dialogs (replaces confirm())        |  |
+|  |  - Module health badges per module                   |  |
+|  |  - Triggered state pulse animation                   |  |
+|  |  - Render batching (_queueRender 50ms debounce)      |  |
+|  +-------------------------------------------------------+  |
+|                                                              |
+|  +-------------------------------------------------------+  |
+|  |  Persistent Storage (store.py)                       |  |
+|  |  - Configuration data                                |  |
+|  |  - User preferences                                  |  |
+|  |  - Test results (last 10)                            |  |
+|  |  - Audit logs                                        |  |
+|  +-------------------------------------------------------+  |
++-------------------------------------------------------------+
+```
+
+---
+
+## Core Components
 
 ### __init__.py (Integration Entry)
 
@@ -161,15 +180,14 @@ custom_components/secure_me/
 **Key Functions:**
 ```python
 async def async_setup_entry(hass, entry):
-    """Set up Secure Me from config entry."""
     # 1. Initialize store
     # 2. Initialize coordinator
     # 3. Register WebSocket API
     # 4. Register frontend panel
-    # 5. Setup platforms (including health & battery sensors)
-    
+    # 5. Setup platforms (alarm_control_panel, binary_sensor,
+    #    sensor, switch, select)
+
 async def async_unload_entry(hass, entry):
-    """Unload config entry."""
     # 1. Shutdown coordinator
     # 2. Cleanup modules
     # 3. Remove listeners
@@ -179,9 +197,9 @@ async def async_unload_entry(hass, entry):
 **Data Structure:**
 ```python
 hass.data[DOMAIN] = {
-    "store": <Store>,                    # Global
-    "_websocket_registered": True,       # Global
-    "_panel_registered": True,           # Global
+    "store": <Store>,                   # Global
+    "_websocket_registered": True,      # Global
+    "_panel_registered": True,          # Global
     "entry_id_1": {                     # Per-entry
         COORDINATOR: <coordinator>,
         UNDO_UPDATE_LISTENER: <listener>,
@@ -197,38 +215,30 @@ hass.data[DOMAIN] = {
 
 **Class:** `SecureMeCoordinator(DataUpdateCoordinator)`
 
-**Responsibilities:**
-- State machine management
-- Zone coordination
-- Module lifecycle
-- Event handling
-- Data updates
-- Health monitoring ✨ NEW
+**v0.6.0 Performance Changes:**
+- `_countdown_updated()` writes countdown in-place + calls `async_update_listeners()` instead of full refresh every second (~80% reduction)
+- Health events throttled to max 1x per 5 seconds via `time.monotonic()`
+- Full refresh only at countdown=0 or every 5 seconds
 
 **Key Methods:**
 ```python
 async def async_arm(self, mode, code=None):
     """Arm the alarm."""
-    
+
 async def async_disarm(self, code):
     """Disarm the alarm."""
-    
-async def _initialize_modules(self):
-    """Initialize all enabled modules."""
-    
-async def _handle_state_change(self, old_state, new_state):
-    """Handle state transitions."""
-    
-async def get_module_health(self, module_name):
-    """Get health status for module."""  # ✨ NEW
-```
 
-**Module Initialization:**
-```python
-self.modules = {}
-self.modules[MODULE_CAMERA] = CameraModule(hass, config.get(MODULE_CAMERA, {}))
-self.modules[MODULE_LOCK] = LockModule(hass, config.get(MODULE_LOCK, {}))
-# ... etc for all 6 modules
+async def _execute_modules(self, action, call):
+    """Unified module executor - graceful degradation (v0.4.0)."""
+
+async def _zone_triggered(self, zone):
+    """Handle zone trigger - ignores triggers during arming state (v0.5.0)."""
+
+async def _countdown_updated(self, countdown):
+    """Perf-optimized countdown tick handler (v0.6.0)."""
+
+async def _state_changed(self, new_state, countdown):
+    """Handle state machine state change."""
 ```
 
 ---
@@ -237,302 +247,186 @@ self.modules[MODULE_LOCK] = LockModule(hass, config.get(MODULE_LOCK, {}))
 
 **Purpose:** Alarm state transitions and validation
 
+**Class:** `AlarmStateMachine`
+
 **States:**
-```python
-STATE_DISARMED = "disarmed"
-STATE_ARMING = "arming"
-STATE_ARMED_AWAY = "armed_away"
-STATE_ARMED_HOME = "armed_home"
-STATE_ARMED_NIGHT = "armed_night"
-STATE_ARMED_VACATION = "armed_vacation"
-STATE_PENDING = "pending"
-STATE_TRIGGERED = "triggered"
+```
+disarmed -> arming -> armed_away / armed_home / armed_night / armed_vacation
+armed_* -> pending -> triggered
+triggered -> disarmed (manual or auto-reset)
 ```
 
-**Transition Rules:**
-```
-disarmed → arming → armed_*
-armed_* → pending → (triggered | disarmed)
-triggered → disarmed
-```
+**v0.5.0 Edge Case Fixes:**
+- `_cancel_countdown()` is async and awaits task completion (race condition fix)
+- `asyncio.Lock()` on all arm/disarm methods (simultaneous transition guard)
+- `_trigger_reset_timer()` -- auto-resets to disarmed after `trigger_time` seconds (was TODO since v0.1.0)
+- Double-arm guard: returns False if already armed
+- Arming-state guard: zone triggers ignored while in `arming` state
 
 **Key Methods:**
 ```python
-def can_transition(current_state, new_state):
-    """Check if transition is valid."""
-    
-async def handle_sensor_trigger(sensor, zone):
-    """Handle sensor trigger based on current state."""
+async def arm_away(self, skip_delay=False) -> bool
+async def arm_home(self, skip_delay=False) -> bool
+async def arm_night(self, skip_delay=False) -> bool
+async def arm_vacation(self, skip_delay=False) -> bool
+async def disarm(self) -> bool
+async def trigger_alarm(self, source) -> bool
+async def trigger_entry_delay(self, zone_type) -> bool
+async def cancel_pending(self) -> bool
+async def _cancel_countdown(self) -> None    # async, awaited (v0.5.0)
+async def _trigger_reset_timer(self) -> None # auto-reset (v0.5.0)
+def cleanup(self) -> None
 ```
 
 ---
 
 ### zones.py (Zone Manager)
 
-**Purpose:** Multi-zone management and sensor grouping
+**Purpose:** Multi-zone management, sensor grouping and event handling
 
 **Class:** `ZoneManager`
 
-**Features:**
-- Zone creation/deletion
-- Sensor assignment
-- Mode-based activation
-- Status tracking
-- Trigger callbacks
+**v0.5.0 Edge Case Fixes:**
+- `new_state=None` (entity deleted from HA): treated as closed, user notified
+- `unavailable`/`unknown` state: treated as closed, user notified
+- `check_for_open_sensors()`: skips unavailable/missing sensors (arming not blocked)
+- Sensor opens during exit delay: ignored (user still leaving)
 
-**Data Structure:**
-```python
-{
-    "living_room": {
-        "name": "Living Room",
-        "sensors": ["binary_sensor.motion_1", ...],
-        "modes": ["armed_away", "armed_night"],
-        "priority": 1
-    },
-    "kitchen": { ... }
-}
-```
+**v0.6.0 Performance:**
+- Per-sensor debounce: 500ms cooldown per entity_id
+- Flapping sensors fire trigger callback only once within debounce window
 
 **Key Methods:**
 ```python
-def add_zone(self, zone_id, zone_data):
-    """Add new zone."""
-    
-def is_zone_ready(self, zone_id):
-    """Check if all sensors in zone are ready."""
-    
-def register_trigger_callback(self, callback):
-    """Register callback for zone triggers."""
+def add_zone(self, zone_id, zone_type, sensors, enabled) -> None
+def update_sensor_state(self, entity_id, state) -> tuple[bool, Zone | None]
+def check_for_open_sensors(self) -> bool
+def start_monitoring(self) -> None
+def stop_monitoring(self) -> None
+def clear_all_triggers(self) -> None
 ```
 
 ---
 
-## 🧪 Testing & Monitoring (NEW in v0.3.0)
+### modules/base.py (Base Module Class)
 
-### binary_sensor.py (Module Health Sensors)
+**Purpose:** Abstract base class with centralized retry and degraded state logic
 
-**Purpose:** Monitor health status of all 6 modules
-
-**Sensors Created:**
-```python
-binary_sensor.secure_me_camera_health
-binary_sensor.secure_me_lock_health
-binary_sensor.secure_me_lights_health
-binary_sensor.secure_me_climate_health
-binary_sensor.secure_me_siren_health
-binary_sensor.secure_me_tts_health
-```
-
-**Sensor States:**
-- **ON:** Module healthy, all entities available
-- **OFF:** Module unhealthy, issues detected
-- **UNKNOWN:** Module disabled or not configured
-
-**Health Checks:**
-```python
-class SecureMeHealthSensor(BinarySensorEntity):
-    """Binary sensor for module health monitoring."""
-    
-    @property
-    def is_on(self):
-        """Return true if module is healthy."""
-        # Check entity availability
-        # Validate configuration
-        # Verify module status
-```
-
----
-
-### sensor.py (Battery Level Sensors)
-
-**Purpose:** Monitor battery levels for all battery-powered devices
-
-**Auto-Discovery:**
-```python
-# Automatically finds all entities with device_class="battery"
-sensor.secure_me_front_door_battery
-sensor.secure_me_window_sensor_1_battery
-sensor.secure_me_motion_detector_battery
-# ... etc
-```
-
-**Features:**
-- Auto-discovery of battery entities
-- Battery level monitoring
-- Low battery warnings (< 20%)
-- Dashboard integration
-- Informational tracking (doesn't affect test PASS/FAIL)
-
-**Sensor Class:**
-```python
-class SecureMeBatterySensor(SensorEntity):
-    """Battery level sensor."""
-    
-    @property
-    def native_value(self):
-        """Return battery percentage."""
-        
-    @property
-    def state_class(self):
-        return SensorStateClass.MEASUREMENT
-```
-
----
-
-## 🔌 Module System
-
-### Base Module (modules/base.py)
-
-**Abstract Base Class** for all modules
+**v0.4.0 Features:**
+- `async_call_service_with_retry()`: 3 retries, 2s -> 4s -> 8s exponential backoff
+- `async_call_service()`: single attempt (for test calls and state reads)
+- Degraded state tracking: `self._degraded`, `self._consecutive_errors`
+- `_on_failure()`: sets degraded, fires `persistent_notification` to user
+- `_on_success()`: clears degraded, fires recovery notification if previously degraded
+- Configurable per module via `retry_max`, `retry_delay`, `retry_backoff` config keys
 
 **Interface:**
 ```python
-class BaseModule:
-    def __init__(self, hass, config):
-        self.hass = hass
-        self.config = config
-        self._enabled = config.get("enabled", False)
-    
-    async def async_arm(self, mode):
-        """Called when alarm is armed."""
-        
-    async def async_disarm(self):
-        """Called when alarm is disarmed."""
-        
-    async def async_triggered(self):
-        """Called when alarm is triggered."""
-        
-    async def async_shutdown(self):
-        """Cleanup on shutdown."""
-        
-    async def async_health_check(self):
-        """Check module health status."""  # ✨ NEW
+class AlarmModule(ABC):
+    # Properties
+    @property
+    def enabled(self) -> bool
+    @property
+    def degraded(self) -> bool        # True if all retries exhausted
+    @property
+    def module_name(self) -> str
+
+    # Abstract (must implement)
+    async def async_arm(self, mode) -> bool
+    async def async_disarm(self) -> bool
+    async def async_trigger(self) -> bool
+    async def async_test(self) -> dict
+
+    # Provided by base
+    async def async_call_service_with_retry(...) -> bool   # 3 retries + backoff
+    async def async_call_service(...) -> bool              # single attempt
+    def backup_state(self, entity_id) -> None
+    def get_backup_state(self, entity_id) -> dict | None
+    def is_entity_available(self, entity_id) -> bool
+    def get_entity_state(self, entity_id) -> str | None
+    def enable(self) -> None          # clears degraded state
+    def disable(self) -> None
 ```
 
-### Module Implementation Pattern
+**Retry coverage across all 6 modules: 20 retry-protected service calls total.**
 
-**Example: Camera Module**
-```python
-class CameraModule(BaseModule):
-    def __init__(self, hass, config):
-        super().__init__(hass, config)
-        self._poe_switches = config.get("poe_switches", [])
-        self._cameras = config.get("cameras", [])
-        self._poe_delay = config.get("poe_delay", 120)
-    
-    async def async_arm(self, mode):
-        # 1. Check if POE already on
-        if all_poe_on:
-            _LOGGER.info("POE already on - skip delay")
-        else:
-            # 2. Turn on POE ports
-            await self._turn_on_poe()
-            # 3. Wait for boot
-            await asyncio.sleep(self._poe_delay)
-            # 4. Set recording
-            await self._set_recording_mode("continuous")
-    
-    async def async_health_check(self):
-        """Check camera module health."""  # ✨ NEW
-        # Check entity availability
-        # Verify POE switch status
-        # Validate camera feeds
-        return {"healthy": True, "details": "..."}
-```
+| Module | Retry calls |
+|--------|-------------|
+| Lock | 3 (lock on arm, unlock on disarm, test) |
+| Camera | 4 (POE on/off, recording on/off) |
+| Lights | 3 (off on arm, off/restore on disarm, on trigger) |
+| Climate | 5 (away preset/temp, home preset, restore, eco) |
+| Siren | 3 (play, stop, gateway light off) |
+| TTS | 2 (arm announcement, trigger announcement) |
 
 ---
 
-## 🎨 Frontend Architecture
+## Frontend Architecture
 
-### secure-me-panel.js
+### secure-me-panel.js (~4400 lines)
 
-**Single-File Component** (~3800 lines, expanded from ~1300)
+**Single-file Custom Element -- EMOJI-FREE**
 
-**Structure:**
-```javascript
-class SecureMePanel extends HTMLElement {
-    // Properties
-    _hass = null;
-    _activeTab = "sensors";
-    _config = {};
-    _testResults = {};  // ✨ NEW
-    
-    // Lifecycle
-    connectedCallback() { ... }
-    setConfig(config) { ... }
-    set hass(hass) { ... }
-    
-    // WebSocket API
-    async _callWS(command, data) { ... }
-    
-    // Testing Methods ✨ NEW
-    async _runTest(level) { ... }
-    async _getHealthStatus() { ... }
-    async _getBatteryStatus() { ... }
-    
-    // Rendering
-    _render() { ... }
-    _renderTab() { ... }
-    _renderSensors() { ... }
-    _renderTestingTab() { ... }  // ✨ NEW
-    // ... render methods for each tab
-}
+**Render Strategy:**
+- `_render()` -- immediate, for user actions (tab switch, dialog open)
+- `_queueRender()` -- 50ms debounce, for data loads and background updates (v0.6.0)
 
-customElements.define("secure-me-panel", SecureMePanel);
-```
+**UX Improvements (v0.7.0):**
+- `_toast(msg, type)` -- replaces all 38 `alert()` calls (success/error/warning/info)
+- `_confirm(msg, title)` -- async Promise overlay, replaces all `confirm()` calls
+- Module health badges on Modules tab (OK/Warning/Error/Degraded)
+- Triggered state pulses red, pending state yellow in sidebar + mobile header
+
+**Key Architecture Notes:**
+- `subscribeEvents()` must be **awaited** -- returns a Promise, not a function
+- `_healthUpdateUnsubscribe` uses `typeof === 'function'` guard before calling
+- Mobile bottom navigation bar with 5 tabs + More drawer (<=768px)
+- iOS safe-area support
 
 **Tabs:**
-1. **Sensors** - Sensor management
-2. **Zones** - Zone configuration
-3. **Users** - User & NFC management
-4. **Modules** - Module configuration
-5. **Automations** - Custom automations
-6. **Settings** - System configuration
-7. **Testing** - Health monitoring & test execution ✨ NEW
+1. Sensors -- sensor management
+2. Zones -- zone configuration
+3. Users -- user and NFC management
+4. Modules -- module configuration + health badges
+5. Automations -- custom automations
+6. Settings -- system configuration
+7. Testing -- health monitoring and test execution
 
 ---
 
-## 🌐 WebSocket API
+## WebSocket API
 
-### websocket_api.py (~800 lines, expanded from ~600)
+### websocket_api.py
 
-**Commands:**
-```python
-# Configuration commands
-@websocket_command("secure_me/get_config")
-async def websocket_get_config(hass, connection, msg):
-    """Return current configuration."""
+**Configuration commands:**
+```
+secure_me/get_config
+secure_me/save_config
+secure_me/update_zone
+secure_me/delete_zone
+secure_me/update_user
+secure_me/delete_user
+```
 
-@websocket_command("secure_me/update_zone")
-async def websocket_update_zone(hass, connection, msg):
-    """Update zone configuration."""
+**Alarm control commands:**
+```
+secure_me/arm
+secure_me/disarm
+secure_me/get_state
+```
 
-# Testing commands ✨ NEW
-@websocket_command("secure_me/run_test")
-async def websocket_run_test(hass, connection, msg):
-    """Run system test with specified level."""
-
-@websocket_command("secure_me/get_test_results")
-async def websocket_get_test_results(hass, connection, msg):
-    """Get last test results."""
-
-@websocket_command("secure_me/get_health_status")
-async def websocket_get_health_status(hass, connection, msg):
-    """Get module health status."""
-
-@websocket_command("secure_me/get_battery_status")
-async def websocket_get_battery_status(hass, connection, msg):
-    """Get battery status for all sensors."""
+**Testing commands:**
+```
+secure_me/run_test          # level: quick | standard | full
+secure_me/get_test_results  # last 10 results
+secure_me/get_health_status
+secure_me/get_battery_status
 ```
 
 **Message Format:**
 ```javascript
 // Request
-{
-    type: "secure_me/run_test",
-    id: 123,
-    level: "standard"  // quick, standard, full
-}
+{ type: "secure_me/run_test", id: 123, level: "standard" }
 
 // Response
 {
@@ -550,16 +444,101 @@ async def websocket_get_battery_status(hass, connection, msg):
 
 ---
 
-## 💾 Data Storage
+## Data Flow
 
-### store.py (Persistent Storage)
+### Arming Sequence
 
-**Purpose:** Save configuration and test results across restarts
-
-**Storage Location:**
 ```
-/config/.storage/secure_me.panel_config
+User clicks "Arm Away"
+        |
+        v
+Frontend sends WebSocket command
+        |
+        v
+Coordinator validates code
+        |
+        v
+asyncio.Lock() acquired (v0.5.0)
+        |
+        v
+State Machine: disarmed -> arming
+        |
+        v
+Exit delay countdown starts
+async_update_listeners() every second (v0.6.0)
+Full refresh every 5s only
+        |
+        v
+Countdown expires -> armed_away
+        |
+        v
+Zone Manager activates zones + starts monitoring
+        |
+        v
+Module Manager arms modules (parallel, graceful degradation v0.4.0):
+        +-> Camera: POE smart check + optional delay + recording
+        +-> Lock: lock doors (retry x3 if needed)
+        +-> Lights: turn off (retry x3)
+        +-> Climate: eco/away preset (retry x5)
+        +-> Siren: ready state
+        +-> TTS: "Armed Away" announcement
+        |
+        v
+Health event fired (throttled max 1x/5s v0.6.0)
+        |
+        v
+Frontend receives state update -> UI shows "Armed Away"
 ```
+
+### Sensor Trigger Sequence
+
+```
+Sensor state changes to "on"
+        |
+        v
+Debounce check: last trigger < 500ms ago? -> skip (v0.6.0)
+        |
+        v
+ZoneManager.update_sensor_state()
+        +-> None state (entity deleted)? -> treat as closed + notify
+        +-> "unavailable"/"unknown"?     -> treat as closed + notify
+        +-> Normal open state?           -> mark zone triggered
+        |
+        v
+Is alarm in "arming" state?
+        +-> Yes -> ignore (user still leaving) (v0.5.0)
+        +-> No  -> continue
+        |
+        v
+Zone type?
+        +-> "instant" -> trigger_alarm() immediately
+        +-> "entry"   -> start entry delay countdown (pending state)
+        |
+        v
+Entry delay expires -> trigger_alarm()
+        |
+        v
+_trigger_reset_task created (auto-reset after trigger_time) (v0.5.0)
+        |
+        v
+Module Manager triggers all modules:
+        +-> Siren: sound alarm
+        +-> Lights: emergency blink
+        +-> TTS: "Alarm triggered!"
+        +-> Camera: ensure recording
+        |
+        v
+User disarms with code -> disarmed
+OR trigger_time expires -> auto-reset to disarmed (v0.5.0)
+```
+
+---
+
+## Data Storage
+
+### store.py
+
+**Storage Location:** `/config/.storage/secure_me.panel_config`
 
 **Data Structure:**
 ```json
@@ -572,7 +551,7 @@ async def websocket_get_battery_status(hass, connection, msg):
         "automations": { ... },
         "settings": { ... },
         "test_results": {
-            "last_test": "2026-02-13T14:30:00",
+            "last_test": "2026-02-21T10:00:00",
             "last_result": "PASS",
             "history": [ ... ]
         }
@@ -580,339 +559,202 @@ async def websocket_get_battery_status(hass, connection, msg):
 }
 ```
 
-**Methods:**
+---
+
+## Constants (const.py)
+
+**Key constants added in v0.4.0:**
 ```python
-async def async_save(data):
-    """Save data to storage."""
-    
-async def async_load():
-    """Load data from storage."""
-    
-async def async_save_test_results(results):
-    """Save test results."""  # ✨ NEW
+# Retry defaults
+DEFAULT_RETRY_MAX = 3
+DEFAULT_RETRY_DELAY = 2.0       # seconds
+DEFAULT_RETRY_BACKOFF = 2.0     # multiplier (2s, 4s, 8s)
+
+# Notification IDs
+NOTIFY_ID_MODULE_ERROR = "secure_me_module_error"
+NOTIFY_ID_RECOVERY = "secure_me_recovery"
+
+# Error messages (EN + DA)
+ERROR_RETRY_EXHAUSTED_EN = "Secure Me: Module '{module}' failed after {retries} retries."
+ERROR_RECOVERY_OK_EN = "Secure Me: Module '{module}' recovered successfully."
 ```
 
 ---
 
-## 🔄 Data Flow
+## Dependencies
 
-### Arming Sequence
-
-```
-User clicks "Arm Away"
-        ↓
-Frontend sends WebSocket command
-        ↓
-Coordinator receives arm request
-        ↓
-State Machine validates transition
-        ↓
-Coordinator starts exit delay (30s)
-        ↓
-TTS announces countdown
-        ↓
-Exit delay expires
-        ↓
-State changes to "armed_away"
-        ↓
-Zone Manager activates zones
-        ↓
-Module Manager arms modules (parallel):
-        ├─→ Camera: POE on + recording
-        ├─→ Lock: Lock doors
-        ├─→ Lights: Turn off
-        ├─→ Climate: Eco mode
-        ├─→ Siren: Ready
-        └─→ TTS: "Armed Away"
-        ↓
-Health sensors update ✨ NEW
-        ↓
-Coordinator updates state
-        ↓
-Frontend receives state update
-        ↓
-UI shows "Armed Away" status
-```
-
-### Test Execution Sequence ✨ NEW
-
-```
-User clicks "Run Test" (Standard)
-        ↓
-Frontend sends test command via WebSocket
-        ↓
-Coordinator receives test request
-        ↓
-Test framework initializes
-        ↓
-Quick checks (configuration validation)
-        ├─→ Module config structure
-        ├─→ Required fields present
-        └─→ Entity ID format
-        ↓
-Standard checks (entity availability)
-        ├─→ Check all module entities exist
-        ├─→ Verify entities are responsive
-        └─→ Test entity state accessibility
-        ↓
-Health status updated for all modules
-        ↓
-Results compiled with scoring
-        ↓
-Test results saved to store
-        ↓
-Frontend receives results
-        ↓
-UI displays:
-        ├─→ Overall result (PASS/FAIL)
-        ├─→ Module health status
-        ├─→ Duration and timestamp
-        └─→ Detailed error messages (if any)
-```
-
-### Sensor Trigger Sequence
-
-```
-Sensor detects motion
-        ↓
-HA fires state change event
-        ↓
-Zone Manager checks sensor zone
-        ↓
-Zone Manager calls trigger callback
-        ↓
-Coordinator checks if zone is active
-        ↓
-State Machine transitions to "pending"
-        ↓
-Coordinator starts entry delay (30s)
-        ↓
-TTS announces countdown
-        ↓
-User has 30s to disarm
-        ├─→ Disarm code entered → Disarmed
-        └─→ Timeout → State = "triggered"
-                ↓
-        Module Manager triggers modules:
-                ├─→ Siren: Sound alarm
-                ├─→ Lights: Emergency blink
-                ├─→ TTS: "Alarm triggered!"
-                └─→ Notify: Send notifications
-```
-
----
-
-## 📦 Dependencies
-
-### Home Assistant Requirements
-
+### manifest.json
 ```json
 {
-  "requirements": [],  // No external dependencies!
-  "dependencies": [
-    "frontend",
-    "http",
-    "websocket_api"
-  ],
-  "version": "0.3.0",
-  "iot_class": "local_polling"
+    "domain": "secure_me",
+    "name": "Secure Me",
+    "version": "0.9.0",
+    "dependencies": ["frontend", "http", "websocket_api", "panel_custom"],
+    "iot_class": "local_polling",
+    "requirements": []
 }
 ```
 
 ### Python Requirements
-
 - Python 3.11+
 - Home Assistant 2025.1.1+
-- No external libraries needed
+- No external libraries
 
 ### Testing Requirements
-
-```python
-# requirements_dev.txt
-pytest>=7.4.0
-pytest-homeassistant-custom-component>=0.13.0
-pytest-asyncio>=0.21.0
+```
+pytest
+pytest-homeassistant-custom-component
+pytest-asyncio
 ```
 
 ---
 
-## 🔒 Security Considerations
+## Testing Structure
 
-### Code Storage
-- PIN codes hashed (not stored in plain text)
-- Stored in `.storage/core.config_entries`
-- Encrypted at rest
-
-### WebSocket Security
-- Authenticated connections only
-- Commands require active HA session
-- Rate limiting on API calls
-
-### Module Security
-- Modules run with HA permissions
-- Entity access controlled by HA
-- No external network access
-
-### Health Data Privacy
-- Health status stored locally only
-- Test results not transmitted externally
-- Battery levels informational only
-
----
-
-## 🧪 Testing Structure
-
-### Test Organization (v0.3.0)
+### Test Organization (v0.9.0)
 
 ```
-tests/
-├── __init__.py
-├── conftest.py                 # Pytest fixtures with mocks
-├── test_init.py                # Integration setup tests (8 tests) ✨ NEW
-├── test_const.py               # Constants tests ✨ NEW
-├── test_state_machine.py       # State logic tests ✨ NEW
-├── test_modules.py             # Module tests ✨ NEW
-├── test_sensors.py             # Sensor platform tests ✨ NEW
-├── test_store.py               # Store tests ✨ NEW
-├── test_files.py               # File structure tests ✨ NEW
-└── test_diagnostics.py         # Diagnostics tests ✨ NEW
+tests/                              168 tests total
++-- conftest.py                     MockHass, MockConfigEntry, MockModule fixtures
++-- test_const.py                   Constants and error message tests
++-- test_diagnostics.py             Diagnostics section tests
++-- test_files.py                   Manifest, hacs.json, file structure tests
++-- test_modules.py                 Module base interface, health, entity extraction
++-- test_sensors.py                 Battery sensor platform tests
++-- test_state_machine.py           State machine baseline tests (v0.3.0, 100 tests)
++-- test_store.py                   Store load/save tests
++-- test_base_module.py             Retry logic, degraded state, recovery (NEW v0.9.0)
++-- test_zones_edge_cases.py        Sensor deleted/unavailable, debounce (NEW v0.9.0)
++-- test_state_machine_v2.py        Auto-reset, race condition, exit delay (NEW v0.9.0)
 ```
 
-**Test Coverage:**
-- 100 test cases total
-- 8 integration tests
-- Module-specific tests
-- Platform tests
-- Health monitoring tests
-- Battery sensor tests
+**Test breakdown:**
+| File | Tests | Covers |
+|------|-------|--------|
+| test_base_module.py | 12 | v0.4.0: retry, degraded state, recovery notifications |
+| test_zones_edge_cases.py | 28 | v0.5.0+v0.6.0: sensor edge cases, debounce |
+| test_state_machine_v2.py | 28 | v0.5.0: auto-reset, race condition, transition lock |
+| Existing files | 100 | v0.3.0 baseline coverage |
+| **Total** | **168** | |
 
 **Running Tests:**
 ```bash
-# Run all tests
+# All tests
 pytest tests/ -v
 
-# Run specific test file
-pytest tests/test_init.py -v
+# Specific file
+pytest tests/test_base_module.py -v
 
-# Run with coverage
+# With coverage
 pytest tests/ --cov=custom_components/secure_me
 ```
 
 ---
 
-## 📈 Performance Metrics
+## UTF-8 / Encoding Standards (CRITICAL)
 
-### File Sizes (v0.3.0)
+**Absolute ban: no emojis in ANY code file (.js or .py)**
 
-| Component | Size | Lines | Status |
-|-----------|------|-------|--------|
-| __init__.py | 6-7 KB | ~200 | ✅ Stable |
-| coordinator.py | 18 KB | ~500 | ✅ Stable |
-| state_machine.py | 10 KB | ~300 | ✅ Stable |
-| zones.py | 9 KB | ~250 | ✅ Stable |
-| websocket_api.py | 24 KB | ~800 | ✨ Expanded |
-| secure-me-panel.js | 120 KB | ~3800 | ✨ Expanded |
-| binary_sensor.py | 6 KB | ~200 | ✨ NEW |
-| sensor.py | 8 KB | ~250 | ✨ NEW |
-| base.py | 3 KB | ~100 | ✅ Stable |
-| camera.py | 8 KB | ~250 | ✅ Stable |
-| **Tests/** | 30 KB | ~1000 | ✨ NEW |
+Emojis corrupt to garbled text when processed by automation tools.
 
-**Total Integration Size:** ~250 KB (up from ~150 KB)
-**Test Suite Size:** ~30 KB
-**Total Project Size:** ~280 KB
+```javascript
+// BANNED
+alert("Saved!")
+<span>camera</span>    // Unicode char
 
-### Startup Performance
+// CORRECT
+this._toast("Saved!", "success");
+<span>${icon('camera')}</span>
+```
 
-| Phase | Time | Activity |
-|-------|------|----------|
-| Load | <1s | Import modules |
-| Init | 2-3s | Initialize coordinator |
-| Setup | 1-2s | Setup platforms |
-| Health Check | <1s | Initial health scan ✨ NEW |
-| Ready | <6s | Integration ready |
-
-### Test Execution Performance
-
-| Test Level | Time | Checks Performed |
-|------------|------|------------------|
-| Quick | ~30s | Configuration validation |
-| Standard | ~60s | + Entity availability |
-| Full | ~90s | + Battery discovery |
+**Validate before every commit:**
+```bash
+python3 validate_encoding.py frontend/secure-me-panel.js
+python3 validate_version.py
+```
 
 ---
 
-## 🔧 Extension Points
+## GitHub Actions (v0.9.0)
 
-### Adding New Modules
+| Workflow | Status | Notes |
+|----------|--------|-------|
+| HACS Validation | 7/8 passed | brands/ expected fail -- OK |
+| Hassfest Validation | All passed | |
+| Pytest Python 3.11 | 168/168 | |
+| Pytest Python 3.12 | 168/168 | |
+| Version Consistency | Passed | 26+ files checked |
 
-1. Create `modules/my_module.py`
-2. Inherit from `BaseModule`
-3. Implement async_arm/disarm/triggered
-4. Implement async_health_check ✨ NEW
-5. Add to `modules/__init__.py`
-6. Import in `coordinator.py`
-7. Add configuration schema
-8. Add health sensor in binary_sensor.py
+---
 
-### Adding New Platforms
+## File Sizes (v0.9.0 estimated)
 
-1. Create `my_platform.py`
-2. Implement `async_setup_entry`
-3. Add platform to `__init__.py` setup
-4. Create entities
-5. Register with coordinator
-6. Add tests in `tests/test_my_platform.py`
+| Component | Lines | Notes |
+|-----------|-------|-------|
+| secure-me-panel.js | ~4400 | EMOJI-FREE |
+| websocket_api.py | ~800 | |
+| coordinator.py | ~500 | perf optimized |
+| state_machine.py | ~300 | race-safe, auto-reset |
+| zones.py | ~280 | debounced, edge-case safe |
+| base.py | ~200 | retry + degraded logic |
+| tests/ (total) | ~2500 | 168 test cases |
+
+---
+
+## Extension Points
+
+### Adding a New Module
+
+1. Create `modules/my_module.py`, inherit from `AlarmModule`
+2. Implement `async_arm()`, `async_disarm()`, `async_trigger()`, `async_test()`
+3. Use `async_call_service_with_retry()` for all critical HA service calls
+4. Add to `modules/__init__.py`
+5. Import and initialize in `coordinator.py`
+6. Add health binary sensor in `binary_sensor.py`
+7. Add configuration schema in `const.py`
+8. Add tests in `tests/test_modules.py`
 
 ### Adding New Tests
 
-1. Create test file in `tests/`
-2. Import fixtures from `conftest.py`
+1. Create `tests/test_my_feature.py`
+2. Import fixtures from `conftest.py` (`mock_hass`, `mock_config_entry`, etc.)
 3. Use `@pytest.mark.asyncio` for async tests
-4. Mock Home Assistant components
-5. Assert expected behavior
-6. Run with `pytest tests/test_*.py -v`
+4. Use `MockHass`, `MockConfigEntry` for isolation (no real HA needed)
+5. No emojis, no non-ASCII characters in test files
+6. Run: `pytest tests/test_my_feature.py -v`
 
 ---
 
-## 🎯 Quality Metrics (v0.3.0)
+## Quality Metrics (v0.9.0)
 
 ### Code Quality
-- ✅ Type hints (partial coverage)
-- ✅ Docstrings (all public methods)
-- ✅ Error handling (comprehensive)
-- ✅ Logging (debug/info/error levels)
-- ✅ Async/await patterns throughout
+- Type hints (partial coverage)
+- Docstrings on all public methods
+- Comprehensive error handling with user notifications
+- Debug/info/warning/error logging throughout
+- Async/await patterns throughout
+- UTF-8 / emoji-free enforced by CI
 
 ### Test Coverage
-- ✅ 100 test cases
-- ✅ Integration tests
-- ✅ Platform tests
-- ✅ Module tests
-- ✅ Health monitoring tests
-- ✅ Mock fixtures for all components
-
-### Documentation
-- ✅ README.md (comprehensive)
-- ✅ CHANGELOG.md (detailed)
-- ✅ FEATURES.md (complete)
-- ✅ STRUCTURE.md (this file)
-- ✅ Installation guides
-- ✅ Testing documentation
-- ✅ API documentation
+- 168 test cases (100 baseline + 68 new v0.9.0)
+- Retry and degraded state logic tested
+- Zone edge cases tested (sensor deleted, unavailable, debounce)
+- State machine async behaviour tested (auto-reset, race conditions)
+- Mock fixtures for all HA components
 
 ### Home Assistant Compliance
-- ✅ Config entry based
-- ✅ Modern entity naming
-- ✅ Device registration
-- ✅ DataUpdateCoordinator pattern
-- ✅ Async/await throughout
-- ✅ Unit test coverage
-- ✅ No external dependencies
+- Config entry based
+- Modern entity naming
+- Device registration
+- DataUpdateCoordinator pattern
+- Async/await throughout
+- No external dependencies
+- HACS compliant (7/8, brands expected)
+- Hassfest validated
 
 ---
 
-**Documentation Version:** 0.3.0  
-**Last Updated:** 2026-02-13  
-**Architecture:** Modular, event-driven, async, tested  
-**Status:** Phase 3 Complete - Production Ready
+**Documentation Version:** 0.9.0
+**Last Updated:** 2026-02-21
+**Architecture:** Modular, event-driven, async, race-safe, UTF-8 clean
+**Status:** v0.9.0 Pre-Release -- targeting v1.0.0

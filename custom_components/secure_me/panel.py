@@ -1,4 +1,4 @@
-# VERSION = "0.7.0"
+# VERSION = "0.9.0"
 """Panel registration for Secure Me."""
 from __future__ import annotations
 

@@ -1,2 +1,8 @@
 # Secure Me - Home Assistant Custom Integration
-# No external dependencies required - uses only Home Assistant built-in components
+# No runtime dependencies -- uses only Home Assistant built-in components
+
+# Development / testing dependencies
+# Install with: pip install -r requirements.txt
+pytest
+pytest-homeassistant-custom-component
+pytest-asyncio

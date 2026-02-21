@@ -1,5 +1,5 @@
 """Binary sensor platform for Secure Me - Health Monitoring & Battery Alerts."""
-# VERSION = "0.7.0"
+# VERSION = "0.9.0"
 
 import logging
 from typing import Any

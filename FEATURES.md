@@ -1,237 +1,251 @@
-# 🎯 Secure Me - Features
+# Secure Me - Features
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 0.3.0 (Phase 3 Complete - Testing & Monitoring)  
-**Last Updated:** 2026-02-13
+**Version:** 0.9.0 (Pre-Release Testing)
+**Last Updated:** 2026-02-21
 
 ---
 
-## 📑 Table of Contents
+## Table of Contents
 
 1. [Core Alarm System](#core-alarm-system)
 2. [Zone Management](#zone-management)
 3. [Smart Modules](#smart-modules)
-4. [Testing Framework](#testing-framework) ✨ **NEW in v0.3.0**
-5. [Health Monitoring](#health-monitoring) ✨ **NEW in v0.3.0**
-6. [Battery Tracking](#battery-tracking) ✨ **NEW in v0.3.0**
-7. [Configuration Dashboard](#configuration-dashboard)
-8. [Automation & Events](#automation--events)
-9. [Advanced Features](#advanced-features)
+4. [Error Handling and Reliability](#error-handling-and-reliability)  -- NEW v0.4.0
+5. [Edge Case Handling](#edge-case-handling)  -- NEW v0.5.0
+6. [Performance](#performance)  -- NEW v0.6.0
+7. [User Experience](#user-experience)  -- NEW v0.7.0
+8. [Testing Framework](#testing-framework)
+9. [Health Monitoring](#health-monitoring)
+10. [Battery Tracking](#battery-tracking)
+11. [Configuration Dashboard](#configuration-dashboard)
+12. [Automation and Events](#automation-and-events)
+13. [Advanced Features](#advanced-features)
 
 ---
 
-## 🆕 What's New in v0.3.0
+## What's New
 
-### 🧪 Testing Framework
-- **Three-tier test system** (Quick, Standard, Full)
-- **Real-time test execution** in configuration panel
-- **Health scoring** with PASS/FAIL/UNKNOWN states
-- **Test result persistence** across sessions
-- **Detailed error reporting** with actionable messages
+### v0.9.0 -- Pre-Release Testing
+- 68 new unit tests covering v0.4.0-v0.8.0 changes
+- Total test suite: 168 tests (100 baseline + 68 new)
+- Full coverage: retry logic, edge cases, state machine async behaviour
 
-### 🏥 Health Monitoring
-- **Module health binary sensors** (6 sensors)
-- **Entity availability checking** in real-time
-- **Configuration validation** for all modules
-- **Visual health indicators** in dashboard
-- **Auto-refresh** health status
+### v0.8.0 -- Documentation
+- README.md complete rewrite with full API reference
+- CHANGELOG.md all versions documented
+- INSTALLATION.md clean install guide
+- info.md HACS store page updated
 
-### 🔋 Battery Tracking
-- **Auto-discovery** of all battery entities
-- **Battery level sensors** for monitoring
-- **Low battery warnings** (< 20%)
-- **Dashboard integration** ready
-- **Informational tracking** (doesn't affect tests)
+### v0.7.0 -- UX Improvements
+- Toast notification system replaces all 38 alert() calls
+- In-panel confirm dialogs replace browser confirm()
+- Module health badges on Modules tab (OK/Warning/Error/Degraded)
+- Triggered state pulses red, pending state pulses yellow
+
+### v0.6.0 -- Performance
+- Countdown uses async_update_listeners() instead of full refresh every second (~80% less work)
+- Health events throttled to max 1x per 5 seconds
+- Per-sensor debounce: 500ms cooldown prevents flapping triggers
+- Frontend render batching: 50ms debounce on data loads
+
+### v0.5.0 -- Edge Case Handling
+- Race condition fix: _cancel_countdown() is now async and properly awaited
+- Auto-reset after trigger_time (was TODO since v0.1.0)
+- Sensor deleted from HA while armed: graceful handling, user notified
+- Sensor unavailable while armed: treated as closed, not as trigger
+- Sensor opens during exit delay: ignored (user still leaving)
+
+### v0.4.0 -- Error Handling
+- Centralized retry with exponential backoff across all 6 modules (20 calls total)
+- Graceful degradation: one module failure does not stop others
+- Degraded state tracking per module with user notifications
+- Recovery notifications when a degraded module recovers
 
 ---
 
-## 🔐 Core Alarm System
+## Core Alarm System
 
 ### Arming Modes
 
-**5 Distinct Modes** for different scenarios:
+5 distinct modes for different scenarios:
 
-| Mode | Use Case | Typical Sensors |
-|------|----------|-----------------|
-| 🏠 **Armed Home** | Evening, family home | Perimeter only (doors/windows) |
-| 🌙 **Armed Night** | Sleeping | Downstairs + perimeter |
-| ✈️ **Armed Away** | Vacation, work | All sensors active |
-| 🎯 **Armed Vacation** | Extended absence | All sensors + special rules |
-| ✅ **Disarmed** | Daily living | All sensors inactive |
+| Mode | Use Case | Typical Sensors Active |
+|------|----------|------------------------|
+| Armed Home | Evening, family home | Perimeter only (doors/windows) |
+| Armed Night | Sleeping | Downstairs + perimeter |
+| Armed Away | Work, short absence | All sensors |
+| Armed Vacation | Extended absence | All sensors + special rules |
+| Disarmed | Daily living | None |
 
 ### State Machine
 
-**8 Intelligent States:**
+8 intelligent states with race-condition-safe transitions (v0.5.0):
 
 ```
-┌─────────────┐
-│  DISARMED   │ ←──────────────┐
-└──────┬──────┘                │
-       │ ARM command           │
-       ↓                       │
-┌─────────────┐                │
-│   ARMING    │ (Exit delay)   │
-└──────┬──────┘                │
-       │ Countdown ends        │
-       ↓                       │
-┌─────────────┐                │
-│  ARMED_*    │                │
-└──────┬──────┘                │
-       │ Sensor triggered      │
-       ↓                       │
-┌─────────────┐                │
-│   PENDING   │ (Entry delay)  │
-└──────┬──────┘                │
-       │ Timeout or code       │
-       ├───────────────────────┘
-       │ No code              
-       ↓                      
-┌─────────────┐               
-│  TRIGGERED  │ 🚨            
-└─────────────┘               
+DISARMED
+    |
+    | ARM command + asyncio.Lock() acquired
+    v
+ARMING  (exit delay countdown)
+    |
+    | Countdown expires
+    v
+ARMED_*  (away / home / night / vacation)
+    |
+    | Sensor triggered (ignored if still in ARMING -- v0.5.0)
+    v
+PENDING  (entry delay countdown)
+    |
+    +-- Code entered in time --> DISARMED
+    |
+    | Countdown expires
+    v
+TRIGGERED
+    |
+    +-- Manual disarm  --> DISARMED
+    |
+    | trigger_time expires (auto-reset -- v0.5.0)
+    v
+DISARMED
 ```
+
+Race condition protection (v0.5.0):
+- asyncio.Lock() on all arm/disarm methods
+- _cancel_countdown() awaits task completion before proceeding
+- Double-arm guard: returns False if already armed or arming
 
 ### Entry/Exit Delays
 
-**Smart Countdown System:**
-- **Exit Delay**: Time to leave after arming (default 30s)
-- **Entry Delay**: Time to disarm after trigger (default 30s)
-- **Visual Countdown**: Real-time display in UI
-- **Audio Feedback**: TTS announcements (optional)
-- **Adjustable**: Configure per zone/sensor
+- Exit delay: configurable time to leave after arming (default 30s)
+- Entry delay: configurable time to disarm after sensor trigger (default 30s)
+- Visual countdown in real-time in the panel
+- TTS countdown announcements (optional)
+- Auto-reset: alarm automatically returns to disarmed after trigger_time seconds
 
 ### Code Protection
 
-**PIN Security:**
-- 4-6 digit codes
-- Multiple user codes
-- Retry limit (3 attempts)
-- Lockout period after failures
-- NFC tag alternative (planned)
+- 4-6 digit PIN codes
+- Multiple user codes supported
+- Retry limit with lockout after failures
 - Code history logging
+- NFC tag support (planned)
 
 ---
 
-## 🗺️ Zone Management
+## Zone Management
 
 ### Multi-Zone Architecture
 
-**Zone-Based Control:**
-Create independent security zones for different areas:
+Create independent security zones for different areas of your home.
 
-```
-Home Layout Example:
-┌─────────────────────────────┐
-│  Zone: Living Room          │
-│  Sensors: 3 motion, 2 doors │
-│  Armed: home, night, away   │
-└─────────────────────────────┘
-┌─────────────────────────────┐
-│  Zone: Bedrooms             │
-│  Sensors: 2 motion, 4 windows│
-│  Armed: away only           │
-└─────────────────────────────┘
-```
+**Zone Types:**
+
+| Type | Behaviour |
+|------|-----------|
+| Entry | Starts entry delay countdown on trigger |
+| Instant | Triggers alarm immediately, no delay |
+| Interior | Active in away mode only |
+| Perimeter | Active in all armed modes |
 
 **Zone Features:**
-- **Independent monitoring** per zone
-- **Flexible sensor grouping**
-- **Conditional arming** based on mode
-- **Zone bypass** for temporary disabling
-- **Trigger callbacks** for automation
-- **Zone health monitoring** ✨ NEW
+- Independent monitoring per zone
+- Flexible sensor grouping
+- Mode-based activation (arm_away only, etc.)
+- Zone bypass for temporary disabling
+- Trigger callbacks for automation
 
-### Sensor Types
+### Sensor Edge Case Handling (v0.5.0)
 
-**3 Main Categories:**
+**Sensor deleted from HA while armed:**
+- Treated as closed (not as open/trigger)
+- Persistent notification sent to user
+- No false alarm triggered
 
-| Type | Examples | Behavior |
-|------|----------|----------|
-| 🚶 **Motion** | PIR, mmWave, presence | Instant trigger |
-| 🚪 **Contact** | Door/window sensors | Entry delay |
-| 📍 **Presence** | Location, occupancy | Context aware |
+**Sensor goes unavailable or unknown while armed:**
+- Treated as closed (prevents false alarms during WiFi outages)
+- Persistent notification sent to user
 
-### Open Sensor Detection
+**Sensor opens during exit delay:**
+- Ignored -- user is still leaving the building
+- Monitored normally once fully armed
 
-**Smart Pre-Arming Checks:**
-- Detects open doors/windows before arming
-- Visual warning in UI
-- Optional blocking (prevents arming)
-- Override capability for special cases
-- Real-time status updates
+**check_for_open_sensors() at arming time:**
+- Skips unavailable and missing sensors
+- Arming is not blocked by an offline sensor
+
+### Sensor Debounce (v0.6.0)
+
+- 500ms per-sensor cooldown on zone trigger callbacks
+- Each sensor tracked independently
+- Flapping sensors (on/off/on within 500ms) fire callback only once
+- Prevents cascading triggers and log spam
 
 ---
 
-## 🤖 Smart Modules
+## Smart Modules
 
-### Module System Overview
+### Overview
 
-**6 Intelligent Modules** that integrate with your alarm:
+6 intelligent modules that respond to alarm state changes:
 
-| Module | Purpose | Key Features |
-|--------|---------|--------------|
-| 📷 **Camera** | Visual verification | POE control, recording |
-| 🔒 **Lock** | Access control | Auto lock, retry logic |
-| 💡 **Lights** | Presence simulation | Auto control, flash alerts |
-| 🌡️ **Climate** | Energy saving | Temperature presets |
-| 🚨 **Siren** | Alert system | Multiple patterns, volume |
-| 🔊 **TTS** | Voice feedback | Danish support, templates |
+| Module | Purpose | Retry-protected calls |
+|--------|---------|----------------------|
+| Camera | POE control, recording management | 4 |
+| Lock | Smart lock automation | 3 |
+| Lights | Auto control, emergency flash | 3 |
+| Climate | Multi-zone heating/cooling | 5 |
+| Siren | Alarm sounds and patterns | 3 |
+| TTS | Voice notifications (Danish support) | 2 |
 
-### 📷 Camera Module
+**Total: 20 retry-protected HA service calls across all modules.**
+
+All modules share centralized retry logic from the base class (v0.4.0).
+
+---
+
+### Camera Module
 
 **Smart Camera Management:**
 
-**POE Port Control:**
+POE Port Control:
 - Powers cameras on/off via network switch
-- Smart delay (skips if already on)
-- Saves ~120 seconds on startup
-- Supports multiple switches (Vision, UniFi, etc.)
+- Smart delay: skips the 120s boot wait if cameras are already on
+- Supports multiple POE switches (Vision, UniFi, etc.)
 
-**Recording Modes:**
-- **Armed:** Continuous recording
-- **Disarmed:** Motion-only recording
-- **Off:** No recording
-- **Smart:** Based on presence
+Recording Modes:
+- Armed: continuous recording
+- Disarmed: motion-only recording
+- Manual: user-controlled
 
-**Features:**
+Configuration:
 ```yaml
 enabled: true
-poe_ports:
+poe_switches:
   - switch.vision_port_1_poe
   - switch.vision_port_5_poe
 cameras:
   - camera.front_door
   - camera.back_yard
-  - camera.garage
-recording_mode: input_select.camera_recording
+recording_entities:
+  - input_select.camera_recording_mode
+poe_delay: 120
+auto_record: true
 ```
 
-**Actions:**
-- **On Arm:** Enable POE + set continuous recording
-- **On Disarm:** Set motion recording
-- **On Trigger:** Ensure continuous recording
-
-**Health Monitoring:** ✨ NEW
-- Entity availability checks
-- POE switch status
-- Camera feed verification
-- Configuration validation
+Actions:
+- On Arm: smart POE check + optional delay + start recording (4 retry-protected calls)
+- On Disarm: set motion recording, optional POE off
+- On Trigger: ensure continuous recording
 
 ---
 
-### 🔒 Lock Module
+### Lock Module
 
 **Smart Lock Automation:**
 
-**Features:**
-- Auto-lock on arming
-- Auto-unlock on disarming (optional)
-- Retry logic (3 attempts with 5s delay)
-- Always-locked safety (ensures final locked state)
-- Multiple lock support
-
-**Configuration:**
+Configuration:
 ```yaml
 enabled: true
 locks:
@@ -239,90 +253,58 @@ locks:
   - lock.back_door
 lock_on_arm: true
 unlock_on_disarm: false
-retry_attempts: 3
-retry_delay: 5
 ```
 
-**Smart Behaviors:**
-- **On Arm:** Lock all doors, retry on failure
-- **On Disarm:** Optional unlock, user configurable
-- **On Trigger:** Ensure all locks engaged
+Actions:
+- On Arm: lock all doors, skip if door sensor shows open (3 retry-protected calls)
+- On Disarm: optional unlock
+- On Trigger: ensure all locks engaged
 
-**Safety Features:**
-- Final state verification
-- Retry on communication failure
-- Status logging
-- Manual override capability
-
-**Health Monitoring:** ✨ NEW
-- Lock entity availability
-- Response time tracking
-- Battery status (if applicable)
-- Configuration validation
+Retry behaviour (v0.4.0):
+- 3 attempts with 2s -> 4s -> 8s exponential backoff
+- Degraded state set if all retries exhausted
+- User notified via persistent_notification on failure and on recovery
 
 ---
 
-### 💡 Lights Module
+### Lights Module
 
 **Intelligent Lighting Control:**
 
-**Features:**
-- Auto-control based on alarm state
-- Emergency flash patterns on trigger
-- Zone-based activation
-- Brightness management
-- Presence simulation
+Flash Patterns:
+- Rapid: 0.5s on, 0.5s off
+- Slow: 2s on, 2s off
+- Intermittent: 5s on, 2s off
 
-**Flash Patterns:**
-- **Rapid:** 0.5s on, 0.5s off (attention grabbing)
-- **Slow:** 2s on, 2s off (subtle warning)
-- **Intermittent:** 5s on, 2s off (periodic alert)
-
-**Configuration:**
+Configuration:
 ```yaml
 enabled: true
 lights:
   - light.living_room
   - light.kitchen
-  - light.bedroom
 arm_action: turn_off
-disarm_action: turn_on
+disarm_action: restore
 flash_on_trigger: true
 flash_pattern: rapid
-flash_duration: 300
 ```
 
-**Actions:**
-- **On Arm:** Turn off or leave as-is
-- **On Disarm:** Turn on or restore previous state
-- **On Trigger:** Flash pattern for duration
-
-**Health Monitoring:** ✨ NEW
-- Light entity availability
-- Response time checks
-- Brightness level validation
-- Group sync verification
+Actions:
+- On Arm: turn off lights, backup current state (3 retry-protected calls)
+- On Disarm: restore previous brightness and state
+- On Trigger: flash pattern for configured duration
 
 ---
 
-### 🌡️ Climate Module
+### Climate Module
 
 **Smart Temperature Management:**
 
-**Features:**
-- Multi-zone support
-- Temperature presets
-- Energy optimization
-- Mode management
-- Schedule integration
+Modes:
+- Armed Away: eco temperature (16-18 deg C)
+- Armed Home/Night: comfort temperature (20-22 deg C)
+- Disarmed: restore previous preset
 
-**Modes:**
-- **Armed (Away):** Eco temperature (16-18°C)
-- **Armed (Home/Night):** Comfort temperature (20-22°C)
-- **Disarmed:** Normal operation
-- **Triggered:** Emergency mode (optional)
-
-**Configuration:**
+Configuration:
 ```yaml
 enabled: true
 thermostats:
@@ -334,268 +316,333 @@ eco_temperature: 16
 comfort_temperature: 21
 ```
 
-**Actions:**
-- **On Arm:** Set eco mode, reduce temperature
-- **On Disarm:** Set comfort mode, restore temperature
-- **On Trigger:** Optional freeze protection
-
-**Health Monitoring:** ✨ NEW
-- Thermostat entity availability
-- Temperature sensor status
-- HVAC connection verification
-- Mode transition validation
+Actions:
+- On Arm: set eco preset + temperature (5 retry-protected calls)
+- On Disarm: restore comfort mode
+- On Trigger: optional freeze protection mode
 
 ---
 
-### 🚨 Siren Module
+### Siren Module
 
 **Professional Alert System:**
 
-**Features:**
-- Multiple sound patterns
-- Volume control (0-100%)
-- Duration settings (10-600s)
-- Multiple siren support
-- Emergency override
+Patterns:
+- Continuous: solid alarm sound
+- Intermittent: alternating on/off
+- Rapid: fast pulsing
 
-**Patterns:**
-- **Continuous:** Solid alarm sound
-- **Intermittent:** Alternating on/off
-- **Rapid:** Fast pulsing alarm
-
-**Configuration:**
+Configuration:
 ```yaml
 enabled: true
 sirens:
   - siren.alarm_main
-  - siren.alarm_basement
 pattern: intermittent
 duration: 300
 volume: 80
 ```
 
-**Actions:**
-- **On Trigger:** Sound alarm with pattern
-- **On Disarm:** Stop all sirens
-- **Emergency:** Manual activation available
-
-**Health Monitoring:** ✨ NEW
-- Siren entity availability
-- Volume level checks
-- Pattern support verification
-- Battery status (if applicable)
+Actions:
+- On Trigger: sound alarm with configured pattern (3 retry-protected calls)
+- On Disarm: stop all sirens and reset gateway light
 
 ---
 
-### 🔊 TTS Module
+### TTS Module
 
 **Voice Notification System:**
 
-**Features:**
+Features:
 - Danish language support (Google TTS)
-- Message templates
-- Priority handling
+- Message templates per alarm state
 - Multi-speaker support
 - Volume control
 
-**Message Templates:**
-- **Armed:** "Alarmen er aktiveret i {mode} tilstand"
-- **Disarmed:** "Alarmen er deaktiveret"
-- **Triggered:** "ALARM! Zone {zone} er udløst!"
-- **Custom:** User-defined messages
-
-**Configuration:**
+Configuration:
 ```yaml
 enabled: true
 media_players:
   - media_player.living_room_speaker
-  - media_player.bedroom_speaker
 language: da
 volume: 0.7
 message_templates:
-  armed: "Alarm activated in {mode} mode"
-  disarmed: "Alarm deactivated"
-  triggered: "ALARM! Zone {zone} triggered!"
+  armed: "Alarmen er aktiveret i {mode} tilstand"
+  disarmed: "Alarmen er deaktiveret"
+  triggered: "ALARM! Zone {zone} er udloest!"
 ```
 
-**Actions:**
-- **On Arm:** Announce arming with mode
-- **On Disarm:** Confirm disarming
-- **On Trigger:** Alert with zone information
-- **Countdown:** Entry/exit delay announcements
-
-**Health Monitoring:** ✨ NEW
-- Media player availability
-- TTS service status
-- Volume level validation
-- Network connectivity check
+Actions:
+- On Arm: announce mode (2 retry-protected calls)
+- On Disarm: confirm deactivation
+- On Trigger: alert with zone information
+- Countdown: entry/exit delay announcements
 
 ---
 
-## 🧪 Testing Framework ✨ NEW in v0.3.0
+## Error Handling and Reliability
+
+### Centralized Retry (v0.4.0)
+
+All 20 critical HA service calls across all 6 modules use exponential backoff retry:
+
+```
+Attempt 1 -- immediate
+Attempt 2 -- wait 2s
+Attempt 3 -- wait 4s
+Give up   -- set module to degraded, notify user
+```
+
+Configurable per module via config keys:
+```yaml
+retry_max: 3       # default: 3
+retry_delay: 2.0   # seconds, default: 2.0
+retry_backoff: 2.0 # multiplier, default: 2.0
+```
+
+### Graceful Degradation (v0.4.0)
+
+- One module failing does NOT stop other modules from executing
+- Modules track their own degraded state independently
+- Coordinator uses unified _execute_modules() with per-module error isolation
+
+### User Notifications (v0.4.0)
+
+On module failure (all retries exhausted):
+- persistent_notification created in HA with module name and failed action
+- Degraded badge shown on module card in panel
+
+On module recovery (first successful call after degraded state):
+- persistent_notification created confirming recovery
+- Badge updated to OK automatically
+
+---
+
+## Edge Case Handling
+
+All edge cases added in v0.5.0:
+
+| Scenario | Behaviour |
+|----------|-----------|
+| Sensor deleted from HA while armed | Treated as closed, persistent_notification sent |
+| Sensor unavailable/unknown while armed | Treated as closed, persistent_notification sent |
+| Sensor opens during exit delay (arming) | Ignored, alarm not triggered |
+| Rapid arm -> disarm -> arm | asyncio.Lock() prevents race condition |
+| Countdown task cancel | Awaited properly, no task leak into next cycle |
+| Already triggered + trigger again | Guard returns False, no double-schedule |
+| trigger_time = 0 | Auto-reset disabled, manual disarm only |
+| Arming with offline sensors | Skipped in open sensor check, arming not blocked |
+
+---
+
+## Performance
+
+### Countdown Optimization (v0.6.0)
+
+Previous: full coordinator refresh every second during countdown
+(full entity update + health events for all listeners)
+
+New:
+- Write countdown value directly to self.data in-place
+- Call async_update_listeners() -- lightweight, updates countdown sensor only
+- Full refresh only at countdown=0 or every 5 seconds
+- Result: ~80% reduction in coordinator work during entry/exit delays
+
+### Health Event Throttling (v0.6.0)
+
+- secure_me_health_updated event throttled to max 1x per 5 seconds
+- Prevents health events from firing every countdown tick
+- Uses time.monotonic() for zero-overhead timing
+
+### Sensor Debounce (v0.6.0)
+
+- 500ms per-sensor cooldown on zone trigger callbacks
+- Each sensor tracked independently in _last_trigger_time dict
+- Flapping sensors fire callback only once per debounce window
+
+### Frontend Render Batching (v0.6.0)
+
+- _loadData() and health subscription handler use _queueRender() with 50ms debounce
+- Parallel data loads merge into one DOM update instead of multiple redraws
+- Direct _render() reserved for immediate user actions (tab switch, dialog open)
+
+---
+
+## User Experience
+
+### Toast Notifications (v0.7.0)
+
+Replaces all 38 alert() calls with styled in-panel toasts:
+
+| Type | Colour | Use |
+|------|--------|-----|
+| success | Green | Save confirmed, test passed |
+| error | Red | Save failed, test failed |
+| warning | Yellow | Non-critical issue |
+| info | Blue | Informational message |
+
+- Auto-dismiss after 4 seconds
+- Manual close button
+- Animates in from right, fades out
+- No blocking: multiple toasts can stack
+
+### Confirm Dialogs (v0.7.0)
+
+Replaces browser confirm() with styled async overlay dialogs:
+- Descriptive message tailored to the action ("This zone and all its sensors will be removed")
+- Cancel and Delete buttons with distinct visual styling
+- Click-outside to dismiss
+- Returns a Promise -- fully awaitable in async flow
+
+### Module Health Badges (v0.7.0)
+
+Each module card on the Modules tab shows a live badge:
+
+| Badge | Meaning |
+|-------|---------|
+| OK | All entities available, no errors |
+| Warning | Non-critical issue (e.g. 0 entities configured) |
+| Error | Entity unavailable or health check failed |
+| Degraded | All retries exhausted, module in degraded state (v0.4.0) |
+
+Updates automatically when health event fires -- no polling needed.
+
+### State Pulse Animations (v0.7.0)
+
+- Triggered state: status pill pulses red in sidebar and mobile header
+- Pending state: status pill shown in yellow
+- CSS @keyframes animation -- zero JavaScript polling overhead
+
+### Mobile Navigation (v0.3.3)
+
+- Bottom navigation bar on screens 768px and below
+- 5 primary tabs visible + More drawer for remaining tabs
+- Mobile top header with logo and alarm status pill
+- iOS safe-area inset support
+
+---
+
+## Testing Framework
 
 ### Test Levels
 
-**Three-Tier System:**
-
-#### Quick Test (~30 seconds)
-**Purpose:** Rapid configuration validation
-
-**Tests:**
-- Module configuration structure
+**Quick Test (~30 seconds)**
+- Module configuration structure validation
 - Required fields present
-- Entity ID format validation
-- Basic syntax checks
+- Entity ID format checks
+- Basic syntax validation
 
-**Best For:**
-- After configuration changes
-- Quick health check
-- Pre-deployment validation
+Best for: after configuration changes, quick pre-arm check
 
-#### Standard Test (~60 seconds)
-**Purpose:** Comprehensive entity validation
-
-**Tests:**
-- All Quick Test checks
+**Standard Test (~60 seconds)**
+- All Quick checks
 - Entity availability verification
-- Module health status
+- Module health status check
 - Configuration consistency
-- Entity response times
 
-**Best For:**
-- Regular health monitoring
-- Post-installation verification
-- Troubleshooting issues
+Best for: regular health monitoring, post-installation verification
 
-#### Full Test (~90 seconds)
-**Purpose:** Complete functionality verification
-
-**Tests:**
-- All Standard Test checks
+**Full Test (~90 seconds)**
+- All Standard checks
 - Battery status scan
-- Integration health
-- WebSocket connectivity
-- End-to-end functionality
+- Integration health metrics
+- WebSocket connectivity check
 - Performance metrics
 
-**Best For:**
-- Complete system validation
-- Pre-production testing
-- Comprehensive diagnostics
+Best for: complete system validation, pre-production testing
 
 ### Test Execution
 
-**Via Configuration Panel:**
-1. Open Secure Me panel
-2. Navigate to Testing tab
-3. Select test level
-4. Click "Run Test"
-5. Monitor real-time progress
-6. Review detailed results
+Via Configuration Panel:
+1. Open Secure Me panel, navigate to Testing tab
+2. Select test level (Quick / Standard / Full)
+3. Click "Run Test"
+4. Monitor real-time progress
+5. Review detailed results per module
 
-**Via Command Line:**
+Via Command Line:
 ```bash
-# Run all tests
-pytest custom_components/secure_me/tests/ -v
+# All 168 unit tests
+pytest tests/ -v
 
-# Run specific module tests
-pytest custom_components/secure_me/tests/test_modules.py -v
+# Specific new test files
+pytest tests/test_base_module.py -v
+pytest tests/test_zones_edge_cases.py -v
+pytest tests/test_state_machine_v2.py -v
 
-# Run with coverage
-pytest --cov=custom_components/secure_me
+# With coverage report
+pytest tests/ --cov=custom_components/secure_me
 ```
 
 ### Test Results
 
-**Health Scoring:**
-- ✅ **PASS:** All critical tests passed
-- ⚠️ **WARNING:** Non-critical issues found
-- ❌ **FAIL:** Critical tests failed
-- ❓ **UNKNOWN:** Tests not run or incomplete
+| Result | Meaning |
+|--------|---------|
+| PASS | All critical tests passed |
+| WARNING | Non-critical issues found (does not block PASS) |
+| FAIL | One or more critical tests failed |
+| UNKNOWN | Tests not run yet |
 
-**Result Details:**
+Result details include:
 - Module-by-module breakdown
-- Entity availability status
+- Entity availability per module
 - Configuration validation results
-- Error messages with solutions
-- Test timestamp and duration
-- Historical comparison
+- Error messages with suggested solutions
+- Timestamp and duration
+- Last 10 results persisted across restarts
 
-### Test Result Persistence
+### Unit Test Suite (v0.9.0)
 
-**Stored Information:**
-- Last test timestamp
-- Test level executed
-- Overall result (PASS/FAIL/UNKNOWN)
-- Module-specific results
-- Battery status snapshot
-- Error details
+168 tests across 11 test files:
 
-**Access History:**
-- View in Testing tab
-- Export to JSON/CSV (planned)
-- Compare between runs
-- Trend analysis (planned)
+| File | Tests | Covers |
+|------|-------|--------|
+| test_base_module.py | 12 | Retry, degraded state, recovery notifications |
+| test_zones_edge_cases.py | 28 | Sensor deleted/unavailable, debounce, open sensor check |
+| test_state_machine_v2.py | 28 | Auto-reset, race condition fix, transition lock, async |
+| Existing 8 files | 100 | Baseline v0.3.0 coverage |
+| **Total** | **168** | |
+
+GitHub Actions runs full suite on Python 3.11 and 3.12 on every push to main and dev.
 
 ---
 
-## 🏥 Health Monitoring ✨ NEW in v0.3.0
+## Health Monitoring
 
 ### Module Health Sensors
 
-**6 Binary Sensors Created:**
+6 binary sensors, one per module:
 
-```yaml
-binary_sensor.secure_me_camera_health    # Camera module
-binary_sensor.secure_me_lock_health      # Lock module
-binary_sensor.secure_me_lights_health    # Lights module
-binary_sensor.secure_me_climate_health   # Climate module
-binary_sensor.secure_me_siren_health     # Siren module
-binary_sensor.secure_me_tts_health       # TTS module
+```
+binary_sensor.secure_me_camera_health
+binary_sensor.secure_me_lock_health
+binary_sensor.secure_me_lights_health
+binary_sensor.secure_me_climate_health
+binary_sensor.secure_me_siren_health
+binary_sensor.secure_me_tts_health
 ```
 
-**Sensor States:**
-- **ON (Healthy):** All entities available, configuration valid
-- **OFF (Unhealthy):** Entity unavailable or configuration issue
-- **UNKNOWN:** Module disabled or not configured
+States:
+- ON: module healthy, all entities available
+- OFF: entity unavailable or configuration issue
+- UNKNOWN: module disabled or not configured
 
-### Health Checks Performed
+### System Health Integration
 
-**Entity Availability:**
-- Checks if all configured entities exist
-- Verifies entities are responsive
-- Tests entity state accessibility
-- Monitors response times
-
-**Configuration Validation:**
-- Required fields present
-- Valid entity IDs
-- Proper data types
-- Logical consistency
-
-**Module Status:**
-- Module enabled/disabled state
-- Last successful operation
-- Error count tracking
-- Performance metrics
+10 metrics available via Developer Tools -> Info -> System Health:
+- Integration version and state
+- Modules enabled count and healthy count
+- Zones configured
+- Batteries monitored
+- Last test result and timestamp
 
 ### Real-Time Updates
 
-**Auto-Refresh:**
-- Health status updates every 30 seconds
-- Manual refresh available
-- On-demand health checks
-- Event-driven updates
-
-**Visual Indicators:**
-- ✅ Green badge: Healthy
-- ⚠️ Yellow badge: Warning
-- ❌ Red badge: Unhealthy
-- 📊 Health percentage score
+- Health events fired on state change, throttled to max 1x/5s (v0.6.0)
+- Event-driven panel updates (no polling)
+- Manual refresh available in Testing tab
 
 ### Dashboard Integration
 
-**Example Lovelace Card:**
 ```yaml
 type: entities
 title: Secure Me Health
@@ -608,95 +655,30 @@ entities:
   - binary_sensor.secure_me_tts_health
 ```
 
-**Automation Example:**
-```yaml
-automation:
-  - alias: "Alert on Module Health Issue"
-    trigger:
-      - platform: state
-        entity_id:
-          - binary_sensor.secure_me_camera_health
-          - binary_sensor.secure_me_lock_health
-        to: 'off'
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Secure Me Health Issue"
-          message: "Module {{ trigger.to_state.name }} is unhealthy"
-```
-
 ---
 
-## 🔋 Battery Tracking ✨ NEW in v0.3.0
+## Battery Tracking
 
 ### Auto-Discovery
 
-**Automatic Detection:**
-- Scans all entities with `device_class: battery`
-- Creates sensor for each discovered battery
-- Updates every 5 minutes
+- Scans all entities with device_class: battery automatically
+- Creates 3 tracking entities per discovered battery
 - No manual configuration required
+- Updates periodically and on demand during Full Test
 
-**Discovery Process:**
-```python
-# Automatically finds batteries like:
-sensor.front_door_battery           # 85%
-sensor.window_sensor_1_battery      # 72%
-sensor.motion_detector_battery      # 45%
-sensor.smoke_detector_battery       # 20% (LOW!)
-```
+### Battery Thresholds
 
-### Battery Sensors
+| Level | Range | Action |
+|-------|-------|--------|
+| OK | 30-100% | None |
+| Low | 20-29% | Plan replacement |
+| Critical | 10-19% | Replace soon |
+| Urgent | 0-9% | Replace now |
 
-**Sensor Attributes:**
-- **State:** Battery percentage (0-100%)
-- **Device Class:** Battery
-- **Unit:** %
-- **Low Warning:** < 20%
-- **Critical Warning:** < 10%
+Battery status is **informational only** and does NOT affect test PASS/FAIL determination.
 
-**Naming Convention:**
-```
-sensor.secure_me_{original_entity_name}_battery
-```
+### Dashboard Integration
 
-### Battery Monitoring
-
-**Dashboard Display:**
-- Battery count indicator
-- Individual battery levels
-- Low battery warnings
-- Last update timestamp
-- Battery health trend (planned)
-
-**Low Battery Alerts:**
-```yaml
-automation:
-  - alias: "Low Battery Alert"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.secure_me_*_battery
-        below: 20
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Low Battery Warning"
-          message: "{{ trigger.to_state.name }} at {{ trigger.to_state.state }}%"
-```
-
-### Battery Status in Tests
-
-**Full Test Includes:**
-- Complete battery scan
-- Battery level reporting
-- Low battery identification
-- Battery count summary
-
-**Important:** Battery status is **informational only** and does NOT affect test PASS/FAIL determination.
-
-### Battery Dashboard Integration
-
-**Example Card:**
 ```yaml
 type: entities
 title: Battery Status
@@ -704,106 +686,78 @@ entities:
   - sensor.secure_me_front_door_battery
   - sensor.secure_me_window_sensor_1_battery
   - sensor.secure_me_motion_detector_battery
-  - sensor.secure_me_smoke_detector_battery
 state_color: true
 ```
 
 ---
 
-## 🎛️ Configuration Dashboard
+## Configuration Dashboard
 
 ### Panel Overview
 
-**7 Main Tabs:**
+7 tabs in the Secure Me sidebar panel (~4400 lines, emoji-free):
 
-1. **Sensors** - Overview and status
-2. **Zones** - Zone configuration
-3. **Users** - PIN code management
-4. **Modules** - Smart module settings
-5. **Automations** - Trigger templates
-6. **Settings** - System configuration
-7. **Testing** - Health monitoring ✨ NEW
-
-### Testing Tab Features ✨ NEW
-
-**Interface Components:**
-- Test level selection (Quick/Standard/Full)
-- Real-time progress indicator
-- Detailed results display
-- Module health summary
-- Battery status overview
-- Test history log
-- Export results button (planned)
-
-**User Workflow:**
-1. Select test level
-2. Click "Run Test"
-3. Watch real-time progress
-4. Review detailed results
-5. Address any issues
-6. Re-test to verify fixes
-
-**Visual Design:**
-- Clean, professional interface
-- Color-coded results
-- Expandable sections
-- Mobile-responsive layout
-- Clear action buttons
+1. Sensors -- sensor overview and status
+2. Zones -- zone configuration and management
+3. Users -- PIN code and NFC management
+4. Modules -- smart module settings with live health badges
+5. Automations -- automation trigger templates
+6. Settings -- system configuration
+7. Testing -- health monitoring and test execution
 
 ### Module Configuration
 
-**Each Module Card Shows:**
+Each module card shows:
 - Enable/disable toggle
-- Configuration status
-- Health indicator ✨ NEW
-- Entity count
-- Last updated timestamp
-- Quick actions (configure, test)
+- Live health badge (OK/Warning/Error/Degraded)
+- Configured entity count
+- Entity list with availability status
+- Quick test button
 
-**Configuration Options:**
-- Visual entity selection
-- Search/filter functionality
-- Form validation
-- Add/remove entities
-- Professional dialogs
-- Mobile-responsive design
+### WebSocket Real-Time Features
 
-### WebSocket Integration
-
-**Real-Time Features:**
-- Live status updates
-- Configuration changes
-- Test execution
-- Health monitoring
-- Battery status
-- Error notifications
+- Live alarm state and countdown updates
+- Configuration changes applied immediately
+- Test execution with real-time progress
+- Health push events (no polling)
+- Battery status on demand
 
 ---
 
-## 🔄 Automation & Events
+## Automation and Events
 
 ### Event Types
 
-**System Events:**
-- `alarm_armed` - Alarm activated
-- `alarm_disarmed` - Alarm deactivated
-- `alarm_triggered` - Sensor triggered alarm
-- `zone_triggered` - Specific zone triggered
-- `module_action` - Module executed action
-- `health_changed` - Module health status changed ✨ NEW
-- `battery_low` - Battery below threshold ✨ NEW
+```
+secure_me_armed          -- alarm activated (data: mode, armed_by)
+secure_me_disarmed       -- alarm deactivated (data: disarmed_by)
+secure_me_triggered      -- alarm triggered (data: triggered_by)
+secure_me_health_updated -- module health changed (throttled 1x/5s)
+```
 
-### Automation Templates
+### Example Automations
 
-**Example Automations:**
-
-**Low Battery Notification:**
+**Notify on alarm trigger:**
 ```yaml
 automation:
-  - alias: "Battery Low Alert"
+  - alias: "Alarm Triggered Alert"
+    trigger:
+      - platform: event
+        event_type: secure_me_triggered
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "ALARM TRIGGERED"
+          message: "Triggered by: {{ trigger.event.data.triggered_by }}"
+```
+
+**Low battery alert:**
+```yaml
+automation:
+  - alias: "Low Battery Alert"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.secure_me_*_battery
+        entity_id: sensor.secure_me_front_door_battery
         below: 20
     action:
       - service: notify.mobile_app
@@ -812,22 +766,22 @@ automation:
           message: "{{ trigger.to_state.name }}: {{ trigger.to_state.state }}%"
 ```
 
-**Module Health Alert:**
+**Module health issue:**
 ```yaml
 automation:
-  - alias: "Module Health Issue"
+  - alias: "Module Degraded Alert"
     trigger:
       - platform: state
-        entity_id: binary_sensor.secure_me_*_health
-        to: 'off'
+        entity_id: binary_sensor.secure_me_camera_health
+        to: "off"
     action:
       - service: notify.mobile_app
         data:
-          title: "Module Unhealthy"
+          title: "Secure Me Module Issue"
           message: "{{ trigger.to_state.name }} needs attention"
 ```
 
-**Daily Health Report:**
+**Daily health report:**
 ```yaml
 automation:
   - alias: "Daily Health Report"
@@ -837,149 +791,113 @@ automation:
     action:
       - service: notify.mobile_app
         data:
-          title: "Secure Me Health Report"
+          title: "Secure Me Daily Report"
           message: >
-            Modules: {{ states.binary_sensor | selectattr('entity_id', 'search', 'secure_me.*_health') | selectattr('state', 'eq', 'on') | list | count }}/6 healthy
-            Batteries: {{ states.sensor | selectattr('entity_id', 'search', 'secure_me.*_battery') | selectattr('state', 'lt', '20') | list | count }} low
+            Modules: {{ states.binary_sensor
+              | selectattr('entity_id', 'search', 'secure_me.*_health')
+              | selectattr('state', 'eq', 'on') | list | count }}/6 healthy.
+            Batteries low: {{ states.sensor
+              | selectattr('entity_id', 'search', 'secure_me.*_battery')
+              | selectattr('state', 'lt', '20') | list | count }}
 ```
 
 ---
 
-## 🚀 Advanced Features
-
-### Performance Optimization
-
-**POE Smart Delay:**
-- Checks if ports already on
-- Skips unnecessary power cycles
-- Saves ~120 seconds on startup
-- Reduces wear on equipment
-
-**Parallel Execution (Planned):**
-- Simultaneous module actions
-- Faster state transitions
-- Optimized for performance
-- Configurable per module
-
-### State Backup/Restore
-
-**State Persistence:**
-- Alarm state across restarts
-- Module configurations
-- Zone settings
-- User preferences
-- Test history ✨ NEW
-
-**Backup Features:**
-- Automatic backups
-- Manual export/import
-- Version history
-- Recovery mode
+## Advanced Features
 
 ### Diagnostics
 
-**System Health Reporting:**
-- Integration status
-- Module health summary ✨ NEW
-- Battery overview ✨ NEW
-- Configuration validation
+Enhanced diagnostics with 6 sections, downloadable from Devices and Services:
+- Integration version and alarm state
+- Module health summary (enabled, healthy, degraded count)
+- Battery overview (monitored count, low count)
+- Configuration validation results
 - Performance metrics
-- Error logs
-- Test results ✨ NEW
+- Test results (last run timestamp and result)
 
-**Diagnostic Data:**
-```yaml
-diagnostics:
-  integration_version: 0.3.0
-  modules_enabled: 6
-  zones_configured: 4
-  users_registered: 3
-  modules_healthy: 6/6
-  batteries_monitored: 17
-  last_test: "2026-02-13 14:30:00"
-  test_result: "PASS"
-```
+Sensitive data (codes, PINs, NFC tags) is automatically redacted.
 
-### Future Enhancements
+### State Backup/Restore
 
-**Planned Features:**
-- NFC tag integration
-- Advanced automation templates
-- Cloud backup (optional)
-- Mobile app companion
-- Advanced analytics
-- Machine learning patterns
-- Voice assistant integration
-- Video verification
+- Alarm state persists across HA restarts
+- Module configurations stored in HA .storage
+- Test results (last 10) persisted across restarts
+- Light state backed up before arm, restored on disarm
+
+### UTF-8 and Encoding Standards
+
+All code files (.js and .py) are guaranteed emoji-free.
+Emojis corrupt to garbled characters when processed by automation tools.
+Validated by dedicated script and CI on every commit.
 
 ---
 
-## 📊 Statistics & Metrics
+## Statistics (v0.9.0)
 
-### Current Implementation (v0.3.0)
+**Code:**
 
-**Code Statistics:**
-- Total lines: ~8,000+
-- Python files: 20+
-- Test cases: 100
-- Module health sensors: 6
-- Battery sensors: Auto-discovered
-- Configuration panel: 3,800 lines
-- WebSocket API: 800 lines
+| Component | Lines |
+|-----------|-------|
+| Frontend panel (secure-me-panel.js) | ~4400 |
+| Total Python source files | 22+ |
+| Unit tests | 168 |
+| WebSocket API | ~800 |
+| Retry-protected service calls | 20 |
 
 **Feature Completion:**
-- Core alarm: 100%
-- Zones: 100%
-- Modules: 100%
-- Testing: 100% ✨ NEW
-- Health monitoring: 100% ✨ NEW
-- Battery tracking: 100% ✨ NEW
-- Configuration panel: 100%
-- Automations: 80%
-- Diagnostics: 80%
+
+| Area | Status |
+|------|--------|
+| Core alarm | 100% |
+| Zone management | 100% |
+| Smart modules (6) | 100% |
+| Error handling and retry | 100% |
+| Edge case handling | 100% |
+| Performance optimization | 100% |
+| UX improvements | 100% |
+| Testing framework | 100% |
+| Health monitoring | 100% |
+| Battery tracking | 100% |
+| Documentation | 100% |
+| Unit test suite | 168 / 168 passing |
 
 **Platform Support:**
-- Alarm Control Panel: ✅
-- Binary Sensors: ✅ (including health)
-- Sensors: ✅ (including batteries)
-- Switches: ✅
-- Selects: ✅
+- Alarm Control Panel: yes
+- Binary Sensors (health): yes
+- Sensors (battery): yes
+- Switches: yes
+- Selects: yes
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
-### Home Security
-- Complete perimeter protection
-- Multi-zone monitoring
+**Home Security**
+- Complete perimeter and interior protection
+- Multi-zone monitoring with per-mode activation
 - Smart automation integration
-- Health monitoring ✨ NEW
-- Battery management ✨ NEW
+- Real-time health monitoring and degradation alerts
 
-### Vacation Mode
-- Extended away settings
-- Energy optimization
-- Presence simulation
-- Remote monitoring
-- Automated testing ✨ NEW
+**Vacation Mode**
+- Armed Vacation mode with extended-absence rules
+- Energy optimization via Climate module
+- Camera recording and smart POE management
+- Remote monitoring via HA mobile app
 
-### Family Home
-- Kid-safe zones
-- Pet-friendly sensors
-- Smart scheduling
-- User management
-- Health alerts ✨ NEW
+**Family Home**
+- Multiple user codes
+- Kid-safe interior zones (away-only activation)
+- Pet-friendly sensor configuration
+- Daily health report automation
 
-### Smart Home Integration
-- Works with existing devices
-- Flexible automation
-- Voice control ready
-- Dashboard integration
-- Real-time testing ✨ NEW
+**Smart Home Integration**
+- Works with all existing HA devices and automations
+- No external cloud dependencies
+- Full WebSocket API for custom integrations
+- HACS-installable
 
 ---
 
-**Version:** 0.3.0  
-**Status:** Production Ready with Testing  
-**Last Updated:** 2026-02-13  
-**Next Release:** v1.0.0 (Final Polish & HACS)
+**Version:** 0.9.0
+**Status:** Pre-Release Testing -- targeting v1.0.0
+**Last Updated:** 2026-02-21
