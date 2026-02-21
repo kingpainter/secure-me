@@ -1,5 +1,5 @@
 """Tests for Secure Me diagnostics."""
-# VERSION = "0.3.1"
+# VERSION = "0.9.0"
 
 import pytest
 

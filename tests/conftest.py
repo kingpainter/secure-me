@@ -1,5 +1,5 @@
 """Shared fixtures for Secure Me tests."""
-# VERSION = "0.3.0"
+# VERSION = "0.9.0"
 
 from __future__ import annotations
 
