@@ -2200,7 +2200,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.cameras.map(cam => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    ${icon("chevron")}
+                    <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span>
                     <span style="font-size:12px">${cam.entity_id || cam}</span>
                     ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">POE: ${cam.poe_port}</span>` : ''}
                   </div>
@@ -2245,7 +2245,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.locks.map(lock => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    ${icon("chevron")}
+                    <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span>
                     <span style="font-size:12px">${lock.entity_id}</span>
                   </div>
                 `).join('')}
@@ -2280,7 +2280,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2305,7 +2305,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2330,7 +2330,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -2356,7 +2356,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
