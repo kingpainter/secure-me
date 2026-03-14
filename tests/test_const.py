@@ -1,5 +1,5 @@
 """Tests for Secure Me constants."""
-# VERSION = "0.3.1"
+# VERSION = "1.0.0"
 
 import pytest
 
@@ -43,8 +43,8 @@ class TestConstants:
         for part in parts:
             assert part.isdigit()
 
-    def test_version_is_0_3_1(self):
-        assert VERSION == "0.3.1"
+    def test_version_is_1_0_0(self):
+        assert VERSION == "1.0.0"
 
     def test_platforms_not_empty(self):
         assert len(PLATFORMS) > 0

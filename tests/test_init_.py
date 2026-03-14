@@ -1,5 +1,5 @@
 """Tests for Secure Me integration initialization."""
-# VERSION = "0.3.0"
+# VERSION = "1.0.0"
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -15,7 +15,7 @@ async def test_setup_entry_success(hass: HomeAssistant, mock_config_entry, mock_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me._async_register_panel"):
+         patch("custom_components.secure_me.panel.async_register_panel"):
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
@@ -33,7 +33,7 @@ async def test_setup_entry_creates_coordinator(hass: HomeAssistant, mock_config_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store) as mock_store_class, \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator) as mock_coordinator_class, \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me._async_register_panel"):
+         patch("custom_components.secure_me.panel.async_register_panel"):
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
@@ -52,7 +52,7 @@ async def test_setup_entry_registers_platforms(hass: HomeAssistant, mock_config_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me._async_register_panel"):
+         patch("custom_components.secure_me.panel.async_register_panel"):
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
@@ -78,7 +78,7 @@ async def test_unload_entry_success(hass: HomeAssistant, mock_config_entry, mock
     
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     
-    with patch("custom_components.secure_me.async_remove_panel"):
+    with patch("custom_components.secure_me.panel.async_unregister_panel"):
         result = await async_unload_entry(hass, mock_config_entry)
     
     assert result is True
@@ -101,7 +101,7 @@ async def test_unload_entry_cleans_up(hass: HomeAssistant, mock_config_entry, mo
     
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     
-    with patch("custom_components.secure_me.async_remove_panel"):
+    with patch("custom_components.secure_me.panel.async_unregister_panel"):
         await async_unload_entry(hass, mock_config_entry)
     
     mock_listener.assert_called_once()
@@ -110,19 +110,15 @@ async def test_unload_entry_cleans_up(hass: HomeAssistant, mock_config_entry, mo
 
 @pytest.mark.asyncio
 async def test_reload_entry(hass: HomeAssistant, mock_config_entry):
-    """Test config entry reload."""
-    from custom_components.secure_me import async_reload_entry
-    
-    with patch("custom_components.secure_me.async_unload_entry", new_callable=AsyncMock) as mock_unload, \
-         patch("custom_components.secure_me.async_setup_entry", new_callable=AsyncMock) as mock_setup:
-        
-        mock_unload.return_value = True
-        mock_setup.return_value = True
-        
-        await async_reload_entry(hass, mock_config_entry)
-        
-        mock_unload.assert_called_once_with(hass, mock_config_entry)
-        mock_setup.assert_called_once_with(hass, mock_config_entry)
+    """Test config entry reload via async_update_options."""
+    from custom_components.secure_me import async_update_options
+
+    with patch("custom_components.secure_me.hass", create=True), \
+         patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock) as mock_reload:
+
+        mock_reload.return_value = True
+        await async_update_options(hass, mock_config_entry)
+        mock_reload.assert_called_once_with(mock_config_entry.entry_id)
 
 
 @pytest.mark.asyncio
@@ -133,7 +129,7 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api") as mock_register_ws, \
-         patch("custom_components.secure_me._async_register_panel"):
+         patch("custom_components.secure_me.panel.async_register_panel"):
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
@@ -165,7 +161,7 @@ async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me._async_register_panel") as mock_register_panel:
+         patch("custom_components.secure_me.panel.async_register_panel") as mock_register_panel:
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         

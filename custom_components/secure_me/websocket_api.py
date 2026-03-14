@@ -1144,14 +1144,17 @@ async def ws_run_test(
     # Sensor failures — split by severity
     critical_sensor_fails = []
     high_sensor_fails = []
+    low_sensor_fails = []
     for eid, s in results.get("sensors", {}).get("details", {}).items():
         if s.get("status") != "fail":
             continue
         sev = s.get("severity", "high")
         if sev == "critical":
             critical_sensor_fails.append(eid)
-        else:
+        elif sev == "high":
             high_sensor_fails.append(eid)
+        else:
+            low_sensor_fails.append(eid)
 
     # Alarm cycle failure is always critical
     if results.get("alarm_cycle", {}).get("status") in ("fail", "error"):
@@ -1162,7 +1165,7 @@ async def ws_run_test(
         results["overall"] = "critical"
     elif high_fails or high_sensor_fails:
         results["overall"] = "fail"
-    elif low_fails or any(m.get("status") == "warning" for m in results["modules"].values()):
+    elif low_fails or low_sensor_fails or any(m.get("status") == "warning" for m in results["modules"].values()):
         results["overall"] = "warning"
     else:
         results["overall"] = "pass"
@@ -1179,7 +1182,7 @@ async def ws_run_test(
         "skipped": skipped,
         "critical_fails": critical_fails + critical_sensor_fails,
         "high_fails": high_fails + high_sensor_fails,
-        "low_fails": low_fails,
+        "low_fails": low_fails + low_sensor_fails,
     }
 
     # --- Store result ---

@@ -478,14 +478,17 @@ class TestSeveritySystem:
 
         critical_sensor_fails = []
         high_sensor_fails = []
+        low_sensor_fails = []
         for eid, s in (sensor_results or {}).items():
             if s.get("status") != "fail":
                 continue
             sev = SENSOR_SEVERITY.get(s.get("type", "contact"), "high")
             if sev == "critical":
                 critical_sensor_fails.append(eid)
-            else:
+            elif sev == "high":
                 high_sensor_fails.append(eid)
+            else:
+                low_sensor_fails.append(eid)
 
         if alarm_cycle_status in ("fail", "error"):
             critical_fails.append("alarm_cycle")
@@ -494,7 +497,7 @@ class TestSeveritySystem:
             overall = "critical"
         elif high_fails or high_sensor_fails:
             overall = "fail"
-        elif low_fails or any(m.get("status") == "warning" for m in module_results.values()):
+        elif low_fails or low_sensor_fails or any(m.get("status") == "warning" for m in module_results.values()):
             overall = "warning"
         else:
             overall = "pass"
