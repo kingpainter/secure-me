@@ -113,9 +113,9 @@ async def test_reload_entry(hass: HomeAssistant, mock_config_entry):
     """Test config entry reload via async_update_options."""
     from custom_components.secure_me import async_update_options
 
-    with patch("custom_components.secure_me.hass", create=True), \
-         patch.object(hass.config_entries, "async_reload", new_callable=AsyncMock) as mock_reload:
-
+    with patch.object(
+        hass.config_entries, "async_reload", new_callable=AsyncMock
+    ) as mock_reload:
         mock_reload.return_value = True
         await async_update_options(hass, mock_config_entry)
         mock_reload.assert_called_once_with(mock_config_entry.entry_id)
