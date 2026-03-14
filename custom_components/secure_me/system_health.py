@@ -68,16 +68,44 @@ async def async_system_health_info(hass: HomeAssistant) -> dict[str, Any]:
     health_info["modules_enabled"] = len(enabled_modules)
     health_info["modules_total"] = len(modules)
 
-    # Check module health
-    unhealthy_modules = []
+    # Check module health — split by severity
+    MODULE_SEVERITY = {
+        "siren": "critical", "lock": "critical",
+        "camera": "high",
+        "lights": "medium", "climate": "low", "tts": "low",
+    }
+    critical_unhealthy = []
+    high_unhealthy = []
+    low_unhealthy = []
+
     for module_id, module in modules.items():
         if module.enabled and not module.is_healthy:
-            unhealthy_modules.append(module_id)
+            sev = MODULE_SEVERITY.get(module_id, "medium")
+            if sev == "critical":
+                critical_unhealthy.append(module_id)
+            elif sev == "high":
+                high_unhealthy.append(module_id)
+            else:
+                low_unhealthy.append(module_id)
 
-    if unhealthy_modules:
-        health_info["unhealthy_modules"] = ", ".join(unhealthy_modules)
-    else:
+    if critical_unhealthy:
+        health_info["critical_modules_offline"] = ", ".join(critical_unhealthy)
+    if high_unhealthy:
+        health_info["high_modules_offline"] = ", ".join(high_unhealthy)
+    if low_unhealthy:
+        health_info["low_modules_offline"] = ", ".join(low_unhealthy)
+    if not critical_unhealthy and not high_unhealthy and not low_unhealthy:
         health_info["all_modules_healthy"] = "yes"
+
+    # Overall module status for quick at-a-glance
+    if critical_unhealthy:
+        health_info["module_status"] = f"CRITICAL: {', '.join(critical_unhealthy)} offline"
+    elif high_unhealthy:
+        health_info["module_status"] = f"WARNING: {', '.join(high_unhealthy)} offline"
+    elif low_unhealthy:
+        health_info["module_status"] = f"minor: {', '.join(low_unhealthy)} offline"
+    else:
+        health_info["module_status"] = "ok"
 
     # F6 Fix: TTS module specific health check
     tts_module = modules.get(MODULE_TTS)
@@ -104,12 +132,36 @@ async def async_system_health_info(hass: HomeAssistant) -> dict[str, Any]:
     ]
     health_info["battery_sensors"] = len(battery_sensors)
 
-    # Last test result
-    test_data = coordinator.store.get("test_results", {})
-    if test_data:
-        last_result = test_data.get("last_result", {})
-        health_info["last_test_status"] = last_result.get("status", "unknown")
-        health_info["last_test_time"] = last_result.get("timestamp", "never")
+    # Last test result — stored under test_history in _data
+    import datetime
+    test_history = coordinator.store._data.get("test_history", [])
+    if test_history:
+        last = test_history[0]
+        health_info["last_test_overall"] = last.get("overall", "unknown")
+        health_info["last_test_type"] = last.get("test_type", "unknown")
+        health_info["last_test_time"] = last.get("timestamp", "never")
+        health_info["last_test_duration"] = f"{last.get('duration_seconds', 0)}s"
+        # Days since last test
+        ts_str = last.get("timestamp", "")
+        if ts_str:
+            try:
+                ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                days = (datetime.datetime.now() - ts).days
+                health_info["days_since_last_test"] = days
+                if days > 30:
+                    health_info["test_status_warning"] = f"No test in {days} days — strongly recommended"
+                elif days > 7:
+                    health_info["test_status_warning"] = f"No test in {days} days — recommended weekly"
+            except Exception:
+                pass
+        # Critical fails from last test
+        summary = last.get("summary", {})
+        critical = summary.get("critical_fails", [])
+        if critical:
+            health_info["last_test_critical_fails"] = ", ".join(critical)
+    else:
+        health_info["last_test_overall"] = "never_run"
+        health_info["test_status_warning"] = "System has never been tested — run a test from the panel"
 
     # Store functionality
     try:

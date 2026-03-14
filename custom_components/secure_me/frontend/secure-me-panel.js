@@ -2751,8 +2751,69 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
 
+      <!-- Days Since Last Test Banner -->
+      ${(() => {
+        const lastTest = this._data.health?.last_test;
+        if (!lastTest) return "";
+        const days = lastTest.days_since;
+        const overall = lastTest.overall;
+        if (overall === "never") {
+          return `
+            <div style="padding:12px 16px;background:var(--sm-warning-dim);border-radius:8px;
+                 border-left:4px solid var(--sm-warning);margin-bottom:8px;
+                 display:flex;align-items:center;gap:10px">
+              <span style="color:var(--sm-warning)">${icon("warn")}</span>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--sm-warning)">System has never been tested</div>
+                <div style="font-size:12px;color:var(--sm-text-secondary)">Run a Standard test to verify all systems</div>
+              </div>
+            </div>`;
+        }
+        if (days !== null && days !== undefined) {
+          if (days > 30) {
+            return `
+              <div style="padding:12px 16px;background:rgba(180,0,0,0.1);border-radius:8px;
+                   border-left:4px solid var(--sm-danger);margin-bottom:8px;
+                   display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-danger)">${icon("warn")}</span>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--sm-danger)">Last test: ${days} days ago</div>
+                  <div style="font-size:12px;color:var(--sm-text-secondary)">Strongly recommended — run a Full test now</div>
+                </div>
+              </div>`;
+          }
+          if (days > 7) {
+            return `
+              <div style="padding:12px 16px;background:var(--sm-warning-dim);border-radius:8px;
+                   border-left:4px solid var(--sm-warning);margin-bottom:8px;
+                   display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-warning)">${icon("warn")}</span>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--sm-warning)">Last test: ${days} days ago</div>
+                  <div style="font-size:12px;color:var(--sm-text-secondary)">Weekly testing recommended</div>
+                </div>
+              </div>`;
+          }
+          if (days === 0) {
+            return `
+              <div style="padding:10px 16px;background:var(--sm-accent-dim);border-radius:8px;
+                   margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-accent)">${icon("ok")}</span>
+                <div style="font-size:12px">Last test: today &middot; ${lastTest.overall?.toUpperCase() || ""} &middot; ${lastTest.test_type || ""}</div>
+              </div>`;
+          }
+          return `
+            <div style="padding:10px 16px;background:var(--sm-accent-dim);border-radius:8px;
+                 margin-bottom:8px;display:flex;align-items:center;gap:10px">
+              <span style="color:var(--sm-accent)">${icon("ok")}</span>
+              <div style="font-size:12px">Last test: ${days} day${days !== 1 ? "s" : ""} ago &middot; ${lastTest.overall?.toUpperCase() || ""} &middot; ${lastTest.test_type || ""}</div>
+            </div>`;
+        }
+        return "";
+      })()}
+
       <!-- Test Controls -->
-      <div class="section-header" style="margin-top:24px">
+      <div class="section-header" style="margin-top:8px">
         <h3 class="section-title">Run Tests</h3>
         ${isRunning ? '<span class="badge entry">Running...</span>' : ''}
       </div>
@@ -2852,20 +2913,32 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="sm-card" style="padding:0;overflow:hidden">
         <div style="padding:16px 20px;background:${
-          result.overall === "pass" ? "var(--sm-accent-dim)" :
-          result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
-        };display:flex;align-items:center;gap:12px">
+          result.overall === "pass"     ? "var(--sm-accent-dim)" :
+          result.overall === "warning"  ? "var(--sm-warning-dim)" :
+          result.overall === "critical" ? "rgba(180,0,0,0.15)" :
+                                          "var(--sm-danger-dim)"
+        };display:flex;align-items:center;gap:12px${
+          result.overall === "critical" ? ";border-left:4px solid var(--sm-danger)" : ""
+        }">
           <span style="font-size:24px">
-            ${result.overall === "pass" ? icon("ok") : result.overall === "warning" ? icon("warn") : icon("fail")}
+            ${result.overall === "pass"     ? icon("ok") :
+              result.overall === "warning"  ? icon("warn") :
+              result.overall === "critical" ? icon("fail") :
+                                              icon("fail")}
           </span>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;text-transform:capitalize">
+            <div style="font-size:14px;font-weight:600;text-transform:capitalize;display:flex;align-items:center;gap:8px">
               ${result.test_type} Test &mdash; ${result.overall.toUpperCase()}
+              ${result.overall === "critical" ? '<span style="font-size:10px;font-weight:700;background:var(--sm-danger);color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:0.05em">CRITICAL</span>' : ""}
             </div>
             <div style="font-size:12px;opacity:0.8">
               ${result.timestamp} &middot; ${result.duration_seconds}s
               &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed${summary.warned ? ", " + summary.warned + " warned" : ""}, ${summary.skipped || 0} skipped
             </div>
+            ${(summary.critical_fails || []).length > 0 ? `
+              <div style="font-size:11px;color:var(--sm-danger);margin-top:4px;font-weight:600">
+                Critical: ${(summary.critical_fails || []).join(", ")}
+              </div>` : ""}
           </div>
         </div>
 
@@ -2874,7 +2947,7 @@ class SecureMePanel extends HTMLElement {
             const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
                           m.status === "warning" ? "var(--sm-warning)" :
-                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-warning)";
+                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-danger)";
             const statusText = m.status === "pass"    ? "PASS" :
                                m.status === "skipped" ? "SKIP" :
                                m.status === "warning" ? "WARN" :
@@ -2882,15 +2955,28 @@ class SecureMePanel extends HTMLElement {
             const detail = m.status === "warning" && m.reason === "no_entities"
               ? "Not configured - add entities in module settings"
               : m.test_result?.message || m.message || "";
+            const sevBadge = m.severity && m.status !== "pass" && m.status !== "skipped" ? (() => {
+              const sevColors = {
+                critical: "background:var(--sm-danger);color:#fff",
+                high:     "background:var(--sm-warning);color:#000",
+                medium:   "background:var(--sm-blue-dim);color:var(--sm-blue)",
+                low:      "background:var(--sm-border);color:var(--sm-text-secondary)",
+              };
+              const style = sevColors[m.severity] || sevColors.medium;
+              return `<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;${style}">${m.severity.toUpperCase()}</span>`;
+            })() : "";
             return `
               <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
-                   border-bottom:1px solid var(--sm-border)">
+                   border-bottom:1px solid var(--sm-border)${m.severity === "critical" && m.status === "fail" ? ";background:rgba(180,0,0,0.04)" : ""}">
                 <span style="color:${color};font-weight:700;font-size:11px;
                      min-width:40px">${statusText}</span>
                 <div style="flex:1">
-                  <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                    ${sevBadge}
+                  </div>
                   ${m.entities_total != null ? `
-                    <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
+                    <span style="font-size:11px;color:var(--sm-text-secondary)">
                       ${m.entities_available}/${m.entities_total} entities
                     </span>
                   ` : ""}

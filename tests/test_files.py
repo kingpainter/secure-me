@@ -1,5 +1,5 @@
 """Tests for Secure Me file integrity – manifest, services, strings."""
-# VERSION = "0.9.0"
+# VERSION = "0.3.1"
 
 import json
 import os

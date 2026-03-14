@@ -658,28 +658,69 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # --- Health Methods ---
 
+    # Severity weights for health score calculation.
+    # Higher weight = bigger impact when offline.
+    _MODULE_SEVERITY_WEIGHT: dict[str, float] = {
+        "siren":   3.0,   # critical -- silent alarm if offline
+        "lock":    3.0,   # critical -- security breach if offline
+        "camera":  2.0,   # high
+        "lights":  1.0,   # medium
+        "climate": 0.5,   # low
+        "tts":     0.5,   # low
+    }
+
     def get_health_score(self) -> int:
-        """Calculate system health score (0-100).
+        """Calculate severity-weighted system health score (0-100).
 
-        Based on entity availability across all enabled modules.
-        Returns 100 if no entities are configured.
+        Modules with higher severity weight have a larger impact on the score
+        when their entities are unavailable. A siren offline hurts more than
+        a TTS offline.
+
+        Penalty of up to 10 points applied if last test is > 7 days old,
+        up to 20 points if > 30 days old — mirroring the old system behaviour.
         """
-        total = 0
-        available = 0
+        import time
 
-        for module in self.modules.values():
+        weighted_total = 0.0
+        weighted_available = 0.0
+
+        for mod_id, module in self.modules.items():
             if not module.enabled:
                 continue
+            weight = self._MODULE_SEVERITY_WEIGHT.get(mod_id, 1.0)
             entities = self._get_module_entity_ids(module)
             for eid in entities:
-                total += 1
+                weighted_total += weight
                 state = self.hass.states.get(eid)
                 if state and state.state not in ("unavailable", "unknown"):
-                    available += 1
+                    weighted_available += weight
 
-        if total == 0:
-            return 100
-        return round((available / total) * 100)
+        if weighted_total == 0:
+            score = 100
+        else:
+            score = round((weighted_available / weighted_total) * 100)
+
+        # Days-since-last-test penalty (mirrors old system's 7-day warning)
+        try:
+            test_history = self.store._data.get("test_history", [])
+            if test_history:
+                last = test_history[0]
+                ts_str = last.get("timestamp", "")
+                if ts_str:
+                    import datetime
+                    ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                    days = (datetime.datetime.now() - ts).days
+                    if days > 30:
+                        score = max(0, score - 20)
+                    elif days > 7:
+                        score = max(0, score - 10)
+            else:
+                # Never tested — deduct 5 points as nudge
+                score = max(0, score - 5)
+        except Exception:
+            pass
+
+        return score
 
     def get_module_health(self) -> dict[str, dict]:
         """Get health status for each module.

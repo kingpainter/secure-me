@@ -1,5 +1,5 @@
 """Tests for Secure Me store."""
-# VERSION = "0.9.0"
+# VERSION = "0.3.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
