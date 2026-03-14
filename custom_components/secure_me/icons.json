@@ -1,5 +1,3 @@
 {
-  "secure_me": {
-    "default": "mdi:shield-home"
-  }
+  "services": {}
 }
