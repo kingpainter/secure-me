@@ -94,7 +94,7 @@ FILES = [
         ],
     },
     {
-        "path": ROOT / "secure-me-panel.js",
+        "path": ROOT / "frontend" / "secure-me-panel.js",
         "check": [
             (r'const VERSION = "([\d.]+)"', "JS VERSION constant"),
         ],
