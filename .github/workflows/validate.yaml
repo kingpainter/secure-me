@@ -37,4 +37,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check version consistency
-        run: cd custom_components/secure_me && python3 tools/validate_version.py
+        run: python3 custom_components/secure_me/tools/validate_version.py

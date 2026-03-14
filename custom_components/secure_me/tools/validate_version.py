@@ -13,7 +13,7 @@ import re
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).parent.parent  # tools/../ = custom_components/secure_me/
 
 
 def get_manifest_version() -> str:
@@ -74,22 +74,22 @@ FILES = [
     {
         "path": ROOT / "const.py",
         "check": [
-            (r'^# VERSION = "([\d.]+)"', "version comment"),
+            (r'^# VERSION = "1.0.0"', "version comment"),
             (r'^VERSION = "([\d.]+)"', "VERSION constant"),
         ],
         "fix": [
-            (r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"'),
+            (r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"'),
             (r'^VERSION = "[\d.]+"', 'VERSION = "VERSION"'),
         ],
     },
     {
         "path": ROOT / "panel.py",
         "check": [
-            (r'^# VERSION = "([\d.]+)"', "version comment"),
+            (r'^# VERSION = "1.0.0"', "version comment"),
             (r'^VERSION = "([\d.]+)"', "VERSION constant"),
         ],
         "fix": [
-            (r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"'),
+            (r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"'),
             (r'^VERSION = "[\d.]+"', 'VERSION = "VERSION"'),
         ],
     },
@@ -112,8 +112,8 @@ PY_COMMENT_FILES = [
 for py_file in PY_COMMENT_FILES:
     FILES.append({
         "path": py_file,
-        "check": [(r'^# VERSION = "([\d.]+)"', "version comment")],
-        "fix": [(r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"')],
+        "check": [(r'^# VERSION = "1.0.0"', "version comment")],
+        "fix": [(r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"')],
     })
 
 
