@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "0.9.0";
+const VERSION = "1.0.0";
 
 // === Styles ===
 const panelStyles = `
@@ -137,7 +137,6 @@ const panelStyles = `
     flex: 1;
     padding: 28px 32px;
     overflow-y: auto;
-    max-width: 740px;
     overscroll-behavior: contain;
     scroll-behavior: smooth;
   }
@@ -287,6 +286,10 @@ const panelStyles = `
   .info-card.info { background: var(--sm-blue-dim); border: 1px solid rgba(10,132,255,0.2); }
   .info-card .info-title { font-size: 13px; font-weight: 600; }
   .info-card .info-text { font-size: 12px; color: var(--sm-text-secondary); margin-top: 4px; }
+
+  /* === Sensor two-column layout === */
+  .sensor-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .sensor-two-col { grid-template-columns: 1fr; } }
 
   /* === Zone === */
   .zone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1277,6 +1280,52 @@ class SecureMePanel extends HTMLElement {
   }
 
 
+  // PERF: In-place patch of alarm state pills — avoids full re-render on every state change.
+  // Mirrors the _updateWattDisplay / _updateBarsInPlace pattern from pc-user-statistics-panel.
+  _updateStatusPills() {
+    const stateClass = this._alarmState === "triggered" ? "triggered"
+      : this._alarmState === "pending" ? "pending"
+      : this._alarmState.includes("armed") ? "armed"
+      : this._alarmState === "arming" ? "arming" : "disarmed";
+
+    const stateLabel = {
+      disarmed: "Disarmed",
+      arming: "Arming...",
+      armed_away: "Armed Away",
+      armed_home: "Armed Home",
+      armed_night: "Armed Night",
+      armed_vacation: "Armed Vacation",
+      pending: "Pending",
+      triggered: "TRIGGERED",
+    }[this._alarmState] || this._alarmState;
+
+    const allClasses = ["disarmed", "armed", "arming", "pending", "triggered"];
+
+    // Desktop sidebar pill (use shell ID for reliability)
+    const pill = this.shadowRoot?.getElementById("shell-status-pill")
+              || this.shadowRoot?.querySelector(".status-pill");
+    if (pill) {
+      allClasses.forEach(c => pill.classList.remove(c));
+      pill.classList.add(stateClass);
+      const dot = pill.querySelector(".status-dot");
+      const textNode = [...pill.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (textNode) textNode.textContent = " " + stateLabel;
+      else if (dot) dot.insertAdjacentText("afterend", " " + stateLabel);
+    }
+
+    // Mobile header pill (use shell ID for reliability)
+    const mobilePill = this.shadowRoot?.getElementById("shell-mobile-pill")
+                    || this.shadowRoot?.querySelector(".mobile-status-pill");
+    if (mobilePill) {
+      allClasses.forEach(c => mobilePill.classList.remove(c));
+      mobilePill.classList.add(stateClass);
+      const mDot = mobilePill.querySelector(".mobile-status-dot");
+      const mText = [...mobilePill.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+      if (mText) mText.textContent = " " + stateLabel;
+      else if (mDot) mDot.insertAdjacentText("afterend", " " + stateLabel);
+    }
+  }
+
   // PERF v0.6.0: Two render modes:
   //   _render()       — immediate, for user-initiated actions (tab switch, dialog)
   //   _queueRender()  — debounced 50ms, for data loads and background updates
@@ -1286,6 +1335,19 @@ class SecureMePanel extends HTMLElement {
       clearTimeout(this._renderTimeout);
     }
     this._renderTimeout = setTimeout(() => {
+      // Focus guard: never wipe the DOM while the user is actively typing
+      // in an input, textarea or select. Background events (health updates,
+      // data polls) must not destroy unsaved keystrokes or cursor position.
+      // _render() can still be called directly for user-initiated actions.
+      const active = this.shadowRoot?.activeElement;
+      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) {
+        // Reschedule and check again in 300ms
+        this._renderTimeout = setTimeout(() => {
+          this._render();
+          this._renderTimeout = null;
+        }, 300);
+        return;
+      }
       this._render();
       this._renderTimeout = null;
     }, 50);
@@ -1295,7 +1357,9 @@ class SecureMePanel extends HTMLElement {
   // Replaces all alert() calls with non-blocking in-panel toasts.
   // type: 'success' | 'error' | 'warning' | 'info'
   _toast(message, type = 'success', duration = 4000) {
-    let container = this.shadowRoot.querySelector('.sm-toast-container');
+    // Use the persistent shell toast container (never rebuilt)
+    let container = this.shadowRoot.getElementById('shell-toast')
+                 || this.shadowRoot.querySelector('.sm-toast-container');
     if (!container) {
       container = document.createElement('div');
       container.className = 'sm-toast-container';
@@ -1421,9 +1485,17 @@ class SecureMePanel extends HTMLElement {
             this._healthStatus = event.data.modules;
             this._healthScore = event.data.health_score || 100;
             this._lastHealthUpdate = event.data.timestamp;
+
+            // PERF: Only queue a full re-render if Testing tab is active or
+            // health status actually changed. Status pill is patched in-place separately.
             if (this._activeTab === 'testing' || this._shouldUpdateDisplay(event.data)) {
-              // PERF v0.6.0: queue, not immediate — health updates arrive frequently
               this._queueRender();
+            }
+
+            // PERF: Update alarm state pill in-place without full re-render
+            if (event.data.alarm_state && event.data.alarm_state !== this._alarmState) {
+              this._alarmState = event.data.alarm_state;
+              this._updateStatusPills();
             }
           }
         },
@@ -1479,7 +1551,10 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _loadData() {
-    const [sensors, zones, users, modules, notifications, automations, state, health, testResults] =
+    // PERF: Split into two phases.
+    // Phase 1 — fast: 7 essential calls needed to render any tab immediately.
+    // Phase 2 — lazy: health + test results are only needed on the Testing tab.
+    const [sensors, zones, users, modules, notifications, automations, state] =
       await Promise.all([
         this._callWS("get_sensors"),
         this._callWS("get_zones"),
@@ -1488,8 +1563,6 @@ class SecureMePanel extends HTMLElement {
         this._callWS("get_notifications"),
         this._callWS("get_automations"),
         this._callWS("get_alarm_state"),
-        this._callWS("get_health_summary"),
-        this._callWS("get_test_results"),
       ]);
 
     if (sensors) this._data.sensors = sensors.sensors || [];
@@ -1499,15 +1572,35 @@ class SecureMePanel extends HTMLElement {
     if (notifications) this._data.notifications = notifications.notifications || {};
     if (automations) this._data.automations = automations.automations || {};
     if (state) this._alarmState = state.state || "disarmed";
+
+    // Render immediately with essential data — no waiting for heavy tabs
+    this._queueRender();
+
+    // Phase 2 — lazy: fetch health + test results in background
+    this._loadTestingData();
+  }
+
+  async _loadTestingData() {
+    const [health, testResults] = await Promise.all([
+      this._callWS("get_health_summary"),
+      this._callWS("get_test_results"),
+    ]);
     if (health) this._data.health = health;
     if (testResults) this._data.testResults = testResults.results || [];
-
-    // PERF v0.6.0: queue render after data load — batches any parallel _loadData calls
-    this._queueRender();
+    // Only re-render if user is already on the testing tab
+    if (this._activeTab === "testing") this._queueRender();
   }
 
   // === Event ===
-  _setTab(tab) { this._activeTab = tab; this._render(); }
+  _setTab(tab) {
+    this._activeTab = tab;
+    // Lazy-load testing data on first visit if not yet fetched
+    if (tab === "testing" && !this._data.health && !this._testingDataLoading) {
+      this._testingDataLoading = true;
+      this._loadTestingData().finally(() => { this._testingDataLoading = false; });
+    }
+    this._render();
+  }
 
   async _toggleSensor(entityId) {
     const sensor = this._data.sensors.find(s => s.entity_id === entityId);
@@ -1568,32 +1661,21 @@ class SecureMePanel extends HTMLElement {
 
   _setAutoSection(section) { this._autoSection = section; this._render(); }
 
-  // === Render ===
-  _render() {
-    // Save scroll position before re-render
-    const mainContent = this.shadowRoot.querySelector('.main-content');
-    const scrollTop = mainContent ? mainContent.scrollTop : 0;
+  // === Shell Architecture (v0.9.0) ===
+  // _buildShell() is called ONCE from connectedCallback.
+  // It writes the static chrome (style, sidebar, nav, main placeholder) to shadowRoot.
+  // _render() then patches ONLY main-content.innerHTML — no CSS reparse, no full DOM teardown.
 
-    const stateClass = this._alarmState === "triggered" ? "triggered"
-      : this._alarmState === "pending" ? "pending"
-      : this._alarmState.includes("armed") ? "armed"
-      : this._alarmState === "arming" ? "arming" : "disarmed";
+  connectedCallback() {
+    if (!this._shellBuilt) {
+      this._buildShell();
+      this._shellBuilt = true;
+    }
+  }
 
-    const stateLabel = {
-      disarmed: "Disarmed",
-      arming: "Arming...",
-      armed_away: "Armed Away",
-      armed_home: "Armed Home",
-      armed_night: "Armed Night",
-      armed_vacation: "Armed Vacation",
-      pending: "Pending",
-      triggered: "TRIGGERED",
-    }[this._alarmState] || this._alarmState;
-
-    // Bottom nav: first 5 tabs + "More" for the rest
+  _buildShell() {
     const BOTTOM_TABS = TABS.slice(0, 5);
     const MORE_TABS   = TABS.slice(5);
-    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
 
     this.shadowRoot.innerHTML = `
       <style>${panelStyles}</style>
@@ -1607,9 +1689,9 @@ class SecureMePanel extends HTMLElement {
             <div class="mobile-header-subtitle">by KingPainter</div>
           </div>
         </div>
-        <div class="mobile-status-pill ${stateClass}">
+        <div class="mobile-status-pill disarmed" id="shell-mobile-pill">
           <div class="mobile-status-dot"></div>
-          ${stateLabel}
+          Disarmed
         </div>
       </header>
 
@@ -1624,13 +1706,13 @@ class SecureMePanel extends HTMLElement {
         </div>
 
         <div class="sidebar-status">
-          <div class="status-pill ${stateClass}">
+          <div class="status-pill disarmed" id="shell-status-pill">
             <div class="status-dot"></div>
-            ${stateLabel}
+            Disarmed
           </div>
         </div>
 
-        <div class="nav-tabs">
+        <div class="nav-tabs" id="shell-nav-tabs">
           ${TABS.map(t => `
             <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
@@ -1646,13 +1728,11 @@ class SecureMePanel extends HTMLElement {
         </div>
       </nav>
 
-      <!-- MAIN CONTENT -->
-      <main class="main-content">
-        ${this._renderTab()}
-      </main>
+      <!-- MAIN CONTENT — patched by _render() -->
+      <main class="main-content" id="shell-main"></main>
 
       <!-- BOTTOM NAVIGATION BAR (mobile only) -->
-      <nav class="bottom-nav">
+      <nav class="bottom-nav" id="shell-bottom-nav">
         ${BOTTOM_TABS.map(t => `
           <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
                   data-tab="${t.key}">
@@ -1660,7 +1740,7 @@ class SecureMePanel extends HTMLElement {
             <span>${t.label}</span>
           </button>
         `).join("")}
-        <button class="bottom-nav-item ${moreIsActive ? "more-active" : ""}" id="more-btn">
+        <button class="bottom-nav-item" id="more-btn">
           ${icon("dots")}
           <span>More</span>
         </button>
@@ -1681,32 +1761,35 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
 
-      <!-- DIALOGS -->
-      ${this._showDialog === 'camera'  ? this._renderCameraDialog()  : ''}
-      ${this._showDialog === 'lock'    ? this._renderLockDialog()    : ''}
-      ${this._showDialog === 'climate' ? this._renderClimateDialog() : ''}
-      ${this._showDialog === 'siren'   ? this._renderSirenDialog()   : ''}
-      ${this._showDialog === 'lights'  ? this._renderLightsDialog()  : ''}
-      ${this._showDialog === 'tts'     ? this._renderTTSDialog()     : ''}
+      <!-- DIALOG MOUNT POINT — managed by _render() -->
+      <div id="shell-dialog-mount"></div>
+
+      <!-- TOAST CONTAINER -->
+      <div class="sm-toast-container" id="shell-toast"></div>
     `;
 
-    // === Attach desktop nav ===
-    this.shadowRoot.querySelectorAll(".nav-tab").forEach(btn => {
+    this._attachShellListeners();
+  }
+
+  // Attach nav/drawer listeners once on the shell — these never need re-binding.
+  _attachShellListeners() {
+    const root = this.shadowRoot;
+
+    // Desktop sidebar nav
+    root.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
       btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
     });
 
-    // === Attach bottom nav (mobile) ===
-    this.shadowRoot.querySelectorAll(".bottom-nav-item[data-tab]").forEach(btn => {
+    // Mobile bottom nav
+    root.querySelectorAll("#shell-bottom-nav .bottom-nav-item[data-tab]").forEach(btn => {
       btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
     });
 
-    // === More drawer ===
-    const moreBtn     = this.shadowRoot.getElementById("more-btn");
-    const moreOverlay = this.shadowRoot.getElementById("more-overlay");
+    // More drawer
+    const moreBtn     = root.getElementById("more-btn");
+    const moreOverlay = root.getElementById("more-overlay");
     if (moreBtn && moreOverlay) {
-      moreBtn.addEventListener("click", () => {
-        moreOverlay.classList.toggle("hidden");
-      });
+      moreBtn.addEventListener("click", () => moreOverlay.classList.toggle("hidden"));
       moreOverlay.addEventListener("click", (e) => {
         if (e.target === moreOverlay) moreOverlay.classList.add("hidden");
       });
@@ -1717,15 +1800,69 @@ class SecureMePanel extends HTMLElement {
         });
       });
     }
+  }
+
+  // Update nav active state without full re-render
+  _updateNavActive() {
+    this.shadowRoot.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
+    });
+    this.shadowRoot.querySelectorAll("#shell-bottom-nav .bottom-nav-item[data-tab]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
+    });
+    // More button: highlight if active tab is in MORE_TABS
+    const MORE_TABS = TABS.slice(5);
+    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
+    const moreBtn = this.shadowRoot.getElementById("more-btn");
+    if (moreBtn) moreBtn.classList.toggle("more-active", moreIsActive);
+    // More drawer items
+    this.shadowRoot.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
+    });
+  }
+
+  // === Render — patches main-content only ===
+  _render() {
+    // Guard: shell must exist before we can patch it
+    if (!this._shellBuilt) {
+      this._buildShell();
+      this._shellBuilt = true;
+    }
+
+    const mainContent = this.shadowRoot.getElementById("shell-main");
+    if (!mainContent) return;
+
+    // Save scroll position
+    const scrollTop = mainContent.scrollTop;
+
+    // Patch tab content
+    mainContent.innerHTML = this._renderTab();
+
+    // Update nav active classes (no DOM teardown)
+    this._updateNavActive();
+
+    // Update status pills in-place
+    this._updateStatusPills();
+
+    // Manage dialog: inject or remove from mount point
+    const dialogMount = this.shadowRoot.getElementById("shell-dialog-mount");
+    if (dialogMount) {
+      const dialogHtml = this._showDialog === 'camera'  ? this._renderCameraDialog()
+        : this._showDialog === 'lock'    ? this._renderLockDialog()
+        : this._showDialog === 'climate' ? this._renderClimateDialog()
+        : this._showDialog === 'siren'   ? this._renderSirenDialog()
+        : this._showDialog === 'lights'  ? this._renderLightsDialog()
+        : this._showDialog === 'tts'     ? this._renderTTSDialog()
+        : '';
+      dialogMount.innerHTML = dialogHtml;
+    }
 
     this._attachTabListeners();
 
-    // Restore scroll position after re-render
+    // Restore scroll position
     requestAnimationFrame(() => {
-      const newMainContent = this.shadowRoot.querySelector('.main-content');
-      if (newMainContent && scrollTop > 0) {
-        newMainContent.scrollTop = scrollTop;
-      }
+      const m = this.shadowRoot.getElementById("shell-main");
+      if (m && scrollTop > 0) m.scrollTop = scrollTop;
     });
   }
 
@@ -1775,34 +1912,28 @@ class SecureMePanel extends HTMLElement {
         <span class="badge accent">${enabled.length} active</span>
       </div>
 
-      <div class="sm-card no-pad" style="overflow:hidden">
-        <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-          <span>Sensor</span><span>Type</span><span style="text-align:right">Active</span>
+      <div class="sensor-two-col">
+        <div class="sm-card no-pad" style="overflow:hidden">
+          <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
+            <span>Active (${enabled.length})</span><span>Type</span><span style="text-align:right">On</span>
+          </div>
+          ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
+            <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
+              No sensors activated yet.
+            </div>
+          `}
         </div>
 
-        <!-- Active sensors (always visible) -->
-        ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
-          <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
-            No sensors activated yet. Enable sensors below.
+        <div class="sm-card no-pad" style="overflow:hidden">
+          <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
+            <span>Inactive (${disabled.length})</span><span>Type</span><span style="text-align:right">On</span>
           </div>
-        `}
-
-        <!-- Inactive sensors (collapsible) -->
-        ${disabled.length > 0 ? `
-          <div style="border-top:1px solid var(--sm-border)">
-            <div class="collapsible-header ${this._sensorsInactiveExpanded ? 'expanded' : ''}"
-                 data-action="toggle-sensors-inactive"
-                 style="padding:12px 16px;margin:0">
-              <span style="font-size:12px;color:var(--sm-text-secondary)">
-                ${disabled.length} inactive sensor${disabled.length !== 1 ? 's' : ''}
-              </span>
-              <span class="chevron">${icon("chevron")}</span>
+          ${disabled.length > 0 ? disabled.map(s => renderSensorRow(s)).join("") : `
+            <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
+              All sensors are active.
             </div>
-            <div class="collapsible-body ${this._sensorsInactiveExpanded ? 'expanded' : ''}">
-              ${disabled.map(s => renderSensorRow(s)).join("")}
-            </div>
-          </div>
-        ` : ''}
+          `}
+        </div>
       </div>
 
       <div class="info-card warning">
@@ -2200,7 +2331,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.cameras.map(cam => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span>
+                    ${icon("chevron")}
                     <span style="font-size:12px">${cam.entity_id || cam}</span>
                     ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">POE: ${cam.poe_port}</span>` : ''}
                   </div>
@@ -2245,7 +2376,7 @@ class SecureMePanel extends HTMLElement {
               <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
                 ${moduleData.locks.map(lock => `
                   <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span>
+                    ${icon("chevron")}
                     <span style="font-size:12px">${lock.entity_id}</span>
                   </div>
                 `).join('')}
@@ -2280,7 +2411,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2305,7 +2436,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2330,7 +2461,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -2356,7 +2487,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--sm-text-tertiary);flex-shrink:0;display:inline-block"></span><span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -4410,4 +4541,7 @@ class SecureMePanel extends HTMLElement {
 }
 
 // === Register Custom Element ===
-customElements.define("secure-me-panel", SecureMePanel);
+// Guard prevents "name already used" error when HA re-executes JS on panel re-entry
+if (!customElements.get("secure-me-panel")) {
+  customElements.define("secure-me-panel", SecureMePanel);
+}

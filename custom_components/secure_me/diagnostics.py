@@ -1,5 +1,5 @@
 """Diagnostics support for Secure Me."""
-# VERSION = "0.9.0"
+# VERSION = "1.0.0"
 
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry.
 
     This is shown when the user clicks "Download diagnostics"
-    in Settings Ã¢â€ â€™ Devices & Services Ã¢â€ â€™ Secure Me Ã¢â€ â€™ 3-dot menu.
+    in Settings -> Devices & Services -> Secure Me -> 3-dot menu.
     """
     entry_data = hass.data.get(DOMAIN, {}).get(config_entry.entry_id, {})
     coordinator = entry_data.get(COORDINATOR)

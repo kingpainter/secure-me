@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "0.9.0"
+# VERSION = "1.0.0"
 
 import logging
 from typing import Any
@@ -64,8 +64,16 @@ class SecureMeStore:
         """Get all configured sensors."""
         return self._data.get("sensors", {})
 
+    # Environmental device classes — always monitored, cannot be disabled
+    _ENV_CLASSES = frozenset({"smoke", "gas", "moisture"})
+
     def get_available_sensors(self) -> list[dict[str, Any]]:
-        """Get all available binary_sensors from HA that could be alarm sensors."""
+        """Get all available binary_sensors from HA that could be alarm sensors.
+
+        Environmental sensors (smoke, gas, moisture) are always enabled and
+        use sensor_type "environmental". They are displayed in a separate
+        read-only section in the panel and cannot be toggled off.
+        """
         sensors = []
         for state in self.hass.states.async_all("binary_sensor"):
             device_class = state.attributes.get("device_class", "")
@@ -73,13 +81,20 @@ class SecureMeStore:
                                 "motion", "occupancy", "presence",
                                 "vibration", "smoke", "gas", "moisture"):
                 configured = self._data.get("sensors", {}).get(state.entity_id, {})
+                # is_environmental: True if device_class matches OR user manually marked it
+                is_env = (
+                    device_class in self._ENV_CLASSES
+                    or configured.get("is_environmental", False)
+                )
                 sensors.append({
                     "entity_id": state.entity_id,
                     "name": state.attributes.get("friendly_name", state.entity_id),
                     "device_class": device_class,
                     "state": state.state,
-                    "enabled": configured.get("enabled", False),
-                    "sensor_type": configured.get("sensor_type", self._infer_type(device_class)),
+                    "is_environmental": is_env,
+                    # Environmental sensors are always enabled — user cannot toggle
+                    "enabled": True if is_env else configured.get("enabled", False),
+                    "sensor_type": "environmental" if is_env else configured.get("sensor_type", self._infer_type(device_class)),
                 })
         # Also include person/device_tracker for presence
         for state in self.hass.states.async_all("person"):
@@ -112,6 +127,8 @@ class SecureMeStore:
             return "motion"
         if device_class in ("presence",):
             return "presence"
+        if device_class in ("smoke", "gas", "moisture"):
+            return "environmental"
         return "contact"
 
     async def async_save_sensor(self, entity_id: str, config: dict[str, Any]) -> None:

@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "0.9.0"
+# VERSION = "1.0.0"
 
 import logging
 import time

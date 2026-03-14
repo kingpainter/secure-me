@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "0.9.0"
+# VERSION = "1.0.0"
 
 import logging
 import uuid
@@ -11,12 +11,13 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
+from .notification_dispatcher import async_setup_dispatcher
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def async_register_websocket_api(hass: HomeAssistant) -> None:
-    """Register all websocket commands."""
+    """Register all websocket commands and start the notification dispatcher."""
     websocket_api.async_register_command(hass, ws_get_sensors)
     websocket_api.async_register_command(hass, ws_save_sensors)
     websocket_api.async_register_command(hass, ws_get_zones)
@@ -33,6 +34,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_notification)
     websocket_api.async_register_command(hass, ws_delete_notification)
     websocket_api.async_register_command(hass, ws_test_notification)
+    websocket_api.async_register_command(hass, ws_get_notify_services)
     websocket_api.async_register_command(hass, ws_get_automations)
     websocket_api.async_register_command(hass, ws_save_automation)
     websocket_api.async_register_command(hass, ws_delete_automation)
@@ -41,6 +43,10 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_health_summary)
     websocket_api.async_register_command(hass, ws_run_test)
     websocket_api.async_register_command(hass, ws_get_test_results)
+
+    # Start notification dispatcher (listens for alarm + sensor events)
+    dispatcher = async_setup_dispatcher(hass)
+    hass.data.setdefault(DOMAIN, {})["_notification_dispatcher"] = dispatcher
 
     _LOGGER.info("Secure Me WebSocket API registered")
 
@@ -463,7 +469,49 @@ async def ws_test_notification(
         connection.send_error(msg["id"], "not_found", "Notification not found")
         return
 
-    # Try to send test notification via notify service
+    trigger = notif.get("trigger", "")
+
+    # --- Low battery: use dispatcher to build dynamic sensor list ---
+    if trigger == "low_battery":
+        dispatcher = hass.data.get(DOMAIN, {}).get("_notification_dispatcher")
+        if dispatcher:
+            try:
+                await dispatcher.dispatch_low_battery()
+                connection.send_result(msg["id"], {"success": True})
+            except Exception as err:
+                _LOGGER.error("Failed to test low_battery notification: %s", err)
+                connection.send_result(msg["id"], {"success": False, "error": str(err)})
+        else:
+            connection.send_result(msg["id"], {"success": False, "error": "Dispatcher not ready"})
+        return
+
+    # --- Smoke: inject a fake sensor name so test feels realistic ---
+    if trigger == "smoke":
+        from .notification_dispatcher import _build_message, _send_notification
+        raw = notif.get("message", "")
+        message = _build_message(raw, {"sensor": "Test Smoke Detector", "entity_id": "binary_sensor.test_smoke"})
+        title = "TEST - FIRE ALERT: Test Smoke Detector"
+        try:
+            await _send_notification(hass, notif, title, message)
+            connection.send_result(msg["id"], {"success": True})
+        except Exception as err:
+            connection.send_result(msg["id"], {"success": False, "error": str(err)})
+        return
+
+    # --- Water leak: inject a fake sensor name ---
+    if trigger == "water_leak":
+        from .notification_dispatcher import _build_message, _send_notification
+        raw = notif.get("message", "")
+        message = _build_message(raw, {"sensor": "Test Moisture Sensor", "entity_id": "binary_sensor.test_moisture"})
+        title = "TEST - WATER LEAK: Test Moisture Sensor"
+        try:
+            await _send_notification(hass, notif, title, message)
+            connection.send_result(msg["id"], {"success": True})
+        except Exception as err:
+            connection.send_result(msg["id"], {"success": False, "error": str(err)})
+        return
+
+    # --- All other triggers: standard send ---
     try:
         service_target = notif.get("service", "notify.notify")
         domain, service = service_target.split(".", 1)
@@ -473,7 +521,6 @@ async def ws_test_notification(
             "title": f"Secure Me Test: {notif.get('name', 'Test')}",
         }
 
-        # Add action buttons if configured
         if notif.get("actions"):
             service_data["data"] = {"actions": notif["actions"]}
 
@@ -482,6 +529,29 @@ async def ws_test_notification(
     except Exception as err:
         _LOGGER.error("Failed to test notification: %s", err)
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_notify_services",
+})
+@websocket_api.async_response
+async def ws_get_notify_services(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return all available notify services from HA.
+
+    Scans hass.services for the 'notify' domain and returns a flat list
+    of service IDs (e.g. 'notify.mobile_app_myphone') so the frontend
+    can offer a dropdown instead of a free-text input.
+    """
+    services: list[str] = []
+    notify_services = hass.services.async_services().get("notify", {})
+    for service_name in sorted(notify_services.keys()):
+        services.append(f"notify.{service_name}")
+
+    connection.send_result(msg["id"], {"services": services})
 
 
 #
