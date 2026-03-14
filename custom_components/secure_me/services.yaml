@@ -1,5 +1,5 @@
 # Services for Secure Me integration
-# VERSION = "0.9.0"
+# VERSION = "1.0.0"
 
 arm_away:
   name: Arm Away
