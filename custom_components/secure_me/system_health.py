@@ -5,15 +5,14 @@ import logging
 from typing import Any
 
 from homeassistant.components import system_health
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, COORDINATOR
 
 _LOGGER = logging.getLogger(__name__)
 
 
-@callback
-def async_register(
+async def async_register(
     hass: HomeAssistant, register: system_health.SystemHealthRegistration
 ) -> None:
     """Register system health callbacks."""
