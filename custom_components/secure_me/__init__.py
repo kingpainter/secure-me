@@ -1,4 +1,4 @@
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 """The Secure Me integration."""
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from .const import (
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
+from . import panel
 
 if TYPE_CHECKING:
     from homeassistant.components import system_health
@@ -48,11 +49,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Secure Me from a config entry."""
     _LOGGER.debug("Setting up Secure Me integration")
-    
+
     # Initialize domain data if not exists
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
-    
+
     # Initialize store (global, shared across entries)
     if "store" not in hass.data[DOMAIN]:
         store = SecureMeStore(hass)
@@ -60,12 +61,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["store"] = store
     else:
         store = hass.data[DOMAIN]["store"]
-    
+
     # Create coordinator for this entry
     coordinator = SecureMeCoordinator(hass, entry)
 
     # Load persisted module configs from store into coordinator modules.
-    # This must happen before first refresh so health checks see real entity lists.
     await coordinator.async_load_store_config(store)
 
     # Initial data fetch
@@ -74,12 +74,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         _LOGGER.error("Error during initial data fetch: %s", err)
         raise ConfigEntryNotReady from err
-    
+
     # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = {
         COORDINATOR: coordinator,
     }
-    
+
     # Register device
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -88,36 +88,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name=entry.data.get("name", DEFAULT_NAME),
         manufacturer="KingPainter",
         model="Secure Me",
-        sw_version=entry.data.get("version", "0.3.1"),
+        sw_version=entry.data.get("version", "1.1.0"),
     )
-    
+
     # Register WebSocket API (global, once)
     if not hass.data[DOMAIN].get("_websocket_registered", False):
         async_register_websocket_api(hass)
         hass.data[DOMAIN]["_websocket_registered"] = True
         _LOGGER.debug("WebSocket API registered")
-    
-    # Register frontend panel (Alarmo-style - using panel.py module)
+
+    # Register frontend panel (global, once)
     if not hass.data[DOMAIN].get("_panel_registered", False):
-        from .panel import async_register_panel
-        
         try:
-            await async_register_panel(hass)
+            await panel.async_register_panel(hass)
             hass.data[DOMAIN]["_panel_registered"] = True
         except Exception as err:
-            _LOGGER.error(f"Panel registration failed: {err}")
-            # Continue setup even if panel fails
-    
+            _LOGGER.error("Panel registration failed: %s", err)
+
     # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    
-    # System health is auto-registered via system_health.py
-    _LOGGER.debug("System health available via system_health.py")
-    
+
     # Register update listener
     undo_listener = entry.add_update_listener(async_update_options)
     hass.data[DOMAIN][entry.entry_id][UNDO_UPDATE_LISTENER] = undo_listener
-    
+
     _LOGGER.info("Secure Me integration setup complete")
     return True
 
@@ -130,19 +124,28 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Secure Me integration")
-    
+
     # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    
+
     if unload_ok:
         # Remove update listener
         undo_listener = hass.data[DOMAIN][entry.entry_id].get(UNDO_UPDATE_LISTENER)
         if undo_listener:
             undo_listener()
-        
+
+        # Unregister panel if this was the last entry
+        remaining = [k for k in hass.data[DOMAIN] if k not in (
+            entry.entry_id, "store", "_websocket_registered", "_panel_registered",
+            "_notification_dispatcher",
+        )]
+        if not remaining:
+            panel.async_unregister_panel(hass)
+            hass.data[DOMAIN]["_panel_registered"] = False
+
         # Remove entry data
         hass.data[DOMAIN].pop(entry.entry_id)
-        
+
         _LOGGER.info("Secure Me integration unloaded successfully")
-    
+
     return unload_ok
