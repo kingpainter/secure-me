@@ -1,5 +1,5 @@
 """Tests for Secure Me module system."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -128,7 +128,6 @@ class TestModuleHealth:
         assert "light.nonexistent" in unavail
 
     def test_health_score_calculation(self):
-        """Health score = (available / total) * 100."""
         total = 10
         available = 8
         score = round((available / total) * 100)
@@ -141,7 +140,6 @@ class TestModuleHealth:
         assert score == 100
 
     def test_health_score_none_configured(self):
-        """No entities = 100% health."""
         total = 0
         score = 100 if total == 0 else round((0 / total) * 100)
         assert score == 100
@@ -151,7 +149,6 @@ class TestLockModuleFunctional:
     """Tests for LockModule async_test() functional lock/unlock cycle."""
 
     def _make_lock_module(self, hass, locks=None, door_sensors=None, battery_sensors=None):
-        """Build a minimal LockModule-like object using ConcreteModule pattern."""
         import asyncio
 
         class FakeLockModule:
@@ -173,7 +170,6 @@ class TestLockModuleFunctional:
             async def async_call_service(self, domain, service, target=None, data=None):
                 eid = (target or {}).get("entity_id", "")
                 self._call_log.append((domain, service, eid))
-                # Simulate lock responding to commands
                 if service == "unlock":
                     self.hass.set_state(eid, "unlocked")
                 elif service == "lock":
@@ -181,7 +177,6 @@ class TestLockModuleFunctional:
                 return True
 
             async def async_test(self):
-                """Mirrors new lock.py async_test logic."""
                 results = {
                     "success": True,
                     "message": "Lock module test passed",
@@ -199,7 +194,6 @@ class TestLockModuleFunctional:
                         "test_passed": False,
                         "skip_reason": None,
                     }
-                    # Battery
                     battery_sensor = self.battery_sensors.get(lock)
                     if battery_sensor:
                         try:
@@ -209,7 +203,6 @@ class TestLockModuleFunctional:
                                 results["message"] = f"Lock {lock} battery low ({level}%)"
                         except (ValueError, TypeError):
                             pass
-                    # Door sensor
                     door_sensor = self.door_sensors.get(lock)
                     if door_sensor:
                         door_state = self.get_entity_state(door_sensor)
@@ -219,14 +212,12 @@ class TestLockModuleFunctional:
                             lock_info["test_passed"] = True
                             results["details"]["locks"].append(lock_info)
                             continue
-                    # Unavailable
                     if not lock_info["available"]:
                         lock_info["test_passed"] = False
                         results["success"] = False
                         results["message"] = f"Lock {lock} unavailable"
                         results["details"]["locks"].append(lock_info)
                         continue
-                    # Functional test
                     try:
                         await self.async_call_service("lock", "unlock", target={"entity_id": lock})
                         await asyncio.sleep(0)
@@ -253,7 +244,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_lock_functional_test_passes(self, mock_hass):
-        """Lock starts locked, unlocks and relocks successfully."""
         mock_hass.set_state("lock.front", "locked")
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -266,7 +256,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_lock_always_ends_locked(self, mock_hass):
-        """Regardless of initial state, lock must end locked."""
         mock_hass.set_state("lock.front", "unlocked")
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -275,7 +264,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_lock_skipped_when_door_open(self, mock_hass):
-        """Lock test skipped if door sensor reports open -- not a failure."""
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("binary_sensor.door", "on")
         mod = self._make_lock_module(
@@ -288,23 +276,20 @@ class TestLockModuleFunctional:
         lock_info = result["details"]["locks"][0]
         assert lock_info["skip_reason"] == "door_open"
         assert lock_info["test_passed"] is True
-        # No service calls should have been made
         assert len(mod._call_log) == 0
 
     @pytest.mark.asyncio
     async def test_lock_unavailable_fails(self, mock_hass):
-        """Unavailable lock fails immediately without functional test."""
         mock_hass.set_state("lock.front", "unavailable")
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
         assert result["success"] is False
         lock_info = result["details"]["locks"][0]
         assert lock_info["test_passed"] is False
-        assert lock_info["unlock_ok"] is None  # Never attempted
+        assert lock_info["unlock_ok"] is None
 
     @pytest.mark.asyncio
     async def test_lock_battery_low_warning(self, mock_hass):
-        """Low battery is reported but does not fail the test."""
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("sensor.front_battery", "15")
         mod = self._make_lock_module(
@@ -318,7 +303,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_lock_reports_unlock_and_relock_separately(self, mock_hass):
-        """Result has unlock_ok and relock_ok as separate fields."""
         mock_hass.set_state("lock.front", "locked")
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -330,7 +314,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_multiple_locks_all_pass(self, mock_hass):
-        """Multiple locks all tested independently."""
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("lock.back", "locked")
         mod = self._make_lock_module(mock_hass, locks=["lock.front", "lock.back"])
@@ -341,7 +324,6 @@ class TestLockModuleFunctional:
 
     @pytest.mark.asyncio
     async def test_multiple_locks_one_unavailable(self, mock_hass):
-        """One unavailable lock fails overall, other still tested."""
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("lock.back", "unavailable")
         mod = self._make_lock_module(mock_hass, locks=["lock.front", "lock.back"])
@@ -357,7 +339,6 @@ class TestAlarmCycleTest:
     """Tests for Alarm Cycle Test in ws_run_test (Standard + Full)."""
 
     def _make_state_machine(self, initial_state="disarmed"):
-        """Minimal state machine mock."""
         import asyncio
 
         class FakeStateMachine:
@@ -380,9 +361,7 @@ class TestAlarmCycleTest:
 
     @pytest.mark.asyncio
     async def test_alarm_cycle_passes_when_disarmed(self):
-        """Cycle test arms and disarms successfully from disarmed state."""
         sm = self._make_state_machine("disarmed")
-        # Simulate the cycle logic directly
         alarm_cycle = {"status": "pass", "arm_ok": False, "disarm_ok": False}
 
         if sm.current_state != "disarmed":
@@ -403,7 +382,6 @@ class TestAlarmCycleTest:
 
     @pytest.mark.asyncio
     async def test_alarm_cycle_skipped_when_already_armed(self):
-        """Cycle test is skipped when alarm is already armed."""
         sm = self._make_state_machine("armed_away")
         alarm_cycle = {"status": "pass", "arm_ok": False, "disarm_ok": False}
 
@@ -412,19 +390,17 @@ class TestAlarmCycleTest:
             alarm_cycle["message"] = f"Alarm is {sm.current_state} -- cycle test skipped"
 
         assert alarm_cycle["status"] == "skipped"
-        assert sm.arm_calls == []  # Never armed
-        assert sm.disarm_calls == 0  # Never disarmed
+        assert sm.arm_calls == []
+        assert sm.disarm_calls == 0
 
     @pytest.mark.asyncio
     async def test_alarm_cycle_uses_skip_delay(self):
-        """arm_away must be called with skip_delay=True."""
         sm = self._make_state_machine("disarmed")
         await sm.arm_away(skip_delay=True)
         assert sm.arm_calls[0]["skip_delay"] is True
 
     @pytest.mark.asyncio
     async def test_alarm_cycle_always_disarms(self):
-        """Disarm is always called after arm, even in cleanup path."""
         sm = self._make_state_machine("disarmed")
         await sm.arm_away(skip_delay=True)
         assert sm.current_state == "armed_away"
@@ -434,7 +410,6 @@ class TestAlarmCycleTest:
 
     @pytest.mark.asyncio
     async def test_alarm_cycle_final_state_is_disarmed(self):
-        """After cycle test, alarm must be disarmed."""
         sm = self._make_state_machine("disarmed")
         await sm.arm_away(skip_delay=True)
         await sm.disarm()
@@ -445,7 +420,6 @@ class TestSeveritySystem:
     """Tests for severity-aware overall result calculation."""
 
     def _run_overall(self, module_results, sensor_results=None, alarm_cycle_status="pass"):
-        """Simulate the severity-aware overall calculation from ws_run_test."""
         MODULE_SEVERITY = {
             "siren":   "critical",
             "lock":    "critical",
@@ -511,21 +485,18 @@ class TestSeveritySystem:
         assert cf == [] and hf == [] and lf == []
 
     def test_siren_fail_is_critical(self):
-        """Siren failure = critical overall."""
         mods = {"siren": {"status": "fail"}, "lock": {"status": "pass"}}
         overall, cf, _, _ = self._run_overall(mods)
         assert overall == "critical"
         assert "siren" in cf
 
     def test_lock_fail_is_critical(self):
-        """Lock failure = critical overall."""
         mods = {"lock": {"status": "fail"}, "camera": {"status": "pass"}}
         overall, cf, _, _ = self._run_overall(mods)
         assert overall == "critical"
         assert "lock" in cf
 
     def test_camera_fail_is_high(self):
-        """Camera failure = fail (high severity) but not critical."""
         mods = {"camera": {"status": "fail"}, "siren": {"status": "pass"}}
         overall, cf, hf, _ = self._run_overall(mods)
         assert overall == "fail"
@@ -533,7 +504,6 @@ class TestSeveritySystem:
         assert "camera" in hf
 
     def test_climate_fail_is_warning(self):
-        """Climate failure = warning (low severity)."""
         mods = {"climate": {"status": "fail"}, "siren": {"status": "pass"}}
         overall, cf, hf, lf = self._run_overall(mods)
         assert overall == "warning"
@@ -541,21 +511,18 @@ class TestSeveritySystem:
         assert "climate" in lf
 
     def test_tts_fail_is_warning(self):
-        """TTS failure = warning (low severity)."""
         mods = {"tts": {"status": "fail"}}
         overall, _, _, lf = self._run_overall(mods)
         assert overall == "warning"
         assert "tts" in lf
 
     def test_environmental_sensor_fail_is_critical(self):
-        """Smoke/gas/moisture sensor offline = critical."""
         sensors = {"binary_sensor.smoke": {"status": "fail", "type": "environmental"}}
         overall, cf, _, _ = self._run_overall({}, sensors)
         assert overall == "critical"
         assert "binary_sensor.smoke" in cf
 
     def test_contact_sensor_fail_is_high(self):
-        """Contact sensor offline = high (fail, not critical)."""
         sensors = {"binary_sensor.door": {"status": "fail", "type": "contact"}}
         overall, cf, hf, _ = self._run_overall({}, sensors)
         assert overall == "fail"
@@ -563,24 +530,21 @@ class TestSeveritySystem:
         assert "binary_sensor.door" in hf
 
     def test_presence_sensor_fail_is_warning(self):
-        """Presence sensor offline = warning (medium severity)."""
         sensors = {"device_tracker.person": {"status": "fail", "type": "presence"}}
         overall, cf, hf, lf = self._run_overall({}, sensors)
         assert overall == "warning"
 
     def test_alarm_cycle_fail_is_critical(self):
-        """Alarm cycle failure always = critical."""
         mods = {"camera": {"status": "pass"}}
         overall, cf, _, _ = self._run_overall(mods, alarm_cycle_status="fail")
         assert overall == "critical"
         assert "alarm_cycle" in cf
 
     def test_critical_overrides_high(self):
-        """Critical failure dominates even when high failures also present."""
         mods = {
-            "siren":  {"status": "fail"},   # critical
-            "camera": {"status": "fail"},   # high
-            "tts":    {"status": "fail"},   # low
+            "siren":  {"status": "fail"},
+            "camera": {"status": "fail"},
+            "tts":    {"status": "fail"},
         }
         overall, cf, hf, lf = self._run_overall(mods)
         assert overall == "critical"
@@ -589,18 +553,16 @@ class TestSeveritySystem:
         assert "tts" in lf
 
     def test_skipped_and_warned_dont_affect_overall(self):
-        """Skipped and warning modules never push overall to fail."""
         mods = {
             "siren":   {"status": "skipped"},
             "climate": {"status": "warning"},
             "lock":    {"status": "pass"},
         }
         overall, cf, hf, _ = self._run_overall(mods)
-        assert overall == "warning"   # climate warning -> warning, not fail
+        assert overall == "warning"
         assert cf == [] and hf == []
 
     def test_module_severity_map_completeness(self):
-        """All 6 modules have a severity defined."""
         MODULE_SEVERITY = {
             "siren": "critical", "lock": "critical",
             "camera": "high",
@@ -610,7 +572,6 @@ class TestSeveritySystem:
         assert set(MODULE_SEVERITY.keys()) == expected
 
     def test_sensor_severity_map_completeness(self):
-        """All 4 sensor types have a severity defined."""
         SENSOR_SEVERITY = {
             "environmental": "critical",
             "contact": "high",

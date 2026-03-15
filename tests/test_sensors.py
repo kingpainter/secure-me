@@ -1,5 +1,5 @@
 """Tests for Secure Me sensor platform — battery discovery and health metrics."""
-# VERSION = "0.3.0"
+# VERSION = "1.1.0"
 
 import pytest
 from .conftest import MockHass, MockState
@@ -67,7 +67,7 @@ class TestBatteryDiscovery:
 
     def test_discovers_battery_sensors(self, mock_hass_with_batteries):
         batteries = _discover_battery_sensors(mock_hass_with_batteries)
-        assert len(batteries) == 4  # Should not include temperature sensor
+        assert len(batteries) == 4
 
     def test_ignores_non_battery(self, mock_hass_with_batteries):
         batteries = _discover_battery_sensors(mock_hass_with_batteries)
@@ -113,12 +113,10 @@ class TestBatterySummary:
         assert summary["lowest_entity"] == "sensor.window_sensor_battery"
 
     def test_counts_low_batteries(self, mock_hass_with_batteries):
-        # 15% and 5% are below 20%
         summary = _get_battery_summary(mock_hass_with_batteries)
         assert summary["low_count"] == 2
 
     def test_counts_critical_batteries(self, mock_hass_with_batteries):
-        # Only 5% is below 10%
         summary = _get_battery_summary(mock_hass_with_batteries)
         assert summary["critical_count"] == 1
 
