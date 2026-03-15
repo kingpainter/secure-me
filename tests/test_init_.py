@@ -17,8 +17,10 @@ async def test_setup_entry_success(hass: HomeAssistant, mock_config_entry, mock_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
+         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock), \
+         patch("custom_components.secure_me.dr.async_get") as mock_dr:
 
+        mock_dr.return_value = MagicMock()
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         result = await async_setup_entry(hass, mock_config_entry)
 
@@ -36,8 +38,10 @@ async def test_setup_entry_creates_coordinator(hass: HomeAssistant, mock_config_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator) as mock_coordinator_class, \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
+         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock), \
+         patch("custom_components.secure_me.dr.async_get") as mock_dr:
 
+        mock_dr.return_value = MagicMock()
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         await async_setup_entry(hass, mock_config_entry)
 
@@ -56,8 +60,10 @@ async def test_setup_entry_registers_platforms(hass: HomeAssistant, mock_config_
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
+         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock), \
+         patch("custom_components.secure_me.dr.async_get") as mock_dr:
 
+        mock_dr.return_value = MagicMock()
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         await async_setup_entry(hass, mock_config_entry)
 
@@ -138,8 +144,10 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api") as mock_register_ws, \
-         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
+         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock), \
+         patch("custom_components.secure_me.dr.async_get") as mock_dr:
 
+        mock_dr.return_value = MagicMock()
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
 
         await async_setup_entry(hass, mock_config_entry)
@@ -170,8 +178,10 @@ async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
-         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock) as mock_register_panel:
+         patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock) as mock_register_panel, \
+         patch("custom_components.secure_me.dr.async_get") as mock_dr:
 
+        mock_dr.return_value = MagicMock()
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
 
         await async_setup_entry(hass, mock_config_entry)
