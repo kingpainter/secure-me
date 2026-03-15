@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 import logging
 from typing import Any
@@ -56,6 +56,8 @@ class SecureMeStore:
             },
             "notifications": {},
             "automations": {},
+            "fake_presence": False,
+            "home_alone_cameras": [],
         }
 
     # ─── Sensors ───
@@ -263,3 +265,23 @@ class SecureMeStore:
             await self.async_save()
             return True
         return False
+
+    # ─── Fake Presence ───
+
+    def get_fake_presence(self) -> bool:
+        """Get current fake presence state."""
+        return self._data.get("fake_presence", False)
+
+    async def async_set_fake_presence(self, active: bool) -> None:
+        """Set fake presence state and persist."""
+        self._data["fake_presence"] = active
+        await self.async_save()
+
+    def get_home_alone_cameras(self) -> list[str]:
+        """Get configured Home Alone Monitor camera entity IDs."""
+        return self._data.get("home_alone_cameras", [])
+
+    async def async_save_home_alone_cameras(self, cameras: list[str]) -> None:
+        """Save Home Alone Monitor camera entity IDs."""
+        self._data["home_alone_cameras"] = cameras
+        await self.async_save()

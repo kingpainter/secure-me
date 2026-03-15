@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -20,6 +20,24 @@ DEFAULT_RETRY_BACKOFF = 2.0    # multiplier per retry (2s, 4s, 8s)
 # Notification IDs (persistent_notification)
 NOTIFY_ID_MODULE_ERROR = "secure_me_module_error"
 NOTIFY_ID_RECOVERY = "secure_me_recovery"
+NOTIFY_ID_FAKE_PRESENCE = "secure_me_fake_presence"
+
+# ── Fake Presence ────────────────────────────────────────────────────────────
+# Blocks automatic arming when someone is home without a trackable device.
+# Manual arm via panel/service is always allowed regardless of this flag.
+CONF_FAKE_PRESENCE = "fake_presence"
+CONF_HOME_ALONE_CAMERAS = "home_alone_cameras"
+
+# Fake Presence notification messages — English
+FAKE_PRESENCE_ON_EN = "Secure Me: Fake Presence activated. Automatic arming is blocked."
+FAKE_PRESENCE_OFF_EN = "Secure Me: Fake Presence deactivated. Automatic arming resumed."
+
+# Fake Presence notification messages — Danish
+FAKE_PRESENCE_ON_DA = "Secure Me: Fake Presence aktiveret. Automatisk aktivering er blokeret."
+FAKE_PRESENCE_OFF_DA = "Secure Me: Fake Presence deaktiveret. Automatisk aktivering genoptaget."
+
+# Event fired when fake presence changes
+EVENT_FAKE_PRESENCE_CHANGED = f"{DOMAIN}_fake_presence_changed"
 
 # Error messages — English
 ERROR_MODULE_FAILED_EN = "Secure Me: Module '{module}' failed during '{action}'. Check logs."

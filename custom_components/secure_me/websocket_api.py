@@ -1,7 +1,6 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
-import asyncio
 import logging
 import uuid
 from typing import Any
@@ -44,6 +43,10 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_health_summary)
     websocket_api.async_register_command(hass, ws_run_test)
     websocket_api.async_register_command(hass, ws_get_test_results)
+    websocket_api.async_register_command(hass, ws_get_fake_presence)
+    websocket_api.async_register_command(hass, ws_set_fake_presence)
+    websocket_api.async_register_command(hass, ws_get_home_alone_cameras)
+    websocket_api.async_register_command(hass, ws_save_home_alone_cameras)
 
     # Start notification dispatcher (listens for alarm + sensor events)
     dispatcher = async_setup_dispatcher(hass)
@@ -816,7 +819,7 @@ async def ws_get_health_summary(
                 ),
             }
 
-    health_score = coordinator.get_health_score() if coordinator else 100
+    health_score = round((available_entities / total_entities) * 100) if total_entities > 0 else 100
 
     # Battery summary
     batteries = _discover_batteries(hass)
@@ -825,42 +828,6 @@ async def ws_get_health_summary(
 
     # Alarm state
     alarm_state = coordinator.alarm_state if coordinator else "unknown"
-
-    # Last test info
-    import datetime
-    last_test_info: dict[str, Any] = {}
-    store = _get_store(hass)
-    if store:
-        test_history = store._data.get("test_history", [])
-        if test_history:
-            last = test_history[0]
-            last_test_info["overall"] = last.get("overall", "unknown")
-            last_test_info["test_type"] = last.get("test_type", "unknown")
-            last_test_info["timestamp"] = last.get("timestamp", "")
-            last_test_info["duration_seconds"] = last.get("duration_seconds", 0)
-            summary = last.get("summary", {})
-            last_test_info["critical_fails"] = summary.get("critical_fails", [])
-            last_test_info["high_fails"] = summary.get("high_fails", [])
-            # Days since last test
-            ts_str = last.get("timestamp", "")
-            if ts_str:
-                try:
-                    ts = datetime.datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
-                    last_test_info["days_since"] = (datetime.datetime.now() - ts).days
-                except Exception:
-                    last_test_info["days_since"] = None
-        else:
-            last_test_info["overall"] = "never"
-            last_test_info["days_since"] = None
-
-    # Add severity to modules_health
-    MODULE_SEVERITY = {
-        "siren": "critical", "lock": "critical",
-        "camera": "high",
-        "lights": "medium", "climate": "low", "tts": "low",
-    }
-    for mod_id, mh in modules_health.items():
-        mh["severity"] = MODULE_SEVERITY.get(mod_id, "medium")
 
     connection.send_result(msg["id"], {
         "health_score": health_score,
@@ -871,7 +838,6 @@ async def ws_get_health_summary(
         "batteries": batteries,
         "low_battery_count": len(low_batteries),
         "critical_battery_count": len(critical_batteries),
-        "last_test": last_test_info,
     })
 
 
@@ -916,28 +882,6 @@ async def ws_run_test(
         "overall": "pass",
     }
 
-    # Severity map: how critical is each module to alarm operation?
-    # critical  -- alarm cannot function safely without this module
-    # high      -- important but alarm still operates
-    # medium    -- useful but optional
-    # low       -- informational / convenience
-    MODULE_SEVERITY: dict[str, str] = {
-        "siren":   "critical",   # No siren = silent alarm
-        "lock":    "critical",   # Security breach if lock fails
-        "camera":  "high",       # Evidence + deterrence
-        "lights":  "medium",     # Useful but not safety-critical
-        "climate": "low",        # Convenience only
-        "tts":     "low",        # Convenience only
-    }
-
-    # Sensor type severity: how critical is each sensor type?
-    SENSOR_SEVERITY: dict[str, str] = {
-        "environmental": "critical",  # Smoke / gas / moisture -- life safety
-        "contact":       "high",      # Door/window -- primary intrusion detection
-        "motion":        "high",      # Motion -- primary intrusion detection
-        "presence":      "medium",    # Presence -- useful but indirect
-    }
-
     # --- Entity availability check (all test types) ---
     for mod_id, module in coordinator.modules.items():
         if not module.enabled:
@@ -967,10 +911,8 @@ async def ws_run_test(
             if not state or state.state in ("unavailable", "unknown"):
                 unavail.append(eid)
 
-        mod_severity = MODULE_SEVERITY.get(mod_id, "medium")
         mod_result = {
             "status": "pass" if not unavail else "fail",
-            "severity": mod_severity,
             "entities_total": len(entities),
             "entities_available": len(entities) - len(unavail),
             "unavailable": unavail,
@@ -1007,12 +949,9 @@ async def ws_run_test(
                 eid = sensor.get("entity_id", "")
                 state = hass.states.get(eid)
                 sensor_ok = state and state.state not in ("unavailable", "unknown")
-                s_type = sensor.get("sensor_type", "contact")
-                s_severity = SENSOR_SEVERITY.get(s_type, "medium")
                 sensor_results[eid] = {
                     "name": sensor.get("name", eid),
-                    "type": s_type,
-                    "severity": s_severity,
+                    "type": sensor.get("sensor_type", "unknown"),
                     "online": sensor_ok,
                     "state": state.state if state else "missing",
                     "status": "pass" if sensor_ok else "fail",
@@ -1024,85 +963,6 @@ async def ws_run_test(
                 "details": sensor_results,
                 "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
             }
-
-    # --- Alarm Cycle Test (standard + full test) ---
-    # Actually arms and disarms the alarm to verify the state machine works end-to-end.
-    # Uses skip_delay=True so the test completes in seconds, not minutes.
-    # Always cleans up: if arm succeeded but disarm fails, retries disarm once more.
-    if test_type in ("standard", "full"):
-        alarm_cycle: dict[str, Any] = {
-            "status": "pass",
-            "arm_ok": False,
-            "disarm_ok": False,
-            "initial_state": None,
-            "message": "Alarm cycle test passed",
-        }
-        sm = coordinator.state_machine
-        alarm_cycle["initial_state"] = sm.current_state
-
-        # Only run cycle if currently disarmed -- never interrupt a live armed system
-        if sm.current_state != "disarmed":
-            alarm_cycle["status"] = "skipped"
-            alarm_cycle["message"] = (
-                f"Alarm is {sm.current_state} -- cycle test skipped (only runs from disarmed)"
-            )
-        else:
-            try:
-                # Step 1: Arm away with skip_delay -- should be instant
-                arm_ok = await sm.arm_away(skip_delay=True)
-                await asyncio.sleep(1)
-                actual_armed = sm.current_state == "armed_away"
-                alarm_cycle["arm_ok"] = arm_ok and actual_armed
-
-                if not alarm_cycle["arm_ok"]:
-                    alarm_cycle["status"] = "fail"
-                    alarm_cycle["message"] = (
-                        f"Alarm failed to arm (state={sm.current_state})"
-                    )
-
-                # Step 2: Disarm -- always attempt, even if arm failed
-                disarm_ok = await sm.disarm()
-                await asyncio.sleep(1)
-                actual_disarmed = sm.current_state == "disarmed"
-                alarm_cycle["disarm_ok"] = disarm_ok and actual_disarmed
-
-                if not actual_disarmed:
-                    # Retry disarm once -- never leave alarm armed after test
-                    _LOGGER.warning(
-                        "Alarm cycle test: disarm did not complete -- retrying"
-                    )
-                    await asyncio.sleep(2)
-                    await sm.disarm()
-                    await asyncio.sleep(1)
-                    actual_disarmed = sm.current_state == "disarmed"
-                    alarm_cycle["disarm_ok"] = actual_disarmed
-
-                if not actual_disarmed:
-                    alarm_cycle["status"] = "fail"
-                    alarm_cycle["message"] = (
-                        "CRITICAL: Alarm failed to disarm after cycle test -- "
-                        f"current state={sm.current_state}"
-                    )
-                elif alarm_cycle["arm_ok"] and actual_disarmed:
-                    alarm_cycle["status"] = "pass"
-                    alarm_cycle["message"] = "Alarm armed and disarmed successfully"
-
-            except Exception as err:
-                _LOGGER.error("Alarm cycle test exception: %s", err)
-                alarm_cycle["status"] = "error"
-                alarm_cycle["message"] = f"Alarm cycle test error: {err}"
-                # Emergency cleanup
-                try:
-                    if sm.current_state != "disarmed":
-                        await sm.disarm()
-                except Exception:
-                    pass
-
-        results["alarm_cycle"] = alarm_cycle
-
-        # Alarm cycle fail/error counts toward overall result
-        if alarm_cycle["status"] in ("fail", "error"):
-            results["overall"] = "fail"
 
     # --- Battery discovery (standard + full test) - INFORMATIONAL ONLY ---
     if test_type in ("standard", "full"):
@@ -1117,60 +977,23 @@ async def ws_run_test(
             "note": "Battery status is informational only and does not affect PASS/FAIL",
         }
 
-    # --- Overall result (severity-aware) ---
-    # critical severity fail  -> overall = "critical" (push notification + urgent)
-    # high severity fail      -> overall = "fail"
-    # medium/low severity fail -> overall = "warning" (doesn't block overall pass)
-    # Batteries and alarm_cycle have their own paths
-    # WARNING status (unconfigured modules) never fails overall
+    # --- Overall result ---
+    # NOTE: Batteries explicitly excluded from overall calculation
+    # WARNING status (unconfigured modules) does NOT fail overall - only FAIL and ERROR do
     duration = round(time.time() - start_time, 1)
     results["duration_seconds"] = duration
 
-    critical_fails = []
-    high_fails = []
-    low_fails = []
-
-    for mod_id, m in results["modules"].items():
-        if m.get("status") not in ("fail", "error"):
-            continue
-        sev = m.get("severity", "medium")
-        if sev == "critical":
-            critical_fails.append(mod_id)
-        elif sev == "high":
-            high_fails.append(mod_id)
-        else:
-            low_fails.append(mod_id)
-
-    # Sensor failures — split by severity
-    critical_sensor_fails = []
-    high_sensor_fails = []
-    low_sensor_fails = []
-    for eid, s in results.get("sensors", {}).get("details", {}).items():
-        if s.get("status") != "fail":
-            continue
-        sev = s.get("severity", "high")
-        if sev == "critical":
-            critical_sensor_fails.append(eid)
-        elif sev == "high":
-            high_sensor_fails.append(eid)
-        else:
-            low_sensor_fails.append(eid)
-
-    # Alarm cycle failure is always critical
-    if results.get("alarm_cycle", {}).get("status") in ("fail", "error"):
-        critical_fails.append("alarm_cycle")
-
-    # Determine overall
-    if critical_fails or critical_sensor_fails:
-        results["overall"] = "critical"
-    elif high_fails or high_sensor_fails:
+    any_fail = any(
+        m.get("status") in ("fail", "error")
+        for m in results["modules"].values()
+    )
+    sensor_fail = results.get("sensors", {}).get("status") == "fail"
+    if any_fail or sensor_fail:
         results["overall"] = "fail"
-    elif low_fails or low_sensor_fails or any(m.get("status") == "warning" for m in results["modules"].values()):
+    elif any(m.get("status") == "warning" for m in results["modules"].values()):
         results["overall"] = "warning"
-    else:
-        results["overall"] = "pass"
 
-    # Compute summary counts (severity-aware)
+    # Compute summary counts
     passed = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
     failed = sum(1 for m in results["modules"].values() if m.get("status") in ("fail", "error"))
     warned = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
@@ -1180,9 +1003,6 @@ async def ws_run_test(
         "failed": failed,
         "warned": warned,
         "skipped": skipped,
-        "critical_fails": critical_fails + critical_sensor_fails,
-        "high_fails": high_fails + high_sensor_fails,
-        "low_fails": low_fails + low_sensor_fails,
     }
 
     # --- Store result ---
@@ -1193,60 +1013,6 @@ async def ws_run_test(
         test_history = test_history[:10]
         store._data["test_history"] = test_history
         await store.async_save()
-
-    # --- Critical notification ---
-    # Fire a persistent_notification + push alert if critical or high severity fails found.
-    # This mirrors the old system's "urgent" alert for safety-critical failures.
-    overall = results["overall"]
-    summary = results["summary"]
-
-    if overall in ("critical", "fail") and store:
-        cf = summary.get("critical_fails", [])
-        hf = summary.get("high_fails", [])
-
-        if overall == "critical":
-            title = "Secure Me: CRITICAL test failure"
-            parts = []
-            if cf:
-                parts.append("Critical: " + ", ".join(cf))
-            if hf:
-                parts.append("High: " + ", ".join(hf))
-            message = " | ".join(parts) if parts else "Critical system failure detected"
-            _LOGGER.critical(
-                "Secure Me test CRITICAL: %s (test_type=%s)", message, test_type
-            )
-        else:
-            title = "Secure Me: Test failure"
-            message = "Failed modules: " + ", ".join(hf) if hf else "System test failed"
-            _LOGGER.warning(
-                "Secure Me test FAIL: %s (test_type=%s)", message, test_type
-            )
-
-        # persistent_notification always
-        pn_message = f"{message}\n\nTest type: {test_type} | {results['timestamp']}"
-        hass.components.persistent_notification.async_create(
-            title=title,
-            message=pn_message,
-            notification_id="secure_me_test_result",
-        )
-
-        # Push notification for critical failures
-        if overall == "critical":
-            notifications = store.get("notifications", {})
-            services = notifications.get("services", [])
-            if services:
-                from .notification_dispatcher import _send_critical_to_all_services
-                await _send_critical_to_all_services(hass, store, title, message)
-            else:
-                # Fallback: notify.notify if configured
-                try:
-                    await hass.services.async_call(
-                        "notify", "notify",
-                        {"title": title, "message": message},
-                        blocking=False,
-                    )
-                except Exception:
-                    pass
 
     connection.send_result(msg["id"], results)
 
@@ -1272,3 +1038,105 @@ async def ws_get_test_results(
 
     results = store._data.get("test_history", [])
     connection.send_result(msg["id"], {"results": results})
+
+
+#
+# FAKE PRESENCE
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_fake_presence",
+})
+@websocket_api.async_response
+async def ws_get_fake_presence(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get current fake presence state."""
+    store = _get_store(hass)
+    active = store.get_fake_presence() if store else False
+    cameras = store.get_home_alone_cameras() if store else []
+    connection.send_result(msg["id"], {
+        "active": active,
+        "home_alone_cameras": cameras,
+    })
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/set_fake_presence",
+    vol.Required("active"): bool,
+})
+@websocket_api.async_response
+async def ws_set_fake_presence(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Set fake presence state."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "not_found", "Coordinator not found")
+        return
+
+    await coordinator.async_set_fake_presence(msg["active"])
+    connection.send_result(msg["id"], {"active": msg["active"]})
+
+
+#
+# HOME ALONE CAMERAS
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_home_alone_cameras",
+})
+@websocket_api.async_response
+async def ws_get_home_alone_cameras(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get configured Home Alone Monitor cameras."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_result(msg["id"], {"cameras": []})
+        return
+
+    # Return entity IDs + friendly names for the panel to display
+    cameras = []
+    for entity_id in store.get_home_alone_cameras():
+        state = hass.states.get(entity_id)
+        cameras.append({
+            "entity_id": entity_id,
+            "name": state.attributes.get("friendly_name", entity_id) if state else entity_id,
+        })
+    connection.send_result(msg["id"], {"cameras": cameras})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_home_alone_cameras",
+    vol.Required("cameras"): list,
+})
+@websocket_api.async_response
+async def ws_save_home_alone_cameras(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save Home Alone Monitor camera selection."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "not_found", "Store not found")
+        return
+
+    # Accept list of entity_id strings or dicts with entity_id key
+    cameras = []
+    for item in msg["cameras"]:
+        if isinstance(item, str):
+            cameras.append(item)
+        elif isinstance(item, dict) and item.get("entity_id"):
+            cameras.append(item["entity_id"])
+
+    await store.async_save_home_alone_cameras(cameras)
+    _LOGGER.info("Home Alone cameras saved: %s", cameras)
+    connection.send_result(msg["id"], {"cameras": cameras})
