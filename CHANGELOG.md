@@ -1,3 +1,23 @@
+## [1.0.0] - 2026-03-15
+
+### Production Release
+
+#### Changed
+- Version bumped to 1.0.0 across all files
+- `secure-me-panel.js` VERSION comment corrected to 1.0.0
+- `SECURE_ME_STATUS.md` updated to reflect production release status
+
+#### Status
+- HACS submission checklist completed
+- End-to-end manual testing passed
+- Frontend panel flickering issue resolved
+- Logo/branding package submitted to HA brands repository
+- Production release published on GitHub
+- pytest 168/168 passing on Python 3.11 and 3.12
+- GitHub Actions: HACS 7/8 (brands expected fail — OK), Hassfest all, Pytest all green
+
+---
+
 ## [0.9.0] - 2026-02-21
 
 ### Pre-Release Testing

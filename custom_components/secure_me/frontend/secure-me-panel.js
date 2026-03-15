@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.9.0
+ * VERSION: 1.0.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
