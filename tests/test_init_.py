@@ -12,13 +12,14 @@ async def test_setup_entry_success(hass: HomeAssistant, mock_config_entry, mock_
     """Test successful integration setup."""
     from custom_components.secure_me import async_setup_entry
 
+    mock_coordinator.async_load_store_config = AsyncMock()
+
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
          patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
 
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
-
         result = await async_setup_entry(hass, mock_config_entry)
 
         assert result is True
@@ -30,13 +31,14 @@ async def test_setup_entry_creates_coordinator(hass: HomeAssistant, mock_config_
     """Test that setup creates a coordinator."""
     from custom_components.secure_me import async_setup_entry
 
+    mock_coordinator.async_load_store_config = AsyncMock()
+
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator) as mock_coordinator_class, \
          patch("custom_components.secure_me.async_register_websocket_api"), \
          patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
 
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
-
         await async_setup_entry(hass, mock_config_entry)
 
         mock_coordinator_class.assert_called_once()
@@ -49,13 +51,14 @@ async def test_setup_entry_registers_platforms(hass: HomeAssistant, mock_config_
     from custom_components.secure_me import async_setup_entry
     from custom_components.secure_me.const import PLATFORMS
 
+    mock_coordinator.async_load_store_config = AsyncMock()
+
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api"), \
          patch("custom_components.secure_me.panel.async_register_panel", new_callable=AsyncMock):
 
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
-
         await async_setup_entry(hass, mock_config_entry)
 
         hass.config_entries.async_forward_entry_setups.assert_called_once_with(
@@ -68,6 +71,8 @@ async def test_unload_entry_success(hass: HomeAssistant, mock_config_entry, mock
     """Test successful integration unload."""
     from custom_components.secure_me import async_unload_entry
     from custom_components.secure_me.const import COORDINATOR
+
+    mock_coordinator.async_shutdown = AsyncMock()
 
     hass.data["secure_me"] = {
         mock_config_entry.entry_id: {
@@ -91,7 +96,9 @@ async def test_unload_entry_cleans_up(hass: HomeAssistant, mock_config_entry, mo
     from custom_components.secure_me import async_unload_entry
     from custom_components.secure_me.const import COORDINATOR
 
+    mock_coordinator.async_shutdown = AsyncMock()
     mock_listener = MagicMock()
+
     hass.data["secure_me"] = {
         mock_config_entry.entry_id: {
             COORDINATOR: mock_coordinator,
@@ -126,6 +133,8 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
     """Test that WebSocket API is only registered once."""
     from custom_components.secure_me import async_setup_entry
 
+    mock_coordinator.async_load_store_config = AsyncMock()
+
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
          patch("custom_components.secure_me.async_register_websocket_api") as mock_register_ws, \
@@ -143,6 +152,7 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
 
         mock_coordinator2 = MagicMock()
         mock_coordinator2.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator2.async_load_store_config = AsyncMock()
 
         with patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator2):
             await async_setup_entry(hass, mock_config_entry2)
@@ -154,6 +164,8 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
 async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry, mock_coordinator, mock_store):
     """Test that panel is only registered once."""
     from custom_components.secure_me import async_setup_entry
+
+    mock_coordinator.async_load_store_config = AsyncMock()
 
     with patch("custom_components.secure_me.SecureMeStore", return_value=mock_store), \
          patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator), \
@@ -172,6 +184,7 @@ async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry
 
         mock_coordinator2 = MagicMock()
         mock_coordinator2.async_config_entry_first_refresh = AsyncMock()
+        mock_coordinator2.async_load_store_config = AsyncMock()
 
         with patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator2):
             await async_setup_entry(hass, mock_config_entry2)

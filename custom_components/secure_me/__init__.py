@@ -24,11 +24,9 @@ from .websocket_api import async_register_websocket_api
 
 if TYPE_CHECKING:
     from homeassistant.components import system_health
-    from . import panel as _panel_module
 
 _LOGGER = logging.getLogger(__name__)
 
-# Config entry only - no YAML configuration supported
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS = [
@@ -50,7 +48,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Secure Me from a config entry."""
     _LOGGER.debug("Setting up Secure Me integration")
 
-    # Initialize domain data if not exists
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
 
@@ -64,18 +61,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create coordinator for this entry
     coordinator = SecureMeCoordinator(hass, entry)
-
-    # Load persisted module configs from store into coordinator modules.
     await coordinator.async_load_store_config(store)
 
-    # Initial data fetch
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception as err:
         _LOGGER.error("Error during initial data fetch: %s", err)
         raise ConfigEntryNotReady from err
 
-    # Store coordinator
     hass.data[DOMAIN][entry.entry_id] = {
         COORDINATOR: coordinator,
     }
@@ -97,8 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["_websocket_registered"] = True
         _LOGGER.debug("WebSocket API registered")
 
-    # Register frontend panel (global, once) — lazy import to avoid import
-    # errors in test environments where HA HTTP components may not be available.
+    # Register frontend panel (global, once) — lazy import avoids HA HTTP
+    # import errors in test environments.
     if not hass.data[DOMAIN].get("_panel_registered", False):
         try:
             from . import panel as _panel
@@ -107,10 +100,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.error("Panel registration failed: %s", err)
 
-    # Setup platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register update listener
     undo_listener = entry.add_update_listener(async_update_options)
     hass.data[DOMAIN][entry.entry_id][UNDO_UPDATE_LISTENER] = undo_listener
 
@@ -127,12 +118,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Secure Me integration")
 
-    # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
+        entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+
+        # Shutdown coordinator
+        coordinator = entry_data.get(COORDINATOR)
+        if coordinator:
+            await coordinator.async_shutdown()
+
         # Remove update listener
-        undo_listener = hass.data[DOMAIN][entry.entry_id].get(UNDO_UPDATE_LISTENER)
+        undo_listener = entry_data.get(UNDO_UPDATE_LISTENER)
         if undo_listener:
             undo_listener()
 
@@ -149,9 +146,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False
 
-        # Remove entry data
         hass.data[DOMAIN].pop(entry.entry_id)
-
         _LOGGER.info("Secure Me integration unloaded successfully")
 
     return unload_ok
