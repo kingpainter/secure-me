@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 1.1.0
+ * VERSION: 0.9.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "1.1.0";
+const VERSION = "1.0.0";
 
 // === Styles ===
 const panelStyles = `
@@ -1190,95 +1190,6 @@ const panelStyles = `
   @keyframes sm-pulse-red {
     0%, 100% { box-shadow: 0 0 0 0 rgba(255,69,58,0.4); }
     50%       { box-shadow: 0 0 0 8px rgba(255,69,58,0); }
-  }
-
-  /* === v1.1.0: Fake Presence Toggle === */
-  .fake-presence-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-radius: 12px;
-    border: 1px solid var(--sm-border);
-    background: var(--sm-surface);
-    margin-bottom: 12px;
-    gap: 12px;
-  }
-  .fake-presence-bar.active {
-    border-color: rgba(255,159,10,0.35);
-    background: rgba(255,159,10,0.07);
-  }
-  .fake-presence-info { display: flex; align-items: center; gap: 12px; flex: 1; }
-  .fake-presence-icon {
-    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.06);
-    color: var(--sm-text-secondary);
-  }
-  .fake-presence-bar.active .fake-presence-icon {
-    background: rgba(255,159,10,0.15);
-    color: var(--sm-warning);
-  }
-  .fake-presence-icon svg { width: 20px; height: 20px; }
-  .fake-presence-label { font-size: 14px; font-weight: 600; }
-  .fake-presence-desc  { font-size: 12px; color: var(--sm-text-tertiary); margin-top: 2px; }
-  .fake-presence-bar.active .fake-presence-label { color: var(--sm-warning); }
-
-  /* Toggle switch */
-  .sm-toggle { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
-  .sm-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .sm-toggle-track {
-    position: absolute; inset: 0; border-radius: 13px;
-    background: rgba(255,255,255,0.1); border: 1px solid var(--sm-border);
-    cursor: pointer; transition: background 0.2s, border-color 0.2s;
-  }
-  .sm-toggle input:checked + .sm-toggle-track {
-    background: var(--sm-warning);
-    border-color: var(--sm-warning);
-  }
-  .sm-toggle-track::after {
-    content: ''; position: absolute;
-    top: 3px; left: 3px;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-  .sm-toggle input:checked + .sm-toggle-track::after { transform: translateX(18px); }
-
-  /* === v1.1.0: Monitor Tab === */
-  .monitor-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-    margin-top: 8px;
-  }
-  .monitor-feed {
-    background: var(--sm-surface);
-    border: 1px solid var(--sm-border);
-    border-radius: 14px;
-    overflow: hidden;
-    position: relative;
-  }
-  .monitor-feed-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px;
-    background: rgba(0,0,0,0.3);
-    font-size: 12px; font-weight: 600;
-    color: var(--sm-text-secondary);
-    position: absolute; top: 0; left: 0; right: 0; z-index: 1;
-  }
-  .monitor-feed-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--sm-danger);
-    box-shadow: 0 0 6px var(--sm-danger);
-    animation: sm-pulse-red 1.5s ease-in-out infinite;
-  }
-  .monitor-feed img {
-    width: 100%; height: 220px;
-    object-fit: cover; display: block;
-    background: #000;
-  }
-  @media (max-width: 768px) {
-    .monitor-grid { grid-template-columns: 1fr; }
-    .monitor-feed img { height: 180px; }
   }`;
 
 // === Icons ===
@@ -1310,15 +1221,12 @@ const ICONS = {
   fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
   close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
-  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-  userX: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
 
 // === Tab Definitions ===
-// Static base tabs — always visible
-const BASE_TABS = [
+const TABS = [
   { key: "sensors", label: "Sensors", icon: "sensor" },
   { key: "zones", label: "Zones", icon: "zone" },
   { key: "users", label: "Users", icon: "user" },
@@ -1327,22 +1235,6 @@ const BASE_TABS = [
   { key: "testing", label: "Test", icon: "flask" },
   { key: "future", label: "Future", icon: "rocket" },
 ];
-
-// Monitor tab — injected when Fake Presence is active
-const MONITOR_TAB = { key: "monitor", label: "Monitor", icon: "eye" };
-
-// Returns the full tab list for the current fake presence state
-function getTabs(fakePresenceActive) {
-  if (!fakePresenceActive) return BASE_TABS;
-  // Insert Monitor tab right before Future
-  const tabs = [...BASE_TABS];
-  const futureIdx = tabs.findIndex(t => t.key === "future");
-  tabs.splice(futureIdx, 0, MONITOR_TAB);
-  return tabs;
-}
-
-// Legacy alias used in _buildShell — resolved at render time
-const TABS = BASE_TABS;
 
 // Module definitions
 const MODULE_DEFS = {
@@ -1385,9 +1277,6 @@ class SecureMePanel extends HTMLElement {
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
     this._lastHealthUpdate = null;
-    // v1.1.0: Fake Presence
-    this._fakePresence = false;
-    this._homeAloneCameras = [];
   }
 
 
@@ -1665,7 +1554,7 @@ class SecureMePanel extends HTMLElement {
     // PERF: Split into two phases.
     // Phase 1 — fast: 7 essential calls needed to render any tab immediately.
     // Phase 2 — lazy: health + test results are only needed on the Testing tab.
-    const [sensors, zones, users, modules, notifications, automations, state, fakePresence] =
+    const [sensors, zones, users, modules, notifications, automations, state] =
       await Promise.all([
         this._callWS("get_sensors"),
         this._callWS("get_zones"),
@@ -1674,7 +1563,6 @@ class SecureMePanel extends HTMLElement {
         this._callWS("get_notifications"),
         this._callWS("get_automations"),
         this._callWS("get_alarm_state"),
-        this._callWS("get_fake_presence"),
       ]);
 
     if (sensors) this._data.sensors = sensors.sensors || [];
@@ -1684,10 +1572,6 @@ class SecureMePanel extends HTMLElement {
     if (notifications) this._data.notifications = notifications.notifications || {};
     if (automations) this._data.automations = automations.automations || {};
     if (state) this._alarmState = state.state || "disarmed";
-    if (fakePresence) {
-      this._fakePresence = fakePresence.active || false;
-      this._homeAloneCameras = fakePresence.home_alone_cameras || [];
-    }
 
     // Render immediately with essential data — no waiting for heavy tabs
     this._queueRender();
@@ -1790,6 +1674,9 @@ class SecureMePanel extends HTMLElement {
   }
 
   _buildShell() {
+    const BOTTOM_TABS = TABS.slice(0, 5);
+    const MORE_TABS   = TABS.slice(5);
+
     this.shadowRoot.innerHTML = `
       <style>${panelStyles}</style>
 
@@ -1823,16 +1710,10 @@ class SecureMePanel extends HTMLElement {
             <div class="status-dot"></div>
             Disarmed
           </div>
-          <div id="shell-fake-presence-badge" style="display:none;margin-top:8px">
-            <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(255,159,10,0.15);color:var(--sm-warning);font-size:11px;font-weight:600;">
-              ${icon('userX')}
-              <span>Fake Presence ON</span>
-            </div>
-          </div>
         </div>
 
         <div class="nav-tabs" id="shell-nav-tabs">
-          ${getTabs(this._fakePresence).map(t => `
+          ${TABS.map(t => `
             <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
               <span class="nav-icon">${icon(t.icon)}</span>
@@ -1852,7 +1733,7 @@ class SecureMePanel extends HTMLElement {
 
       <!-- BOTTOM NAVIGATION BAR (mobile only) -->
       <nav class="bottom-nav" id="shell-bottom-nav">
-        ${getTabs(this._fakePresence).slice(0, 5).map(t => `
+        ${BOTTOM_TABS.map(t => `
           <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
                   data-tab="${t.key}">
             ${icon(t.icon)}
@@ -1870,7 +1751,7 @@ class SecureMePanel extends HTMLElement {
         <div class="more-drawer">
           <div class="more-drawer-handle"></div>
           <div class="more-drawer-title">More</div>
-          ${getTabs(this._fakePresence).slice(5).map(t => `
+          ${MORE_TABS.map(t => `
             <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
               ${icon(t.icon)}
@@ -1930,109 +1811,14 @@ class SecureMePanel extends HTMLElement {
       btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
     });
     // More button: highlight if active tab is in MORE_TABS
-    const currentTabs = getTabs(this._fakePresence);
-    const moreIsActive = currentTabs.slice(5).some(t => t.key === this._activeTab);
+    const MORE_TABS = TABS.slice(5);
+    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
     const moreBtn = this.shadowRoot.getElementById("more-btn");
     if (moreBtn) moreBtn.classList.toggle("more-active", moreIsActive);
     // More drawer items
     this.shadowRoot.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
     });
-  }
-
-  // v1.1.0: Toggle fake presence on/off.
-  // Calls backend, updates local state, patches sidebar badge + nav.
-  async _toggleFakePresence() {
-    const newVal = !this._fakePresence;
-    const result = await this._callWS("set_fake_presence", { active: newVal });
-    if (result === null) {
-      this._toast("Could not update Fake Presence", "error");
-      return;
-    }
-    this._fakePresence = newVal;
-    this._patchFakePresenceBadge();
-    this._rebuildNav();
-    // If monitor tab was active and we just turned off, switch to sensors
-    if (!newVal && this._activeTab === "monitor") {
-      this._activeTab = "sensors";
-    }
-    this._render();
-    this._toast(
-      newVal ? "Fake Presence activated — auto arm blocked" : "Fake Presence deactivated",
-      newVal ? "warning" : "success"
-    );
-  }
-
-  // v1.1.0: Surgical patch of the sidebar fake presence badge — no full re-render.
-  _patchFakePresenceBadge() {
-    const badge = this.shadowRoot.getElementById("shell-fake-presence-badge");
-    if (badge) badge.style.display = this._fakePresence ? "block" : "none";
-  }
-
-  // v1.1.0: Rebuilds sidebar nav + bottom nav + more drawer to add/remove Monitor tab.
-  // Called after fake presence toggle. Uses innerHTML on the nav containers only
-  // (not shadowRoot) — safe and targeted, no CSS reparse.
-  _rebuildNav() {
-    const tabs = getTabs(this._fakePresence);
-    const navTabs = this.shadowRoot.getElementById("shell-nav-tabs");
-    if (navTabs) {
-      navTabs.innerHTML = tabs.map(t => `
-        <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
-                data-tab="${t.key}">
-          <span class="nav-icon">${icon(t.icon)}</span>
-          <span>${t.label}</span>
-        </button>
-      `).join("");
-      navTabs.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
-      });
-    }
-
-    const bottomNav = this.shadowRoot.getElementById("shell-bottom-nav");
-    if (bottomNav) {
-      bottomNav.innerHTML = tabs.slice(0, 5).map(t => `
-        <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
-                data-tab="${t.key}">
-          ${icon(t.icon)}
-          <span>${t.label}</span>
-        </button>
-      `).join("") + `
-        <button class="bottom-nav-item" id="more-btn">
-          ${icon("dots")}
-          <span>More</span>
-        </button>`;
-      bottomNav.querySelectorAll(".bottom-nav-item[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
-      });
-      // Re-bind more button
-      const moreBtn = bottomNav.querySelector("#more-btn");
-      const moreOverlay = this.shadowRoot.getElementById("more-overlay");
-      if (moreBtn && moreOverlay) {
-        moreBtn.addEventListener("click", () => moreOverlay.classList.toggle("hidden"));
-      }
-    }
-
-    const moreDrawer = this.shadowRoot.querySelector(".more-drawer");
-    if (moreDrawer) {
-      const handle = moreDrawer.querySelector(".more-drawer-handle");
-      const title  = moreDrawer.querySelector(".more-drawer-title");
-      moreDrawer.innerHTML = (handle ? handle.outerHTML : '<div class="more-drawer-handle"></div>') +
-        (title  ? title.outerHTML  : '<div class="more-drawer-title">More</div>') +
-        tabs.slice(5).map(t => `
-          <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
-                  data-tab="${t.key}">
-            ${icon(t.icon)}
-            <span>${t.label}</span>
-          </button>
-        `).join("");
-      const moreOverlay = this.shadowRoot.getElementById("more-overlay");
-      moreDrawer.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          if (moreOverlay) moreOverlay.classList.add("hidden");
-          this._setTab(btn.dataset.tab);
-        });
-      });
-    }
   }
 
   // === Render — patches main-content only ===
@@ -2057,9 +1843,6 @@ class SecureMePanel extends HTMLElement {
 
     // Update status pills in-place
     this._updateStatusPills();
-
-    // v1.1.0: Update fake presence sidebar badge in-place
-    this._patchFakePresenceBadge();
 
     // Manage dialog: inject or remove from mount point
     const dialogMount = this.shadowRoot.getElementById("shell-dialog-mount");
@@ -2091,7 +1874,6 @@ class SecureMePanel extends HTMLElement {
       case "modules": return this._renderModules();
       case "automations": return this._renderAutomations();
       case "testing": return this._renderTesting();
-      case "monitor": return this._renderMonitor();
       case "future": return this._renderPlaceholder("rocket", "Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
       default: return "";
     }
@@ -2122,7 +1904,6 @@ class SecureMePanel extends HTMLElement {
     `;
 
     return `
-      ${this._renderFakePresenceBar()}
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
@@ -2630,7 +2411,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:14px;height:14px;display:inline-flex;flex-shrink:0;color:var(--sm-text-tertiary)">${icon("chevron")}</span><span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2655,7 +2436,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:14px;height:14px;display:inline-flex;flex-shrink:0;color:var(--sm-text-tertiary)">${icon("chevron")}</span><span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2680,7 +2461,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:14px;height:14px;display:inline-flex;flex-shrink:0;color:var(--sm-text-tertiary)">${icon("chevron")}</span><span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
           </div>
@@ -2706,7 +2487,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                <span style="width:14px;height:14px;display:inline-flex;flex-shrink:0;color:var(--sm-text-tertiary)">${icon("chevron")}</span><span style="font-size:12px">${e}</span></div>`).join('')}
+                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
             </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
           </div>
           <div style="display:flex;gap:8px">
@@ -2903,137 +2684,6 @@ class SecureMePanel extends HTMLElement {
   }
 
   // ===
-  // v1.1.0: FAKE PRESENCE BAR
-  // Reusable bar shown on Sensors tab and Settings.
-  // ===
-  _renderFakePresenceBar() {
-    const active = this._fakePresence;
-    return `
-      <div class="fake-presence-bar ${active ? "active" : ""}" id="fp-bar">
-        <div class="fake-presence-info">
-          <div class="fake-presence-icon">${icon("userX")}</div>
-          <div>
-            <div class="fake-presence-label">Fake Presence</div>
-            <div class="fake-presence-desc">
-              ${active
-                ? "Active — automatic arming is blocked. Manual arm still works."
-                : "Inactive — alarm behaves normally."}
-            </div>
-          </div>
-        </div>
-        <label class="sm-toggle" title="Toggle Fake Presence">
-          <input type="checkbox" id="fp-toggle" ${active ? "checked" : ""}>
-          <div class="sm-toggle-track"></div>
-        </label>
-      </div>
-    `;
-  }
-
-  // ===
-  // v1.1.0: TAB: MONITOR (Home Alone Monitor)
-  // Only visible when Fake Presence is active.
-  // Shows live camera streams + camera selection.
-  // ===
-  _renderMonitor() {
-    const cameras = this._homeAloneCameras || [];
-    const allCameras = this._availableEntities.camera || [];
-
-    // Build token-based stream URLs via HA camera proxy
-    const feedHtml = cameras.length === 0
-      ? `<div style="padding:40px;text-align:center;color:var(--sm-text-tertiary)">
-           <div style="margin-bottom:12px">${icon("camera")}</div>
-           <div style="font-size:14px">No cameras selected.</div>
-           <div style="font-size:12px;margin-top:6px">Add cameras in the settings below.</div>
-         </div>`
-      : `<div class="monitor-grid">
-          ${cameras.map(cam => `
-            <div class="monitor-feed">
-              <div class="monitor-feed-header">
-                <div class="monitor-feed-dot"></div>
-                <span>${cam.name || cam.entity_id}</span>
-              </div>
-              <img
-                src="/api/camera_proxy_stream/${cam.entity_id}?token=${this._hass?.connection?.options?.authToken || ''}"
-                alt="${cam.name || cam.entity_id}"
-                onerror="this.style.background='#1a1a1a';this.alt='Stream unavailable';"
-              >
-            </div>
-          `).join("")}
-        </div>`;
-
-    // Camera selection — multi-select from available camera entities
-    const selectedIds = cameras.map(c => typeof c === "string" ? c : c.entity_id);
-    const availableCameraEntities = this._hass
-      ? Object.values(this._hass.states || {})
-          .filter(s => s.entity_id.startsWith("camera."))
-          .map(s => ({ entity_id: s.entity_id, name: s.attributes?.friendly_name || s.entity_id }))
-      : allCameras;
-
-    return `
-      ${this._renderFakePresenceBar()}
-
-      <div class="section-header" style="margin-top:16px">
-        <h3 class="section-title">Live Monitor</h3>
-        <span class="badge accent">${cameras.length} camera${cameras.length !== 1 ? "s" : ""}</span>
-      </div>
-
-      <div class="sm-card" style="padding:0;overflow:hidden;margin-bottom:16px">
-        ${feedHtml}
-      </div>
-
-      <!-- Camera selection -->
-      <div class="section-header">
-        <h3 class="section-title">Monitor Cameras</h3>
-      </div>
-      <div class="sm-card">
-        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:14px">
-          Select which cameras to show in the monitor. Changes save automatically.
-        </div>
-        ${availableCameraEntities.length === 0
-          ? `<div style="font-size:13px;color:var(--sm-text-tertiary)">No camera entities found in Home Assistant.</div>`
-          : availableCameraEntities.map(cam => {
-              const isSelected = selectedIds.includes(cam.entity_id);
-              return `
-                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sm-border)">
-                  <button class="sm-checkbox ${isSelected ? "checked" : ""}"
-                          data-monitor-camera="${cam.entity_id}">
-                    ${isSelected ? icon("check") : ""}
-                  </button>
-                  <div style="flex:1">
-                    <div style="font-size:14px;font-weight:500">${cam.name}</div>
-                    <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${cam.entity_id}</div>
-                  </div>
-                </div>
-              `;
-            }).join("")
-        }
-      </div>
-    `;
-  }
-
-  // v1.1.0: Toggle a camera in the Home Alone monitor selection and save.
-  async _toggleMonitorCamera(entityId) {
-    const selected = (this._homeAloneCameras || []).map(c => typeof c === "string" ? c : c.entity_id);
-    const idx = selected.indexOf(entityId);
-    if (idx === -1) {
-      selected.push(entityId);
-    } else {
-      selected.splice(idx, 1);
-    }
-    const result = await this._callWS("save_home_alone_cameras", { cameras: selected });
-    if (result === null) {
-      this._toast("Could not save camera selection", "error");
-      return;
-    }
-    // Rebuild local camera list with friendly names from hass states
-    this._homeAloneCameras = selected.map(eid => {
-      const state = this._hass?.states?.[eid];
-      return { entity_id: eid, name: state?.attributes?.friendly_name || eid };
-    });
-    this._render();
-  }
-
-  // ===
   // TAB: TESTING
   // ===
   _renderTesting() {
@@ -3101,8 +2751,69 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
 
+      <!-- Days Since Last Test Banner -->
+      ${(() => {
+        const lastTest = this._data.health?.last_test;
+        if (!lastTest) return "";
+        const days = lastTest.days_since;
+        const overall = lastTest.overall;
+        if (overall === "never") {
+          return `
+            <div style="padding:12px 16px;background:var(--sm-warning-dim);border-radius:8px;
+                 border-left:4px solid var(--sm-warning);margin-bottom:8px;
+                 display:flex;align-items:center;gap:10px">
+              <span style="color:var(--sm-warning)">${icon("warn")}</span>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--sm-warning)">System has never been tested</div>
+                <div style="font-size:12px;color:var(--sm-text-secondary)">Run a Standard test to verify all systems</div>
+              </div>
+            </div>`;
+        }
+        if (days !== null && days !== undefined) {
+          if (days > 30) {
+            return `
+              <div style="padding:12px 16px;background:rgba(180,0,0,0.1);border-radius:8px;
+                   border-left:4px solid var(--sm-danger);margin-bottom:8px;
+                   display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-danger)">${icon("warn")}</span>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--sm-danger)">Last test: ${days} days ago</div>
+                  <div style="font-size:12px;color:var(--sm-text-secondary)">Strongly recommended — run a Full test now</div>
+                </div>
+              </div>`;
+          }
+          if (days > 7) {
+            return `
+              <div style="padding:12px 16px;background:var(--sm-warning-dim);border-radius:8px;
+                   border-left:4px solid var(--sm-warning);margin-bottom:8px;
+                   display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-warning)">${icon("warn")}</span>
+                <div>
+                  <div style="font-size:13px;font-weight:600;color:var(--sm-warning)">Last test: ${days} days ago</div>
+                  <div style="font-size:12px;color:var(--sm-text-secondary)">Weekly testing recommended</div>
+                </div>
+              </div>`;
+          }
+          if (days === 0) {
+            return `
+              <div style="padding:10px 16px;background:var(--sm-accent-dim);border-radius:8px;
+                   margin-bottom:8px;display:flex;align-items:center;gap:10px">
+                <span style="color:var(--sm-accent)">${icon("ok")}</span>
+                <div style="font-size:12px">Last test: today &middot; ${lastTest.overall?.toUpperCase() || ""} &middot; ${lastTest.test_type || ""}</div>
+              </div>`;
+          }
+          return `
+            <div style="padding:10px 16px;background:var(--sm-accent-dim);border-radius:8px;
+                 margin-bottom:8px;display:flex;align-items:center;gap:10px">
+              <span style="color:var(--sm-accent)">${icon("ok")}</span>
+              <div style="font-size:12px">Last test: ${days} day${days !== 1 ? "s" : ""} ago &middot; ${lastTest.overall?.toUpperCase() || ""} &middot; ${lastTest.test_type || ""}</div>
+            </div>`;
+        }
+        return "";
+      })()}
+
       <!-- Test Controls -->
-      <div class="section-header" style="margin-top:24px">
+      <div class="section-header" style="margin-top:8px">
         <h3 class="section-title">Run Tests</h3>
         ${isRunning ? '<span class="badge entry">Running...</span>' : ''}
       </div>
@@ -3202,20 +2913,32 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="sm-card" style="padding:0;overflow:hidden">
         <div style="padding:16px 20px;background:${
-          result.overall === "pass" ? "var(--sm-accent-dim)" :
-          result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
-        };display:flex;align-items:center;gap:12px">
+          result.overall === "pass"     ? "var(--sm-accent-dim)" :
+          result.overall === "warning"  ? "var(--sm-warning-dim)" :
+          result.overall === "critical" ? "rgba(180,0,0,0.15)" :
+                                          "var(--sm-danger-dim)"
+        };display:flex;align-items:center;gap:12px${
+          result.overall === "critical" ? ";border-left:4px solid var(--sm-danger)" : ""
+        }">
           <span style="font-size:24px">
-            ${result.overall === "pass" ? icon("ok") : result.overall === "warning" ? icon("warn") : icon("fail")}
+            ${result.overall === "pass"     ? icon("ok") :
+              result.overall === "warning"  ? icon("warn") :
+              result.overall === "critical" ? icon("fail") :
+                                              icon("fail")}
           </span>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;text-transform:capitalize">
+            <div style="font-size:14px;font-weight:600;text-transform:capitalize;display:flex;align-items:center;gap:8px">
               ${result.test_type} Test &mdash; ${result.overall.toUpperCase()}
+              ${result.overall === "critical" ? '<span style="font-size:10px;font-weight:700;background:var(--sm-danger);color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:0.05em">CRITICAL</span>' : ""}
             </div>
             <div style="font-size:12px;opacity:0.8">
               ${result.timestamp} &middot; ${result.duration_seconds}s
               &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed${summary.warned ? ", " + summary.warned + " warned" : ""}, ${summary.skipped || 0} skipped
             </div>
+            ${(summary.critical_fails || []).length > 0 ? `
+              <div style="font-size:11px;color:var(--sm-danger);margin-top:4px;font-weight:600">
+                Critical: ${(summary.critical_fails || []).join(", ")}
+              </div>` : ""}
           </div>
         </div>
 
@@ -3224,7 +2947,7 @@ class SecureMePanel extends HTMLElement {
             const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
                           m.status === "warning" ? "var(--sm-warning)" :
-                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-warning)";
+                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-danger)";
             const statusText = m.status === "pass"    ? "PASS" :
                                m.status === "skipped" ? "SKIP" :
                                m.status === "warning" ? "WARN" :
@@ -3232,15 +2955,28 @@ class SecureMePanel extends HTMLElement {
             const detail = m.status === "warning" && m.reason === "no_entities"
               ? "Not configured - add entities in module settings"
               : m.test_result?.message || m.message || "";
+            const sevBadge = m.severity && m.status !== "pass" && m.status !== "skipped" ? (() => {
+              const sevColors = {
+                critical: "background:var(--sm-danger);color:#fff",
+                high:     "background:var(--sm-warning);color:#000",
+                medium:   "background:var(--sm-blue-dim);color:var(--sm-blue)",
+                low:      "background:var(--sm-border);color:var(--sm-text-secondary)",
+              };
+              const style = sevColors[m.severity] || sevColors.medium;
+              return `<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;${style}">${m.severity.toUpperCase()}</span>`;
+            })() : "";
             return `
               <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
-                   border-bottom:1px solid var(--sm-border)">
+                   border-bottom:1px solid var(--sm-border)${m.severity === "critical" && m.status === "fail" ? ";background:rgba(180,0,0,0.04)" : ""}">
                 <span style="color:${color};font-weight:700;font-size:11px;
                      min-width:40px">${statusText}</span>
                 <div style="flex:1">
-                  <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                    ${sevBadge}
+                  </div>
                   ${m.entities_total != null ? `
-                    <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
+                    <span style="font-size:11px;color:var(--sm-text-secondary)">
                       ${m.entities_available}/${m.entities_total} entities
                     </span>
                   ` : ""}
@@ -4886,20 +4622,6 @@ class SecureMePanel extends HTMLElement {
             // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {
       btn.addEventListener("click", () => this._setAutoSection(btn.dataset.autoSection));
-    });
-
-    // === v1.1.0: Fake Presence Toggle ===
-    const fpToggle = root.getElementById("fp-toggle");
-    if (fpToggle) {
-      fpToggle.addEventListener("change", () => this._toggleFakePresence());
-    }
-
-    // === v1.1.0: Monitor Camera Checkboxes ===
-    root.querySelectorAll("[data-monitor-camera]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._toggleMonitorCamera(btn.dataset.monitorCamera);
-      });
     });
   }
 }
