@@ -5,7 +5,7 @@ Run before every commit to ensure all files have the same version.
 
 Usage:
     python3 validate_version.py           # Auto-detect version from manifest.json
-    python3 validate_version.py 0.9.0     # Validate against specific version
+    python3 validate_version.py 1.1.0     # Validate against specific version
     python3 validate_version.py --fix     # Auto-fix all version mismatches
 """
 import sys
@@ -24,11 +24,6 @@ def get_manifest_version() -> str:
 
 
 def check_file(path: Path, version: str, patterns: list[tuple]) -> list[str]:
-    """
-    Check a file for version consistency.
-    patterns: list of (regex, description) tuples to look for.
-    Returns list of error messages.
-    """
     errors = []
     if not path.exists():
         return [f"FILE NOT FOUND: {path}"]
@@ -45,11 +40,6 @@ def check_file(path: Path, version: str, patterns: list[tuple]) -> list[str]:
 
 
 def fix_file(path: Path, version: str, replacements: list[tuple]) -> bool:
-    """
-    Fix version in a file.
-    replacements: list of (pattern, replacement_template) tuples.
-    Returns True if file was changed.
-    """
     if not path.exists():
         return False
 
@@ -74,22 +64,22 @@ FILES = [
     {
         "path": ROOT / "const.py",
         "check": [
-            (r'^# VERSION = "1.0.0"', "version comment"),
+            (r'^# VERSION = "([\d.]+)"', "version comment"),
             (r'^VERSION = "([\d.]+)"', "VERSION constant"),
         ],
         "fix": [
-            (r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"'),
+            (r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"'),
             (r'^VERSION = "[\d.]+"', 'VERSION = "VERSION"'),
         ],
     },
     {
         "path": ROOT / "panel.py",
         "check": [
-            (r'^# VERSION = "1.0.0"', "version comment"),
+            (r'^# VERSION = "([\d.]+)"', "version comment"),
             (r'^VERSION = "([\d.]+)"', "VERSION constant"),
         ],
         "fix": [
-            (r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"'),
+            (r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"'),
             (r'^VERSION = "[\d.]+"', 'VERSION = "VERSION"'),
         ],
     },
@@ -112,8 +102,8 @@ PY_COMMENT_FILES = [
 for py_file in PY_COMMENT_FILES:
     FILES.append({
         "path": py_file,
-        "check": [(r'^# VERSION = "1.0.0"', "version comment")],
-        "fix": [(r'^# VERSION = "1.0.0"', '# VERSION = "1.0.0"')],
+        "check": [(r'^# VERSION = "([\d.]+)"', "version comment")],
+        "fix": [(r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"')],
     })
 
 
@@ -122,7 +112,6 @@ def main():
     fix_mode = "--fix" in args
     args = [a for a in args if a != "--fix"]
 
-    # Determine target version
     try:
         version = args[0] if args else get_manifest_version()
     except Exception as e:
@@ -144,7 +133,6 @@ def main():
             if changed:
                 print(f"  FIXED  {path.name}")
         else:
-            # Use MULTILINE for .py comment patterns
             errors = []
             if not path.exists():
                 errors.append(f"  FILE NOT FOUND: {path}")
@@ -153,9 +141,6 @@ def main():
                 for pattern, description in file_def["check"]:
                     flags = re.MULTILINE if pattern.startswith("^") else 0
                     matches = re.findall(pattern, content, flags)
-                    if not matches:
-                        # Pattern not found at all - skip (file may not have that line)
-                        pass
                     for match in matches:
                         if match != version:
                             errors.append(
@@ -167,7 +152,6 @@ def main():
         print("\nAll files fixed! Run without --fix to verify.")
         sys.exit(0)
 
-    # Report
     if all_errors:
         print(f"\nFAIL - {len(all_errors)} version mismatch(es) found:\n")
         for err in all_errors:
