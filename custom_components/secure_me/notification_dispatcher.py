@@ -9,7 +9,7 @@ CRITICAL SAFETY ALERTS (smoke + water_leak):
 
 User-configurable: armed, disarmed, triggered, arming, pending, low_battery
 """
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 from __future__ import annotations
 
