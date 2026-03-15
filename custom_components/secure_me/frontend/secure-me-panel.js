@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 0.9.0
+ * VERSION: 1.0.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -180,6 +180,7 @@ const panelStyles = `
   .badge.contact { color: var(--sm-blue); background: var(--sm-blue-dim); }
   .badge.motion { color: var(--sm-purple); background: var(--sm-purple-dim); }
   .badge.presence { color: var(--sm-teal); background: var(--sm-teal-dim); }
+  .badge.environmental { color: var(--sm-warning); background: var(--sm-warning-dim); }
   .badge.entry { color: var(--sm-warning); background: var(--sm-warning-dim); }
   .badge.interior { color: var(--sm-blue); background: var(--sm-blue-dim); }
   .badge.perimeter { color: var(--sm-danger); background: var(--sm-danger-dim); }
@@ -1884,9 +1885,12 @@ class SecureMePanel extends HTMLElement {
   // ===
   _renderSensors() {
     const sensors = this._data.sensors || [];
-    const enabled = sensors.filter(s => s.enabled);
-    const disabled = sensors.filter(s => !s.enabled);
-    const typeLabels = { contact: "Contact", motion: "Motion", presence: "Presence" };
+    // Split: environmental (always on, read-only) vs normal sensors
+    const envSensors = sensors.filter(s => s.is_environmental);
+    const normalSensors = sensors.filter(s => !s.is_environmental);
+    const enabled = normalSensors.filter(s => s.enabled);
+    const disabled = normalSensors.filter(s => !s.enabled);
+    const typeLabels = { contact: "Contact", motion: "Motion", presence: "Presence", environmental: "Environmental" };
 
     const renderSensorRow = (s) => `
       <div class="sm-list-row ${s.enabled ? "" : "disabled"}"
@@ -1903,11 +1907,42 @@ class SecureMePanel extends HTMLElement {
       </div>
     `;
 
+    const envSection = envSensors.length === 0 ? "" : `
+      <div class="section-header" style="margin-top:24px">
+        <div>
+          <h3 class="section-title">Environmental Sensors</h3>
+          <p class="section-subtitle">Always active — smoke, gas and moisture sensors cannot be disabled</p>
+        </div>
+        <span class="badge environmental">${envSensors.length} active</span>
+      </div>
+      <div class="sm-card no-pad" style="overflow:hidden">
+        <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
+          <span>Sensor</span><span>Type</span><span style="text-align:right;color:var(--sm-text-tertiary);font-size:11px">Always On</span>
+        </div>
+        ${envSensors.map(s => `
+          <div class="sm-list-row" style="grid-template-columns:1fr auto auto">
+            <div>
+              <div style="font-size:14px;font-weight:500">${s.name}</div>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+            </div>
+            <span class="badge environmental">Environmental</span>
+            <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+                        color:var(--sm-danger);opacity:0.5"
+                 title="Cannot be disabled">
+              <span style="width:16px;height:16px;display:inline-flex">${icon("lock")}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+
     return `
+      ${this._renderFakePresenceBar()}
+
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
-          <p class="section-subtitle">${enabled.length} of ${sensors.length} sensors active</p>
+          <p class="section-subtitle">${enabled.length} of ${normalSensors.length} sensors active</p>
         </div>
         <span class="badge accent">${enabled.length} active</span>
       </div>
@@ -1935,6 +1970,8 @@ class SecureMePanel extends HTMLElement {
           `}
         </div>
       </div>
+
+      ${envSection}
 
       <div class="info-card warning">
         <span style="color:var(--sm-warning);display:flex;align-items:center">${icon("warn")}</span>
