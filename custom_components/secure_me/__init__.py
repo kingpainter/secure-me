@@ -21,10 +21,10 @@ from .const import (
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
-from . import panel
 
 if TYPE_CHECKING:
     from homeassistant.components import system_health
+    from . import panel as _panel_module
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -97,10 +97,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["_websocket_registered"] = True
         _LOGGER.debug("WebSocket API registered")
 
-    # Register frontend panel (global, once)
+    # Register frontend panel (global, once) — lazy import to avoid import
+    # errors in test environments where HA HTTP components may not be available.
     if not hass.data[DOMAIN].get("_panel_registered", False):
         try:
-            await panel.async_register_panel(hass)
+            from . import panel as _panel
+            await _panel.async_register_panel(hass)
             hass.data[DOMAIN]["_panel_registered"] = True
         except Exception as err:
             _LOGGER.error("Panel registration failed: %s", err)
@@ -134,13 +136,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if undo_listener:
             undo_listener()
 
-        # Unregister panel if this was the last entry
+        # Unregister panel if last entry
         remaining = [k for k in hass.data[DOMAIN] if k not in (
-            entry.entry_id, "store", "_websocket_registered", "_panel_registered",
-            "_notification_dispatcher",
+            entry.entry_id, "store", "_websocket_registered",
+            "_panel_registered", "_notification_dispatcher",
         )]
         if not remaining:
-            panel.async_unregister_panel(hass)
+            try:
+                from . import panel as _panel
+                _panel.async_unregister_panel(hass)
+            except Exception:
+                pass
             hass.data[DOMAIN]["_panel_registered"] = False
 
         # Remove entry data
