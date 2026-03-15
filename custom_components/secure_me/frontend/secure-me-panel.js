@@ -2124,8 +2124,22 @@ class SecureMePanel extends HTMLElement {
       </div>
     `;
 
-    const envSection = envSensors.length === 0 ? "" : `
-      <div class="section-header" style="margin-top:24px">
+    const envSection = envSensors.length === 0 ? "" : (() => {
+      const envRows = envSensors.map(s =>
+        '<div class="sm-list-row" style="grid-template-columns:1fr auto auto">' +
+          '<div>' +
+            '<div style="font-size:14px;font-weight:500">' + s.name + '</div>' +
+            '<div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">' + s.entity_id + '</div>' +
+          '</div>' +
+          '<span class="badge environmental">Environmental</span>' +
+          '<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;' +
+               'color:var(--sm-warning);opacity:0.6" title="Cannot be disabled">' +
+            '<span style="width:16px;height:16px;display:inline-flex">' + icon("lock") + '</span>' +
+          '</div>' +
+        '</div>'
+      ).join("");
+      return `
+      <div class="section-header">
         <div>
           <h3 class="section-title">Environmental Sensors</h3>
           <p class="section-subtitle">Always active — smoke, gas and moisture sensors cannot be disabled</p>
@@ -2134,26 +2148,17 @@ class SecureMePanel extends HTMLElement {
       </div>
       <div class="sm-card no-pad" style="overflow:hidden">
         <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-          <span>Sensor</span><span>Type</span><span style="text-align:right;color:var(--sm-text-tertiary);font-size:11px">Always On</span>
+          <span>Sensor</span><span>Type</span>
+          <span style="text-align:right;color:var(--sm-text-tertiary);font-size:11px">Always On</span>
         </div>
-        ${envSensors.map(s => \`
-          <div class="sm-list-row" style="grid-template-columns:1fr auto auto">
-            <div>
-              <div style="font-size:14px;font-weight:500">\${s.name}</div>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">\${s.entity_id}</div>
-            </div>
-            <span class="badge environmental">Environmental</span>
-            <div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-                        color:var(--sm-warning);opacity:0.6" title="Cannot be disabled">
-              <span style="width:16px;height:16px;display:inline-flex">\${icon("lock")}</span>
-            </div>
-          </div>
-        \`).join("")}
-      </div>
-    `;
+        ${envRows}
+      </div>`;
+    })();
+    return `
+      ${this._renderFakePresenceBar()}
 
-    return \`
-      \${this._renderFakePresenceBar()}
+      ${envSection}
+
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
@@ -2185,8 +2190,6 @@ class SecureMePanel extends HTMLElement {
           `}
         </div>
       </div>
-
-      ${envSection}
 
       <div class="info-card warning">
         <span style="color:var(--sm-warning);display:flex;align-items:center">${icon("warn")}</span>
