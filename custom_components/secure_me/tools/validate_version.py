@@ -13,7 +13,9 @@ import re
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent  # tools/../ = custom_components/secure_me/
+# Resolve to absolute path so relative execution (e.g. from repo root) works correctly.
+# tools/validate_version.py -> .resolve().parent = tools/ -> .parent = secure_me/
+ROOT = Path(__file__).resolve().parent.parent  # = custom_components/secure_me/
 
 
 def get_manifest_version() -> str:
@@ -21,22 +23,6 @@ def get_manifest_version() -> str:
     manifest = ROOT / "manifest.json"
     data = json.loads(manifest.read_text(encoding="utf-8"))
     return data["version"]
-
-
-def check_file(path: Path, version: str, patterns: list[tuple]) -> list[str]:
-    errors = []
-    if not path.exists():
-        return [f"FILE NOT FOUND: {path}"]
-
-    content = path.read_text(encoding="utf-8")
-    for pattern, description in patterns:
-        matches = re.findall(pattern, content)
-        for match in matches:
-            if match != version:
-                errors.append(
-                    f"  {path.name}: {description} is '{match}' (expected '{version}')"
-                )
-    return errors
 
 
 def fix_file(path: Path, version: str, replacements: list[tuple]) -> bool:
@@ -94,7 +80,7 @@ FILES = [
     },
 ]
 
-# All .py files get version comment check
+# All .py files in secure_me/ and secure_me/modules/ get version comment check
 PY_COMMENT_FILES = [
     f for f in list(ROOT.glob("*.py")) + list((ROOT / "modules").glob("*.py"))
     if f.name not in ("const.py", "panel.py", "validate_version.py")
