@@ -8,7 +8,7 @@ Covers v0.4.0 changes:
 - State backup/restore helpers
 - Entity availability helpers
 """
-# VERSION = "0.9.0"
+# VERSION = "1.1.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
@@ -319,7 +319,6 @@ class TestRecoveryAfterDegraded:
         hass = make_hass_with_notification()
         hass.services.async_call = AsyncMock()
         mod = ConcreteModule(hass)
-        # degraded is False (default)
 
         await mod.async_call_service_with_retry("light", "turn_on", action="arm")
         hass.components.persistent_notification.async_create.assert_not_called()
@@ -352,7 +351,6 @@ class TestSingleAttemptCall:
 
     @pytest.mark.asyncio
     async def test_failure_does_not_set_degraded(self):
-        """Single-attempt call failure does NOT affect degraded state."""
         hass = make_hass_with_notification()
         hass.services.async_call = AsyncMock(side_effect=Exception("fail"))
         mod = ConcreteModule(hass)

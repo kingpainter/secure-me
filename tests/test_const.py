@@ -1,5 +1,5 @@
 """Tests for Secure Me constants."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 import pytest
 
@@ -43,8 +43,8 @@ class TestConstants:
         for part in parts:
             assert part.isdigit()
 
-    def test_version_is_1_0_0(self):
-        assert VERSION == "1.0.0"
+    def test_version_is_1_1_0(self):
+        assert VERSION == "1.1.0"
 
     def test_platforms_not_empty(self):
         assert len(PLATFORMS) > 0
@@ -96,3 +96,15 @@ class TestConstants:
         assert EVENT_ALARM_ARMED.startswith(DOMAIN)
         assert EVENT_ALARM_DISARMED.startswith(DOMAIN)
         assert EVENT_ALARM_TRIGGERED.startswith(DOMAIN)
+
+    def test_fake_presence_constants_defined(self):
+        from custom_components.secure_me.const import (
+            CONF_FAKE_PRESENCE,
+            CONF_HOME_ALONE_CAMERAS,
+            NOTIFY_ID_FAKE_PRESENCE,
+            EVENT_FAKE_PRESENCE_CHANGED,
+        )
+        assert CONF_FAKE_PRESENCE == "fake_presence"
+        assert CONF_HOME_ALONE_CAMERAS == "home_alone_cameras"
+        assert NOTIFY_ID_FAKE_PRESENCE == "secure_me_fake_presence"
+        assert EVENT_FAKE_PRESENCE_CHANGED.startswith(DOMAIN)

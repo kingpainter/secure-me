@@ -1,5 +1,5 @@
 """Tests for Secure Me store."""
-# VERSION = "0.3.0"
+# VERSION = "1.1.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -15,8 +15,21 @@ class TestStoreDefaults:
         store = SecureMeStore(mock_hass)
         defaults = store._default_data()
         expected_keys = {"sensors", "zones", "users", "modules",
-                         "notifications", "automations"}
+                         "notifications", "automations",
+                         "fake_presence", "home_alone_cameras"}
         assert set(defaults.keys()) == expected_keys
+
+    def test_default_fake_presence_is_false(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        defaults = store._default_data()
+        assert defaults["fake_presence"] is False
+
+    def test_default_home_alone_cameras_is_empty(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        defaults = store._default_data()
+        assert defaults["home_alone_cameras"] == []
 
     def test_default_modules_all_disabled(self):
         mock_hass = MagicMock()
@@ -65,6 +78,57 @@ class TestStoreInferType:
         mock_hass = MagicMock()
         store = SecureMeStore(mock_hass)
         assert store._infer_type("foobar") == "contact"
+
+
+class TestStoreFakePresence:
+    """Test fake presence CRUD."""
+
+    def test_get_fake_presence_default_false(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        assert store.get_fake_presence() is False
+
+    @pytest.mark.asyncio
+    async def test_set_fake_presence_true(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        await store.async_set_fake_presence(True)
+        assert store.get_fake_presence() is True
+
+    @pytest.mark.asyncio
+    async def test_set_fake_presence_false(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._data["fake_presence"] = True
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        await store.async_set_fake_presence(False)
+        assert store.get_fake_presence() is False
+
+    def test_get_home_alone_cameras_default_empty(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        assert store.get_home_alone_cameras() == []
+
+    @pytest.mark.asyncio
+    async def test_save_and_get_home_alone_cameras(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        cameras = ["camera.front", "camera.back"]
+        await store.async_save_home_alone_cameras(cameras)
+        assert store.get_home_alone_cameras() == cameras
 
 
 class TestStoreCRUD:

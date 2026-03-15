@@ -1,5 +1,5 @@
 """Shared fixtures for Secure Me tests."""
-# VERSION = "0.3.0"
+# VERSION = "1.1.0"
 
 from __future__ import annotations
 
@@ -190,6 +190,7 @@ def mock_hass_with_binary_sensors(mock_hass: MockHass) -> MockHass:
         "friendly_name": "Smoke Detector",
     })
     return mock_hass
+
 
 @pytest.fixture
 def mock_coordinator():
