@@ -1,5 +1,5 @@
 """Tests for Secure Me integration initialization."""
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -133,11 +133,9 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
-        # First setup
         await async_setup_entry(hass, mock_config_entry)
         assert mock_register_ws.call_count == 1
         
-        # Second setup (simulate multiple entries)
         mock_config_entry2 = MagicMock(spec=ConfigEntry)
         mock_config_entry2.entry_id = "second_entry"
         mock_config_entry2.data = mock_config_entry.data
@@ -149,7 +147,6 @@ async def test_setup_registers_websocket_once(hass: HomeAssistant, mock_config_e
         with patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator2):
             await async_setup_entry(hass, mock_config_entry2)
         
-        # WebSocket should still only be registered once
         assert mock_register_ws.call_count == 1
 
 
@@ -165,11 +162,9 @@ async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry
         
         hass.config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
         
-        # First setup
         await async_setup_entry(hass, mock_config_entry)
         assert mock_register_panel.call_count == 1
         
-        # Second setup
         mock_config_entry2 = MagicMock(spec=ConfigEntry)
         mock_config_entry2.entry_id = "second_entry"
         mock_config_entry2.data = mock_config_entry.data
@@ -181,5 +176,4 @@ async def test_setup_registers_panel_once(hass: HomeAssistant, mock_config_entry
         with patch("custom_components.secure_me.SecureMeCoordinator", return_value=mock_coordinator2):
             await async_setup_entry(hass, mock_config_entry2)
         
-        # Panel should still only be registered once
         assert mock_register_panel.call_count == 1
