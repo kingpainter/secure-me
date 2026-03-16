@@ -4349,7 +4349,7 @@ class SecureMePanel extends HTMLElement {
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Volume: ${this._tempConfig?.volume || 70}%</label>
+              <label class="form-label">Volume: <span data-volume-label>${this._tempConfig?.volume || 70}</span>%</label>
               <input type="range" class="form-slider" min="0" max="100" step="5" data-tts-field="volume" value="${this._tempConfig?.volume || 70}">
             </div>
           </div>
@@ -4872,7 +4872,12 @@ class SecureMePanel extends HTMLElement {
       inp.addEventListener("change", () => this._updateTTSField(inp.dataset.ttsField, inp.value));
     });
     root.querySelectorAll("input[type='range'][data-tts-field]").forEach(inp => {
-      inp.addEventListener("input", () => { this._updateTTSField(inp.dataset.ttsField, inp.value); this._render(); });
+      inp.addEventListener("input", () => {
+        this._updateTTSField(inp.dataset.ttsField, inp.value);
+        // Patch volume label surgically — no full re-render needed
+        const label = root.querySelector('[data-volume-label]');
+        if (label) label.textContent = inp.value + '%';
+      });
     });
     const ttsCustomInput = root.querySelector('#tts-service-custom');
     if (ttsCustomInput) {
