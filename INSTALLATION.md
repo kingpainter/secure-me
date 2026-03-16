@@ -1,6 +1,6 @@
 # Secure Me — Installation Guide
 
-**Version:** 0.8.0  
+**Version:** 1.1.0  
 **Requires:** Home Assistant 2025.1.1+
 
 ---
@@ -66,6 +66,8 @@ Create at least one zone and assign your sensors to it. Choose a zone type:
 ### 3. Enable Modules (Modules tab)
 
 Enable the modules that match your hardware. Each module has a configure button — click it to set up entities. Changes take effect after restarting Home Assistant.
+
+**TTS note:** When configuring the TTS module, select the service that matches your setup — `tts.cloud_say` for Nabu Casa, `tts.google_translate_say` for Google Translate, `tts.google_say` for Google Cast, or enter a custom service name.
 
 ### 4. Run a Test (Testing tab)
 

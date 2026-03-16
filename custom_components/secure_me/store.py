@@ -84,10 +84,13 @@ class SecureMeStore:
                                 "vibration", "smoke", "gas", "moisture"):
                 configured = self._data.get("sensors", {}).get(state.entity_id, {})
                 # is_environmental: True if device_class matches OR user manually marked it
+                # User can force-unmark an env sensor by setting env_unmarked: true
+                if configured.get("excluded", False):
+                    continue
                 is_env = (
                     device_class in self._ENV_CLASSES
-                    or configured.get("is_environmental", False)
-                )
+                    and not configured.get("env_unmarked", False)
+                ) or configured.get("is_environmental", False)
                 sensors.append({
                     "entity_id": state.entity_id,
                     "name": state.attributes.get("friendly_name", state.entity_id),
@@ -97,10 +100,13 @@ class SecureMeStore:
                     # Environmental sensors are always enabled — user cannot toggle
                     "enabled": True if is_env else configured.get("enabled", False),
                     "sensor_type": "environmental" if is_env else configured.get("sensor_type", self._infer_type(device_class)),
+                    "env_unmarked": configured.get("env_unmarked", False),
                 })
         # Also include person/device_tracker for presence
         for state in self.hass.states.async_all("person"):
             configured = self._data.get("sensors", {}).get(state.entity_id, {})
+            if configured.get("excluded", False):
+                continue
             sensors.append({
                 "entity_id": state.entity_id,
                 "name": state.attributes.get("friendly_name", state.entity_id),
@@ -108,9 +114,22 @@ class SecureMeStore:
                 "state": state.state,
                 "enabled": configured.get("enabled", False),
                 "sensor_type": "presence",
+                "excluded": False,
             })
+
+        # Device trackers — skip irrelevant non-person devices unless user
+        # has explicitly enabled them. Heuristic patterns cover network gear,
+        # TVs, printers etc.
+        _IRRELEVANT_PATTERNS = (
+            "unifi_", "dlna_", "_tv_", "_samsung_", "_lg_", "_roku_",
+            "skraldespands", "printer", "_sonos_",
+        )
         for state in self.hass.states.async_all("device_tracker"):
             configured = self._data.get("sensors", {}).get(state.entity_id, {})
+            if configured.get("excluded", False):
+                continue
+            eid_lower = state.entity_id.lower()
+            auto_hidden = any(p in eid_lower for p in _IRRELEVANT_PATTERNS)
             sensors.append({
                 "entity_id": state.entity_id,
                 "name": state.attributes.get("friendly_name", state.entity_id),
@@ -118,6 +137,7 @@ class SecureMeStore:
                 "state": state.state,
                 "enabled": configured.get("enabled", False),
                 "sensor_type": "presence",
+                "auto_hidden": auto_hidden and not configured.get("enabled", False),
             })
         return sensors
 

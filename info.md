@@ -29,7 +29,7 @@ Secure Me turns Home Assistant into a full-featured alarm system. You configure 
 - **Lights** — Controls lights and flashes them during alarm
 - **Climate** — Sets away temperature when armed, restores on disarm
 - **Siren** — Sounds alarm patterns via Xiaomi gateway or compatible devices
-- **TTS** — Announces alarm status via media players (Danish and English)
+- **TTS** — Voice notifications via any TTS service (cloud_say, google_say, piper, custom)
 
 **Health & Testing**
 - Per-module health status visible directly on the Modules tab
@@ -42,6 +42,11 @@ Secure Me turns Home Assistant into a full-featured alarm system. You configure 
 - Mobile-responsive with bottom navigation bar
 - Real-time status updates via WebSocket
 - Toast notifications instead of browser popups
+- Environmental sensors always-on with forced notifications
+- Fake Presence toggle to block automatic arming
+- Sensor hide/exclude for irrelevant device trackers
+- User to person tracker binding for presence automation
+- Home Alone Monitor camera configuration
 
 ---
 

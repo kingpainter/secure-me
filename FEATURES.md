@@ -2,8 +2,8 @@
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 0.9.0 (Pre-Release Testing)
-**Last Updated:** 2026-02-21
+**Version:** 1.1.0
+**Last Updated:** 2026-03-16
 
 ---
 
@@ -26,6 +26,18 @@ Complete feature documentation for the Secure Me Home Assistant alarm system int
 ---
 
 ## What's New
+
+### v1.1.0 -- Feature Release
+- Environmental sensors always-on section with forced notifications and remove button
+- TTS multi-service support: cloud_say, google_translate_say, google_say, piper, voice_rss, custom
+- Sensor hide/exclude: inactive sensors have Hide button, irrelevant device_trackers auto-hidden
+- User to person tracker binding for presence-based automation
+- Fake Presence toggle on Sensors tab blocks automatic arming
+- Home Alone Monitor camera selector in Future tab
+- Chevron SVG bug fix (giant icon in module panels)
+
+### v1.0.0 -- Production Release
+- HACS submission completed, end-to-end testing passed, panel flickering resolved
 
 ### v0.9.0 -- Pre-Release Testing
 - 68 new unit tests covering v0.4.0-v0.8.0 changes
@@ -695,15 +707,16 @@ state_color: true
 
 ### Panel Overview
 
-7 tabs in the Secure Me sidebar panel (~4400 lines, emoji-free):
+8 tabs in the Secure Me sidebar panel (~4900 lines, emoji-free):
 
-1. Sensors -- sensor overview and status
+1. Sensors -- sensor overview, Fake Presence toggle, environmental always-on section
 2. Zones -- zone configuration and management
-3. Users -- PIN code and NFC management
+3. Users -- PIN code, NFC, and person tracker binding
 4. Modules -- smart module settings with live health badges
-5. Automations -- automation trigger templates
-6. Settings -- system configuration
-7. Testing -- health monitoring and test execution
+5. Actions -- automation trigger templates
+6. Test -- health monitoring and test execution
+7. Future -- Home Alone Monitor camera configuration
+8. Settings -- system configuration
 
 ### Module Configuration
 
@@ -898,6 +911,6 @@ Validated by dedicated script and CI on every commit.
 
 ---
 
-**Version:** 0.9.0
-**Status:** Pre-Release Testing -- targeting v1.0.0
-**Last Updated:** 2026-02-21
+**Version:** 1.1.0
+**Status:** Production Release
+**Last Updated:** 2026-03-16

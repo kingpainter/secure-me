@@ -178,9 +178,9 @@ const panelStyles = `
     letter-spacing: 0.02em;
   }
   .badge.contact { color: var(--sm-blue); background: var(--sm-blue-dim); }
+  .badge.environmental { color: var(--sm-danger); background: var(--sm-danger-dim); font-weight: 700; }
   .badge.motion { color: var(--sm-purple); background: var(--sm-purple-dim); }
   .badge.presence { color: var(--sm-teal); background: var(--sm-teal-dim); }
-  .badge.environmental { color: var(--sm-warning); background: var(--sm-warning-dim); }
   .badge.entry { color: var(--sm-warning); background: var(--sm-warning-dim); }
   .badge.interior { color: var(--sm-blue); background: var(--sm-blue-dim); }
   .badge.perimeter { color: var(--sm-danger); background: var(--sm-danger-dim); }
@@ -1191,95 +1191,6 @@ const panelStyles = `
   @keyframes sm-pulse-red {
     0%, 100% { box-shadow: 0 0 0 0 rgba(255,69,58,0.4); }
     50%       { box-shadow: 0 0 0 8px rgba(255,69,58,0); }
-  }
-
-  /* === v1.1.0: Fake Presence Toggle === */
-  .fake-presence-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px; border-radius: 12px;
-    border: 1px solid var(--sm-border);
-    background: var(--sm-surface);
-    margin-bottom: 12px;
-    gap: 12px;
-  }
-  .fake-presence-bar.active {
-    border-color: rgba(255,159,10,0.35);
-    background: rgba(255,159,10,0.07);
-  }
-  .fake-presence-info { display: flex; align-items: center; gap: 12px; flex: 1; }
-  .fake-presence-icon {
-    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.06);
-    color: var(--sm-text-secondary);
-  }
-  .fake-presence-bar.active .fake-presence-icon {
-    background: rgba(255,159,10,0.15);
-    color: var(--sm-warning);
-  }
-  .fake-presence-icon svg { width: 20px; height: 20px; }
-  .fake-presence-label { font-size: 14px; font-weight: 600; }
-  .fake-presence-desc  { font-size: 12px; color: var(--sm-text-tertiary); margin-top: 2px; }
-  .fake-presence-bar.active .fake-presence-label { color: var(--sm-warning); }
-
-  /* Toggle switch */
-  .sm-toggle { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
-  .sm-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .sm-toggle-track {
-    position: absolute; inset: 0; border-radius: 13px;
-    background: rgba(255,255,255,0.1); border: 1px solid var(--sm-border);
-    cursor: pointer; transition: background 0.2s, border-color 0.2s;
-  }
-  .sm-toggle input:checked + .sm-toggle-track {
-    background: var(--sm-warning);
-    border-color: var(--sm-warning);
-  }
-  .sm-toggle-track::after {
-    content: ''; position: absolute;
-    top: 3px; left: 3px;
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-  .sm-toggle input:checked + .sm-toggle-track::after { transform: translateX(18px); }
-
-  /* === v1.1.0: Monitor Tab === */
-  .monitor-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-    margin-top: 8px;
-  }
-  .monitor-feed {
-    background: var(--sm-surface);
-    border: 1px solid var(--sm-border);
-    border-radius: 14px;
-    overflow: hidden;
-    position: relative;
-  }
-  .monitor-feed-header {
-    display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px;
-    background: rgba(0,0,0,0.3);
-    font-size: 12px; font-weight: 600;
-    color: var(--sm-text-secondary);
-    position: absolute; top: 0; left: 0; right: 0; z-index: 1;
-  }
-  .monitor-feed-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--sm-danger);
-    box-shadow: 0 0 6px var(--sm-danger);
-    animation: sm-pulse-red 1.5s ease-in-out infinite;
-  }
-  .monitor-feed img {
-    width: 100%; height: 220px;
-    object-fit: cover; display: block;
-    background: #000;
-  }
-  @media (max-width: 768px) {
-    .monitor-grid { grid-template-columns: 1fr; }
-    .monitor-feed img { height: 180px; }
   }`;
 
 // === Icons ===
@@ -1303,7 +1214,7 @@ const ICONS = {
   siren: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="12" y1="2" x2="12" y2="4"/></svg>',
   speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
   nfc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8.32a7.43 7.43 0 0 1 0 7.36"/><path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58"/><path d="M12.91 4.1a15.91 15.91 0 0 1 .01 15.8"/><path d="M16.37 2a20.16 20.16 0 0 1 0 20"/></svg>',
-  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
+  chevron: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>',
   wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>',
   dots: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></svg>',
   ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>',
@@ -1311,15 +1222,12 @@ const ICONS = {
   fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
   close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
-  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-  userX: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
 
 // === Tab Definitions ===
-// Static base tabs — always visible
-const BASE_TABS = [
+const TABS = [
   { key: "sensors", label: "Sensors", icon: "sensor" },
   { key: "zones", label: "Zones", icon: "zone" },
   { key: "users", label: "Users", icon: "user" },
@@ -1328,22 +1236,6 @@ const BASE_TABS = [
   { key: "testing", label: "Test", icon: "flask" },
   { key: "future", label: "Future", icon: "rocket" },
 ];
-
-// Monitor tab — injected when Fake Presence is active
-const MONITOR_TAB = { key: "monitor", label: "Monitor", icon: "eye" };
-
-// Returns the full tab list for the current fake presence state
-function getTabs(fakePresenceActive) {
-  if (!fakePresenceActive) return BASE_TABS;
-  // Insert Monitor tab right before Future
-  const tabs = [...BASE_TABS];
-  const futureIdx = tabs.findIndex(t => t.key === "future");
-  tabs.splice(futureIdx, 0, MONITOR_TAB);
-  return tabs;
-}
-
-// Legacy alias used in _buildShell — resolved at render time
-const TABS = BASE_TABS;
 
 // Module definitions
 const MODULE_DEFS = {
@@ -1382,13 +1274,12 @@ class SecureMePanel extends HTMLElement {
     this._renderTimeout = null;
     this._testRunning = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
+    this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
+    this._availablePersons = null;       // Cached person entities for user dialog
     this._sensorStatusExpanded = true; // Sensor online/offline section
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
     this._lastHealthUpdate = null;
-    // v1.1.0: Fake Presence
-    this._fakePresence = false;
-    this._homeAloneCameras = [];
   }
 
 
@@ -1686,8 +1577,8 @@ class SecureMePanel extends HTMLElement {
     if (automations) this._data.automations = automations.automations || {};
     if (state) this._alarmState = state.state || "disarmed";
     if (fakePresence) {
-      this._fakePresence = fakePresence.active || false;
-      this._homeAloneCameras = fakePresence.home_alone_cameras || [];
+      this._data.fakePresence = fakePresence.active || false;
+      this._data.homeAloneCameras = fakePresence.home_alone_cameras || [];
     }
 
     // Render immediately with essential data — no waiting for heavy tabs
@@ -1715,6 +1606,9 @@ class SecureMePanel extends HTMLElement {
     if (tab === "testing" && !this._data.health && !this._testingDataLoading) {
       this._testingDataLoading = true;
       this._loadTestingData().finally(() => { this._testingDataLoading = false; });
+    }
+    if (tab === "future" && !this._availableEntities.camera) {
+      this._loadEntitiesByDomain('camera').then(() => this._render());
     }
     this._render();
   }
@@ -1791,6 +1685,9 @@ class SecureMePanel extends HTMLElement {
   }
 
   _buildShell() {
+    const BOTTOM_TABS = TABS.slice(0, 5);
+    const MORE_TABS   = TABS.slice(5);
+
     this.shadowRoot.innerHTML = `
       <style>${panelStyles}</style>
 
@@ -1824,16 +1721,10 @@ class SecureMePanel extends HTMLElement {
             <div class="status-dot"></div>
             Disarmed
           </div>
-          <div id="shell-fake-presence-badge" style="display:none;margin-top:8px">
-            <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(255,159,10,0.15);color:var(--sm-warning);font-size:11px;font-weight:600;">
-              ${icon('userX')}
-              <span>Fake Presence ON</span>
-            </div>
-          </div>
         </div>
 
         <div class="nav-tabs" id="shell-nav-tabs">
-          ${getTabs(this._fakePresence).map(t => `
+          ${TABS.map(t => `
             <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
               <span class="nav-icon">${icon(t.icon)}</span>
@@ -1853,7 +1744,7 @@ class SecureMePanel extends HTMLElement {
 
       <!-- BOTTOM NAVIGATION BAR (mobile only) -->
       <nav class="bottom-nav" id="shell-bottom-nav">
-        ${getTabs(this._fakePresence).slice(0, 5).map(t => `
+        ${BOTTOM_TABS.map(t => `
           <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
                   data-tab="${t.key}">
             ${icon(t.icon)}
@@ -1871,7 +1762,7 @@ class SecureMePanel extends HTMLElement {
         <div class="more-drawer">
           <div class="more-drawer-handle"></div>
           <div class="more-drawer-title">More</div>
-          ${getTabs(this._fakePresence).slice(5).map(t => `
+          ${MORE_TABS.map(t => `
             <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
               ${icon(t.icon)}
@@ -1931,109 +1822,14 @@ class SecureMePanel extends HTMLElement {
       btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
     });
     // More button: highlight if active tab is in MORE_TABS
-    const currentTabs = getTabs(this._fakePresence);
-    const moreIsActive = currentTabs.slice(5).some(t => t.key === this._activeTab);
+    const MORE_TABS = TABS.slice(5);
+    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
     const moreBtn = this.shadowRoot.getElementById("more-btn");
     if (moreBtn) moreBtn.classList.toggle("more-active", moreIsActive);
     // More drawer items
     this.shadowRoot.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
     });
-  }
-
-  // v1.1.0: Toggle fake presence on/off.
-  // Calls backend, updates local state, patches sidebar badge + nav.
-  async _toggleFakePresence() {
-    const newVal = !this._fakePresence;
-    const result = await this._callWS("set_fake_presence", { active: newVal });
-    if (result === null) {
-      this._toast("Could not update Fake Presence", "error");
-      return;
-    }
-    this._fakePresence = newVal;
-    this._patchFakePresenceBadge();
-    this._rebuildNav();
-    // If monitor tab was active and we just turned off, switch to sensors
-    if (!newVal && this._activeTab === "monitor") {
-      this._activeTab = "sensors";
-    }
-    this._render();
-    this._toast(
-      newVal ? "Fake Presence activated — auto arm blocked" : "Fake Presence deactivated",
-      newVal ? "warning" : "success"
-    );
-  }
-
-  // v1.1.0: Surgical patch of the sidebar fake presence badge — no full re-render.
-  _patchFakePresenceBadge() {
-    const badge = this.shadowRoot.getElementById("shell-fake-presence-badge");
-    if (badge) badge.style.display = this._fakePresence ? "block" : "none";
-  }
-
-  // v1.1.0: Rebuilds sidebar nav + bottom nav + more drawer to add/remove Monitor tab.
-  // Called after fake presence toggle. Uses innerHTML on the nav containers only
-  // (not shadowRoot) — safe and targeted, no CSS reparse.
-  _rebuildNav() {
-    const tabs = getTabs(this._fakePresence);
-    const navTabs = this.shadowRoot.getElementById("shell-nav-tabs");
-    if (navTabs) {
-      navTabs.innerHTML = tabs.map(t => `
-        <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
-                data-tab="${t.key}">
-          <span class="nav-icon">${icon(t.icon)}</span>
-          <span>${t.label}</span>
-        </button>
-      `).join("");
-      navTabs.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
-      });
-    }
-
-    const bottomNav = this.shadowRoot.getElementById("shell-bottom-nav");
-    if (bottomNav) {
-      bottomNav.innerHTML = tabs.slice(0, 5).map(t => `
-        <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
-                data-tab="${t.key}">
-          ${icon(t.icon)}
-          <span>${t.label}</span>
-        </button>
-      `).join("") + `
-        <button class="bottom-nav-item" id="more-btn">
-          ${icon("dots")}
-          <span>More</span>
-        </button>`;
-      bottomNav.querySelectorAll(".bottom-nav-item[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
-      });
-      // Re-bind more button
-      const moreBtn = bottomNav.querySelector("#more-btn");
-      const moreOverlay = this.shadowRoot.getElementById("more-overlay");
-      if (moreBtn && moreOverlay) {
-        moreBtn.addEventListener("click", () => moreOverlay.classList.toggle("hidden"));
-      }
-    }
-
-    const moreDrawer = this.shadowRoot.querySelector(".more-drawer");
-    if (moreDrawer) {
-      const handle = moreDrawer.querySelector(".more-drawer-handle");
-      const title  = moreDrawer.querySelector(".more-drawer-title");
-      moreDrawer.innerHTML = (handle ? handle.outerHTML : '<div class="more-drawer-handle"></div>') +
-        (title  ? title.outerHTML  : '<div class="more-drawer-title">More</div>') +
-        tabs.slice(5).map(t => `
-          <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
-                  data-tab="${t.key}">
-            ${icon(t.icon)}
-            <span>${t.label}</span>
-          </button>
-        `).join("");
-      const moreOverlay = this.shadowRoot.getElementById("more-overlay");
-      moreDrawer.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          if (moreOverlay) moreOverlay.classList.add("hidden");
-          this._setTab(btn.dataset.tab);
-        });
-      });
-    }
   }
 
   // === Render — patches main-content only ===
@@ -2058,9 +1854,6 @@ class SecureMePanel extends HTMLElement {
 
     // Update status pills in-place
     this._updateStatusPills();
-
-    // v1.1.0: Update fake presence sidebar badge in-place
-    this._patchFakePresenceBadge();
 
     // Manage dialog: inject or remove from mount point
     const dialogMount = this.shadowRoot.getElementById("shell-dialog-mount");
@@ -2092,8 +1885,7 @@ class SecureMePanel extends HTMLElement {
       case "modules": return this._renderModules();
       case "automations": return this._renderAutomations();
       case "testing": return this._renderTesting();
-      case "monitor": return this._renderMonitor();
-      case "future": return this._renderPlaceholder("rocket", "Upcoming Features", "Pet immunity, AI person detection, cloud sync, voice control and much more.", "purple", "Future Development");
+      case "future": return this._renderFuture();
       default: return "";
     }
   }
@@ -2103,20 +1895,23 @@ class SecureMePanel extends HTMLElement {
   // ===
   _renderSensors() {
     const sensors = this._data.sensors || [];
-    const envSensors = sensors.filter(s => s.is_environmental);
-    const normalSensors = sensors.filter(s => !s.is_environmental);
-    const enabled = normalSensors.filter(s => s.enabled);
-    const disabled = normalSensors.filter(s => !s.enabled);
-    const typeLabels = { contact: "Contact", motion: "Motion", presence: "Presence", environmental: "Environmental" };
+    const envSensors    = sensors.filter(s => s.is_environmental && !s.env_unmarked);
+    const normalSensors = sensors.filter(s => !s.is_environmental || s.env_unmarked);
+    const enabled       = normalSensors.filter(s => s.enabled && !s.auto_hidden);
+    const disabled      = normalSensors.filter(s => !s.enabled && !s.auto_hidden);
+    const autoHidden    = normalSensors.filter(s => s.auto_hidden);
+    const typeLabels    = { contact: "Contact", motion: "Motion", presence: "Presence", environmental: "Environmental" };
 
     const renderSensorRow = (s) => `
       <div class="sm-list-row ${s.enabled ? "" : "disabled"}"
-           style="grid-template-columns:1fr auto auto">
+           style="grid-template-columns:1fr auto auto auto">
         <div>
           <div style="font-size:14px;font-weight:500">${s.name}</div>
           <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
         </div>
         <span class="badge ${s.sensor_type}">${typeLabels[s.sensor_type] || s.sensor_type}</span>
+        ${!s.enabled ? `<button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-danger)"
+                data-hide-sensor="${s.entity_id}" title="Hide this sensor">${icon("trash")}</button>` : '<span></span>'}
         <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
                 data-sensor="${s.entity_id}">
           ${s.enabled ? icon("check") : ""}
@@ -2124,53 +1919,96 @@ class SecureMePanel extends HTMLElement {
       </div>
     `;
 
-    const envSection = envSensors.length === 0 ? "" : (() => {
-      const envRows = envSensors.map(s =>
-        '<div class="sm-list-row" style="grid-template-columns:1fr auto auto">' +
-          '<div>' +
-            '<div style="font-size:14px;font-weight:500">' + s.name + '</div>' +
-            '<div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">' + s.entity_id + '</div>' +
-          '</div>' +
-          '<span class="badge environmental">Environmental</span>' +
-          '<div style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;' +
-               'color:var(--sm-warning);opacity:0.6" title="Cannot be disabled">' +
-            '<span style="width:16px;height:16px;display:inline-flex">' + icon("lock") + '</span>' +
-          '</div>' +
-        '</div>'
-      ).join("");
-      return `
-      <div class="section-header">
+    const renderEnvRow = (s) => `
+      <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;
+                  padding:10px 16px;border-bottom:1px solid var(--sm-border)">
         <div>
-          <h3 class="section-title">Environmental Sensors</h3>
-          <p class="section-subtitle">Always active — smoke, gas and moisture sensors cannot be disabled</p>
+          <div style="font-size:14px;font-weight:500">${s.name}</div>
+          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
         </div>
-        <span class="badge environmental">${envSensors.length} active</span>
+        <span class="badge environmental" style="margin-right:8px">Required</span>
+        <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-text-tertiary)"
+                data-unmark-env="${s.entity_id}" title="Remove incorrect environmental classification">
+          Remove
+        </button>
       </div>
-      <div class="sm-card no-pad" style="overflow:hidden">
-        <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-          <span>Sensor</span><span>Type</span>
-          <span style="text-align:right;color:var(--sm-text-tertiary);font-size:11px">Always On</span>
+    `;
+
+    const renderHiddenRow = (s) => `
+      <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;
+                  padding:8px 16px;border-bottom:1px solid var(--sm-border);opacity:0.65">
+        <div>
+          <div style="font-size:13px;font-weight:400;color:var(--sm-text-secondary)">${s.name}</div>
+          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
         </div>
-        ${envRows}
-      </div>`;
-    })();
+        <span class="badge" style="background:rgba(255,255,255,0.06);color:var(--sm-text-tertiary)">Auto-hidden</span>
+        <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;margin-left:8px"
+                data-hide-sensor="${s.entity_id}" title="Permanently exclude this sensor">
+          Exclude
+        </button>
+      </div>
+    `;
+
+    const fakePresenceActive = this._data.fakePresence || false;
+
     return `
-      ${this._renderFakePresenceBar()}
-
-      ${envSection}
-
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
-          <p class="section-subtitle">${enabled.length} of ${normalSensors.length} sensors active</p>
+          <p class="section-subtitle">${enabled.length} of ${normalSensors.filter(s=>!s.auto_hidden).length} regular sensors active</p>
         </div>
         <span class="badge accent">${enabled.length} active</span>
       </div>
 
+      <div class="sm-card" style="padding:16px;margin-bottom:16px;border-color:${fakePresenceActive ? 'var(--sm-warning)' : 'var(--sm-border)'}">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:38px;height:38px;border-radius:10px;background:${fakePresenceActive ? 'var(--sm-warning-dim)' : 'rgba(255,255,255,0.06)'};
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${fakePresenceActive ? 'var(--sm-warning)' : 'var(--sm-text-tertiary)'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:${fakePresenceActive ? 'var(--sm-warning)' : 'var(--sm-text)'}">
+              Fake Presence
+            </div>
+            <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
+              ${fakePresenceActive
+                ? 'Active &mdash; automatic arming is blocked'
+                : 'Inactive &mdash; alarm behaves normally.'}
+            </div>
+          </div>
+          <button class="sm-toggle ${fakePresenceActive ? 'on' : ''}" data-action="toggle-fake-presence">
+            <div class="dot"></div>
+          </button>
+        </div>
+        ${fakePresenceActive ? `
+          <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--sm-warning-dim);
+                      border:1px solid rgba(255,159,10,0.2);font-size:12px;color:var(--sm-warning)">
+            Fake presence is ON. The alarm will not auto-arm while this is active.
+            Remember to turn it off when you leave.
+          </div>
+        ` : ''}
+      </div>
+
+      ${envSensors.length > 0 ? `
+        <div class="sm-card no-pad" style="overflow:hidden;margin-bottom:16px;border-color:rgba(255,59,48,0.3)">
+          <div class="sm-list-header" style="background:rgba(255,59,48,0.08);border-bottom:1px solid rgba(255,59,48,0.2)">
+            <span style="display:flex;align-items:center;gap:8px">
+              <span style="color:var(--sm-danger)">${icon("warn")}</span>
+              Environmental Sensors — Always Active (${envSensors.length})
+            </span>
+            <span style="font-size:11px;color:var(--sm-text-secondary)">Notifications cannot be disabled</span>
+          </div>
+          ${envSensors.map(s => renderEnvRow(s)).join("")}
+        </div>
+      ` : ""}
+
       <div class="sensor-two-col">
         <div class="sm-card no-pad" style="overflow:hidden">
-          <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-            <span>Active (${enabled.length})</span><span>Type</span><span style="text-align:right">On</span>
+          <div class="sm-list-header" style="grid-template-columns:1fr auto auto auto">
+            <span>Active (${enabled.length})</span><span>Type</span><span></span><span style="text-align:right">On</span>
           </div>
           ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
             <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
@@ -2180,8 +2018,8 @@ class SecureMePanel extends HTMLElement {
         </div>
 
         <div class="sm-card no-pad" style="overflow:hidden">
-          <div class="sm-list-header" style="grid-template-columns:1fr auto auto">
-            <span>Inactive (${disabled.length})</span><span>Type</span><span style="text-align:right">On</span>
+          <div class="sm-list-header" style="grid-template-columns:1fr auto auto auto">
+            <span>Inactive (${disabled.length})</span><span>Type</span><span style="font-size:11px;color:var(--sm-danger)">Hide</span><span style="text-align:right">On</span>
           </div>
           ${disabled.length > 0 ? disabled.map(s => renderSensorRow(s)).join("") : `
             <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
@@ -2191,7 +2029,23 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
 
-      <div class="info-card warning">
+      ${autoHidden.length > 0 ? `
+        <div class="sm-card no-pad" style="overflow:hidden;margin-top:16px;border-color:rgba(255,255,255,0.06)">
+          <div class="collapsible-header ${this._hiddenSensorsExpanded ? 'expanded' : ''}"
+               data-action="toggle-hidden-sensors"
+               style="padding:12px 16px;margin:0">
+            <span style="font-size:12px;color:var(--sm-text-secondary)">
+              ${autoHidden.length} auto-hidden irrelevant sensors (network devices, TVs, etc.)
+            </span>
+            <span class="chevron">${icon("chevron")}</span>
+          </div>
+          <div class="collapsible-body ${this._hiddenSensorsExpanded ? 'expanded' : ''}">
+            ${autoHidden.map(s => renderHiddenRow(s)).join("")}
+          </div>
+        </div>
+      ` : ""}
+
+      <div class="info-card warning" style="margin-top:16px">
         <span style="color:var(--sm-warning);display:flex;align-items:center">${icon("warn")}</span>
         <div>
           <div class="info-title" style="color:var(--sm-warning)">Minimum Requirements</div>
@@ -2382,6 +2236,10 @@ class SecureMePanel extends HTMLElement {
                 <div style="font-size:12px;color:var(--sm-text-secondary)">
                   Code: &#8226;&#8226;&#8226;&#8226;
                 </div>
+                ${u.person_entity ? `
+                  <div style="font-size:11px;color:var(--sm-blue);margin-top:4px;font-family:monospace">
+                    Tracker: ${u.person_entity}
+                  </div>` : ""}
               </div>
             </div>
             <button class="sm-btn ghost sm" data-delete-user="${id}">${icon("trash")}</button>
@@ -2391,6 +2249,13 @@ class SecureMePanel extends HTMLElement {
               <span style="color:var(--sm-purple)">${icon("nfc")}</span>
               <span class="nfc-tag-id">${u.nfc_tag}</span>
               <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:auto">NFC Tag</span>
+            </div>
+          ` : ""}
+          ${u.person_entity ? `
+            <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:var(--sm-blue-dim);
+                        border:1px solid rgba(10,132,255,0.15);display:flex;align-items:center;gap:8px">
+              <span style="color:var(--sm-blue);font-size:13px">Person tracker linked</span>
+              <span style="font-size:11px;color:var(--sm-text-secondary);font-family:monospace;margin-left:auto">${u.person_entity}</span>
             </div>
           ` : ""}
         </div>
@@ -2443,6 +2308,21 @@ class SecureMePanel extends HTMLElement {
           '</label>' +
         '</div>' +
 
+        '<div class="form-group">' +
+          '<label class="form-label">Link Person Tracker (optional)</label>' +
+          '<select class="form-select" id="user-person-entity">' +
+            '<option value="">-- None (manual arm/disarm only) --</option>' +
+            (this._availablePersons || []).map(p =>
+              '<option value="' + p.entity_id + '"' + (temp.person_entity === p.entity_id ? ' selected' : '') + '>' +
+                p.name + ' (' + p.entity_id + ')' +
+              '</option>'
+            ).join('') +
+          '</select>' +
+          '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">' +
+            'Link to a person entity for automatic arm/disarm based on presence' +
+          '</div>' +
+        '</div>' +
+
         '<div class="dialog-footer">' +
           '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
           '<button class="btn-dialog save" data-action="save-user">Save User</button>' +
@@ -2475,11 +2355,14 @@ class SecureMePanel extends HTMLElement {
       return;
     }
 
+    const personEntity = root.querySelector('#user-person-entity')?.value || null;
+
     const config = {
       name: name,
       code: code,
       admin: admin,
       nfc_tag: null,
+      person_entity: personEntity || null,
     };
 
     const result = await this._callWS('save_user', { user_id: '', config: config });
@@ -2927,6 +2810,84 @@ class SecureMePanel extends HTMLElement {
   // ===
   // PLACEHOLDER TAB
   // ===
+  _renderFuture() {
+    const cameras = this._data.homeAloneCameras || [];
+    const availableCameras = this._availableEntities.camera || [];
+
+    return `
+      <div class="section-header">
+        <h3 class="section-title">Future & Advanced</h3>
+        <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">Preview</span>
+      </div>
+
+      <div class="sm-card" style="padding:16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--sm-blue-dim);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sm-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+              <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
+              <line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/>
+              <line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/>
+              <line x1="17" y1="7" x2="22" y2="7"/>
+            </svg>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600">Home Alone Monitor</div>
+            <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
+              Simulate presence by activating cameras randomly while away
+            </div>
+          </div>
+          <span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue)">${cameras.length} camera${cameras.length !== 1 ? 's' : ''}</span>
+        </div>
+
+        <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:10px">
+          Select cameras to include in the Home Alone rotation:
+        </div>
+
+        ${cameras.length > 0 ? `
+          <div style="margin-bottom:12px;padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px">
+            ${cameras.map(c => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
+                <span style="font-size:12px">${c.name || c.entity_id || c}</span>
+                <button class="sm-btn ghost sm" style="padding:2px 8px;font-size:11px;color:var(--sm-danger)"
+                        data-remove-home-alone="${c.entity_id || c}">Remove</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div style="padding:12px;text-align:center;color:var(--sm-text-tertiary);font-size:12px;margin-bottom:10px">
+            No cameras selected yet
+          </div>
+        `}
+
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="sm-select" id="home-alone-camera-select" style="flex:1">
+            <option value="">-- Add a camera --</option>
+            ${availableCameras
+              .filter(c => !cameras.some(x => (x.entity_id || x) === c.entity_id))
+              .map(c => `<option value="${c.entity_id}">${c.name || c.entity_id}</option>`)
+              .join('')}
+          </select>
+          <button class="sm-btn primary sm" data-action="add-home-alone-camera">Add</button>
+        </div>
+
+        ${cameras.length > 0 ? `
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button class="sm-btn default sm" data-action="save-home-alone-cameras">Save Camera List</button>
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="sm-card" style="padding:20px;text-align:center;opacity:0.6">
+        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:8px">Coming Soon</div>
+        <div style="font-size:12px;color:var(--sm-text-tertiary)">
+          Pet immunity &bull; AI person detection &bull; Cloud sync &bull; Voice control
+        </div>
+      </div>
+    `;
+  }
+
   _renderPlaceholder(iconName, title, desc, colorName, badgeText) {
     return `
       <div class="placeholder">
@@ -2936,137 +2897,6 @@ class SecureMePanel extends HTMLElement {
         <span class="badge ${colorName === "warning" ? "entry" : "actions"}">${badgeText}</span>
       </div>
     `;
-  }
-
-  // ===
-  // v1.1.0: FAKE PRESENCE BAR
-  // Reusable bar shown on Sensors tab and Settings.
-  // ===
-  _renderFakePresenceBar() {
-    const active = this._fakePresence;
-    return `
-      <div class="fake-presence-bar ${active ? "active" : ""}" id="fp-bar">
-        <div class="fake-presence-info">
-          <div class="fake-presence-icon">${icon("userX")}</div>
-          <div>
-            <div class="fake-presence-label">Fake Presence</div>
-            <div class="fake-presence-desc">
-              ${active
-                ? "Active — automatic arming is blocked. Manual arm still works."
-                : "Inactive — alarm behaves normally."}
-            </div>
-          </div>
-        </div>
-        <label class="sm-toggle" title="Toggle Fake Presence">
-          <input type="checkbox" id="fp-toggle" ${active ? "checked" : ""}>
-          <div class="sm-toggle-track"></div>
-        </label>
-      </div>
-    `;
-  }
-
-  // ===
-  // v1.1.0: TAB: MONITOR (Home Alone Monitor)
-  // Only visible when Fake Presence is active.
-  // Shows live camera streams + camera selection.
-  // ===
-  _renderMonitor() {
-    const cameras = this._homeAloneCameras || [];
-    const allCameras = this._availableEntities.camera || [];
-
-    // Build token-based stream URLs via HA camera proxy
-    const feedHtml = cameras.length === 0
-      ? `<div style="padding:40px;text-align:center;color:var(--sm-text-tertiary)">
-           <div style="margin-bottom:12px">${icon("camera")}</div>
-           <div style="font-size:14px">No cameras selected.</div>
-           <div style="font-size:12px;margin-top:6px">Add cameras in the settings below.</div>
-         </div>`
-      : `<div class="monitor-grid">
-          ${cameras.map(cam => `
-            <div class="monitor-feed">
-              <div class="monitor-feed-header">
-                <div class="monitor-feed-dot"></div>
-                <span>${cam.name || cam.entity_id}</span>
-              </div>
-              <img
-                src="/api/camera_proxy_stream/${cam.entity_id}?token=${this._hass?.connection?.options?.authToken || ''}"
-                alt="${cam.name || cam.entity_id}"
-                onerror="this.style.background='#1a1a1a';this.alt='Stream unavailable';"
-              >
-            </div>
-          `).join("")}
-        </div>`;
-
-    // Camera selection — multi-select from available camera entities
-    const selectedIds = cameras.map(c => typeof c === "string" ? c : c.entity_id);
-    const availableCameraEntities = this._hass
-      ? Object.values(this._hass.states || {})
-          .filter(s => s.entity_id.startsWith("camera."))
-          .map(s => ({ entity_id: s.entity_id, name: s.attributes?.friendly_name || s.entity_id }))
-      : allCameras;
-
-    return `
-      ${this._renderFakePresenceBar()}
-
-      <div class="section-header" style="margin-top:16px">
-        <h3 class="section-title">Live Monitor</h3>
-        <span class="badge accent">${cameras.length} camera${cameras.length !== 1 ? "s" : ""}</span>
-      </div>
-
-      <div class="sm-card" style="padding:0;overflow:hidden;margin-bottom:16px">
-        ${feedHtml}
-      </div>
-
-      <!-- Camera selection -->
-      <div class="section-header">
-        <h3 class="section-title">Monitor Cameras</h3>
-      </div>
-      <div class="sm-card">
-        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:14px">
-          Select which cameras to show in the monitor. Changes save automatically.
-        </div>
-        ${availableCameraEntities.length === 0
-          ? `<div style="font-size:13px;color:var(--sm-text-tertiary)">No camera entities found in Home Assistant.</div>`
-          : availableCameraEntities.map(cam => {
-              const isSelected = selectedIds.includes(cam.entity_id);
-              return `
-                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--sm-border)">
-                  <button class="sm-checkbox ${isSelected ? "checked" : ""}"
-                          data-monitor-camera="${cam.entity_id}">
-                    ${isSelected ? icon("check") : ""}
-                  </button>
-                  <div style="flex:1">
-                    <div style="font-size:14px;font-weight:500">${cam.name}</div>
-                    <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${cam.entity_id}</div>
-                  </div>
-                </div>
-              `;
-            }).join("")
-        }
-      </div>
-    `;
-  }
-
-  // v1.1.0: Toggle a camera in the Home Alone monitor selection and save.
-  async _toggleMonitorCamera(entityId) {
-    const selected = (this._homeAloneCameras || []).map(c => typeof c === "string" ? c : c.entity_id);
-    const idx = selected.indexOf(entityId);
-    if (idx === -1) {
-      selected.push(entityId);
-    } else {
-      selected.splice(idx, 1);
-    }
-    const result = await this._callWS("save_home_alone_cameras", { cameras: selected });
-    if (result === null) {
-      this._toast("Could not save camera selection", "error");
-      return;
-    }
-    // Rebuild local camera list with friendly names from hass states
-    this._homeAloneCameras = selected.map(eid => {
-      const state = this._hass?.states?.[eid];
-      return { entity_id: eid, name: state?.attributes?.friendly_name || eid };
-    });
-    this._render();
   }
 
   // ===
@@ -3238,32 +3068,20 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="sm-card" style="padding:0;overflow:hidden">
         <div style="padding:16px 20px;background:${
-          result.overall === "pass"     ? "var(--sm-accent-dim)" :
-          result.overall === "warning"  ? "var(--sm-warning-dim)" :
-          result.overall === "critical" ? "rgba(180,0,0,0.15)" :
-                                          "var(--sm-danger-dim)"
-        };display:flex;align-items:center;gap:12px${
-          result.overall === "critical" ? ";border-left:4px solid var(--sm-danger)" : ""
-        }">
+          result.overall === "pass" ? "var(--sm-accent-dim)" :
+          result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
+        };display:flex;align-items:center;gap:12px">
           <span style="font-size:24px">
-            ${result.overall === "pass"     ? icon("ok") :
-              result.overall === "warning"  ? icon("warn") :
-              result.overall === "critical" ? icon("fail") :
-                                              icon("fail")}
+            ${result.overall === "pass" ? icon("ok") : result.overall === "warning" ? icon("warn") : icon("fail")}
           </span>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;text-transform:capitalize;display:flex;align-items:center;gap:8px">
+            <div style="font-size:14px;font-weight:600;text-transform:capitalize">
               ${result.test_type} Test &mdash; ${result.overall.toUpperCase()}
-              ${result.overall === "critical" ? '<span style="font-size:10px;font-weight:700;background:var(--sm-danger);color:#fff;padding:2px 6px;border-radius:4px;letter-spacing:0.05em">CRITICAL</span>' : ""}
             </div>
             <div style="font-size:12px;opacity:0.8">
               ${result.timestamp} &middot; ${result.duration_seconds}s
               &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed${summary.warned ? ", " + summary.warned + " warned" : ""}, ${summary.skipped || 0} skipped
             </div>
-            ${(summary.critical_fails || []).length > 0 ? `
-              <div style="font-size:11px;color:var(--sm-danger);margin-top:4px;font-weight:600">
-                Critical: ${(summary.critical_fails || []).join(", ")}
-              </div>` : ""}
           </div>
         </div>
 
@@ -3272,7 +3090,7 @@ class SecureMePanel extends HTMLElement {
             const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
                           m.status === "warning" ? "var(--sm-warning)" :
-                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-danger)";
+                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-warning)";
             const statusText = m.status === "pass"    ? "PASS" :
                                m.status === "skipped" ? "SKIP" :
                                m.status === "warning" ? "WARN" :
@@ -3280,28 +3098,15 @@ class SecureMePanel extends HTMLElement {
             const detail = m.status === "warning" && m.reason === "no_entities"
               ? "Not configured - add entities in module settings"
               : m.test_result?.message || m.message || "";
-            const sevBadge = m.severity && m.status !== "pass" && m.status !== "skipped" ? (() => {
-              const sevColors = {
-                critical: "background:var(--sm-danger);color:#fff",
-                high:     "background:var(--sm-warning);color:#000",
-                medium:   "background:var(--sm-blue-dim);color:var(--sm-blue)",
-                low:      "background:var(--sm-border);color:var(--sm-text-secondary)",
-              };
-              const style = sevColors[m.severity] || sevColors.medium;
-              return `<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;${style}">${m.severity.toUpperCase()}</span>`;
-            })() : "";
             return `
               <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
-                   border-bottom:1px solid var(--sm-border)${m.severity === "critical" && m.status === "fail" ? ";background:rgba(180,0,0,0.04)" : ""}">
+                   border-bottom:1px solid var(--sm-border)">
                 <span style="color:${color};font-weight:700;font-size:11px;
                      min-width:40px">${statusText}</span>
                 <div style="flex:1">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
-                    ${sevBadge}
-                  </div>
+                  <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
                   ${m.entities_total != null ? `
-                    <span style="font-size:11px;color:var(--sm-text-secondary)">
+                    <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
                       ${m.entities_available}/${m.entities_total} entities
                     </span>
                   ` : ""}
@@ -4398,6 +4203,7 @@ class SecureMePanel extends HTMLElement {
     const currentConfig = this._data.modules.tts || {};
     this._tempConfig = {
       entities: currentConfig.entities || [],
+      tts_service: currentConfig.tts_service || 'tts.cloud_say',
       language: currentConfig.language || 'da',
       volume: currentConfig.volume || 70,
       messages: currentConfig.messages || {
@@ -4429,8 +4235,22 @@ class SecureMePanel extends HTMLElement {
     } else if (field.startsWith('msg_')) {
       const msgType = field.replace('msg_', '');
       this._tempConfig.messages[msgType] = value;
+    } else if (field === 'tts_service') {
+      const customInput = this.shadowRoot.querySelector('#tts-service-custom');
+      if (value === 'custom') {
+        if (customInput) customInput.style.display = 'block';
+      } else {
+        if (customInput) customInput.style.display = 'none';
+        this._tempConfig[field] = value;
+      }
     } else {
       this._tempConfig[field] = value;
+    }
+  }
+
+  _updateTTSCustomService(value) {
+    if (value && value.trim()) {
+      this._tempConfig.tts_service = value.trim();
     }
   }
 
@@ -4443,6 +4263,7 @@ class SecureMePanel extends HTMLElement {
     const config = {
       enabled: true,
       entities: this._tempConfig.entities,
+      tts_service: this._tempConfig.tts_service || 'tts.cloud_say',
       language: this._tempConfig.language,
       volume: this._tempConfig.volume,
       messages: this._tempConfig.messages
@@ -4501,6 +4322,22 @@ class SecureMePanel extends HTMLElement {
             </select>
           </div>
           
+          <div class="form-group">
+            <label class="form-label">TTS Service</label>
+            <select class="form-select" data-tts-field="tts_service" id="tts-service-select">
+              <option value="tts.cloud_say" ${(this._tempConfig?.tts_service||'tts.cloud_say')==='tts.cloud_say' ? 'selected' : ''}>tts.cloud_say (Nabu Casa Cloud)</option>
+              <option value="tts.google_translate_say" ${this._tempConfig?.tts_service==='tts.google_translate_say' ? 'selected' : ''}>tts.google_translate_say (Google Translate)</option>
+              <option value="tts.google_say" ${this._tempConfig?.tts_service==='tts.google_say' ? 'selected' : ''}>tts.google_say (Google Cast)</option>
+              <option value="tts.piper" ${this._tempConfig?.tts_service==='tts.piper' ? 'selected' : ''}>tts.piper (Local/Piper)</option>
+              <option value="tts.voice_rss" ${this._tempConfig?.tts_service==='tts.voice_rss' ? 'selected' : ''}>tts.voice_rss (VoiceRSS)</option>
+              <option value="custom" ${this._tempConfig?.tts_service && !['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss'].includes(this._tempConfig.tts_service) ? 'selected' : ''}>Custom service...</option>
+            </select>
+            <input type="text" class="form-input" id="tts-service-custom"
+              placeholder="e.g. tts.my_custom_say"
+              style="margin-top:6px;display:${this._tempConfig?.tts_service && !['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss','',undefined,null].includes(this._tempConfig?.tts_service) ? 'block' : 'none'}"
+              value="${!['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss',''].includes(this._tempConfig?.tts_service||'') ? (this._tempConfig?.tts_service||'') : ''}">
+          </div>
+
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div class="form-group">
               <label class="form-label">Language</label>
@@ -4669,6 +4506,92 @@ class SecureMePanel extends HTMLElement {
       });
     });
 
+    // Hidden sensors section toggle
+    root.querySelectorAll("[data-action='toggle-hidden-sensors']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._hiddenSensorsExpanded = !this._hiddenSensorsExpanded;
+        this._render();
+      });
+    });
+
+    // Hide sensor (mark as excluded)
+    root.querySelectorAll("[data-hide-sensor]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const entityId = btn.dataset.hideSensor;
+        if (!await this._confirm(
+          'This sensor will be hidden from the panel. You can restore it by editing the Secure Me configuration.',
+          'Hide Sensor?'
+        )) return;
+        await this._callWS('hide_sensor', { entity_id: entityId, hidden: true });
+        this._toast('Sensor hidden', 'success');
+        await this._loadData();
+      });
+    });
+
+    // Unmark environmental sensor (remove mis-classification)
+    root.querySelectorAll("[data-unmark-env]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const entityId = btn.dataset.unmarkEnv;
+        if (!await this._confirm(
+          'This will remove the environmental classification and hide the sensor. It will no longer trigger alarm notifications.',
+          'Remove Environmental Sensor?'
+        )) return;
+        await this._callWS('unmark_environmental', { entity_id: entityId });
+        this._toast('Environmental sensor removed', 'success');
+        await this._loadData();
+      });
+    });
+
+
+    // Fake Presence toggle
+    root.querySelectorAll("[data-action='toggle-fake-presence']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const current = this._data.fakePresence || false;
+        const result = await this._callWS('set_fake_presence', { active: !current });
+        if (result && result.active !== undefined) {
+          this._data.fakePresence = result.active;
+          this._render();
+        } else {
+          this._toast('Could not update Fake Presence', 'error');
+        }
+      });
+    });
+
+    // Future tab — Home Alone Monitor
+    root.querySelectorAll("[data-action='add-home-alone-camera']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const sel = this.shadowRoot.querySelector('#home-alone-camera-select');
+        if (!sel || !sel.value) return;
+        const cameras = [...(this._data.homeAloneCameras || [])];
+        const entityId = sel.value;
+        if (!cameras.some(c => (c.entity_id || c) === entityId)) {
+          cameras.push({ entity_id: entityId, name: sel.options[sel.selectedIndex]?.text || entityId });
+          this._data.homeAloneCameras = cameras;
+          this._render();
+        }
+      });
+    });
+
+    root.querySelectorAll("[data-remove-home-alone]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const entityId = btn.dataset.removeHomeAlone;
+        this._data.homeAloneCameras = (this._data.homeAloneCameras || [])
+          .filter(c => (c.entity_id || c) !== entityId);
+        this._render();
+      });
+    });
+
+    root.querySelectorAll("[data-action='save-home-alone-cameras']").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const cameras = (this._data.homeAloneCameras || []).map(c => c.entity_id || c);
+        const result = await this._callWS('save_home_alone_cameras', { cameras });
+        if (result) {
+          this._toast('Home Alone cameras saved', 'success');
+        } else {
+          this._toast('Could not save cameras', 'error');
+        }
+      });
+    });
 
     // Zone actions
     root.querySelectorAll("[data-action='add-zone']").forEach(btn => {
@@ -4687,9 +4610,17 @@ class SecureMePanel extends HTMLElement {
 
     // User actions
     root.querySelectorAll("[data-action='add-user']").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         this._tempConfig = { admin: false };
         this._showDialog = 'user';
+        if (!this._availablePersons) {
+          try {
+            const result = await this._callWS('get_persons');
+            this._availablePersons = result?.persons || [];
+          } catch(e) {
+            this._availablePersons = [];
+          }
+        }
         this._render();
       });
     });
@@ -4943,24 +4874,15 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("input[type='range'][data-tts-field]").forEach(inp => {
       inp.addEventListener("input", () => { this._updateTTSField(inp.dataset.ttsField, inp.value); this._render(); });
     });
+    const ttsCustomInput = root.querySelector('#tts-service-custom');
+    if (ttsCustomInput) {
+      ttsCustomInput.addEventListener("change", () => this._updateTTSCustomService(ttsCustomInput.value));
+      ttsCustomInput.addEventListener("blur", () => this._updateTTSCustomService(ttsCustomInput.value));
+    }
 
             // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {
       btn.addEventListener("click", () => this._setAutoSection(btn.dataset.autoSection));
-    });
-
-    // === v1.1.0: Fake Presence Toggle ===
-    const fpToggle = root.getElementById("fp-toggle");
-    if (fpToggle) {
-      fpToggle.addEventListener("change", () => this._toggleFakePresence());
-    }
-
-    // === v1.1.0: Monitor Camera Checkboxes ===
-    root.querySelectorAll("[data-monitor-camera]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._toggleMonitorCamera(btn.dataset.monitorCamera);
-      });
     });
   }
 }

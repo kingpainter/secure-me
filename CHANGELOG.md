@@ -1,3 +1,26 @@
+## [1.1.0] - 2026-03-16
+
+### Feature Release
+
+#### Added
+- **Environmental sensors** — Separate read-only section in Sensors tab. Smoke, gas, and moisture sensors are always active; notifications cannot be disabled. Each sensor has a Remove button to correct mis-classifications.
+- **TTS multi-service support** — TTS dialog now has a service dropdown: `tts.cloud_say`, `tts.google_translate_say`, `tts.google_say`, `tts.piper`, `tts.voice_rss`, and a Custom free-text field for any other service.
+- **Sensor hide/exclude** — Inactive sensors have a Hide button. Irrelevant device_trackers (UniFi, Samsung TV, DLNA, Sonos, etc.) are auto-hidden into a collapsible section. Sensors can be permanently excluded.
+- **User → person tracker binding** — Add User dialog includes a person entity dropdown for automatic arm/disarm presence automation. Linked tracker is shown on the user card.
+- **Fake Presence toggle** — Toggle on the Sensors tab blocks automatic arming when someone is home. State persists across restarts.
+- **Home Alone Monitor** — Future tab now shows a real camera selector for the Home Alone Monitor feature instead of a placeholder.
+- **Chevron SVG fix** — Fixed giant icon bug where unsized chevron SVG expanded to fill screen in module config panels.
+
+#### Backend
+- `store.py` — `excluded`, `env_unmarked`, `auto_hidden` flags; smart `device_tracker` filtering with irrelevance patterns.
+- `websocket_api.py` — New commands: `hide_sensor`, `unmark_environmental`, `get_persons`. TTS normalization passes `tts_service`, `language`, `volume`, `messages` through to `TTSModule`.
+
+#### Changed
+- `secure-me-panel.js` — 4894 lines (was 4547). VERSION constant updated to 1.1.0.
+- All version strings bumped to 1.1.0 across manifest.json, const.py, panel.py, and panel.js.
+
+---
+
 ## [1.0.0] - 2026-03-15
 
 ### Production Release

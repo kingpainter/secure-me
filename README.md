@@ -2,7 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-0.8.0-green)](https://github.com/kingpainter/secure-me/releases)
+[![Version](https://img.shields.io/badge/version-1.1.0-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, real-time health monitoring, and a modern configuration panel.
@@ -32,7 +32,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 | Lights | Auto control, emergency flash patterns |
 | Climate | Multi-zone heating/cooling management |
 | Siren | Alarm sounds with multiple patterns |
-| TTS | Voice notifications (Danish + English) |
+| TTS | Voice notifications, supports cloud_say, google_say, piper, and custom services |
 
 **Monitoring**
 - System health score with per-module status
@@ -51,6 +51,11 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Real-time WebSocket updates
 - Toast notifications — no browser popups
 - In-panel confirm dialogs
+- Environmental sensors always-on section with forced notifications
+- Fake Presence toggle to block automatic arming
+- Home Alone Monitor camera configuration
+- Sensor hide/exclude for irrelevant device trackers
+- User to person tracker binding for presence automation
 
 ---
 
@@ -302,4 +307,5 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 MIT License — see [LICENSE](LICENSE) for details.
 
 **Developer:** KingPainter  
+**Version:** 1.1.0  
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)

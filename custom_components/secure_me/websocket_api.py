@@ -20,6 +20,8 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     """Register all websocket commands and start the notification dispatcher."""
     websocket_api.async_register_command(hass, ws_get_sensors)
     websocket_api.async_register_command(hass, ws_save_sensors)
+    websocket_api.async_register_command(hass, ws_hide_sensor)
+    websocket_api.async_register_command(hass, ws_unmark_environmental)
     websocket_api.async_register_command(hass, ws_get_zones)
     websocket_api.async_register_command(hass, ws_save_zone)
     websocket_api.async_register_command(hass, ws_delete_zone)
@@ -27,6 +29,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_user)
     websocket_api.async_register_command(hass, ws_delete_user)
     websocket_api.async_register_command(hass, ws_get_nfc_tags)
+    websocket_api.async_register_command(hass, ws_get_persons)
     websocket_api.async_register_command(hass, ws_get_modules)
     websocket_api.async_register_command(hass, ws_save_module)
     websocket_api.async_register_command(hass, ws_get_module_entities)
@@ -310,6 +313,84 @@ async def ws_get_nfc_tags(
 
     tags = store.get_nfc_tags()
     connection.send_result(msg["id"], {"tags": tags})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_persons",
+})
+@websocket_api.async_response
+async def ws_get_persons(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get all person entities from HA for user-tracker binding."""
+    persons = []
+    for state in hass.states.async_all("person"):
+        persons.append({
+            "entity_id": state.entity_id,
+            "name": state.attributes.get("friendly_name", state.entity_id),
+            "state": state.state,
+        })
+    connection.send_result(msg["id"], {"persons": persons})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/hide_sensor",
+    vol.Required("entity_id"): str,
+    vol.Optional("hidden", default=True): bool,
+})
+@websocket_api.async_response
+async def ws_hide_sensor(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Mark a sensor as excluded (hidden) from the panel."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    entity_id = msg["entity_id"]
+    sensors = dict(store.get_sensors())
+    if msg["hidden"]:
+        sensors[entity_id] = {**sensors.get(entity_id, {}), "excluded": True, "enabled": False}
+    else:
+        cfg = dict(sensors.get(entity_id, {}))
+        cfg.pop("excluded", None)
+        sensors[entity_id] = cfg
+    await store.async_save_sensors_bulk(sensors)
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/unmark_environmental",
+    vol.Required("entity_id"): str,
+})
+@websocket_api.async_response
+async def ws_unmark_environmental(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Remove environmental classification from a sensor (user corrected mis-classification)."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    entity_id = msg["entity_id"]
+    sensors = dict(store.get_sensors())
+    sensors[entity_id] = {
+        **sensors.get(entity_id, {}),
+        "env_unmarked": True,
+        "is_environmental": False,
+        "excluded": True,
+        "enabled": False,
+    }
+    await store.async_save_sensors_bulk(sensors)
+    connection.send_result(msg["id"], {"success": True})
 
 
 #
@@ -735,6 +816,15 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
     elif module_id == "tts":
         # entities: already flat strings in TTS - no change needed
         normalized["media_players"] = extract_ids(config.get("entities", []))
+        # Pass tts_service through so TTSModule can use google_say etc.
+        if config.get("tts_service"):
+            normalized["tts_service"] = config["tts_service"]
+        if config.get("language"):
+            normalized["language"] = config["language"]
+        if config.get("volume") is not None:
+            normalized["volume"] = float(config["volume"]) / 100.0
+        if config.get("messages"):
+            normalized["messages"] = config["messages"]
 
     elif module_id == "siren":
         normalized["lights"] = extract_ids(config.get("lights", []))
@@ -1140,3 +1230,81 @@ async def ws_save_home_alone_cameras(
     await store.async_save_home_alone_cameras(cameras)
     _LOGGER.info("Home Alone cameras saved: %s", cameras)
     connection.send_result(msg["id"], {"cameras": cameras})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_persons",
+})
+@websocket_api.async_response
+async def ws_get_persons(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get all person entities from HA for user-tracker binding."""
+    persons = []
+    for state in hass.states.async_all("person"):
+        persons.append({
+            "entity_id": state.entity_id,
+            "name": state.attributes.get("friendly_name", state.entity_id),
+            "state": state.state,
+        })
+    connection.send_result(msg["id"], {"persons": persons})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/hide_sensor",
+    vol.Required("entity_id"): str,
+    vol.Optional("hidden", default=True): bool,
+})
+@websocket_api.async_response
+async def ws_hide_sensor(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Mark a sensor as excluded (hidden) from the panel."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    entity_id = msg["entity_id"]
+    sensors = dict(store.get_sensors())
+    if msg["hidden"]:
+        sensors[entity_id] = {**sensors.get(entity_id, {}), "excluded": True, "enabled": False}
+    else:
+        cfg = dict(sensors.get(entity_id, {}))
+        cfg.pop("excluded", None)
+        sensors[entity_id] = cfg
+    await store.async_save_sensors_bulk(sensors)
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/unmark_environmental",
+    vol.Required("entity_id"): str,
+})
+@websocket_api.async_response
+async def ws_unmark_environmental(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Remove environmental classification from a mis-classified sensor."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    entity_id = msg["entity_id"]
+    sensors = dict(store.get_sensors())
+    sensors[entity_id] = {
+        **sensors.get(entity_id, {}),
+        "env_unmarked": True,
+        "is_environmental": False,
+        "excluded": True,
+        "enabled": False,
+    }
+    await store.async_save_sensors_bulk(sensors)
+    connection.send_result(msg["id"], {"success": True})
