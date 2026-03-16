@@ -1855,18 +1855,29 @@ class SecureMePanel extends HTMLElement {
     // Update status pills in-place
     this._updateStatusPills();
 
-    // Manage dialog: inject or remove from mount point
+    // Manage dialog: inject or remove from mount point.
+    // IMPORTANT: Never rebuild an open dialog — it loses focus and causes blinking.
+    // Only update the dialog mount if:
+    //   1. A dialog needs to be shown that isn't currently shown, OR
+    //   2. The dialog should be closed (no _showDialog)
     const dialogMount = this.shadowRoot.getElementById("shell-dialog-mount");
     if (dialogMount) {
-      const dialogHtml = this._showDialog === 'camera'  ? this._renderCameraDialog()
-        : this._showDialog === 'lock'    ? this._renderLockDialog()
-        : this._showDialog === 'climate' ? this._renderClimateDialog()
-        : this._showDialog === 'siren'   ? this._renderSirenDialog()
-        : this._showDialog === 'lights'  ? this._renderLightsDialog()
-        : this._showDialog === 'tts'     ? this._renderTTSDialog()
-        : this._showDialog === 'user'    ? this._renderUserDialog()
-        : '';
-      dialogMount.innerHTML = dialogHtml;
+      const currentlyShown = dialogMount.dataset.currentDialog || '';
+      const wantDialog = this._showDialog || '';
+
+      // Only rebuild if the dialog type changes or is being closed
+      if (currentlyShown !== wantDialog) {
+        const dialogHtml = wantDialog === 'camera'  ? this._renderCameraDialog()
+          : wantDialog === 'lock'    ? this._renderLockDialog()
+          : wantDialog === 'climate' ? this._renderClimateDialog()
+          : wantDialog === 'siren'   ? this._renderSirenDialog()
+          : wantDialog === 'lights'  ? this._renderLightsDialog()
+          : wantDialog === 'tts'     ? this._renderTTSDialog()
+          : wantDialog === 'user'    ? this._renderUserDialog()
+          : '';
+        dialogMount.innerHTML = dialogHtml;
+        dialogMount.dataset.currentDialog = wantDialog;
+      }
     }
 
     this._attachTabListeners();
