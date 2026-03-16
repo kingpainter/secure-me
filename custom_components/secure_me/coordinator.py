@@ -356,11 +356,16 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         await self.store.async_set_fake_presence(active)
 
         msg = FAKE_PRESENCE_ON_EN if active else FAKE_PRESENCE_OFF_EN
-        self.hass.components.persistent_notification.async_create(
-            message=msg,
-            title="Secure Me — Fake Presence",
-            notification_id=NOTIFY_ID_FAKE_PRESENCE,
-        )
+        try:
+            from homeassistant.components.persistent_notification import async_create as pn_create
+            pn_create(
+                self.hass,
+                message=msg,
+                title="Secure Me - Fake Presence",
+                notification_id=NOTIFY_ID_FAKE_PRESENCE,
+            )
+        except Exception as err:
+            _LOGGER.warning("Could not create persistent notification: %s", err)
 
         self.hass.bus.async_fire(EVENT_FAKE_PRESENCE_CHANGED, {"active": active})
         _LOGGER.info("Fake presence set to %s", active)

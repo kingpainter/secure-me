@@ -1155,7 +1155,7 @@ async def ws_get_fake_presence(
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/set_fake_presence",
-    vol.Required("active"): bool,
+    vol.Required("active"): vol.Boolean(),
 })
 @websocket_api.async_response
 async def ws_set_fake_presence(
