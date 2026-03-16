@@ -2243,7 +2243,10 @@ class SecureMePanel extends HTMLElement {
                   </div>` : ""}
               </div>
             </div>
-            <button class="sm-btn ghost sm" data-delete-user="${id}">${icon("trash")}</button>
+            <div style="display:flex;gap:6px">
+              <button class="sm-btn default sm" data-edit-user="${id}">${icon("settings")} Edit</button>
+              <button class="sm-btn ghost sm" data-delete-user="${id}">${icon("trash")}</button>
+            </div>
           </div>
           ${u.nfc_tag ? `
             <div class="nfc-tag">
@@ -2276,12 +2279,14 @@ class SecureMePanel extends HTMLElement {
 
   _renderUserDialog() {
     const temp = this._tempConfig || {};
+    const isEdit = !!temp._userId;
+    const title = isEdit ? 'Edit User' : 'Add User';
 
     return '<div class="config-dialog-overlay">' +
       '<div class="config-dialog">' +
         '<div class="dialog-header">' +
           icon('user') +
-          '<div class="dialog-title">Add User</div>' +
+          '<div class="dialog-title">' + title + '</div>' +
           '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
@@ -2291,13 +2296,13 @@ class SecureMePanel extends HTMLElement {
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Access Code (4-6 digits)</label>' +
-          '<input type="password" class="form-input" id="user-code" placeholder="e.g. 1234" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<label class="form-label">' + (isEdit ? 'New Access Code (leave blank to keep existing)' : 'Access Code (4-6 digits)') + '</label>' +
+          '<input type="password" class="form-input" id="user-code" placeholder="' + (isEdit ? 'Leave blank to keep current code' : 'e.g. 1234') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Confirm Code</label>' +
-          '<input type="password" class="form-input" id="user-code-confirm" placeholder="Repeat code" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<label class="form-label">' + (isEdit ? 'Confirm New Code' : 'Confirm Code') + '</label>' +
+          '<input type="password" class="form-input" id="user-code-confirm" placeholder="' + (isEdit ? 'Leave blank to keep current code' : 'Repeat code') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
 
         '<div class="form-group">' +
@@ -2325,7 +2330,7 @@ class SecureMePanel extends HTMLElement {
 
         '<div class="dialog-footer">' +
           '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
-          '<button class="btn-dialog save" data-action="save-user">Save User</button>' +
+          '<button class="btn-dialog save" data-action="save-user">' + (isEdit ? 'Save Changes' : 'Save User') + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -2337,41 +2342,59 @@ class SecureMePanel extends HTMLElement {
     const code = root.querySelector('#user-code')?.value?.trim();
     const codeConfirm = root.querySelector('#user-code-confirm')?.value?.trim();
     const admin = root.querySelector('#user-admin')?.checked || false;
-
-    if (!name) {
-      this._toast('Please enter a user name.', 'warning'); return;
-      return;
-    }
-    if (!code || code.length < 4) {
-      this._toast('Code must be at least 4 digits.', 'warning'); return;
-      return;
-    }
-    if (code !== codeConfirm) {
-      this._toast('Codes do not match.', 'warning'); return;
-      return;
-    }
-    if (!/^[0-9]+$/.test(code)) {
-      this._toast('Code must be numbers only.', 'warning'); return;
-      return;
-    }
-
     const personEntity = root.querySelector('#user-person-entity')?.value || null;
+    const isEdit = !!this._tempConfig?._userId;
+    const userId = this._tempConfig?._userId || '';
 
-    const config = {
-      name: name,
-      code: code,
-      admin: admin,
-      nfc_tag: null,
-      person_entity: personEntity || null,
-    };
+    if (!name) { this._toast('Please enter a user name.', 'warning'); return; }
 
-    const result = await this._callWS('save_user', { user_id: '', config: config });
-    if (result && result.success !== false) {
-      this._showDialog = null;
-      this._tempConfig = null;
-      await this._loadData();
+    if (isEdit) {
+      // Edit mode: code is optional — only validate if provided
+      if (code) {
+        if (code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
+        if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
+        if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
+      }
+      // Build config — preserve existing code if not changed
+      const existing = this._data.users[userId] || {};
+      const config = {
+        ...existing,
+        name: name,
+        admin: admin,
+        person_entity: personEntity || null,
+      };
+      if (code) config.code = code;  // Only update code if a new one was entered
+
+      const result = await this._callWS('save_user', { user_id: userId, config: config });
+      if (result && result.success !== false) {
+        this._showDialog = null;
+        this._tempConfig = null;
+        await this._loadData();
+        this._toast('User updated', 'success');
+      } else {
+        this._toast('Could not update user: ' + (result?.error || 'Unknown error'), 'error');
+      }
     } else {
-      this._toast('Could not save user: ' + (result?.error || 'Unknown error'), 'error');
+      // Add mode: code is required
+      if (!code || code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
+      if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
+      if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
+
+      const config = {
+        name: name,
+        code: code,
+        admin: admin,
+        nfc_tag: null,
+        person_entity: personEntity || null,
+      };
+      const result = await this._callWS('save_user', { user_id: '', config: config });
+      if (result && result.success !== false) {
+        this._showDialog = null;
+        this._tempConfig = null;
+        await this._loadData();
+      } else {
+        this._toast('Could not save user: ' + (result?.error || 'Unknown error'), 'error');
+      }
     }
   }
 
@@ -4645,6 +4668,29 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='add-user']").forEach(btn => {
       btn.addEventListener("click", async () => {
         this._tempConfig = { admin: false };
+        this._showDialog = 'user';
+        if (!this._availablePersons) {
+          try {
+            const result = await this._callWS('get_persons');
+            this._availablePersons = result?.persons || [];
+          } catch(e) {
+            this._availablePersons = [];
+          }
+        }
+        this._render();
+      });
+    });
+    root.querySelectorAll("[data-edit-user]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const userId = btn.dataset.editUser;
+        const existing = this._data.users[userId] || {};
+        this._tempConfig = {
+          _userId: userId,
+          name: existing.name || '',
+          admin: existing.admin || false,
+          nfc_tag: existing.nfc_tag || null,
+          person_entity: existing.person_entity || null,
+        };
         this._showDialog = 'user';
         if (!this._availablePersons) {
           try {
