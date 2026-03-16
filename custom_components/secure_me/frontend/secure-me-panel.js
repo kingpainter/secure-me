@@ -1864,6 +1864,7 @@ class SecureMePanel extends HTMLElement {
         : this._showDialog === 'siren'   ? this._renderSirenDialog()
         : this._showDialog === 'lights'  ? this._renderLightsDialog()
         : this._showDialog === 'tts'     ? this._renderTTSDialog()
+        : this._showDialog === 'user'    ? this._renderUserDialog()
         : '';
       dialogMount.innerHTML = dialogHtml;
     }
@@ -2270,7 +2271,6 @@ class SecureMePanel extends HTMLElement {
         <button class="sm-btn default sm" data-action="import-nfc">Import</button>
       </div>
 
-      ${this._showDialog === 'user' ? this._renderUserDialog() : ''}
     `;
   }
 
@@ -4220,13 +4220,46 @@ class SecureMePanel extends HTMLElement {
   _addTTSEntity(entityId) {
     if (!this._tempConfig.entities.includes(entityId)) {
       this._tempConfig.entities.push(entityId);
-      this._render();
+      this._patchTTSDialog();
     }
   }
 
   _removeTTSEntity(entityId) {
     this._tempConfig.entities = this._tempConfig.entities.filter(e => e !== entityId);
-    this._render();
+    this._patchTTSDialog();
+  }
+
+  _patchTTSDialog() {
+    // Surgical patch: only rebuild the speaker chips and dropdown — no full re-render
+    const dialogMount = this.shadowRoot.getElementById('shell-dialog-mount');
+    if (!dialogMount) { this._render(); return; }
+    const availableMP = this._availableEntities.media_player || [];
+    const availableTTS = this._availableEntities.tts || [];
+    const allEntities = [...availableMP, ...availableTTS];
+    const selectedEntities = this._tempConfig.entities;
+    const unselected = allEntities.filter(e => !selectedEntities.includes(e.entity_id));
+    // Patch chips
+    const chipsEl = dialogMount.querySelector('[data-tts-chips]');
+    if (chipsEl) {
+      chipsEl.innerHTML = selectedEntities.length === 0
+        ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>'
+        : selectedEntities.map(entityId => {
+            const entity = allEntities.find(e => e.entity_id === entityId);
+            return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}"></button></span>`;
+          }).join('');
+      // Re-attach remove listeners
+      chipsEl.querySelectorAll('[data-action="remove-tts"]').forEach(b => {
+        b.addEventListener('click', () => this._removeTTSEntity(b.dataset.entity));
+      });
+    }
+    // Patch dropdown
+    const addSelect = dialogMount.querySelector('#tts-add-select');
+    if (addSelect) {
+      const currentVal = addSelect.value;
+      addSelect.innerHTML = '<option value="">-- Select Speaker to Add --</option>' +
+        unselected.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('');
+      addSelect.value = '';
+    }
   }
 
   _updateTTSField(field, value) {
@@ -4302,7 +4335,7 @@ class SecureMePanel extends HTMLElement {
           
           <div class="form-group">
             <label class="form-label">Selected Speakers</label>
-            <div style="min-height:60px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--sm-border);border-radius:8px">
+            <div data-tts-chips style="min-height:60px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--sm-border);border-radius:8px">
               ${selectedEntities.length === 0 ? 
                 '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>' :
                 selectedEntities.map(entityId => {
