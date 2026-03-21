@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 1.1.0
+ * VERSION: 1.2.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 // === Styles ===
 const panelStyles = `
@@ -162,13 +162,39 @@ const panelStyles = `
     text-transform: uppercase; letter-spacing: 0.05em;
   }
   .sm-list-row {
-    display: grid; gap: 12px; align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--sm-border);
     transition: opacity 0.2s ease;
   }
   .sm-list-row:last-child { border-bottom: none; }
   .sm-list-row.disabled { opacity: 0.45; }
+  .sm-list-row-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .sm-list-row-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .sm-list-row-eid {
+    font-size: 11px;
+    color: var(--sm-text-tertiary);
+    font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   /* === Badges === */
   .badge {
@@ -1915,19 +1941,19 @@ class SecureMePanel extends HTMLElement {
     const typeLabels    = { contact: "Contact", motion: "Motion", presence: "Presence", environmental: "Environmental" };
 
     const renderSensorRow = (s) => `
-      <div class="sm-list-row ${s.enabled ? "" : "disabled"}"
-           style="grid-template-columns:1fr auto auto auto">
-        <div>
-          <div style="font-size:14px;font-weight:500">${s.name}</div>
-          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+      <div class="sm-list-row ${s.enabled ? "" : "disabled"}">
+        <div class="sm-list-row-top">
+          <span class="sm-list-row-name">${s.name}</span>
+          <span class="badge ${s.sensor_type}" style="flex-shrink:0">${typeLabels[s.sensor_type] || s.sensor_type}</span>
+          ${!s.enabled ? `<button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-danger);flex-shrink:0"
+                  data-hide-sensor="${s.entity_id}" title="Hide this sensor">${icon("trash")}</button>` : ''}
+          <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
+                  data-sensor="${s.entity_id}"
+                  style="flex-shrink:0">
+            ${s.enabled ? icon("check") : ""}
+          </button>
         </div>
-        <span class="badge ${s.sensor_type}">${typeLabels[s.sensor_type] || s.sensor_type}</span>
-        ${!s.enabled ? `<button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-danger)"
-                data-hide-sensor="${s.entity_id}" title="Hide this sensor">${icon("trash")}</button>` : '<span></span>'}
-        <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
-                data-sensor="${s.entity_id}">
-          ${s.enabled ? icon("check") : ""}
-        </button>
+        <div class="sm-list-row-eid">${s.entity_id}</div>
       </div>
     `;
 
@@ -2019,8 +2045,8 @@ class SecureMePanel extends HTMLElement {
 
       <div class="sensor-two-col">
         <div class="sm-card no-pad" style="overflow:hidden">
-          <div class="sm-list-header" style="grid-template-columns:1fr auto auto auto">
-            <span>Active (${enabled.length})</span><span>Type</span><span></span><span style="text-align:right">On</span>
+          <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Active (${enabled.length})</span><span>Type / On</span>
           </div>
           ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
             <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
@@ -2030,8 +2056,8 @@ class SecureMePanel extends HTMLElement {
         </div>
 
         <div class="sm-card no-pad" style="overflow:hidden">
-          <div class="sm-list-header" style="grid-template-columns:1fr auto auto auto">
-            <span>Inactive (${disabled.length})</span><span>Type</span><span style="font-size:11px;color:var(--sm-danger)">Hide</span><span style="text-align:right">On</span>
+          <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Inactive (${disabled.length})</span><span>Type / On</span>
           </div>
           ${disabled.length > 0 ? disabled.map(s => renderSensorRow(s)).join("") : `
             <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
