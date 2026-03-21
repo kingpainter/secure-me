@@ -1,3 +1,29 @@
+## [1.2.0] - 2026-03-21
+
+### Security & Stability Release (Alarmo-Inspired)
+
+#### Security
+- **bcrypt user code hashing** — User PIN codes are now hashed with bcrypt (10 rounds, base64-encoded) instead of stored as plaintext. Existing users with plaintext codes are migrated transparently on next save. `authenticate_user()` uses `ThreadPoolExecutor` for non-blocking parallel code checks (max 4 workers).
+
+#### Storage
+- **Versioned MigratableStore** — `store.py` now uses `STORAGE_VERSION_MAJOR=2` with a `_MigratableStore` subclass that handles schema migration. v1 data is automatically upgraded: `sensor_groups` key added, per-sensor fields (`entry_delay`, `auto_bypass`, `arm_on_close`) backfilled with defaults, and legacy plaintext user codes flagged for re-hashing.
+
+#### Sensor Features
+- **Sensor groups (anti-masking)** — Sensor groups with `timeout` + `event_count`. Alarm only triggers if N sensors activate within a time window. Prevents false alarms from single sensor glitches. Full CRUD via WebSocket API (`get_sensor_groups`, `save_sensor_group`, `delete_sensor_group`). Groups automatically reload into `ZoneManager` when saved.
+- **Per-sensor `entry_delay` override** — Each sensor can have its own entry delay (seconds) that overrides the zone default.
+- **Per-sensor `auto_bypass`** — Open sensors at arm time are silently bypassed instead of blocking arming.
+- **Per-sensor `arm_on_close`** — Sensor automatically triggers arming (away mode) when it transitions from open to closed (e.g. front door shut).
+
+#### Integration
+- **Mobile push notification actions** — Coordinator registers a `mobile_app_notification_action` event listener. Users can arm/disarm directly from HA Companion push notification action buttons using `SECURE_ME_ARM_AWAY`, `SECURE_ME_DISARM`, `SECURE_ME_FORCE_ARM`, etc.
+- **Force-arm bypass** — `async_arm_away(force=True)` skips open sensor check (used by push `FORCE_ARM` action).
+
+#### Tests
+- **52 new unit tests** in `test_v1_2_0.py` covering bcrypt hashing, `SensorGroup` anti-masking logic, per-sensor helpers, sensor group CRUD, push notification constants, and v2 storage schema.
+- `test_store.py` updated: `test_default_data_has_all_keys` includes `sensor_groups`.
+
+---
+
 ## [1.1.0] - 2026-03-16
 
 ### Feature Release

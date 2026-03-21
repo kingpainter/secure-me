@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -23,20 +23,14 @@ NOTIFY_ID_RECOVERY = "secure_me_recovery"
 NOTIFY_ID_FAKE_PRESENCE = "secure_me_fake_presence"
 
 # ── Fake Presence ────────────────────────────────────────────────────────────
-# Blocks automatic arming when someone is home without a trackable device.
-# Manual arm via panel/service is always allowed regardless of this flag.
 CONF_FAKE_PRESENCE = "fake_presence"
 CONF_HOME_ALONE_CAMERAS = "home_alone_cameras"
 
-# Fake Presence notification messages — English
 FAKE_PRESENCE_ON_EN = "Secure Me: Fake Presence activated. Automatic arming is blocked."
 FAKE_PRESENCE_OFF_EN = "Secure Me: Fake Presence deactivated. Automatic arming resumed."
-
-# Fake Presence notification messages — Danish
 FAKE_PRESENCE_ON_DA = "Secure Me: Fake Presence aktiveret. Automatisk aktivering er blokeret."
 FAKE_PRESENCE_OFF_DA = "Secure Me: Fake Presence deaktiveret. Automatisk aktivering genoptaget."
 
-# Event fired when fake presence changes
 EVENT_FAKE_PRESENCE_CHANGED = f"{DOMAIN}_fake_presence_changed"
 
 # Error messages — English
@@ -91,6 +85,28 @@ EVENT_ALARM_TEST_COMPLETED = f"{DOMAIN}_test_completed"
 EVENT_MODULE_ENABLED = f"{DOMAIN}_module_enabled"
 EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
 EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
+
+# Mobile push notification action events (Alarmo-inspired)
+# These are fired by HA mobile_app when user taps action buttons in a push notification.
+PUSH_EVENT = "mobile_app_notification_action"
+
+EVENT_ACTION_FORCE_ARM   = "SECURE_ME_FORCE_ARM"
+EVENT_ACTION_RETRY_ARM   = "SECURE_ME_RETRY_ARM"
+EVENT_ACTION_DISARM      = "SECURE_ME_DISARM"
+EVENT_ACTION_ARM_AWAY    = "SECURE_ME_ARM_AWAY"
+EVENT_ACTION_ARM_HOME    = "SECURE_ME_ARM_HOME"
+EVENT_ACTION_ARM_NIGHT   = "SECURE_ME_ARM_NIGHT"
+EVENT_ACTION_ARM_VACATION = "SECURE_ME_ARM_VACATION"
+
+PUSH_EVENT_ACTIONS = [
+    EVENT_ACTION_FORCE_ARM,
+    EVENT_ACTION_RETRY_ARM,
+    EVENT_ACTION_DISARM,
+    EVENT_ACTION_ARM_AWAY,
+    EVENT_ACTION_ARM_HOME,
+    EVENT_ACTION_ARM_NIGHT,
+    EVENT_ACTION_ARM_VACATION,
+]
 
 # Services
 SERVICE_ARM_AWAY = "arm_away"
@@ -165,3 +181,23 @@ LIGHT_MODE_BLINKING = "blinking"
 # TTS languages
 TTS_LANG_DA = "da"  # Danish
 TTS_LANG_EN = "en"  # English
+
+# ── Storage versioning ────────────────────────────────────────────────────────
+# Bump MAJOR when schema is incompatible (migration required).
+# Bump MINOR for additive changes (new optional fields).
+STORAGE_VERSION_MAJOR = 2
+STORAGE_VERSION_MINOR = 0
+
+# ── Sensor group constants ────────────────────────────────────────────────────
+# Sensor groups allow anti-masking: only trigger alarm when N sensors activate
+# within a time window. Inspired by Alarmo's SensorGroupEntry.
+ATTR_SENSOR_GROUP_ID = "group_id"
+ATTR_SENSOR_GROUP_NAME = "name"
+ATTR_SENSOR_GROUP_ENTITIES = "entities"
+ATTR_SENSOR_GROUP_TIMEOUT = "timeout"       # seconds: window for event_count triggers
+ATTR_SENSOR_GROUP_EVENT_COUNT = "event_count"  # how many sensors must trigger
+
+# ── Sensor per-sensor config fields ──────────────────────────────────────────
+ATTR_SENSOR_ENTRY_DELAY = "entry_delay"     # per-sensor override (seconds, None = use zone default)
+ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"     # bypass open sensor at arm time
+ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"   # auto-arm when sensor closes

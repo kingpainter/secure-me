@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import logging
 import uuid
@@ -38,6 +38,10 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete_notification)
     websocket_api.async_register_command(hass, ws_test_notification)
     websocket_api.async_register_command(hass, ws_get_notify_services)
+    # v1.2.0: sensor groups (anti-masking)
+    websocket_api.async_register_command(hass, ws_get_sensor_groups)
+    websocket_api.async_register_command(hass, ws_save_sensor_group)
+    websocket_api.async_register_command(hass, ws_delete_sensor_group)
     websocket_api.async_register_command(hass, ws_get_automations)
     websocket_api.async_register_command(hass, ws_save_automation)
     websocket_api.async_register_command(hass, ws_delete_automation)
@@ -56,6 +60,75 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     hass.data.setdefault(DOMAIN, {})["_notification_dispatcher"] = dispatcher
 
     _LOGGER.info("Secure Me WebSocket API registered")
+
+
+#
+# SENSOR GROUPS (anti-masking) — v1.2.0
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
+})
+@websocket_api.async_response
+async def ws_get_sensor_groups(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get all sensor groups."""
+    store = hass.data.get(DOMAIN, {}).get("store")
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    connection.send_result(msg["id"], {"sensor_groups": store.get_sensor_groups()})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_sensor_group",
+    vol.Optional("group_id"): str,
+    vol.Required("config"): dict,
+})
+@websocket_api.async_response
+async def ws_save_sensor_group(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Create or update a sensor group."""
+    store = hass.data.get(DOMAIN, {}).get("store")
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    group_id = await store.async_save_sensor_group(
+        msg.get("group_id"), msg["config"]
+    )
+    # Reload sensor groups into active zone manager
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        coordinator.zone_manager.load_sensor_groups(store.get_sensor_groups())
+    connection.send_result(msg["id"], {"success": True, "group_id": group_id})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/delete_sensor_group",
+    vol.Required("group_id"): str,
+})
+@websocket_api.async_response
+async def ws_delete_sensor_group(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete a sensor group."""
+    store = hass.data.get(DOMAIN, {}).get("store")
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    success = await store.async_delete_sensor_group(msg["group_id"])
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        coordinator.zone_manager.load_sensor_groups(store.get_sensor_groups())
+    connection.send_result(msg["id"], {"success": success})
 
 
 def _get_store(hass: HomeAssistant):
@@ -272,7 +345,11 @@ async def ws_save_user(
 
     # Generate user_id if new
     user_id = msg["user_id"] or str(uuid.uuid4())[:8]
-    await store.async_save_user(user_id, msg["config"])
+    # store.async_save_user handles bcrypt hashing automatically
+    # Do NOT pass code_hashed=True from frontend — let store manage it
+    config = dict(msg["config"])
+    config.pop("code_hashed", None)  # strip any frontend-supplied flag
+    await store.async_save_user(user_id, config)
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
 

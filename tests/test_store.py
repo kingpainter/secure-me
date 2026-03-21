@@ -1,5 +1,5 @@
 """Tests for Secure Me store."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -14,7 +14,7 @@ class TestStoreDefaults:
         mock_hass = MagicMock()
         store = SecureMeStore(mock_hass)
         defaults = store._default_data()
-        expected_keys = {"sensors", "zones", "users", "modules",
+        expected_keys = {"sensors", "sensor_groups", "zones", "users", "modules",
                          "notifications", "automations",
                          "fake_presence", "home_alone_cameras"}
         assert set(defaults.keys()) == expected_keys

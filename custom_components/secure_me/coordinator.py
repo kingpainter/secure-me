@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import logging
 import time
@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -46,6 +46,16 @@ from .const import (
     FAKE_PRESENCE_ON_EN,
     FAKE_PRESENCE_OFF_EN,
     EVENT_FAKE_PRESENCE_CHANGED,
+    # v1.2.0: push notification action constants
+    PUSH_EVENT,
+    PUSH_EVENT_ACTIONS,
+    EVENT_ACTION_FORCE_ARM,
+    EVENT_ACTION_RETRY_ARM,
+    EVENT_ACTION_DISARM,
+    EVENT_ACTION_ARM_AWAY,
+    EVENT_ACTION_ARM_HOME,
+    EVENT_ACTION_ARM_NIGHT,
+    EVENT_ACTION_ARM_VACATION,
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -62,13 +72,8 @@ from .modules import (
 _LOGGER = logging.getLogger(__name__)
 
 
-
 def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
-    """Normalize panel-saved config (objects) to module class format (flat strings).
-
-    Mirrors _normalize_module_config in websocket_api.py but kept here to avoid
-    circular imports. Panel stores [{entity_id, poe_port, ...}], modules need ["entity.id"].
-    """
+    """Normalize panel-saved config (objects) to module class format (flat strings)."""
     normalized = dict(config)
 
     def extract_ids(items) -> list[str]:
@@ -85,8 +90,10 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
     if module_id == "camera":
         raw = config.get("cameras", [])
         normalized["cameras"] = extract_ids(raw)
-        poe = [c["poe_port"] for c in raw
-               if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])]
+        poe = [
+            c["poe_port"] for c in raw
+            if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])
+        ]
         if poe:
             normalized["poe_switches"] = poe
     elif module_id == "lock":
@@ -118,122 +125,172 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(seconds=STATE_MACHINE_UPDATE_INTERVAL),
         )
-        
+
         self.config_entry = config_entry
-        
-        # Initialize modules dict early to avoid AttributeError in async_shutdown
         self.modules: dict[str, Any] = {}
-        
-        # Track who armed/disarmed (initialize early)
         self._armed_by: str | None = None
         self._disarmed_by: str | None = None
         self._triggered_by: str | None = None
-        
-        # Get config
+        self._last_arm_mode: str | None = None  # v1.2.0: remembered for push force-arm
+
         self._code = config_entry.data.get(CONF_CODE, "")
         exit_delay = config_entry.data.get(CONF_EXIT_DELAY, 30)
         entry_delay = config_entry.data.get(CONF_ENTRY_DELAY, 30)
         trigger_time = config_entry.data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME)
-        
-        # Initialize state machine
+
         self.state_machine = AlarmStateMachine(
             hass,
             exit_delay=exit_delay,
             entry_delay=entry_delay,
             trigger_time=trigger_time,
         )
-        
-        # Initialize zone manager
+
         self.zone_manager = ZoneManager(hass)
         self.zone_manager.register_trigger_callback(self._zone_triggered)
-        
-        # Initialize modules (without store - store loaded later via async_load_store_config)
+        self.zone_manager.register_arm_on_close_callback(self._arm_on_close_triggered)
+
         self._init_modules()
-        
-        # Register callbacks
+
         self.state_machine.add_state_change_callback(self._state_changed)
         self.state_machine.add_countdown_callback(self._countdown_updated)
-        
-        _LOGGER.info(
-            "Secure Me coordinator initialized (exit=%ds, entry=%ds)",
-            exit_delay,
-            entry_delay,
+
+        # v1.2.0: Register push notification listener
+        self._push_unsub = hass.bus.async_listen(
+            PUSH_EVENT, self._handle_push_event
         )
 
-        # Performance: throttle health event to max 1x per 5s (not every countdown tick)
+        _LOGGER.info(
+            "Secure Me coordinator initialized (exit=%ds, entry=%ds)",
+            exit_delay, entry_delay,
+        )
+
         self._last_health_event_time: float = 0.0
         self._health_event_interval: float = 5.0
-
-        # Performance: track last countdown value to skip redundant entity refreshes
         self._last_countdown: int = -1
+
+    # ── Push notification handler (v1.2.0) ──────────────────────────────────
+
+    @callback
+    def _handle_push_event(self, event) -> None:
+        """Handle mobile push notification action buttons.
+
+        Allows arm/disarm from HA Companion push notifications without opening the app.
+        Action strings match the PUSH_EVENT_ACTIONS constants.
+        """
+        if not event.data:
+            return
+
+        action = (
+            event.data.get("actionName")
+            if "actionName" in event.data
+            else event.data.get("action")
+        )
+
+        if action not in PUSH_EVENT_ACTIONS:
+            return
+
+        _LOGGER.info("Received push action: %s", action)
+        import asyncio
+        loop = asyncio.get_event_loop()
+
+        if action == EVENT_ACTION_DISARM:
+            loop.create_task(self.async_disarm())
+
+        elif action == EVENT_ACTION_FORCE_ARM:
+            # Force-arm in last used mode (or away if unknown)
+            mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
+            loop.create_task(self._arm_by_state(mode, skip_delay=True, force=True))
+
+        elif action == EVENT_ACTION_RETRY_ARM:
+            mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
+            loop.create_task(self._arm_by_state(mode))
+
+        elif action == EVENT_ACTION_ARM_AWAY:
+            loop.create_task(self.async_arm_away())
+
+        elif action == EVENT_ACTION_ARM_HOME:
+            loop.create_task(self.async_arm_home())
+
+        elif action == EVENT_ACTION_ARM_NIGHT:
+            loop.create_task(self.async_arm_night())
+
+        elif action == EVENT_ACTION_ARM_VACATION:
+            loop.create_task(self.async_arm_vacation())
+
+    async def _arm_by_state(
+        self, state: str, skip_delay: bool = False, force: bool = False
+    ) -> bool:
+        """Arm in the mode corresponding to an alarm state string."""
+        if state == STATE_ALARM_ARMED_AWAY:
+            return await self.async_arm_away(skip_delay=skip_delay, force=force)
+        if state == STATE_ALARM_ARMED_HOME:
+            return await self.async_arm_home(skip_delay=skip_delay)
+        if state == STATE_ALARM_ARMED_NIGHT:
+            return await self.async_arm_night(skip_delay=skip_delay)
+        if state == STATE_ALARM_ARMED_VACATION:
+            return await self.async_arm_vacation(skip_delay=skip_delay)
+        return False
+
+    # ── arm_on_close callback (v1.2.0) ──────────────────────────────────────
+
+    async def _arm_on_close_triggered(self, entity_id: str) -> None:
+        """Auto-arm when an arm_on_close sensor closes (e.g. front door shut)."""
+        if self.state_machine.is_armed or self.state_machine.is_arming:
+            return
+        _LOGGER.info(
+            "arm_on_close: sensor %s closed — automatically arming (away)", entity_id
+        )
+        await self.async_arm_away(auto=True)
+
+    # ── State / countdown callbacks ──────────────────────────────────────────
 
     async def _state_changed(self, new_state: str, countdown: int) -> None:
         """Handle state machine state change."""
-        _LOGGER.info("Coordinator received state change: %s (countdown=%d)", new_state, countdown)
-        
-        # Request refresh to update entities
+        _LOGGER.info(
+            "Coordinator received state change: %s (countdown=%d)", new_state, countdown
+        )
         await self.async_request_refresh()
-        
-        # Fire events for state changes
+
         if new_state == STATE_ALARM_DISARMED:
-            # Clear zone triggers when disarmed
             self.zone_manager.clear_all_triggers()
-            self.hass.bus.async_fire(EVENT_ALARM_DISARMED, {
-                "disarmed_by": self._disarmed_by,
-            })
-        
-        elif new_state in [STATE_ALARM_ARMED_AWAY, STATE_ALARM_ARMED_HOME, 
-                           STATE_ALARM_ARMED_NIGHT, STATE_ALARM_ARMED_VACATION]:
-            # Start monitoring zones when armed
+            self.hass.bus.async_fire(
+                EVENT_ALARM_DISARMED, {"disarmed_by": self._disarmed_by}
+            )
+
+        elif new_state in (
+            STATE_ALARM_ARMED_AWAY,
+            STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_NIGHT,
+            STATE_ALARM_ARMED_VACATION,
+        ):
+            self._last_arm_mode = new_state
             if len(self.zone_manager._unsubscribe_callbacks) == 0:
                 self.zone_manager.start_monitoring()
-            self.hass.bus.async_fire(EVENT_ALARM_ARMED, {
-                "mode": new_state,
-                "armed_by": self._armed_by,
-            })
-        
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARMED, {"mode": new_state, "armed_by": self._armed_by}
+            )
+
         elif new_state == STATE_ALARM_TRIGGERED:
-            self.hass.bus.async_fire(EVENT_ALARM_TRIGGERED, {
-                "triggered_by": self._triggered_by,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_TRIGGERED, {"triggered_by": self._triggered_by}
+            )
 
     async def _countdown_updated(self, countdown: int) -> None:
-        """Handle countdown tick.
-
-        PERF v0.6.0: Previously called async_request_refresh() every second,
-        which triggered full entity updates + health events for all listeners.
-        Now we only write the new countdown value into self.data directly and
-        call async_update_listeners() — much lighter than a full refresh.
-        Only do a full refresh at key milestones (every 5s or at 0).
-        """
+        """Handle countdown tick — lightweight update."""
         self._last_countdown = countdown
-
-        # Update countdown in data in-place (no full coordinator fetch)
         if self.data:
             self.data["countdown"] = countdown
-
-        # Notify entity listeners so countdown sensor updates in HA UI
         self.async_update_listeners()
-
-        # Full refresh only at key milestones: every 5s and at 0
         if countdown == 0 or countdown % 5 == 0:
             await self.async_request_refresh()
 
     async def _zone_triggered(self, zone) -> None:
-        """Handle zone trigger.
-
-        EDGE CASE v0.5.0: If a sensor opens DURING the exit delay (arming state),
-        we log a warning but do NOT trigger the alarm — the user may still be
-        leaving the building. The sensor will be re-evaluated once fully armed.
-        """
+        """Handle zone trigger."""
         current = self.state_machine.current_state
 
-        # Sensor opened during exit delay — warn but don't trigger
         if current == STATE_ALARM_ARMING:
             _LOGGER.warning(
-                "Zone %s triggered during exit delay (still arming) — ignoring trigger, "
-                "sensor will be monitored once armed",
-                zone.zone_id,
+                "Zone %s triggered during exit delay — ignoring", zone.zone_id
             )
             return
 
@@ -263,7 +320,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 "is_pending": self.state_machine.is_pending,
                 "fake_presence": self.fake_presence,
             }
-            # PERF v0.6.0: Throttle health event — max once per 5s.
             now = time.monotonic()
             if now - self._last_health_event_time >= self._health_event_interval:
                 self._last_health_event_time = now
@@ -278,86 +334,183 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         except Exception as err:
             raise UpdateFailed(f"Error updating coordinator: {err}") from err
 
+    # ── Properties ───────────────────────────────────────────────────────────
+
     @property
     def alarm_state(self) -> str:
-        """Return current alarm state."""
         return self.state_machine.current_state
 
     @property
     def delay_countdown(self) -> int:
-        """Return current delay countdown (seconds)."""
         return self.state_machine.countdown
 
     @property
     def exit_delay(self) -> int:
-        """Return configured exit delay."""
         return self.state_machine.exit_delay
 
     @property
     def entry_delay(self) -> int:
-        """Return configured entry delay."""
         return self.state_machine.entry_delay
 
     @property
     def code(self) -> str:
-        """Return configured code."""
         return self._code
 
     @property
     def armed_by(self) -> str | None:
-        """Return who armed the system."""
         return self._armed_by
 
     @property
     def disarmed_by(self) -> str | None:
-        """Return who disarmed the system."""
         return self._disarmed_by
 
     @property
     def triggered_by(self) -> str | None:
-        """Return what triggered the alarm."""
         return self._triggered_by
 
     @property
     def open_sensors(self) -> list[str]:
-        """Return list of open sensors."""
         return self.zone_manager.get_all_open_sensors()
 
     @property
     def bypassed_zones(self) -> list[str]:
-        """Return list of bypassed zones."""
         return []
-
-    def validate_code(self, code: str | None) -> bool:
-        """Validate provided code."""
-        if not self._code:
-            return True
-        if not code:
-            return False
-        return code == self._code
 
     @property
     def fake_presence(self) -> bool:
-        """Return current fake presence state."""
         if hasattr(self, "store") and self.store:
             return self.store.get_fake_presence()
         return False
 
-    async def async_set_fake_presence(self, active: bool) -> None:
-        """Set fake presence and fire notification + event.
+    # ── Code validation ──────────────────────────────────────────────────────
 
-        When active: blocks automatic arming (manual arm still allowed).
-        Persists state to store so it survives HA restarts.
+    def validate_code(self, code: str | None) -> bool:
+        """Validate code. Uses bcrypt if store has hashed codes."""
+        if not self._code:
+            return True
+        if not code:
+            return False
+        # If store is available, use bcrypt authenticate_user
+        if hasattr(self, "store") and self.store:
+            result = self.store.authenticate_user(code)
+            return result is not None
+        # Fallback: plaintext comparison (pre-store state)
+        return code == self._code
+
+    # ── Arm / Disarm / Trigger ───────────────────────────────────────────────
+
+    async def async_arm_away(
+        self,
+        code: str | None = None,
+        skip_delay: bool = False,
+        auto: bool = False,
+        force: bool = False,
+    ) -> bool:
+        """Arm in away mode.
+
+        force=True skips the open-sensor check (used by push FORCE_ARM).
+        auto=True respects fake_presence block.
         """
+        _LOGGER.info(
+            "Arming alarm (away, skip_delay=%s, auto=%s, force=%s)",
+            skip_delay, auto, force,
+        )
+        if auto and self.fake_presence:
+            _LOGGER.info("Auto arm blocked — Fake Presence active")
+            return False
+
+        if not force:
+            all_sensors = [s for z in self.zone_manager.zones.values() for s in z.sensors]
+            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+                _LOGGER.warning(
+                    "Cannot arm — open sensors: %s", self.zone_manager.get_all_open_sensors()
+                )
+                return False
+
+        success = await self.state_machine.arm_away(skip_delay)
+        if success:
+            self._armed_by = "user"
+            await self._execute_modules_arm_away()
+        await self.async_request_refresh()
+        return success
+
+    async def async_arm_home(
+        self, code: str | None = None, skip_delay: bool = False
+    ) -> bool:
+        """Arm in home mode."""
+        _LOGGER.info("Arming alarm (home, skip_delay=%s)", skip_delay)
+        success = await self.state_machine.arm_home(skip_delay)
+        if success:
+            self._armed_by = "user"
+            await self._execute_modules_arm_home()
+        await self.async_request_refresh()
+        return success
+
+    async def async_arm_night(
+        self, code: str | None = None, skip_delay: bool = False
+    ) -> bool:
+        """Arm in night mode."""
+        _LOGGER.info("Arming alarm (night, skip_delay=%s)", skip_delay)
+        success = await self.state_machine.arm_night(skip_delay)
+        if success:
+            self._armed_by = "user"
+            await self._execute_modules_arm_night()
+        await self.async_request_refresh()
+        return success
+
+    async def async_arm_vacation(
+        self, code: str | None = None, skip_delay: bool = False
+    ) -> bool:
+        """Arm in vacation mode."""
+        _LOGGER.info("Arming alarm (vacation, skip_delay=%s)", skip_delay)
+        success = await self.state_machine.arm_vacation(skip_delay)
+        if success:
+            self._armed_by = "user"
+            await self._execute_modules_arm_away()
+        await self.async_request_refresh()
+        return success
+
+    async def async_disarm(self, code: str | None = None) -> bool:
+        """Disarm the alarm."""
+        _LOGGER.info("Disarming alarm")
+        if not self.validate_code(code):
+            _LOGGER.warning("Invalid code provided for disarm")
+            return False
+
+        if self.state_machine.is_pending:
+            success = await self.state_machine.cancel_pending()
+        else:
+            success = await self.state_machine.disarm()
+
+        if success:
+            self._disarmed_by = "user"
+            self.zone_manager.stop_monitoring()
+            await self._execute_modules_disarm()
+        await self.async_request_refresh()
+        return success
+
+    async def async_trigger(self, source: str | None = None) -> bool:
+        """Trigger the alarm."""
+        _LOGGER.warning("Alarm triggered! Source: %s", source or "manual")
+        self._triggered_by = source or "manual"
+        success = await self.state_machine.trigger_alarm(self._triggered_by)
+        if success:
+            await self._execute_modules_trigger()
+        await self.async_request_refresh()
+        return success
+
+    async def async_set_fake_presence(self, active: bool) -> None:
+        """Set fake presence and fire notification + event."""
         if not hasattr(self, "store") or not self.store:
             _LOGGER.warning("Cannot set fake presence — store not loaded yet")
             return
-
         await self.store.async_set_fake_presence(active)
-
         msg = FAKE_PRESENCE_ON_EN if active else FAKE_PRESENCE_OFF_EN
         try:
-            from homeassistant.components.persistent_notification import async_create as pn_create
+            from homeassistant.components.persistent_notification import (
+                async_create as pn_create,
+            )
             pn_create(
                 self.hass,
                 message=msg,
@@ -366,302 +519,178 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             )
         except Exception as err:
             _LOGGER.warning("Could not create persistent notification: %s", err)
-
         self.hass.bus.async_fire(EVENT_FAKE_PRESENCE_CHANGED, {"active": active})
         _LOGGER.info("Fake presence set to %s", active)
-
         await self.async_request_refresh()
 
-    async def async_arm_away(self, code: str | None = None, skip_delay: bool = False, auto: bool = False) -> bool:
-        """Arm the alarm in away mode.
-
-        Args:
-            code: Optional arm code.
-            skip_delay: Skip exit delay if True.
-            auto: True when called from an automation (not manual user action).
-                  When True, fake_presence will block the arm.
-        """
-        _LOGGER.info("Arming alarm (away mode, skip_delay=%s, auto=%s)", skip_delay, auto)
-
-        # Fake Presence guard — only blocks automatic arming, not manual
-        if auto and self.fake_presence:
-            _LOGGER.info(
-                "Auto arm blocked — Fake Presence is active (someone is home without tracking)"
-            )
-            return False
-        
-        # Check for open sensors before arming
-        if self.zone_manager.check_for_open_sensors():
-            open_sensors = self.zone_manager.get_all_open_sensors()
-            _LOGGER.warning("Cannot arm - open sensors: %s", open_sensors)
-            return False
-        
-        success = await self.state_machine.arm_away(skip_delay)
-        if success:
-            self._armed_by = "user"
-            await self._execute_modules_arm_away()
-        
-        await self.async_request_refresh()
-        return success
-
-    async def async_arm_home(self, code: str | None = None, skip_delay: bool = False) -> bool:
-        """Arm the alarm in home mode."""
-        _LOGGER.info("Arming alarm (home mode, skip_delay=%s)", skip_delay)
-        
-        success = await self.state_machine.arm_home(skip_delay)
-        if success:
-            self._armed_by = "user"
-            await self._execute_modules_arm_home()
-        
-        await self.async_request_refresh()
-        return success
-
-    async def async_arm_night(self, code: str | None = None, skip_delay: bool = False) -> bool:
-        """Arm the alarm in night mode."""
-        _LOGGER.info("Arming alarm (night mode, skip_delay=%s)", skip_delay)
-        
-        success = await self.state_machine.arm_night(skip_delay)
-        if success:
-            self._armed_by = "user"
-            await self._execute_modules_arm_night()
-        
-        await self.async_request_refresh()
-        return success
-
-    async def async_arm_vacation(self, code: str | None = None, skip_delay: bool = False) -> bool:
-        """Arm the alarm in vacation mode."""
-        _LOGGER.info("Arming alarm (vacation mode, skip_delay=%s)", skip_delay)
-        
-        success = await self.state_machine.arm_vacation(skip_delay)
-        if success:
-            self._armed_by = "user"
-            await self._execute_modules_arm_away()
-        
-        await self.async_request_refresh()
-        return success
-
-    async def async_disarm(self, code: str | None = None) -> bool:
-        """Disarm the alarm."""
-        _LOGGER.info("Disarming alarm")
-        
-        if not self.validate_code(code):
-            _LOGGER.warning("Invalid code provided for disarm")
-            return False
-        
-        if self.state_machine.is_pending:
-            success = await self.state_machine.cancel_pending()
-        else:
-            success = await self.state_machine.disarm()
-        
-        if success:
-            self._disarmed_by = "user"
-            self.zone_manager.stop_monitoring()
-            await self._execute_modules_disarm()
-        
-        await self.async_request_refresh()
-        return success
-
-    async def async_trigger(self, source: str | None = None) -> bool:
-        """Trigger the alarm."""
-        _LOGGER.warning("Alarm triggered! Source: %s", source or "manual")
-        
-        self._triggered_by = source or "manual"
-        success = await self.state_machine.trigger_alarm(self._triggered_by)
-        
-        if success:
-            await self._execute_modules_trigger()
-        
-        await self.async_request_refresh()
-        return success
+    # ── Config ───────────────────────────────────────────────────────────────
 
     def update_config(self, config_data: dict[str, Any]) -> None:
         """Update configuration."""
-        _LOGGER.info("Updating coordinator configuration")
-        
         self._code = config_data.get(CONF_CODE, self._code)
         exit_delay = config_data.get(CONF_EXIT_DELAY, self.state_machine.exit_delay)
         entry_delay = config_data.get(CONF_ENTRY_DELAY, self.state_machine.entry_delay)
         trigger_time = config_data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME)
-        
         self.state_machine.update_config(exit_delay, entry_delay, trigger_time)
-        
-        _LOGGER.info(
-            "Configuration updated (exit=%ds, entry=%ds)",
-            exit_delay,
-            entry_delay,
-        )
+
+    # ── Module management ────────────────────────────────────────────────────
 
     def _init_modules(self, store=None) -> None:
         """Initialize all available modules."""
-        _LOGGER.info("Initializing modules")
-
         if store is not None:
             stored_modules = store.get_modules()
-            _LOGGER.info("Loading module config from store: %s", list(stored_modules.keys()))
         else:
             stored_modules = {}
-
         options_modules = self.config_entry.options.get("modules", {})
 
-        def _get_config(module_id: str) -> dict:
-            return stored_modules.get(module_id) or options_modules.get(module_id, {})
+        def _get_config(mid: str) -> dict:
+            return stored_modules.get(mid) or options_modules.get(mid, {})
 
-        module_config = {mid: _get_config(mid) for mid in (
-            "camera", "lock", "lights", "climate", "siren", "tts"
-        )}
-        
-        self.modules[MODULE_CAMERA] = CameraModule(self.hass, module_config.get(MODULE_CAMERA, {}))
-        self.modules[MODULE_LOCK] = LockModule(self.hass, module_config.get(MODULE_LOCK, {}))
-        self.modules[MODULE_LIGHTS] = LightsModule(self.hass, module_config.get(MODULE_LIGHTS, {}))
-        self.modules[MODULE_CLIMATE] = ClimateModule(self.hass, module_config.get(MODULE_CLIMATE, {}))
-        self.modules[MODULE_SIREN] = SirenModule(self.hass, module_config.get(MODULE_SIREN, {}))
-        self.modules[MODULE_TTS] = TTSModule(self.hass, module_config.get(MODULE_TTS, {}))
-        
+        for mid in ("camera", "lock", "lights", "climate", "siren", "tts"):
+            module_config = _get_config(mid)
+            module_classes = {
+                "camera": CameraModule,
+                "lock": LockModule,
+                "lights": LightsModule,
+                "climate": ClimateModule,
+                "siren": SirenModule,
+                "tts": TTSModule,
+            }
+            self.modules[mid] = module_classes[mid](self.hass, module_config)
+
         _LOGGER.info("Modules initialized: %s", list(self.modules.keys()))
 
     async def _execute_modules_arm_away(self) -> None:
-        """Execute all modules on arm away."""
-        _LOGGER.info("Executing modules for arm_away")
-        for module_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if module.enabled:
                 try:
                     await module.async_arm("away")
                 except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_away: %s", module_id, err)
-                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {"module": module_id, "action": "arm_away", "error": str(err)})
+                    _LOGGER.error("Module %s failed on arm_away: %s", mid, err)
+                    self.hass.bus.async_fire(
+                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_away", "error": str(err)}
+                    )
 
     async def _execute_modules_arm_home(self) -> None:
-        """Execute all modules on arm home."""
-        _LOGGER.info("Executing modules for arm_home")
-        for module_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if module.enabled:
                 try:
                     await module.async_arm("home")
                 except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_home: %s", module_id, err)
-                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {"module": module_id, "action": "arm_home", "error": str(err)})
+                    _LOGGER.error("Module %s failed on arm_home: %s", mid, err)
+                    self.hass.bus.async_fire(
+                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_home", "error": str(err)}
+                    )
 
     async def _execute_modules_arm_night(self) -> None:
-        """Execute all modules on arm night."""
-        _LOGGER.info("Executing modules for arm_night")
-        for module_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if module.enabled:
                 try:
                     await module.async_arm("night")
                 except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_night: %s", module_id, err)
-                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {"module": module_id, "action": "arm_night", "error": str(err)})
+                    _LOGGER.error("Module %s failed on arm_night: %s", mid, err)
+                    self.hass.bus.async_fire(
+                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_night", "error": str(err)}
+                    )
 
     async def _execute_modules_disarm(self) -> None:
-        """Execute all modules on disarm."""
-        _LOGGER.info("Executing modules for disarm")
-        for module_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if module.enabled:
                 try:
                     await module.async_disarm()
                 except Exception as err:
-                    _LOGGER.error("Module %s failed on disarm: %s", module_id, err)
-                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {"module": module_id, "action": "disarm", "error": str(err)})
+                    _LOGGER.error("Module %s failed on disarm: %s", mid, err)
+                    self.hass.bus.async_fire(
+                        EVENT_MODULE_ERROR, {"module": mid, "action": "disarm", "error": str(err)}
+                    )
 
     async def _execute_modules_trigger(self) -> None:
-        """Execute all modules on trigger."""
-        _LOGGER.warning("Executing modules for TRIGGER")
-        for module_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if module.enabled:
                 try:
                     await module.async_trigger()
                 except Exception as err:
-                    _LOGGER.error("Module %s failed on trigger: %s", module_id, err)
-                    self.hass.bus.async_fire(EVENT_MODULE_ERROR, {"module": module_id, "action": "trigger", "error": str(err)})
+                    _LOGGER.error("Module %s failed on trigger: %s", mid, err)
+                    self.hass.bus.async_fire(
+                        EVENT_MODULE_ERROR, {"module": mid, "action": "trigger", "error": str(err)}
+                    )
 
     def enable_module(self, module_id: str) -> bool:
-        """Enable a module."""
         if module_id not in self.modules:
-            _LOGGER.error("Module %s not found", module_id)
             return False
         self.modules[module_id].enable()
-        _LOGGER.info("Module %s enabled", module_id)
         self.hass.bus.async_fire(EVENT_MODULE_ENABLED, {"module": module_id})
         return True
 
     def disable_module(self, module_id: str) -> bool:
-        """Disable a module."""
         if module_id not in self.modules:
-            _LOGGER.error("Module %s not found", module_id)
             return False
         self.modules[module_id].disable()
-        _LOGGER.info("Module %s disabled", module_id)
         self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
         return True
 
     def update_module_config(self, module_id: str, config: dict) -> bool:
-        """Re-initialize a module with updated configuration from store."""
+        """Re-initialize a module with updated configuration."""
         module_classes = {
-            MODULE_CAMERA: CameraModule,
-            MODULE_LOCK: LockModule,
-            MODULE_LIGHTS: LightsModule,
-            MODULE_CLIMATE: ClimateModule,
-            MODULE_SIREN: SirenModule,
-            MODULE_TTS: TTSModule,
+            "camera": CameraModule, "lock": LockModule, "lights": LightsModule,
+            "climate": ClimateModule, "siren": SirenModule, "tts": TTSModule,
         }
         cls = module_classes.get(module_id)
         if not cls:
-            _LOGGER.error("Unknown module id: %s", module_id)
             return False
-
         try:
             self.modules[module_id] = cls(self.hass, config)
-            _LOGGER.info("Module %s re-initialized with %d config keys", module_id, len(config))
             return True
         except Exception as err:
             _LOGGER.error("Failed to re-initialize module %s: %s", module_id, err)
             return False
 
     async def async_load_store_config(self, store) -> None:
-        """Load module configurations from store and re-initialize modules."""
+        """Load module and sensor configs from store, re-initialize modules."""
         self.store = store
         stored = store.get_modules()
-        if not stored:
-            _LOGGER.debug("No module configs in store yet")
-            return
+        if stored:
+            for module_id, config in stored.items():
+                if config:
+                    normalized = _normalize_coordinator_config(module_id, config)
+                    self.update_module_config(module_id, normalized)
 
-        for module_id, config in stored.items():
-            if config:
-                normalized = _normalize_coordinator_config(module_id, config)
-                self.update_module_config(module_id, normalized)
-                _LOGGER.info("Module %s loaded from store", module_id)
+        # v1.2.0: Push sensor configs and groups into zone manager
+        sensor_configs = store.get_sensors()
+        self.zone_manager.load_sensor_configs(sensor_configs)
+
+        sensor_groups = store.get_sensor_groups()
+        if sensor_groups:
+            self.zone_manager.load_sensor_groups(sensor_groups)
+            _LOGGER.info("Loaded %d sensor groups from store", len(sensor_groups))
+
+    # ── Health ───────────────────────────────────────────────────────────────
 
     def get_health_score(self) -> int:
-        """Calculate system health score (0-100)."""
-        total = 0
-        available = 0
+        total, available = 0, 0
         for module in self.modules.values():
             if not module.enabled:
                 continue
-            entities = self._get_module_entity_ids(module)
-            for eid in entities:
+            for eid in self._get_module_entity_ids(module):
                 total += 1
                 state = self.hass.states.get(eid)
                 if state and state.state not in ("unavailable", "unknown"):
                     available += 1
-        if total == 0:
-            return 100
-        return round((available / total) * 100)
+        return round((available / total) * 100) if total > 0 else 100
 
     def get_module_health(self) -> dict[str, dict]:
-        """Get health status for each module."""
         result = {}
-        for mod_id, module in self.modules.items():
+        for mid, module in self.modules.items():
             if not module.enabled:
-                result[mod_id] = {"enabled": False, "status": "disabled", "total": 0, "available": 0, "unavailable": []}
+                result[mid] = {"enabled": False, "status": "disabled", "total": 0, "available": 0, "unavailable": []}
                 continue
             entities = self._get_module_entity_ids(module)
-            unavail = []
-            for eid in entities:
-                state = self.hass.states.get(eid)
-                if not state or state.state in ("unavailable", "unknown"):
-                    unavail.append(eid)
-            result[mod_id] = {
+            unavail = [
+                eid for eid in entities
+                if not self.hass.states.get(eid)
+                or self.hass.states.get(eid).state in ("unavailable", "unknown")
+            ]
+            result[mid] = {
                 "enabled": True,
                 "status": "problem" if unavail else "ok",
                 "total": len(entities),
@@ -671,12 +700,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return result
 
     def get_enabled_module_count(self) -> int:
-        """Return count of enabled modules."""
         return sum(1 for m in self.modules.values() if m.enabled)
 
     @staticmethod
     def _get_module_entity_ids(module) -> list[str]:
-        """Extract all entity IDs from a module's configuration."""
         entities: list[str] = []
         for attr in ("poe_switches", "cameras", "recording_entities", "locks", "lights", "climates", "media_players"):
             val = getattr(module, attr, None)
@@ -691,31 +718,36 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             if isinstance(val, str) and "." in val:
                 entities.append(val)
         if not entities and hasattr(module, "config"):
-            config = module.config
             for key in ("entities", "cameras", "locks", "climates", "lights", "media_players", "poe_switches"):
-                val = config.get(key)
+                val = module.config.get(key)
                 if isinstance(val, list):
                     entities.extend(val)
                 elif isinstance(val, dict):
                     entities.extend(val.values())
-        entities = [e for e in entities if e and isinstance(e, str) and "." in e]
-        return list(set(entities))
+        return list({e for e in entities if e and isinstance(e, str) and "." in e})
+
+    # ── Shutdown ─────────────────────────────────────────────────────────────
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator."""
         _LOGGER.info("Shutting down coordinator")
-        if hasattr(self, 'modules'):
-            for module_id, module in self.modules.items():
+
+        # Unregister push event listener
+        if hasattr(self, "_push_unsub") and self._push_unsub:
+            self._push_unsub()
+
+        if hasattr(self, "modules"):
+            for mid, module in self.modules.items():
                 try:
                     await module.async_cleanup()
                 except Exception as err:
-                    _LOGGER.error("Module %s cleanup failed: %s", module_id, err)
-        if hasattr(self, 'zone_manager'):
+                    _LOGGER.error("Module %s cleanup failed: %s", mid, err)
+        if hasattr(self, "zone_manager"):
             try:
                 self.zone_manager.stop_monitoring()
             except Exception as err:
                 _LOGGER.error("Zone manager cleanup failed: %s", err)
-        if hasattr(self, 'state_machine'):
+        if hasattr(self, "state_machine"):
             try:
                 self.state_machine.cleanup()
             except Exception as err:

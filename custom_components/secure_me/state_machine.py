@@ -1,5 +1,5 @@
 """State machine for Secure Me alarm system."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import asyncio
 import logging

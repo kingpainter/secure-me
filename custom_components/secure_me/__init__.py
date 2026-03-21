@@ -1,4 +1,4 @@
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 """The Secure Me integration."""
 from __future__ import annotations
 
@@ -81,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name=entry.data.get("name", DEFAULT_NAME),
         manufacturer="KingPainter",
         model="Secure Me",
-        sw_version=entry.data.get("version", "1.1.0"),
+        sw_version=entry.data.get("version", "1.2.0"),
     )
 
     # Register WebSocket API (global, once)

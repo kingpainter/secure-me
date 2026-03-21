@@ -1,5 +1,6 @@
 # Secure Me - Home Assistant Custom Integration
-# No runtime dependencies -- uses only Home Assistant built-in components
+# Runtime dependency
+bcrypt>=4.0.0
 
 # Development / testing dependencies
 # Install with: pip install -r requirements.txt

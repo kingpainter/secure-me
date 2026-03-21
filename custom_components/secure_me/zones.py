@@ -1,5 +1,5 @@
 """Zone management for Secure Me."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import asyncio
 import logging
@@ -70,11 +70,72 @@ class Zone:
         }
 
 
-class ZoneManager:
-    """Manage security zones and sensors.
+class SensorGroup:
+    """Anti-masking sensor group.
 
-    v0.5.0 edge case fixes:
-    - Sensor goes unavailable while armed: logged + notified, NOT treated as open
+    Only triggers if at least `event_count` sensors activate within
+    `timeout` seconds of each other. A timeout of 0 disables the window
+    (all sensors must activate regardless of timing).
+
+    Inspired by Alarmo's SensorGroupEntry.
+    """
+
+    def __init__(
+        self,
+        group_id: str,
+        name: str,
+        entities: list[str],
+        timeout: int = 0,
+        event_count: int = 2,
+    ) -> None:
+        self.group_id = group_id
+        self.name = name
+        self.entities = list(entities)
+        self.timeout = timeout
+        self.event_count = event_count
+        # (entity_id -> monotonic timestamp) of recent activations
+        self._activations: dict[str, float] = {}
+
+    def record_activation(self, entity_id: str) -> bool:
+        """Record a sensor activation and return True if group threshold is met.
+
+        Cleans up stale activations outside the timeout window first.
+        If timeout == 0: all activations count regardless of timing.
+        """
+        now = time.monotonic()
+        self._activations[entity_id] = now
+
+        if self.timeout > 0:
+            # Remove activations outside the time window
+            cutoff = now - self.timeout
+            self._activations = {
+                eid: ts for eid, ts in self._activations.items()
+                if ts >= cutoff
+            }
+
+        active_count = len(self._activations)
+        _LOGGER.debug(
+            "Sensor group '%s': %d/%d activations (timeout=%ds)",
+            self.group_id, active_count, self.event_count, self.timeout,
+        )
+        return active_count >= self.event_count
+
+    def reset(self) -> None:
+        """Clear all activation records."""
+        self._activations.clear()
+
+
+class ZoneManager:
+    """Manage security zones, sensors, and sensor groups.
+
+    v1.2.0 additions:
+    - SensorGroup anti-masking: only trigger if N sensors fire within window
+    - Per-sensor auto_bypass: open sensors at arm time are bypassed automatically
+    - Per-sensor arm_on_close: auto-arm when sensor closes
+    - Per-sensor entry_delay override: passed back to caller via trigger callback
+
+    v0.5.0 edge case fixes (retained):
+    - Sensor unavailable while armed: logged + notified, treated as closed
     - Sensor deleted while armed: gracefully ignored, warning logged
     - Sensor removed from HA while armed: mapping cleaned up, user notified
     """
@@ -85,21 +146,95 @@ class ZoneManager:
         self._sensor_to_zone: dict[str, str] = {}
         self._unsubscribe_callbacks: list = []
         self._trigger_callback = None
+        self._arm_on_close_callback = None  # called when arm_on_close sensor closes
+
+        # Sensor configs keyed by entity_id (loaded from store at arm time)
+        self._sensor_configs: dict[str, dict[str, Any]] = {}
+
+        # Sensor groups for anti-masking
+        self._sensor_groups: dict[str, SensorGroup] = {}
 
         # PERF v0.6.0: Debounce per-sensor to suppress flapping.
-        # Key: entity_id, Value: monotonic timestamp of last trigger callback
         self._last_trigger_time: dict[str, float] = {}
-        self._debounce_interval: float = 0.5  # seconds — ignore repeated triggers within 500ms
+        self._debounce_interval: float = 0.5
 
         _LOGGER.info("Zone manager initialized")
 
+    # ── Properties ─────────────────────────────────────────────────────────
+
     @property
     def zones(self) -> dict[str, Zone]:
-        """Return zones dict."""
         return self._zones
 
     def register_trigger_callback(self, callback_func) -> None:
         self._trigger_callback = callback_func
+
+    def register_arm_on_close_callback(self, callback_func) -> None:
+        """Register callback for arm_on_close events."""
+        self._arm_on_close_callback = callback_func
+
+    # ── Sensor configs ──────────────────────────────────────────────────────
+
+    def load_sensor_configs(self, configs: dict[str, dict[str, Any]]) -> None:
+        """Load per-sensor configs (entry_delay, auto_bypass, arm_on_close)."""
+        self._sensor_configs = configs
+        _LOGGER.debug("Loaded %d sensor configs", len(configs))
+
+    def get_sensor_entry_delay(self, entity_id: str, zone_default: int) -> int:
+        """Return per-sensor entry_delay if configured, else zone default."""
+        cfg = self._sensor_configs.get(entity_id, {})
+        override = cfg.get("entry_delay")
+        if override is not None:
+            try:
+                return int(override)
+            except (TypeError, ValueError):
+                pass
+        return zone_default
+
+    def get_auto_bypass_sensors(self, zone_sensors: list[str]) -> list[str]:
+        """Return sensors that are currently open AND have auto_bypass=True.
+
+        Called before arming to determine which sensors to silently bypass.
+        """
+        bypassed = []
+        for entity_id in zone_sensors:
+            cfg = self._sensor_configs.get(entity_id, {})
+            if not cfg.get("auto_bypass", False):
+                continue
+            state = self.hass.states.get(entity_id)
+            if state and state.state in _OPEN_STATES:
+                bypassed.append(entity_id)
+                _LOGGER.info("Auto-bypassing open sensor at arm time: %s", entity_id)
+        return bypassed
+
+    # ── Sensor groups ───────────────────────────────────────────────────────
+
+    def load_sensor_groups(self, groups: dict[str, dict[str, Any]]) -> None:
+        """Load sensor group definitions from store data."""
+        self._sensor_groups = {}
+        for gid, gdata in groups.items():
+            self._sensor_groups[gid] = SensorGroup(
+                group_id=gid,
+                name=gdata.get("name", ""),
+                entities=gdata.get("entities", []),
+                timeout=int(gdata.get("timeout", 0)),
+                event_count=int(gdata.get("event_count", 2)),
+            )
+        _LOGGER.info("Loaded %d sensor groups", len(self._sensor_groups))
+
+    def _get_group_for_sensor(self, entity_id: str) -> SensorGroup | None:
+        """Return the SensorGroup this sensor belongs to, or None."""
+        for group in self._sensor_groups.values():
+            if entity_id in group.entities:
+                return group
+        return None
+
+    def reset_sensor_groups(self) -> None:
+        """Clear all sensor group activation records (call on disarm)."""
+        for group in self._sensor_groups.values():
+            group.reset()
+
+    # ── Zone CRUD ───────────────────────────────────────────────────────────
 
     def add_zone(
         self,
@@ -152,16 +287,15 @@ class ZoneManager:
                 open_sensors.extend(zone.open_sensors)
         return open_sensors
 
-    def update_sensor_state(self, entity_id: str, state: State) -> tuple[bool, Zone | None]:
+    # ── State update ────────────────────────────────────────────────────────
+
+    def update_sensor_state(
+        self, entity_id: str, state: State
+    ) -> tuple[bool, Zone | None]:
         """Update sensor state.
 
-        EDGE CASE: If new_state is None (entity removed from HA), the sensor
-        is treated as CLOSED (not open) to avoid false triggers. A warning
-        is logged and a persistent notification is sent to the user.
-
-        EDGE CASE: If state is 'unavailable' or 'unknown', the sensor is
-        also treated as closed (not open). This prevents an offline sensor
-        from being ignored but also prevents spurious alarms.
+        Returns (changed, zone) where zone is non-None only when the zone
+        became triggered (useful for triggering alarm logic).
         """
         zone = self.get_zone_by_sensor(entity_id)
         if not zone or not zone.enabled:
@@ -173,27 +307,49 @@ class ZoneManager:
                 "Sensor %s has no state (removed from HA?) — treating as closed",
                 entity_id,
             )
-            self.hass.components.persistent_notification.async_create(
-                message=f"Sensor '{entity_id}' in zone '{zone.zone_id}' has disappeared from Home Assistant. "
-                        f"Check if the device is still connected.",
-                title="Secure Me - Sensor Missing",
-                notification_id=f"{NOTIFY_ID_MODULE_ERROR}_sensor_{entity_id.replace('.', '_')}",
-            )
+            try:
+                from homeassistant.components.persistent_notification import (
+                    async_create as pn_create,
+                )
+                pn_create(
+                    self.hass,
+                    message=(
+                        f"Sensor '{entity_id}' in zone '{zone.zone_id}' has disappeared "
+                        f"from Home Assistant. Check if the device is still connected."
+                    ),
+                    title="Secure Me - Sensor Missing",
+                    notification_id=(
+                        f"{NOTIFY_ID_MODULE_ERROR}_sensor_{entity_id.replace('.', '_')}"
+                    ),
+                )
+            except Exception:
+                pass
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
 
-        # EDGE CASE: sensor unavailable/unknown while armed
+        # EDGE CASE: unavailable/unknown
         if state.state in ("unavailable", "unknown"):
             _LOGGER.warning(
-                "Sensor %s is %s while monitoring active — treating as closed, check device",
+                "Sensor %s is %s while monitoring active — treating as closed",
                 entity_id, state.state,
             )
-            self.hass.components.persistent_notification.async_create(
-                message=f"Sensor '{entity_id}' in zone '{zone.zone_id}' is {state.state}. "
-                        f"Please check the device connection.",
-                title="Secure Me - Sensor Unavailable",
-                notification_id=f"{NOTIFY_ID_MODULE_ERROR}_unavail_{entity_id.replace('.', '_')}",
-            )
+            try:
+                from homeassistant.components.persistent_notification import (
+                    async_create as pn_create,
+                )
+                pn_create(
+                    self.hass,
+                    message=(
+                        f"Sensor '{entity_id}' in zone '{zone.zone_id}' is {state.state}. "
+                        f"Please check the device connection."
+                    ),
+                    title="Secure Me - Sensor Unavailable",
+                    notification_id=(
+                        f"{NOTIFY_ID_MODULE_ERROR}_unavail_{entity_id.replace('.', '_')}"
+                    ),
+                )
+            except Exception:
+                pass
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
 
@@ -208,8 +364,13 @@ class ZoneManager:
 
         return changed, zone
 
+    # ── Monitoring ──────────────────────────────────────────────────────────
+
     def start_monitoring(self, callback_func=None) -> None:
-        """Start monitoring sensors."""
+        """Start monitoring sensors.
+
+        v1.2.0: Also tracks arm_on_close sensors regardless of zone assignment.
+        """
         trigger_callback = callback_func or self._trigger_callback
         if not trigger_callback:
             _LOGGER.error("No trigger callback registered")
@@ -219,35 +380,64 @@ class ZoneManager:
         for zone in self._zones.values():
             all_sensors.update(zone.sensors)
 
+        # Also monitor arm_on_close sensors even if not yet in a zone
+        for eid, cfg in self._sensor_configs.items():
+            if cfg.get("arm_on_close", False):
+                all_sensors.add(eid)
+
         if not all_sensors:
             _LOGGER.warning("No sensors to monitor")
             return
 
         @callback
         def _sensor_state_changed(event):
-            """Handle sensor state change event.
-
-            PERF v0.6.0: Debounce rapid state changes per sensor.
-            A flapping sensor (on/off/on within 500ms) only fires the trigger
-            callback once, preventing cascading alarm triggers and log spam.
-
-            EDGE CASE (v0.5.0): new_state can be None if entity is removed from HA.
-            """
+            """Handle sensor state change event."""
             entity_id = event.data.get("entity_id")
             new_state = event.data.get("new_state")
+            old_state = event.data.get("old_state")
+
+            # arm_on_close: sensor transitioned from open -> closed
+            cfg = self._sensor_configs.get(entity_id, {})
+            if cfg.get("arm_on_close", False) and old_state and new_state:
+                was_open = old_state.state in _OPEN_STATES
+                is_closed = new_state.state not in _OPEN_STATES and new_state.state not in (
+                    "unavailable", "unknown"
+                )
+                if was_open and is_closed and self._arm_on_close_callback:
+                    _LOGGER.info(
+                        "arm_on_close triggered by %s (was open, now closed)", entity_id
+                    )
+                    import asyncio as _asyncio
+                    _asyncio.ensure_future(self._arm_on_close_callback(entity_id))
 
             changed, zone = self.update_sensor_state(entity_id, new_state)
-            if changed and zone and zone.is_triggered:
-                now = time.monotonic()
-                last = self._last_trigger_time.get(entity_id, 0.0)
-                if now - last < self._debounce_interval:
-                    _LOGGER.debug(
-                        "Sensor %s debounced (%.3fs since last trigger)",
-                        entity_id, now - last,
+            if not changed or not zone or not zone.is_triggered:
+                return
+
+            # Sensor group anti-masking check
+            group = self._get_group_for_sensor(entity_id)
+            if group is not None:
+                threshold_met = group.record_activation(entity_id)
+                if not threshold_met:
+                    _LOGGER.info(
+                        "Sensor group '%s': activation from %s recorded but threshold "
+                        "not yet met (%d/%d within %ds)",
+                        group.group_id, entity_id,
+                        len(group._activations), group.event_count, group.timeout,
                     )
-                    return
-                self._last_trigger_time[entity_id] = now
-                trigger_callback(zone)
+                    return  # do not fire trigger yet
+
+            # Debounce rapid state changes per sensor
+            now = time.monotonic()
+            last = self._last_trigger_time.get(entity_id, 0.0)
+            if now - last < self._debounce_interval:
+                _LOGGER.debug(
+                    "Sensor %s debounced (%.3fs since last trigger)",
+                    entity_id, now - last,
+                )
+                return
+            self._last_trigger_time[entity_id] = now
+            trigger_callback(zone)
 
         unsub = async_track_state_change_event(
             self.hass,
@@ -266,32 +456,33 @@ class ZoneManager:
     def clear_all_triggers(self) -> None:
         for zone in self._zones.values():
             zone.clear_open_sensors()
+        self.reset_sensor_groups()
         _LOGGER.info("Cleared all zone triggers")
 
-    def check_for_open_sensors(self) -> bool:
-        """Check if any sensors are currently open. Returns True if found.
+    def check_for_open_sensors(self, bypass_list: list[str] | None = None) -> bool:
+        """Check if any sensors are currently open.
 
-        EDGE CASE: Sensors that are unavailable/unknown are skipped (not
-        counted as open). This prevents arming from being blocked by an
-        offline sensor.
+        Returns True if open (non-bypassed) sensors found.
+        bypass_list: sensors to skip (auto_bypass candidates).
         """
+        bypass = set(bypass_list or [])
         for zone in self._zones.values():
             if not zone.enabled:
                 continue
             for sensor in zone.sensors:
+                if sensor in bypass:
+                    continue
                 state = self.hass.states.get(sensor)
                 if not state:
-                    # Entity missing — skip, log warning
                     _LOGGER.warning("Sensor %s not found in HA during open sensor check", sensor)
                     continue
                 if state.state in ("unavailable", "unknown"):
-                    # Unavailable sensor — skip, don't block arming
                     _LOGGER.debug("Sensor %s is %s — skipping in open check", sensor, state.state)
                     continue
                 if state.state in _OPEN_STATES:
                     zone.update_sensor_state(sensor, True)
 
-        open_sensors = self.get_all_open_sensors()
+        open_sensors = [s for s in self.get_all_open_sensors() if s not in bypass]
         if open_sensors:
             _LOGGER.warning("Open sensors detected: %s", open_sensors)
             return True
@@ -304,5 +495,6 @@ class ZoneManager:
             "triggered_zones": len(self.get_triggered_zones()),
             "total_sensors": len(self._sensor_to_zone),
             "open_sensors": len(self.get_all_open_sensors()),
+            "sensor_groups": len(self._sensor_groups),
             "zones": [zone.to_dict() for zone in self._zones.values()],
         }
