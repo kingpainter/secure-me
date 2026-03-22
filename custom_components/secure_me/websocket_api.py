@@ -648,46 +648,66 @@ async def ws_test_notification(
             connection.send_result(msg["id"], {"success": False, "error": "Dispatcher not ready"})
         return
 
-    # --- Smoke: inject a fake sensor name so test feels realistic ---
+    # --- Smoke: inject a fake sensor name, send only to admins ---
     if trigger == "smoke":
-        from .notification_dispatcher import _build_message, _send_notification
+        from .notification_dispatcher import _build_message, _send_push
         raw = notif.get("message", "")
         message = _build_message(raw, {"sensor": "Test Smoke Detector", "entity_id": "binary_sensor.test_smoke"})
         title = "TEST - FIRE ALERT: Test Smoke Detector"
         try:
-            await _send_notification(hass, notif, title, message)
+            admin_services = [u.get("notify_service") for u in store.get_users().values()
+                              if u.get("enabled", True) and u.get("admin") and u.get("notify_service")]
+            if not admin_services:
+                admin_services = [notif.get("service", "notify.notify")]
+            for svc in admin_services:
+                await _send_push(hass, svc, title, message)
             connection.send_result(msg["id"], {"success": True})
         except Exception as err:
             connection.send_result(msg["id"], {"success": False, "error": str(err)})
         return
 
-    # --- Water leak: inject a fake sensor name ---
+    # --- Water leak: inject a fake sensor name, send only to admins ---
     if trigger == "water_leak":
-        from .notification_dispatcher import _build_message, _send_notification
+        from .notification_dispatcher import _build_message, _send_push
         raw = notif.get("message", "")
         message = _build_message(raw, {"sensor": "Test Moisture Sensor", "entity_id": "binary_sensor.test_moisture"})
         title = "TEST - WATER LEAK: Test Moisture Sensor"
         try:
-            await _send_notification(hass, notif, title, message)
+            admin_services = [u.get("notify_service") for u in store.get_users().values()
+                              if u.get("enabled", True) and u.get("admin") and u.get("notify_service")]
+            if not admin_services:
+                admin_services = [notif.get("service", "notify.notify")]
+            for svc in admin_services:
+                await _send_push(hass, svc, title, message)
             connection.send_result(msg["id"], {"success": True})
         except Exception as err:
             connection.send_result(msg["id"], {"success": False, "error": str(err)})
         return
 
-    # --- All other triggers: standard send ---
+    # --- All other triggers: send only to admin users ---
     try:
-        service_target = notif.get("service", "notify.notify")
-        domain, service = service_target.split(".", 1)
-
-        service_data = {
-            "message": notif.get("message", "Test notification from Secure Me"),
-            "title": f"Secure Me Test: {notif.get('name', 'Test')}",
+        title = f"TEST: {notif.get('name', 'Secure Me Test')}"
+        context_map = {
+            "state": "test", "armed_by": "Test", "disarmed_by": "Test",
+            "triggered_by": "Test", "sensor_list": "Test sensor", "count": "1",
         }
+        from .notification_dispatcher import _build_message, _send_push
+        message = _build_message(notif.get("message", "Test notification from Secure Me"), context_map)
 
-        if notif.get("actions"):
-            service_data["data"] = {"actions": notif["actions"]}
+        # Route to admin users only
+        admin_services = [
+            u.get("notify_service")
+            for u in store.get_users().values()
+            if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
+        ]
 
-        await hass.services.async_call(domain, service, service_data, blocking=True)
+        # Fallback: use notification's own service if no admins configured
+        if not admin_services:
+            admin_services = [notif.get("service", "notify.notify")]
+
+        for svc in admin_services:
+            await _send_push(hass, svc, title, message)
+
         connection.send_result(msg["id"], {"success": True})
     except Exception as err:
         _LOGGER.error("Failed to test notification: %s", err)
@@ -738,7 +758,18 @@ async def ws_test_tts(
         connection.send_error(msg["id"], "tts_not_enabled", "TTS module is not enabled")
         return
 
+    # Respects admin quiet hours for TTS test
     try:
+        from .notification_dispatcher import _is_tts_quiet_now
+        store = _get_store(hass)
+        admins = [
+            u for u in (store.get_users().values() if store else [])
+            if u.get("enabled", True) and u.get("admin")
+        ]
+        # Only suppress if ALL admins are in quiet hours — otherwise play
+        if admins and all(_is_tts_quiet_now(u) for u in admins):
+            connection.send_result(msg["id"], {"success": False, "error": "TTS quiet hours active for all admins"})
+            return
         await tts_module.announce_system(msg["message"])
         connection.send_result(msg["id"], {"success": True})
     except Exception as err:

@@ -2875,32 +2875,20 @@ class SecureMePanel extends HTMLElement {
           </button>
         </div>
         ${Object.entries(notifications).map(([id, n]) => `
-          <div class="sm-card" style="padding:16px;opacity:${n.enabled ? 1 : 0.5}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
-              <div style="flex:1">
-                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                  <span style="font-size:14px;font-weight:600">${n.name || "Notifikation"}</span>
-                  ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue)">Push</span>' : ''}
-                  ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">TTS</span>' : ''}
-                  <span class="badge entry">${n.trigger || ''}</span>
-                </div>
-                <div class="notif-message">${n.message || ""}</div>
+          <div class="sm-card" style="padding:12px 16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+                <span style="font-size:14px;font-weight:600">${n.name || "Notifikation"}</span>
+                ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue)">Push</span>' : ''}
+                ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">TTS</span>' : ''}
+                <span class="badge entry">${n.trigger || ''}</span>
+                <span style="font-size:11px;color:var(--sm-text-tertiary);font-style:italic">${n.message || ""}</span>
               </div>
-              <button class="sm-toggle ${n.enabled ? "on" : ""}"
-                      data-notif-toggle="${id}">
-                <div class="dot"></div>
-              </button>
-            </div>
-            <div class="notif-actions">
-              <button class="sm-btn default sm" data-test-notif="${id}">
-                ${icon("play")} Test
-              </button>
-              <button class="sm-btn ghost sm" data-edit-notif="${id}">
-                ${icon("edit")}
-              </button>
-              <button class="sm-btn ghost sm" data-delete-notif="${id}">
-                ${icon("trash")}
-              </button>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <button class="sm-btn default sm" data-test-notif="${id}" title="Test">${icon("play")}</button>
+                <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit">${icon("edit")}</button>
+                <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete">${icon("trash")}</button>
+              </div>
             </div>
           </div>
         `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No notifications created yet.</div>'}
@@ -4851,13 +4839,6 @@ class SecureMePanel extends HTMLElement {
     });
 
     // Notification/automation toggles
-    root.querySelectorAll("[data-notif-toggle]").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        this._toggleNotification(btn.dataset.notifToggle);
-      });
-    });
-
     root.querySelectorAll("[data-edit-notif]").forEach(btn => {
       btn.addEventListener("click", () => this._openNotificationDialog(btn.dataset.editNotif));
     });
