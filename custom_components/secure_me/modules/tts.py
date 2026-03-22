@@ -181,15 +181,32 @@ class TTSModule(AlarmModule):
                 service_data={"message": message, "title": "Secure Me"},
                 action="tts_announce",
             )
+        elif service_domain == "script":
+            # script.* (e.g. script.ultra_tts from House Voice) —
+            # passes message + speaker + volume + priority directly.
+            # Speaker list joined to comma-separated string as ultra_tts expects.
+            speaker = (
+                self.media_players[0] if len(self.media_players) == 1
+                else ", ".join(self.media_players)
+            ) if self.media_players else ""
+            await self.async_call_service_with_retry(
+                service_domain, service_name,
+                service_data={
+                    "message": message,
+                    "speaker": speaker,
+                    "volume": self.volume,
+                    "priority": "critical" if urgent else "normal",
+                },
+                action="tts_announce",
+            )
         else:
-            # Custom service (e.g. house_voice.say) — incompatible schema.
-            # Warn once per session, then skip silently.
+            # Unknown custom service — warn once per session, then skip.
             if not self._warned_incompatible_service:
                 self._warned_incompatible_service = True
                 _LOGGER.warning(
-                    "TTS: '%s' is not a standard tts.* or notify.* service and cannot "
-                    "receive free-form text. Skipping TTS announcements. "
-                    "Use tts.cloud_say or similar in TTS module settings.",
+                    "TTS: '%s' is not a supported service type (tts.*, notify.*, script.*). "
+                    "Skipping TTS announcements. Use tts.cloud_say, script.ultra_tts "
+                    "or similar in TTS module settings.",
                     self.tts_service,
                 )
             return
