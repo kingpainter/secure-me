@@ -1303,6 +1303,12 @@ class SecureMePanel extends HTMLElement {
     this._testDescExpanded = false;
     this._schedTemp   = null;    // temp config for scheduled test editing
     this._schedSaving  = false;   // prevents double-submit
+    this._ttsSaving    = false;
+    this._cameraSaving  = false;
+    this._lockSaving    = false;
+    this._climateSaving = false;
+    this._sirenSaving   = false;
+    this._lightsSaving  = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -3867,6 +3873,12 @@ class SecureMePanel extends HTMLElement {
     this._testDescExpanded = false;
     this._schedTemp   = null;    // temp config for scheduled test editing
     this._schedSaving  = false;   // prevents double-submit
+    this._ttsSaving    = false;
+    this._cameraSaving  = false;
+    this._lockSaving    = false;
+    this._climateSaving = false;
+    this._sirenSaving   = false;
+    this._lightsSaving  = false;
     this._render();
   }
 
@@ -3965,6 +3977,11 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveCameraConfig() {
+    if (this._cameraSaving) return;
+    this._cameraSaving = true;
+    const _saveBtn = this.shadowRoot?.querySelector('[data-action="save-camera-config"]');
+    if (_saveBtn) _saveBtn.disabled = true;
+
     // Validation
     const invalid = this._tempConfig.cameras.filter(c => !c.entity_id);
     if (invalid.length > 0) {
@@ -3992,6 +4009,7 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
+      this._cameraSaving = false;
       this._toast('Camera configuration saved! Restart HA to activate.', 'success');
     } else {
       this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
@@ -4167,12 +4185,18 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveLockConfig() {
+    if (this._lockSaving) return;
+    this._lockSaving = true;
+    const _saveBtn = this.shadowRoot?.querySelector('[data-action="save-lock-config"]');
+    if (_saveBtn) _saveBtn.disabled = true;
+
     const invalid = this._tempConfig.locks.filter(l => !l.entity_id);
     if (invalid.length > 0) { this._toast('Please select an entity for all locks.', 'warning'); return; }
     const config = { enabled: true, locks: this._tempConfig.locks.map(l => ({ entity_id: l.entity_id, lock_on_arm: l.lock_on_arm, unlock_on_disarm: l.unlock_on_disarm, retry_attempts: l.retry_attempts, retry_delay: l.retry_delay })) };
     const result = await this._callWS('save_module', { module_id: 'lock', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
+      this._lockSaving = false;
       this._toast('Lock configuration saved! Restart HA to activate.', 'success');
     } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
@@ -4296,12 +4320,18 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveClimateConfig() {
+    if (this._climateSaving) return;
+    this._climateSaving = true;
+    const _saveBtn = this.shadowRoot?.querySelector('[data-action="save-climate-config"]');
+    if (_saveBtn) _saveBtn.disabled = true;
+
     const invalid = this._tempConfig.thermostats.filter(t => !t.entity_id);
     if (invalid.length > 0) { this._toast('Please select an entity for all thermostats.', 'warning'); return; }
     const config = { enabled: true, thermostats: this._tempConfig.thermostats.map(t => ({ entity_id: t.entity_id, arm_mode: t.arm_mode, disarm_mode: t.disarm_mode, eco_temp: t.eco_temp, comfort_temp: t.comfort_temp })) };
     const result = await this._callWS('save_module', { module_id: 'climate', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
+      this._climateSaving = false;
       this._toast('Climate configuration saved! Restart HA to activate.', 'success');
     } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
@@ -4449,6 +4479,11 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveSirenConfig() {
+    if (this._sirenSaving) return;
+    this._sirenSaving = true;
+    const _saveBtn = this.shadowRoot?.querySelector('[data-action="save-siren-config"]');
+    if (_saveBtn) _saveBtn.disabled = true;
+
     const invalid = this._tempConfig.sirens.filter(s => !s.entity_id);
     if (invalid.length > 0) {
       this._toast('Please select a siren entity for all sirens before saving.', 'warning'); return;
@@ -4474,6 +4509,7 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
+      this._sirenSaving = false;
       this._toast('Siren configuration saved! Restart HA to activate.', 'success');
     } else {
       this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
@@ -4595,11 +4631,17 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveLightsConfig() {
+    if (this._lightsSaving) return;
+    this._lightsSaving = true;
+    const _saveBtn = this.shadowRoot?.querySelector('[data-action="save-lights-config"]');
+    if (_saveBtn) _saveBtn.disabled = true;
+
     if (this._tempConfig.entities.length === 0) { this._toast('Please add at least one light entity.', 'warning'); return; }
     const config = { enabled: true, entities: this._tempConfig.entities, arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
+      this._lightsSaving = false;
       this._toast('Lights configuration saved! Restart HA to activate.', 'success');
     } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
@@ -4925,10 +4967,24 @@ class SecureMePanel extends HTMLElement {
   }
 
   _forceRebuildDialog() {
-    // Force shell-dialog-mount to rebuild by resetting currentDialog marker
+    // Force shell-dialog-mount to rebuild by resetting currentDialog marker.
+    // Also clear innerHTML first so accumulated event listeners are removed
+    // (cloning the node is not needed — setting innerHTML replaces all children
+    // and their listeners are garbage collected).
     const dialogMount = this.shadowRoot?.getElementById('shell-dialog-mount');
-    if (dialogMount) dialogMount.dataset.currentDialog = '';
-    this._render();
+    if (dialogMount) {
+      dialogMount.dataset.currentDialog = '';
+      // Preserve scroll position of dialog
+      const dlg = dialogMount.querySelector('.config-dialog');
+      const scrollTop = dlg ? dlg.scrollTop : 0;
+      this._render();
+      requestAnimationFrame(() => {
+        const dlgNew = dialogMount.querySelector('.config-dialog');
+        if (dlgNew && scrollTop) dlgNew.scrollTop = scrollTop;
+      });
+    } else {
+      this._render();
+    }
   }
 
   _updateTTSCustomMessage(id, field, value) {
@@ -4951,6 +5007,11 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveTTSConfig() {
+    if (this._ttsSaving) return;
+    this._ttsSaving = true;
+    const saveBtn = this.shadowRoot?.querySelector('[data-action="save-tts-config"]');
+    if (saveBtn) { saveBtn.disabled = true; }
+
     const config = {
       enabled: true,
       entities: this._tempConfig.entities,
@@ -4965,12 +5026,14 @@ class SecureMePanel extends HTMLElement {
       config: config
     });
 
+    this._ttsSaving = false;
     if (result && result.success !== false) {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
       this._toast('TTS configuration saved! Restart HA to activate.', 'success');
     } else {
+      if (saveBtn) saveBtn.disabled = false;
       this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
