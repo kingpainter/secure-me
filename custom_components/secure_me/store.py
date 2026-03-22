@@ -5,6 +5,7 @@ import base64
 import concurrent.futures
 import logging
 import time
+import uuid
 from typing import Any
 
 import bcrypt
@@ -136,6 +137,7 @@ class SecureMeStore:
             },
             "notifications": {},
             "automations": {},
+            "scheduled_tests": {},
             "fake_presence": False,
             "home_alone_cameras": [],
         }
@@ -461,6 +463,38 @@ class SecureMeStore:
             await self.async_save()
             return True
         return False
+
+    # ─── Scheduled Tests ──────────────────────────────────────────────────────
+
+    def get_scheduled_tests(self) -> dict[str, Any]:
+        """Get all scheduled test configurations."""
+        return self._data.get("scheduled_tests", {})
+
+    async def async_save_scheduled_test(self, test_id: str | None, config: dict[str, Any]) -> str:
+        """Save a scheduled test. Creates new ID if test_id is None."""
+        if not test_id:
+            test_id = "sched_" + str(uuid.uuid4())[:8]
+        self._data.setdefault("scheduled_tests", {})[test_id] = config
+        await self.async_save()
+        return test_id
+
+    async def async_delete_scheduled_test(self, test_id: str) -> bool:
+        """Delete a scheduled test."""
+        if test_id in self._data.get("scheduled_tests", {}):
+            del self._data["scheduled_tests"][test_id]
+            await self.async_save()
+            return True
+        return False
+
+    async def async_update_scheduled_test_result(
+        self, test_id: str, last_run: str, last_result: str
+    ) -> None:
+        """Update last_run and last_result after a scheduled test executes."""
+        sched = self._data.get("scheduled_tests", {}).get(test_id)
+        if sched:
+            sched["last_run"] = last_run
+            sched["last_result"] = last_result
+            await self.async_save()
 
     # ─── Fake Presence ────────────────────────────────────────────────────────
 

@@ -1291,6 +1291,7 @@ class SecureMePanel extends HTMLElement {
       modules: {},
       notifications: {},
       automations: {},
+      scheduledTests: {},
     };
     this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
@@ -1300,6 +1301,7 @@ class SecureMePanel extends HTMLElement {
     this._renderTimeout = null;
     this._testRunning = false;
     this._testDescExpanded = false;
+    this._schedTemp = null;    // temp config for scheduled test editing
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -1616,12 +1618,14 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _loadTestingData() {
-    const [health, testResults] = await Promise.all([
+    const [health, testResults, scheduledTests] = await Promise.all([
       this._callWS("get_health_summary"),
       this._callWS("get_test_results"),
+      this._callWS("get_scheduled_tests"),
     ]);
     if (health) this._data.health = health;
     if (testResults) this._data.testResults = testResults.results || [];
+    if (scheduledTests) this._data.scheduledTests = scheduledTests.scheduled_tests || {};
     // Only re-render if user is already on the testing tab
     if (this._activeTab === "testing") this._queueRender();
   }
@@ -1901,7 +1905,8 @@ class SecureMePanel extends HTMLElement {
           : wantDialog === 'lights'  ? this._renderLightsDialog()
           : wantDialog === 'tts'          ? this._renderTTSDialog()
           : wantDialog === 'notification'  ? this._renderNotificationDialog()
-          : wantDialog === 'user'    ? this._renderUserDialog()
+          : wantDialog === 'user'         ? this._renderUserDialog()
+          : wantDialog === 'sched-test'   ? this._renderSchedDialog()
           : '';
         dialogMount.innerHTML = dialogHtml;
         dialogMount.dataset.currentDialog = wantDialog;
@@ -3217,6 +3222,9 @@ class SecureMePanel extends HTMLElement {
         ` : ""}
       </div>
 
+      <!-- ── Scheduled Tests ───────────────────────────────────────── -->
+      ` + this._renderScheduledTests() + `
+
       <!-- ── Last Test Result ──────────────────────────────────────── -->
       <div class="section-header" style="margin-top:20px">
         <h3 class="section-title">Last Test Run</h3>
@@ -3276,6 +3284,205 @@ class SecureMePanel extends HTMLElement {
       ${this._renderBatteryOverview(batteries)}
     `;
   }
+
+  _renderScheduledTests() {
+    const scheduled = this._data.scheduledTests || {};
+    const entries = Object.entries(scheduled);
+    const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const TEST_LABELS = { quick: 'Quick', standard: 'Standard', full: 'Full' };
+
+    const schedCard = ([id, s]) => {
+      const sched = s.schedule || {};
+      const mode = sched.mode || 'weekly';
+      const timeStr = String(sched.hour ?? 8).padStart(2,'0') + ':' + String(sched.minute ?? 0).padStart(2,'0');
+      const testLabel = TEST_LABELS[s.test_type] || s.test_type;
+      const resultColor = !s.last_result ? 'var(--sm-text-tertiary)' :
+        s.last_result === 'pass' ? 'var(--sm-accent)' :
+        s.last_result === 'warning' ? 'var(--sm-warning)' : 'var(--sm-danger)';
+      let schedDesc = '';
+      if (mode === 'daily') schedDesc = 'Every day';
+      else if (mode === 'weekly') schedDesc = 'Every ' + (WEEKDAYS[sched.weekday ?? 6] || 'Sunday');
+      else if (mode === 'interval') schedDesc = 'Every ' + (sched.interval_weeks || 2) + ' weeks (Sunday)';
+
+      return `
+        <div class="sm-card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;opacity:${s.enabled !== false ? 1 : 0.5}">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:13px;font-weight:600">${s.name || 'Scheduled Test'}</span>
+              <span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${testLabel}</span>
+              ${s.notify_on_fail !== false ? '<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning);font-size:10px">Notify on fail</span>' : ''}
+              ${s.enabled === false ? '<span class="badge" style="opacity:0.5;font-size:10px">Disabled</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:3px">
+              ${schedDesc} at ${timeStr}
+              ${s.last_run ? ` &middot; Last: <span style="color:${resultColor};font-weight:600">${(s.last_result || '?').toUpperCase()}</span> (${s.last_run.slice(0,16)})` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button class="sm-btn default sm" data-run-sched="${id}" title="Run now" style="padding:4px 8px">${icon('play')}</button>
+            <button class="sm-btn ghost sm" data-edit-sched="${id}" title="Edit" style="padding:4px 8px">${icon('edit')}</button>
+            <button class="sm-btn ghost sm" data-delete-sched="${id}" title="Delete" style="padding:4px 8px">${icon('trash')}</button>
+          </div>
+        </div>`;
+    };
+
+    return `
+      <div class="section-header" style="margin-top:20px">
+        <h3 class="section-title">Scheduled Tests</h3>
+        <button class="sm-btn primary sm" data-action="add-sched-test">${icon('plus')} Add</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${entries.length > 0
+          ? entries.map(schedCard).join('')
+          : '<div class="sm-card" style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:13px">No scheduled tests. Click Add to create one.</div>'
+        }
+      </div>
+    `;
+  }
+
+  _renderSchedDialog() {
+    const t = this._schedTemp || {};
+    const sched = t.schedule || {};
+    const isEdit = !!t._id;
+    const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+    return `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog" style="max-width:460px">
+          <div class="dialog-header">
+            ${icon('clock')}
+            <div class="dialog-title">${isEdit ? 'Edit Scheduled Test' : 'Add Scheduled Test'}</div>
+            <button class="dialog-close" data-action="close-sched-dialog">${icon('close')}</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-input" id="sched-name"
+              placeholder="e.g. Weekly Sunday check" value="${t.name || ''}">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Test Type</label>
+            <select class="form-select" id="sched-test-type">
+              <option value="quick"    ${(t.test_type || 'quick') === 'quick'    ? 'selected' : ''}>Quick - entity availability only</option>
+              <option value="standard" ${t.test_type === 'standard' ? 'selected' : ''}>Standard - full module verification</option>
+              <option value="full"     ${t.test_type === 'full'     ? 'selected' : ''}>Full - sensor signal included</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Schedule</label>
+            <select class="form-select" id="sched-mode" onchange="this.getRootNode().host._onSchedModeChange(this.value)">
+              <option value="weekly"   ${(sched.mode || 'weekly') === 'weekly'   ? 'selected' : ''}>Weekly - specific weekday</option>
+              <option value="interval" ${sched.mode === 'interval' ? 'selected' : ''}>Every N weeks - always Sunday</option>
+              <option value="daily"    ${sched.mode === 'daily'    ? 'selected' : ''}>Daily</option>
+            </select>
+          </div>
+
+          <div id="sched-weekly-opts" style="${(sched.mode || 'weekly') === 'weekly' ? '' : 'display:none'}">
+            <div class="form-group">
+              <label class="form-label">Weekday</label>
+              <select class="form-select" id="sched-weekday">
+                ${WEEKDAYS.map((d, i) => '<option value="' + i + '"' + ((sched.weekday ?? 6) === i ? ' selected' : '') + '>' + d + '</option>').join('')}
+              </select>
+            </div>
+          </div>
+
+          <div id="sched-interval-opts" style="${sched.mode === 'interval' ? '' : 'display:none'}">
+            <div class="form-group">
+              <label class="form-label">Interval</label>
+              <select class="form-select" id="sched-interval-weeks">
+                <option value="2" ${(sched.interval_weeks || 2) === 2 ? 'selected' : ''}>Every 2 weeks</option>
+                <option value="3" ${sched.interval_weeks === 3 ? 'selected' : ''}>Every 3 weeks</option>
+                <option value="4" ${sched.interval_weeks === 4 ? 'selected' : ''}>Every 4 weeks (monthly)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Time of day</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="number" class="form-input" id="sched-hour"
+                min="0" max="23" value="${sched.hour ?? 8}" style="width:70px;text-align:center">
+              <span style="color:var(--sm-text-secondary)">:</span>
+              <input type="number" class="form-input" id="sched-minute"
+                min="0" max="59" step="5" value="${sched.minute ?? 0}" style="width:70px;text-align:center">
+              <span style="font-size:11px;color:var(--sm-text-tertiary)">hour : minute (24h)</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:14px">
+              <input type="checkbox" id="sched-notify-fail" ${t.notify_on_fail !== false ? 'checked' : ''}>
+              <span style="flex:1">Notify admins on failure</span>
+              <span style="font-size:11px;color:var(--sm-text-tertiary)">Push to admin users</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:14px">
+              <input type="checkbox" id="sched-enabled" ${t.enabled !== false ? 'checked' : ''}>
+              <span style="flex:1">Enabled</span>
+            </label>
+          </div>
+
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="close-sched-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-sched-test">
+              ${isEdit ? 'Save Changes' : 'Add Schedule'}
+            </button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  _onSchedModeChange(mode) {
+    const root = this.shadowRoot;
+    const weekly   = root.querySelector('#sched-weekly-opts');
+    const interval = root.querySelector('#sched-interval-opts');
+    if (weekly)   weekly.style.display   = mode === 'weekly'   ? '' : 'none';
+    if (interval) interval.style.display = mode === 'interval' ? '' : 'none';
+  }
+
+  async _saveSchedTest() {
+    const root = this.shadowRoot;
+    const name        = root.querySelector('#sched-name')?.value?.trim();
+    const testType    = root.querySelector('#sched-test-type')?.value || 'quick';
+    const mode        = root.querySelector('#sched-mode')?.value || 'weekly';
+    const weekday     = parseInt(root.querySelector('#sched-weekday')?.value ?? 6);
+    const intervalWks = parseInt(root.querySelector('#sched-interval-weeks')?.value ?? 2);
+    const hour        = parseInt(root.querySelector('#sched-hour')?.value ?? 8);
+    const minute      = parseInt(root.querySelector('#sched-minute')?.value ?? 0);
+    const notifyFail  = root.querySelector('#sched-notify-fail')?.checked !== false;
+    const enabled     = root.querySelector('#sched-enabled')?.checked !== false;
+    const isEdit      = !!this._schedTemp?._id;
+    const testId      = this._schedTemp?._id || '';
+
+    if (!name) { this._toast('Please enter a name.', 'warning'); return; }
+
+    const schedule = { mode, hour, minute };
+    if (mode === 'weekly')   schedule.weekday        = weekday;
+    if (mode === 'interval') schedule.interval_weeks = intervalWks;
+
+    const config = {
+      name, test_type: testType, schedule,
+      notify_on_fail: notifyFail, enabled,
+      last_run:    this._schedTemp?.last_run    || null,
+      last_result: this._schedTemp?.last_result || null,
+    };
+
+    const result = await this._callWS('save_scheduled_test', { test_id: testId, config });
+    if (result?.success) {
+      this._showDialog = null;
+      this._schedTemp  = null;
+      await this._loadTestingData();
+      this._render();
+      this._toast(isEdit ? 'Schedule updated' : 'Schedule added', 'success');
+    } else {
+      this._toast('Could not save schedule', 'error');
+    }
+  }
+
 
 
   _renderTestResult(result) {
@@ -3649,6 +3856,7 @@ class SecureMePanel extends HTMLElement {
 
     this._testRunning = false;
     this._testDescExpanded = false;
+    this._schedTemp = null;    // temp config for scheduled test editing
     this._render();
   }
 
@@ -5009,6 +5217,65 @@ class SecureMePanel extends HTMLElement {
     // Run test buttons (testing tab)
     root.querySelectorAll("[data-run-test]").forEach(btn => {
       btn.addEventListener("click", () => this._runTest(btn.dataset.runTest));
+    });
+
+    // Scheduled test listeners
+    root.querySelectorAll("[data-action='add-sched-test']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._schedTemp = {
+          name: '', test_type: 'quick', enabled: true, notify_on_fail: true,
+          schedule: { mode: 'weekly', weekday: 6, hour: 8, minute: 0 },
+        };
+        this._showDialog = 'sched-test';
+        this._render();
+      });
+    });
+
+    root.querySelectorAll("[data-edit-sched]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.editSched;
+        const existing = this._data.scheduledTests[id] || {};
+        this._schedTemp = { ...existing, _id: id };
+        this._showDialog = 'sched-test';
+        this._render();
+      });
+    });
+
+    root.querySelectorAll("[data-delete-sched]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.deleteSched;
+        const name = this._data.scheduledTests[id]?.name || 'this schedule';
+        if (!await this._confirm('Remove "' + name + '"?', 'Delete Schedule')) return;
+        await this._callWS('delete_scheduled_test', { test_id: id });
+        await this._loadTestingData();
+        this._render();
+        this._toast('Schedule removed', 'success');
+      });
+    });
+
+    root.querySelectorAll("[data-run-sched]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.runSched;
+        const name = this._data.scheduledTests[id]?.name || 'test';
+        this._toast('Running "' + name + '"...', 'info');
+        const result = await this._callWS('run_scheduled_test_now', { test_id: id });
+        await this._loadTestingData();
+        this._render();
+        const overall = result?.result?.overall || 'unknown';
+        this._toast('"' + name + '" completed: ' + overall.toUpperCase(), overall === 'pass' ? 'success' : 'error');
+      });
+    });
+
+    root.querySelectorAll("[data-action='close-sched-dialog']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._showDialog = null;
+        this._schedTemp = null;
+        this._render();
+      });
+    });
+
+    root.querySelectorAll("[data-action='save-sched-test']").forEach(btn => {
+      btn.addEventListener("click", () => this._saveSchedTest());
     });
 
     root.querySelectorAll("[data-action='toggle-test-desc']").forEach(el => {

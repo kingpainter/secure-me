@@ -47,6 +47,10 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_save_automation)
     websocket_api.async_register_command(hass, ws_delete_automation)
     websocket_api.async_register_command(hass, ws_test_automation)
+    websocket_api.async_register_command(hass, ws_get_scheduled_tests)
+    websocket_api.async_register_command(hass, ws_save_scheduled_test)
+    websocket_api.async_register_command(hass, ws_delete_scheduled_test)
+    websocket_api.async_register_command(hass, ws_run_scheduled_test_now)
     websocket_api.async_register_command(hass, ws_get_alarm_state)
     websocket_api.async_register_command(hass, ws_get_health_summary)
     websocket_api.async_register_command(hass, ws_run_test)
@@ -1073,34 +1077,16 @@ async def ws_get_health_summary(
 # RUN TEST
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/run_test",
-    vol.Required("test_type"): str,  # "quick", "standard", "full", or module name
-})
-@websocket_api.async_response
-async def ws_run_test(
-    hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
-    msg: dict[str, Any],
-) -> None:
-    """Run a system test and return results.
+async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, Any]:
+    """Run a system test and return results dict.
 
-    test_type:
-        "quick"    - Entity availability + battery check (vital checks only)
-        "standard" - Quick + call async_test() on all enabled modules
-        "full"     - Standard + sensor signal test, POE test, zone verify
-        "<module>" - Test a specific module (camera, lock, etc.)
+    Shared by ws_run_test (manual) and _check_scheduled_tests (scheduled).
+    test_type: "quick" | "standard" | "full" | "<module_id>"
     """
     import time
     coordinator = _get_coordinator(hass)
     store = _get_store(hass)
 
-    if not coordinator:
-        connection.send_error(msg["id"], "not_ready", "Coordinator not initialized")
-        return
-
-    test_type = msg["test_type"]
-    start_time = time.time()
     results: dict[str, Any] = {
         "test_type": test_type,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1110,35 +1096,33 @@ async def ws_run_test(
         "overall": "pass",
     }
 
+    if not coordinator:
+        results["overall"] = "error"
+        results["error"] = "Coordinator not initialized"
+        return results
+
+    start_time = time.time()
+
     # --- Entity availability check (all test types) ---
     for mod_id, module in coordinator.modules.items():
         if not module.enabled:
-            results["modules"][mod_id] = {
-                "status": "skipped",
-                "reason": "disabled",
-            }
+            results["modules"][mod_id] = {"status": "skipped", "reason": "disabled"}
             continue
 
         entities = _get_module_entity_ids(module)
 
-        # F7: Enabled module with 0 entities = warning (not configured yet)
         if len(entities) == 0:
             results["modules"][mod_id] = {
-                "status": "warning",
-                "reason": "no_entities",
+                "status": "warning", "reason": "no_entities",
                 "message": "Module is enabled but has no entities configured",
-                "entities_total": 0,
-                "entities_available": 0,
-                "unavailable": [],
+                "entities_total": 0, "entities_available": 0, "unavailable": [],
             }
             continue
 
-        unavail = []
-        for eid in entities:
-            state = hass.states.get(eid)
-            if not state or state.state in ("unavailable", "unknown"):
-                unavail.append(eid)
-
+        unavail = [
+            eid for eid in entities
+            if not hass.states.get(eid) or hass.states.get(eid).state in ("unavailable", "unknown")
+        ]
         mod_result = {
             "status": "pass" if not unavail else "fail",
             "entities_total": len(entities),
@@ -1146,7 +1130,6 @@ async def ws_run_test(
             "unavailable": unavail,
         }
 
-        # --- Standard & Full test: also call async_test() ---
         if test_type in ("standard", "full") or test_type == mod_id:
             try:
                 test_out = await module.async_test()
@@ -1154,13 +1137,9 @@ async def ws_run_test(
                 if not test_out.get("success", False):
                     mod_result["status"] = "fail"
             except Exception as err:
-                mod_result["test_result"] = {
-                    "success": False,
-                    "message": str(err),
-                }
+                mod_result["test_result"] = {"success": False, "message": str(err)}
                 mod_result["status"] = "error"
 
-        # Skip modules not requested in single-module mode
         if test_type not in ("quick", "standard", "full") and test_type != mod_id:
             mod_result["status"] = "skipped"
             mod_result["reason"] = "not selected"
@@ -1192,57 +1171,151 @@ async def ws_run_test(
                 "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
             }
 
-    # --- Battery discovery (standard + full test) - INFORMATIONAL ONLY ---
+    # --- Battery discovery (standard + full) ---
     if test_type in ("standard", "full"):
         batteries = _discover_batteries(hass)
         low = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
         critical = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
         results["batteries"] = {
-            "total": len(batteries),
-            "low_count": len(low),
-            "critical_count": len(critical),
-            "details": batteries,
-            "note": "Battery status is informational only and does not affect PASS/FAIL",
+            "total": len(batteries), "low_count": len(low), "critical_count": len(critical),
+            "details": batteries, "note": "Battery status is informational only",
         }
 
     # --- Overall result ---
-    # NOTE: Batteries explicitly excluded from overall calculation
-    # WARNING status (unconfigured modules) does NOT fail overall - only FAIL and ERROR do
     duration = round(time.time() - start_time, 1)
     results["duration_seconds"] = duration
 
-    any_fail = any(
-        m.get("status") in ("fail", "error")
-        for m in results["modules"].values()
-    )
+    any_fail = any(m.get("status") in ("fail", "error") for m in results["modules"].values())
     sensor_fail = results.get("sensors", {}).get("status") == "fail"
     if any_fail or sensor_fail:
         results["overall"] = "fail"
     elif any(m.get("status") == "warning" for m in results["modules"].values()):
         results["overall"] = "warning"
 
-    # Compute summary counts
-    passed = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
-    failed = sum(1 for m in results["modules"].values() if m.get("status") in ("fail", "error"))
-    warned = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
+    passed  = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
+    failed  = sum(1 for m in results["modules"].values() if m.get("status") in ("fail", "error"))
+    warned  = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
     skipped = sum(1 for m in results["modules"].values() if m.get("status") == "skipped")
-    results["summary"] = {
-        "passed": passed,
-        "failed": failed,
-        "warned": warned,
-        "skipped": skipped,
-    }
+    results["summary"] = {"passed": passed, "failed": failed, "warned": warned, "skipped": skipped}
 
-    # --- Store result ---
+    # --- Persist to test history ---
     if store:
         test_history = store._data.get("test_history", [])
-        # Keep last 10 results
         test_history.insert(0, results)
-        test_history = test_history[:10]
-        store._data["test_history"] = test_history
+        store._data["test_history"] = test_history[:10]
         await store.async_save()
 
+    return results
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/run_test",
+    vol.Required("test_type"): str,
+})
+@websocket_api.async_response
+async def ws_run_test(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run a system test and return results."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "not_ready", "Coordinator not initialized")
+        return
+
+    results = await _run_test_internal(hass, msg["test_type"])
     connection.send_result(msg["id"], results)
+
+
+#
+# SCHEDULED TESTS
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_scheduled_tests",
+})
+@websocket_api.async_response
+async def ws_get_scheduled_tests(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get all scheduled test configurations."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_result(msg["id"], {"scheduled_tests": {}})
+        return
+    connection.send_result(msg["id"], {"scheduled_tests": store.get_scheduled_tests()})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_scheduled_test",
+    vol.Required("test_id"): str,
+    vol.Required("config"): dict,
+})
+@websocket_api.async_response
+async def ws_save_scheduled_test(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save (create or update) a scheduled test."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    test_id = msg["test_id"] or None
+    saved_id = await store.async_save_scheduled_test(test_id, msg["config"])
+    connection.send_result(msg["id"], {"success": True, "test_id": saved_id})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/delete_scheduled_test",
+    vol.Required("test_id"): str,
+})
+@websocket_api.async_response
+async def ws_delete_scheduled_test(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete a scheduled test."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    success = await store.async_delete_scheduled_test(msg["test_id"])
+    connection.send_result(msg["id"], {"success": success})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/run_scheduled_test_now",
+    vol.Required("test_id"): str,
+})
+@websocket_api.async_response
+async def ws_run_scheduled_test_now(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run a scheduled test immediately (manual trigger)."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    sched = store.get_scheduled_tests().get(msg["test_id"])
+    if not sched:
+        connection.send_error(msg["id"], "not_found", "Scheduled test not found")
+        return
+    test_type = sched.get("test_type", "quick")
+    result = await _run_test_internal(hass, test_type)
+    overall = result.get("overall", "unknown")
+    import time
+    await store.async_update_scheduled_test_result(
+        msg["test_id"], time.strftime("%Y-%m-%d %H:%M:%S"), overall
+    )
+    connection.send_result(msg["id"], {"success": True, "result": result})
 
 
 #

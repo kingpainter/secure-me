@@ -165,6 +165,13 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             PUSH_EVENT, self._handle_push_event
         )
 
+        # Scheduled test runner — checks every minute
+        from homeassistant.helpers.event import async_track_time_interval
+        from datetime import timedelta
+        self._scheduled_test_unsub = async_track_time_interval(
+            hass, self._check_scheduled_tests, timedelta(minutes=1)
+        )
+
         _LOGGER.info(
             "Secure Me coordinator initialized (exit=%ds, entry=%ds)",
             exit_delay, entry_delay,
@@ -173,6 +180,116 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._last_health_event_time: float = 0.0
         self._health_event_interval: float = 5.0
         self._last_countdown: int = -1
+
+    # ── Scheduled test runner ────────────────────────────────────────────────
+
+    async def _check_scheduled_tests(self, now=None) -> None:
+        """Called every minute — runs any scheduled tests that are due."""
+        if not hasattr(self, "store") or not self.store:
+            return
+
+        from datetime import datetime
+        import time as _time
+
+        scheduled = self.store.get_scheduled_tests()
+        if not scheduled:
+            return
+
+        now_dt = datetime.now()
+        weekday  = now_dt.weekday()   # 0=Mon, 6=Sun
+        hour     = now_dt.hour
+        minute   = now_dt.minute
+
+        for test_id, cfg in scheduled.items():
+            if not cfg.get("enabled", True):
+                continue
+
+            schedule = cfg.get("schedule", {})
+            sched_hour   = schedule.get("hour", 8)
+            sched_minute = schedule.get("minute", 0)
+            mode         = schedule.get("mode", "weekly")
+
+            # Only fire at the configured minute
+            if hour != sched_hour or minute != sched_minute:
+                continue
+
+            # Avoid running twice in the same minute
+            last_run = cfg.get("last_run", "")
+            if last_run:
+                try:
+                    last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")
+                    if (now_dt - last_dt).total_seconds() < 60:
+                        continue
+                except ValueError:
+                    pass
+
+            should_run = False
+            if mode == "weekly":
+                sched_weekday = schedule.get("weekday", 6)  # default Sunday
+                should_run = (weekday == sched_weekday)
+            elif mode == "interval":
+                interval_weeks = schedule.get("interval_weeks", 1)
+                # Calculate weeks since epoch, compare modulo interval
+                epoch = datetime(2024, 1, 7)  # a Sunday
+                weeks_since = (now_dt - epoch).days // 7
+                should_run = (weeks_since % interval_weeks == 0) and (weekday == 6)
+            elif mode == "daily":
+                should_run = True
+
+            if not should_run:
+                continue
+
+            test_type = cfg.get("test_type", "quick")
+            _LOGGER.info(
+                "Scheduled test '%s' (%s/%s) firing at %s",
+                cfg.get("name", test_id), mode, test_type, now_dt.strftime("%Y-%m-%d %H:%M")
+            )
+
+            # Run test via websocket handler logic — import inline to avoid circular
+            try:
+                from .websocket_api import _run_test_internal
+                result = await _run_test_internal(self.hass, test_type)
+                overall = result.get("overall", "unknown")
+                timestamp = result.get("timestamp", now_dt.strftime("%Y-%m-%d %H:%M:%S"))
+                await self.store.async_update_scheduled_test_result(test_id, timestamp, overall)
+
+                _LOGGER.info("Scheduled test '%s' completed: %s", cfg.get("name", test_id), overall)
+
+                # Notify admins on fail if configured
+                if cfg.get("notify_on_fail", True) and overall in ("fail", "critical"):
+                    await self._notify_scheduled_test_fail(cfg, result)
+
+            except Exception as err:
+                _LOGGER.error("Scheduled test '%s' failed: %s", test_id, err)
+                await self.store.async_update_scheduled_test_result(
+                    test_id, now_dt.strftime("%Y-%m-%d %H:%M:%S"), "error"
+                )
+
+    async def _notify_scheduled_test_fail(self, cfg: dict, result: dict) -> None:
+        """Send push notification to admin users when a scheduled test fails."""
+        from .notification_dispatcher import _send_push
+        if not hasattr(self, "store") or not self.store:
+            return
+
+        failed_modules = [
+            mid for mid, m in result.get("modules", {}).items()
+            if m.get("status") in ("fail", "error")
+        ]
+        msg = (
+            f"Scheduled test '{cfg.get('name', 'Test')}' failed. "
+            f"Failed modules: {', '.join(failed_modules) if failed_modules else 'sensor or system issue'}."
+        )
+        title = "Secure Me: Scheduled Test FAILED"
+
+        admins = [
+            u for u in self.store.get_users().values()
+            if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
+        ]
+        if admins:
+            for user in admins:
+                await _send_push(self.hass, user["notify_service"], title, msg)
+        else:
+            await _send_push(self.hass, "notify.notify", title, msg)
 
     # ── Push notification handler (v1.2.0) ──────────────────────────────────
 
@@ -777,6 +894,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Unregister push event listener
         if hasattr(self, "_push_unsub") and self._push_unsub:
             self._push_unsub()
+
+        # Unregister scheduled test timer
+        if hasattr(self, "_scheduled_test_unsub") and self._scheduled_test_unsub:
+            self._scheduled_test_unsub()
 
         if hasattr(self, "modules"):
             for mid, module in self.modules.items():
