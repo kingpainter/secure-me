@@ -33,7 +33,7 @@ class TTSModule(AlarmModule):
         self.language: str = config.get("language", DEFAULT_LANGUAGE)
         self.volume: float = float(config.get("volume", DEFAULT_VOLUME))
         self.custom_messages: list[dict[str, Any]] = config.get("custom_messages", [])
-        self._warned_incompatible_service: bool = False  # warn only once per session
+        self._warned_incompatible_service: bool = False
 
     async def async_arm(self, mode: str) -> bool:
         if not self.enabled:
@@ -128,22 +128,6 @@ class TTSModule(AlarmModule):
             _LOGGER.debug("TTS: no media_players configured, skipping")
             return
 
-        volume = self.volume
-        if urgent:
-            volume = min(volume * 1.5, 1.0)
-        elif test_mode:
-            volume = volume * 0.5
-
-        for player in self.media_players:
-            await self.async_call_service_with_retry(
-                "media_player", "volume_set",
-                service_data={"volume_level": volume},
-                target={"entity_id": player},
-                action=f"tts_volume:{player}",
-            )
-
-        await asyncio.sleep(0.5)
-
         try:
             service_domain, service_name = self.tts_service.split(".", 1)
         except ValueError:
@@ -151,10 +135,23 @@ class TTSModule(AlarmModule):
             return
 
         if service_domain == "tts":
-            # Standard HA TTS — target + message/language/cache.
-            # Language format varies by service: cloud_say uses 'da-DK',
-            # google_translate_say uses 'da', piper uses voice names.
-            # Normalise common short codes to BCP-47 for cloud services.
+            # Standard HA TTS — set volume first, then speak
+            volume = self.volume
+            if urgent:
+                volume = min(volume * 1.5, 1.0)
+            elif test_mode:
+                volume = volume * 0.5
+
+            for player in self.media_players:
+                await self.async_call_service_with_retry(
+                    "media_player", "volume_set",
+                    service_data={"volume_level": volume},
+                    target={"entity_id": player},
+                    action=f"tts_volume:{player}",
+                )
+            await asyncio.sleep(0.5)
+
+            # Normalise short language codes to BCP-47 for cloud_say
             _LANG_MAP = {
                 "da": "da-DK", "en": "en-US", "de": "de-DE",
                 "sv": "sv-SE", "nb": "nb-NO", "nl": "nl-NL",
@@ -164,6 +161,7 @@ class TTSModule(AlarmModule):
             language = self.language or "da-DK"
             if service_name in ("cloud_say",) and language in _LANG_MAP:
                 language = _LANG_MAP[language]
+
             await self.async_call_service_with_retry(
                 service_domain, service_name,
                 service_data={
@@ -174,39 +172,72 @@ class TTSModule(AlarmModule):
                 target={"entity_id": self.media_players},
                 action="tts_announce",
             )
+
         elif service_domain == "notify":
-            # notify.* — message + title
+            # notify.* — message + title, no volume control
             await self.async_call_service_with_retry(
                 service_domain, service_name,
                 service_data={"message": message, "title": "Secure Me"},
                 action="tts_announce",
             )
+
         elif service_domain == "script":
-            # script.* (e.g. script.ultra_tts from House Voice) —
-            # passes message + speaker + volume + priority directly.
-            # Speaker list joined to comma-separated string as ultra_tts expects.
+            # script.ultra_tts (House Voice) and compatible scripts.
+            # Secure Me sets the desired TTS volume on each player BEFORE
+            # calling the script, then restores original volume after.
+            # This gives direct volume control without modifying ultra_tts.yaml.
             speaker = (
                 self.media_players[0] if len(self.media_players) == 1
                 else ", ".join(self.media_players)
             ) if self.media_players else ""
+
+            tts_volume = min(self.volume * 1.5, 1.0) if urgent else self.volume
+            if test_mode:
+                tts_volume = tts_volume * 0.5
+
+            # Backup original volumes and set TTS volume
+            original_volumes: dict[str, float] = {}
+            for player in self.media_players:
+                state = self.hass.states.get(player)
+                if state:
+                    original_volumes[player] = float(
+                        state.attributes.get("volume_level", tts_volume)
+                    )
+                await self.async_call_service(
+                    "media_player", "volume_set",
+                    service_data={"volume_level": tts_volume},
+                    target={"entity_id": player},
+                )
+
+            await asyncio.sleep(0.3)
+
+            # Call the script
             await self.async_call_service_with_retry(
                 service_domain, service_name,
                 service_data={
                     "message": message,
                     "speaker": speaker,
-                    "volume": self.volume,
+                    "volume": tts_volume,
                     "priority": "critical" if urgent else "normal",
                 },
                 action="tts_announce",
             )
+
+            # Restore original volumes
+            for player, vol in original_volumes.items():
+                await self.async_call_service(
+                    "media_player", "volume_set",
+                    service_data={"volume_level": vol},
+                    target={"entity_id": player},
+                )
+
         else:
-            # Unknown custom service — warn once per session, then skip.
+            # Unknown service type — warn once, skip silently.
             if not self._warned_incompatible_service:
                 self._warned_incompatible_service = True
                 _LOGGER.warning(
-                    "TTS: '%s' is not a supported service type (tts.*, notify.*, script.*). "
-                    "Skipping TTS announcements. Use tts.cloud_say, script.ultra_tts "
-                    "or similar in TTS module settings.",
+                    "TTS: '%s' is not a supported service (tts.*, notify.*, script.*). "
+                    "Skipping announcements. Use tts.cloud_say or script.ultra_tts.",
                     self.tts_service,
                 )
             return
@@ -232,7 +263,6 @@ class TTSModule(AlarmModule):
                 target={"entity_id": player},
                 action=f"media_volume:{player}",
             )
-
         await asyncio.sleep(0.3)
 
         for player in self.media_players:
