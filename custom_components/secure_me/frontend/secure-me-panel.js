@@ -5145,6 +5145,64 @@ class SecureMePanel extends HTMLElement {
     `;
   }
 
+  _attachDialogListeners() {
+    // Called ONCE per dialog build — never from _attachTabListeners.
+    // Prevents listener accumulation on dialog elements.
+    const dlg = this.shadowRoot.getElementById('shell-dialog-mount');
+    if (!dlg) return;
+
+    const on = (sel, evt, fn) => dlg.querySelectorAll(sel).forEach(el => el.addEventListener(evt, fn));
+
+    // Cancel / close
+    on("[data-action='cancel-dialog'], [data-action='close-dialog'], [data-action='close-sched-dialog']",
+      "click", () => this._cancelDialog());
+
+    // TTS dialog
+    on("[data-action='save-tts-config']",  "click", () => this._saveTTSConfig());
+    on("[data-action='add-tts-message']",  "click", () => this._addTTSCustomMessage());
+    on("[data-action='remove-tts']",       "click", (e) => this._removeTTSEntity(e.currentTarget.dataset.entity));
+    on("[data-action='select-tts']", "change", (e) => {
+      const sel = e.currentTarget;
+      if (sel.value) { this._addTTSEntity(sel.value); sel.value = ''; }
+    });
+    on("select[data-tts-field], input[data-tts-field]", "change", (e) => {
+      this._updateTTSField(e.currentTarget.dataset.ttsField, e.currentTarget.value);
+    });
+    on("input[type='range'][data-tts-field]", "input", (e) => {
+      this._updateTTSField(e.currentTarget.dataset.ttsField, e.currentTarget.value);
+      const label = dlg.querySelector('[data-volume-label]');
+      if (label) label.textContent = e.currentTarget.value + '%';
+    });
+    const ttsCustomInput = dlg.querySelector('#tts-service-custom');
+    if (ttsCustomInput) {
+      ttsCustomInput.addEventListener("change", () => this._updateTTSCustomService(ttsCustomInput.value));
+      ttsCustomInput.addEventListener("blur",   () => this._updateTTSCustomService(ttsCustomInput.value));
+    }
+    on("input[data-tts-msg-field], select[data-tts-msg-field]", "change", (e) => {
+      this._updateTTSCustomMessage(e.currentTarget.dataset.ttsMsgId, e.currentTarget.dataset.ttsMsgField, e.currentTarget.value);
+    });
+    on("input[data-tts-msg-field]", "input", (e) => {
+      this._updateTTSCustomMessage(e.currentTarget.dataset.ttsMsgId, e.currentTarget.dataset.ttsMsgField, e.currentTarget.value);
+    });
+    on("[data-tts-msg-remove]", "click", (e) => this._removeTTSCustomMessage(e.currentTarget.dataset.ttsMsgRemove));
+    on("[data-tts-msg-toggle]", "click", (e) => {
+      const id = e.currentTarget.dataset.ttsMsgToggle;
+      const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
+      if (msg) { msg.enabled = !msg.enabled; this._rebuildDialog(); }
+    });
+    on("[data-tts-test-msg]", "click", (e) => {
+      const id = e.currentTarget.dataset.ttsTestMsg;
+      const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
+      if (msg) this._testTTSMessage(msg.message || '');
+    });
+
+    // Scheduled test dialog
+    on("[data-action='save-sched-test']", "click", () => this._saveSchedTest());
+
+    // User dialog
+    on("[data-action='save-user']", "click", () => this._saveUser());
+  }
+
   _attachTabListeners() {
     
     // Module expansion handlers
