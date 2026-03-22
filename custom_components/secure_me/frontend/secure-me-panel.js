@@ -1462,10 +1462,6 @@ class SecureMePanel extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-	// F2 FIX: Ensure health event subscription
-    if (hass && hass.connection && !this._healthUpdateUnsubscribe) {
-      this._subscribeToHealthUpdates();
-    }
     if (!this._initialized) {
       this._initialized = true;
       this._loadData();
@@ -1591,6 +1587,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _loadData() {
+    // Subscribe to health updates once — called from _loadData which only runs once
+    this._subscribeToHealthUpdates();
     // PERF: Split into two phases.
     // Phase 1 — fast: 7 essential calls needed to render any tab immediately.
     // Phase 2 — lazy: health + test results are only needed on the Testing tab.
