@@ -30,6 +30,7 @@ class TTSModule(AlarmModule):
         super().__init__(hass, config)
         self.media_players: list[str] = config.get("media_players", [])
         self.tts_service: str = config.get("tts_service", "tts.cloud_say")
+        self.tts_entity: str = config.get("tts_entity", "tts.home_assistant_cloud")
         self.language: str = config.get("language", DEFAULT_LANGUAGE)
         self.volume: float = float(config.get("volume", DEFAULT_VOLUME))
         self.custom_messages: list[dict[str, Any]] = config.get("custom_messages", [])
@@ -182,20 +183,15 @@ class TTSModule(AlarmModule):
             )
 
         elif service_domain == "script":
-            # script.ultra_tts (House Voice) and compatible scripts.
-            # Secure Me sets the desired TTS volume on each player BEFORE
-            # calling the script, then restores original volume after.
-            # This gives direct volume control without modifying ultra_tts.yaml.
-            speaker = (
-                self.media_players[0] if len(self.media_players) == 1
-                else ", ".join(self.media_players)
-            ) if self.media_players else ""
-
+            # script.ultra_tts dukker volumen ned internt (original * 0.25).
+            # For at sikre at TTS tales ved den konfigurerede volumen,
+            # bypasser vi ducking ved at kalde tts.speak direkte med
+            # volumen sat til det oenskede niveau foer og restore bagefter.
             tts_volume = min(self.volume * 1.5, 1.0) if urgent else self.volume
             if test_mode:
                 tts_volume = tts_volume * 0.5
 
-            # Backup original volumes and set TTS volume
+            # Gem original volumen og saet til oenset TTS-niveau
             original_volumes: dict[str, float] = {}
             for player in self.media_players:
                 state = self.hass.states.get(player)
@@ -209,21 +205,25 @@ class TTSModule(AlarmModule):
                     target={"entity_id": player},
                 )
 
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.4)
 
-            # Call the script
+            # Kald tts.speak direkte — omgaar ultra_tts ducking
             await self.async_call_service_with_retry(
-                service_domain, service_name,
+                "tts", "speak",
                 service_data={
                     "message": message,
-                    "speaker": speaker,
-                    "volume": tts_volume,
-                    "priority": "critical" if urgent else "normal",
+                    "cache": False,
+                    "media_player_entity_id": self.media_players,
                 },
+                target={"entity_id": self.tts_entity},
                 action="tts_announce",
             )
 
-            # Restore original volumes
+            # Vent pa at beskeden er faerdig (dynamisk baseret paa laengde)
+            wait_seconds = max(3, len(message) // 12)
+            await asyncio.sleep(wait_seconds)
+
+            # Restore original volumen
             for player, vol in original_volumes.items():
                 await self.async_call_service(
                     "media_player", "volume_set",
