@@ -7,7 +7,7 @@ Covers v0.5.0 + v0.6.0 changes:
 - Sensor opens during exit delay -> trigger ignored (arming state guard)
 - Debounce: rapid sensor flapping within 500ms fires callback only once
 """
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import time
 import pytest

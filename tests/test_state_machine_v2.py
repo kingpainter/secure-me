@@ -12,7 +12,7 @@ Covers v0.5.0 changes:
 These tests use asyncio.Task mocks and the real AlarmStateMachine where
 possible, falling back to the MockStateMachine extended for v0.5.0 logic.
 """
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import asyncio
 import pytest

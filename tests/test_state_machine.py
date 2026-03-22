@@ -1,5 +1,5 @@
 """Tests for Secure Me state machine."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch

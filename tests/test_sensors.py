@@ -1,5 +1,5 @@
 """Tests for Secure Me sensor platform — battery discovery and health metrics."""
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import pytest
 from .conftest import MockHass, MockState

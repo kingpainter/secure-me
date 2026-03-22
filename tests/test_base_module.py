@@ -8,7 +8,7 @@ Covers v0.4.0 changes:
 - State backup/restore helpers
 - Entity availability helpers
 """
-# VERSION = "1.1.0"
+# VERSION = "1.2.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
