@@ -69,6 +69,7 @@ class TTSModule(AlarmModule):
         self.language: str = config.get("language", DEFAULT_LANGUAGE)
         self.volume: float = float(config.get("volume", DEFAULT_VOLUME))
         self.custom_messages: list[dict[str, Any]] = config.get("custom_messages", [])
+        self._warned_incompatible_service: bool = False  # warn only once per session
 
     # ── AlarmModule interface ────────────────────────────────────────────────
 
@@ -213,16 +214,40 @@ class TTSModule(AlarmModule):
             _LOGGER.error("Invalid TTS service '%s'", self.tts_service)
             return
 
-        await self.async_call_service_with_retry(
-            service_domain, service_name,
-            service_data={
-                "entity_id": self.media_players,
-                "message": message,
-                "language": self.language,
-                "cache": False,
-            },
-            action="tts_announce",
-        )
+        # Standard HA TTS services (tts.*) use target + message/language/cache.
+        # Custom services (e.g. house_voice.say, notify.*) have their own schema
+        # and should only receive the message field without target or HA-specific keys.
+        if service_domain == "tts":
+            await self.async_call_service_with_retry(
+                service_domain, service_name,
+                service_data={
+                    "message": message,
+                    "language": self.language,
+                    "cache": False,
+                },
+                target={"entity_id": self.media_players},
+                action="tts_announce",
+            )
+        elif service_domain == "notify":
+            # notify.* services use message field directly
+            await self.async_call_service_with_retry(
+                service_domain, service_name,
+                service_data={"message": message, "title": "Secure Me"},
+                action="tts_announce",
+            )
+        else:
+            # Unknown custom service (e.g. house_voice.say) — these have
+            # their own schema and cannot accept free-form text.
+            # Warn only once per session to avoid log spam.
+            if not self._warned_incompatible_service:
+                self._warned_incompatible_service = True
+                _LOGGER.warning(
+                    "TTS: '%s' is not a standard tts.* or notify.* service and cannot "
+                    "receive free-form text. Skipping all TTS announcements. "
+                    "Configure tts.cloud_say or similar in the TTS module settings.",
+                    self.tts_service,
+                )
+            return  # Skip — do not attempt call that will always fail
 
         _LOGGER.debug("TTS announcement: %s", message)
 

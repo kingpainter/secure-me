@@ -178,11 +178,16 @@ class AlarmModule(ABC):
         if previously_degraded:
             _LOGGER.info("%s: recovered from degraded state after '%s'", self.module_name, action)
             msg = ERROR_RECOVERY_OK_EN.format(module=self.module_name)
-            self.hass.components.persistent_notification.async_create(
-                message=msg,
-                title="Secure Me - Recovery",
-                notification_id=f"{NOTIFY_ID_RECOVERY}_{self.module_name.lower()}",
-            )
+            try:
+                from homeassistant.components.persistent_notification import async_create
+                async_create(
+                    self.hass,
+                    message=msg,
+                    title="Secure Me - Recovery",
+                    notification_id=f"{NOTIFY_ID_RECOVERY}_{self.module_name.lower()}",
+                )
+            except Exception as notify_err:
+                _LOGGER.debug("Could not create recovery notification: %s", notify_err)
 
     def _on_failure(self, action: str) -> None:
         """Handle exhausted retries — set degraded state and notify user."""
@@ -198,11 +203,16 @@ class AlarmModule(ABC):
             "%s: all %d retries exhausted for '%s' — module set to degraded",
             self.module_name, self._retry_max, action,
         )
-        self.hass.components.persistent_notification.async_create(
-            message=msg,
-            title="Secure Me - Module Error",
-            notification_id=f"{NOTIFY_ID_MODULE_ERROR}_{self.module_name.lower()}",
-        )
+        try:
+            from homeassistant.components.persistent_notification import async_create
+            async_create(
+                self.hass,
+                message=msg,
+                title="Secure Me - Module Error",
+                notification_id=f"{NOTIFY_ID_MODULE_ERROR}_{self.module_name.lower()}",
+            )
+        except Exception as notify_err:
+            _LOGGER.debug("Could not create module error notification: %s", notify_err)
 
     # ── State backup / restore ───────────────────────────────────────────────
 
