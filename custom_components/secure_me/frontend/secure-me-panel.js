@@ -1912,6 +1912,9 @@ class SecureMePanel extends HTMLElement {
           : '';
         dialogMount.innerHTML = dialogHtml;
         dialogMount.dataset.currentDialog = wantDialog;
+        // Attach dialog-specific listeners once, right after building the dialog.
+        // These must NOT be in _attachTabListeners() to avoid accumulation.
+        if (wantDialog) this._attachDialogListeners();
       }
     }
 
@@ -5739,68 +5742,8 @@ class SecureMePanel extends HTMLElement {
       cb.addEventListener("change", () => { this._updateLightsField(cb.dataset.lightsField, cb.checked); this._render(); });
     });
 
-    // === TTS Module Handlers ===
+    // === TTS Module Handlers (tab-level only — dialog listeners in _attachDialogListeners) ===
     root.querySelectorAll("[data-action='open-tts-config']").forEach(b => b.addEventListener("click", () => this._openTTSConfig()));
-    root.querySelectorAll("[data-action='save-tts-config']").forEach(b => b.addEventListener("click", () => this._saveTTSConfig(), { once: true }));
-    root.querySelectorAll("[data-action='remove-tts']").forEach(b => b.addEventListener("click", () => this._removeTTSEntity(b.dataset.entity)));
-    root.querySelectorAll("[data-action='add-tts-message']").forEach(b => b.addEventListener("click", () => this._addTTSCustomMessage(), { once: true }));
-
-    // Speaker dropdown
-    root.querySelectorAll("[data-action='select-tts']").forEach(sel => {
-      sel.addEventListener("change", () => {
-        if (sel.value) { this._addTTSEntity(sel.value); sel.value = ''; }
-      });
-    });
-
-    // TTS service/language/volume fields
-    root.querySelectorAll("select[data-tts-field], input[data-tts-field]").forEach(inp => {
-      inp.addEventListener("change", () => this._updateTTSField(inp.dataset.ttsField, inp.value));
-    });
-    root.querySelectorAll("input[type='range'][data-tts-field]").forEach(inp => {
-      inp.addEventListener("input", () => {
-        this._updateTTSField(inp.dataset.ttsField, inp.value);
-        const label = root.querySelector('[data-volume-label]');
-        if (label) label.textContent = inp.value + '%';
-      });
-    });
-    const ttsCustomInput = root.querySelector('#tts-service-custom');
-    if (ttsCustomInput) {
-      ttsCustomInput.addEventListener("change", () => this._updateTTSCustomService(ttsCustomInput.value));
-      ttsCustomInput.addEventListener("blur", () => this._updateTTSCustomService(ttsCustomInput.value));
-    }
-
-    // Custom message fields (name, trigger, type, message, media_url, media_content_type)
-    root.querySelectorAll("input[data-tts-msg-field], select[data-tts-msg-field]").forEach(inp => {
-      inp.addEventListener("change", () => {
-        this._updateTTSCustomMessage(inp.dataset.ttsMsgId, inp.dataset.ttsMsgField, inp.value);
-      });
-      inp.addEventListener("input", () => {
-        this._updateTTSCustomMessage(inp.dataset.ttsMsgId, inp.dataset.ttsMsgField, inp.value);
-      });
-    });
-
-    // Custom message remove buttons
-    root.querySelectorAll("[data-tts-msg-remove]").forEach(b => {
-      b.addEventListener("click", () => this._removeTTSCustomMessage(b.dataset.ttsMsgRemove), { once: true });
-    });
-
-    // Custom message enable toggle
-    root.querySelectorAll("[data-tts-msg-toggle]").forEach(toggle => {
-      toggle.addEventListener("click", () => {
-        const id = toggle.dataset.ttsMsgToggle;
-        const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
-        if (msg) { msg.enabled = !msg.enabled; this._forceRebuildDialog(); }
-      }, { once: true });
-    });
-
-    // Test individual TTS message
-    root.querySelectorAll("[data-tts-test-msg]").forEach(b => {
-      b.addEventListener("click", () => {
-        const id = b.dataset.ttsTestMsg;
-        const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
-        if (msg) this._testTTSMessage(msg.message || '');
-      }, { once: true });
-    });
 
     root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
       sel.addEventListener("change", () => { if (sel.value) this._addLightEntity(sel.value); });
