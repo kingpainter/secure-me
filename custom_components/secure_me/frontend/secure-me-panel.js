@@ -1299,6 +1299,7 @@ class SecureMePanel extends HTMLElement {
     this._autoSection = "notifications";
     this._renderTimeout = null;
     this._testRunning = false;
+    this._testDescExpanded = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -3052,10 +3053,10 @@ class SecureMePanel extends HTMLElement {
   // TAB: TESTING
   // ===
   _renderTesting() {
-    const health = this._data.health || {};
+    const health  = this._data.health || {};
     const results = this._data.testResults || [];
     const lastResult = results[0] || null;
-    const score = health.health_score ?? 100;
+    const score   = health.health_score ?? 100;
     const modules = health.modules || {};
     const batteries = health.batteries || [];
     const isRunning = this._testRunning || false;
@@ -3063,28 +3064,59 @@ class SecureMePanel extends HTMLElement {
     const scoreColor = score >= 90 ? "var(--sm-accent)" :
                        score >= 70 ? "var(--sm-warning)" : "var(--sm-danger)";
 
+    // Test level definitions shown as descriptions on hover/below button
+    const TEST_LEVELS = [
+      {
+        key: "quick",
+        label: "Quick Test",
+        desc: "Entity availability only. No devices activated. Safe to run anytime.",
+        checks: ["Entity availability for all modules", "Flags unconfigured (enabled but empty) modules"],
+        notChecked: ["Device response", "Battery levels", "Sensor signal"],
+        color: "var(--sm-accent)",
+        btnClass: "sm-btn primary",
+      },
+      {
+        key: "standard",
+        label: "Standard Test",
+        desc: "Full module verification. Devices briefly activated (lock cycle, TTS, siren beep).",
+        checks: ["Everything in Quick", "Lock: unlock/relock cycle", "Siren: 2s test tone", "TTS: test announcement", "Lights: brief flash", "Battery levels (informational)"],
+        notChecked: ["Sensor signal quality"],
+        color: "var(--sm-blue)",
+        btnClass: "sm-btn default",
+      },
+      {
+        key: "full",
+        label: "Full Test",
+        desc: "Complete system check including all sensor signal quality.",
+        checks: ["Everything in Standard", "All configured sensors online check", "Zone integrity"],
+        notChecked: [],
+        color: "var(--sm-purple)",
+        btnClass: "sm-btn",
+      },
+    ];
+
     return `
-      <!-- Health Overview -->
+      <!-- ── System Health ─────────────────────────────────────────── -->
       <div class="section-header">
         <h3 class="section-title">System Health</h3>
         <span class="badge accent">${score}%</span>
       </div>
 
       <div class="sm-card" style="padding:0;overflow:hidden">
-        <div style="padding:20px">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-            <div style="width:64px;height:64px;border-radius:50%;
+        <div style="padding:16px 20px">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
+            <div style="width:56px;height:56px;border-radius:50%;flex-shrink:0;
                  border:4px solid ${scoreColor};
                  display:flex;align-items:center;justify-content:center;
-                 font-size:22px;font-weight:700;color:${scoreColor}">
+                 font-size:20px;font-weight:700;color:${scoreColor}">
               ${score}
             </div>
             <div>
-              <div style="font-size:16px;font-weight:600">
+              <div style="font-size:15px;font-weight:600">
                 ${score >= 90 ? "All Systems Healthy" :
                   score >= 70 ? "Minor Issues Detected" : "Critical Issues Found"}
               </div>
-              <div style="font-size:12px;color:var(--sm-text-secondary)">
+              <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
                 ${health.available_entities || 0}/${health.total_entities || 0} entities available
                 &middot; ${health.low_battery_count || 0} low batteries
               </div>
@@ -3092,20 +3124,20 @@ class SecureMePanel extends HTMLElement {
           </div>
 
           <!-- Module Status Grid -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">
             ${Object.entries(modules).map(([id, m]) => {
               const color = !m.enabled ? "var(--sm-text-tertiary)" :
                             m.status === "ok" ? "var(--sm-accent)" : "var(--sm-danger)";
               const statusIcon = !m.enabled ? icon("circle") :
                                  m.status === "ok" ? icon("check") : icon("fail");
               return `
-                <div style="padding:10px 12px;background:rgba(255,255,255,0.04);
+                <div style="padding:8px 10px;background:rgba(255,255,255,0.04);
                      border-radius:8px;border:1px solid ${color}22;
                      display:flex;align-items:center;gap:8px">
-                  <span style="color:${color};font-weight:700;font-size:14px">${statusIcon}</span>
+                  <span style="color:${color};font-size:13px">${statusIcon}</span>
                   <div>
                     <div style="font-size:12px;font-weight:600;text-transform:capitalize">${id}</div>
-                    <div style="font-size:11px;color:var(--sm-text-secondary)">
+                    <div style="font-size:10px;color:var(--sm-text-secondary)">
                       ${!m.enabled ? "disabled" : m.total === 0 ? "not configured" : m.available + "/" + m.total + " ok"}
                     </div>
                   </div>
@@ -3116,168 +3148,266 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
 
-      <!-- Test Controls -->
-      <div class="section-header" style="margin-top:24px">
+      <!-- ── Run Tests ─────────────────────────────────────────────── -->
+      <div class="section-header" style="margin-top:20px">
         <h3 class="section-title">Run Tests</h3>
-        ${isRunning ? '<span class="badge entry">Running...</span>' : ''}
+        ${isRunning ? '<span class="badge entry">Running...</span>' : ""}
       </div>
 
-      <div class="sm-card">
-        <div class="test-grid-3">
-          <button class="sm-btn primary" data-run-test="quick"
-                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
-                  display:flex;align-items:center;justify-content:center">
-            
-            <span style="font-size:13px;font-weight:600">Quick Test</span>
-            <span style="font-size:11px;opacity:0.7">Vital checks only</span>
-          </button>
-          <button class="sm-btn default" data-run-test="standard"
-                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
-                  display:flex;align-items:center;justify-content:center">
-            
-            <span style="font-size:13px;font-weight:600">Standard Test</span>
-            <span style="font-size:11px;opacity:0.7">Extended module tests</span>
-          </button>
-          <button class="sm-btn danger" data-run-test="full"
-                  ${isRunning ? "disabled" : ""} style="padding:16px;flex-direction:column;gap:6px;
-                  display:flex;align-items:center;justify-content:center;background:var(--sm-purple-dim);color:var(--sm-purple)">
-            
-            <span style="font-size:13px;font-weight:600">Full Test</span>
-            <span style="font-size:11px;opacity:0.7">All configured systems</span>
-          </button>
-        </div>
-
-        <!-- Module-specific test buttons -->
-        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
-          ${Object.entries(modules).filter(([, m]) => m.enabled).map(([id]) => `
-            <button class="sm-btn ghost-outlined" data-run-test="${id}"
+      <div class="sm-card" style="padding:14px">
+        <!-- Three test level buttons -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          ${TEST_LEVELS.map(t => `
+            <button class="${t.btnClass}" data-run-test="${t.key}"
                     ${isRunning ? "disabled" : ""}
-                    style="text-transform:capitalize">
-              Test ${id}
+                    style="padding:12px 8px;flex-direction:column;gap:4px;
+                    display:flex;align-items:center;justify-content:center;
+                    ${t.key === "full" ? "background:var(--sm-purple-dim);color:var(--sm-purple);border:1px solid var(--sm-purple)44" : ""}">
+              <span style="font-size:13px;font-weight:600">${t.label}</span>
+              <span style="font-size:10px;opacity:0.7;text-align:center;line-height:1.3">${t.desc}</span>
             </button>
           `).join("")}
         </div>
+
+        <!-- Test descriptions accordion -->
+        <div style="border-top:1px solid var(--sm-border);padding-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none"
+               data-action="toggle-test-desc">
+            <span style="font-size:12px;color:var(--sm-text-secondary)">What does each test check?</span>
+            <span style="font-size:11px;color:var(--sm-text-tertiary)">${this._testDescExpanded ? "Hide" : "Show"}</span>
+          </div>
+          ${this._testDescExpanded ? `
+            <div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+              ${TEST_LEVELS.map(t => `
+                <div style="padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;
+                     border-left:3px solid ${t.color}">
+                  <div style="font-size:12px;font-weight:600;margin-bottom:6px;color:${t.color}">${t.label}</div>
+                  ${t.checks.map(c => `
+                    <div style="font-size:11px;color:var(--sm-text-secondary);margin-bottom:3px;
+                         display:flex;gap:4px;align-items:flex-start">
+                      <span style="color:var(--sm-accent);flex-shrink:0">${icon("check")}</span>${c}
+                    </div>
+                  `).join("")}
+                  ${t.notChecked.length > 0 ? t.notChecked.map(c => `
+                    <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:3px;
+                         display:flex;gap:4px;align-items:flex-start">
+                      <span style="flex-shrink:0;opacity:0.4">${icon("circle")}</span>${c}
+                    </div>
+                  `).join("") : ""}
+                </div>
+              `).join("")}
+            </div>
+          ` : ""}
+        </div>
+
+        <!-- Individual module test buttons -->
+        ${Object.entries(modules).filter(([, m]) => m.enabled).length > 0 ? `
+          <div style="border-top:1px solid var(--sm-border);padding-top:10px;margin-top:10px">
+            <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">Test individual module:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              ${Object.entries(modules).filter(([, m]) => m.enabled).map(([id]) => `
+                <button class="sm-btn ghost-outlined" data-run-test="${id}"
+                        ${isRunning ? "disabled" : ""}
+                        style="text-transform:capitalize;font-size:12px;padding:5px 12px">
+                  ${id}
+                </button>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
       </div>
 
-      <!-- Last Test Result -->
-      <div class="section-header" style="margin-top:24px">
+      <!-- ── Last Test Result ──────────────────────────────────────── -->
+      <div class="section-header" style="margin-top:20px">
         <h3 class="section-title">Last Test Run</h3>
-        ${lastResult ? `<span class="badge ${lastResult.overall === "pass" ? "accent" :
-          lastResult.overall === "warning" ? "entry" : "perimeter"}">${lastResult.overall.toUpperCase()}</span>` : ""}
+        ${lastResult ? `<span class="badge ${
+          lastResult.overall === "pass" ? "accent" :
+          lastResult.overall === "warning" ? "entry" : "perimeter"
+        }">${lastResult.overall.toUpperCase()}</span>` : ""}
       </div>
 
       ${lastResult ? this._renderTestResult(lastResult) : `
-        <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
+        <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
           No tests run yet. Click a test button above to start.
         </div>
       `}
 
-      <!-- Sensor Online/Offline Overview -->
-      ${this._renderSensorStatus()}
-
-      <!-- Battery Overview -->
-      ${this._renderBatteryOverview(batteries)}
-
-      <!-- Test History -->
+      <!-- ── Test History ───────────────────────────────────────────── -->
       ${results.length > 1 ? `
-        <div class="section-header" style="margin-top:24px">
+        <div class="section-header" style="margin-top:20px">
           <h3 class="section-title">Test History</h3>
           <span class="badge actions">${results.length} results</span>
         </div>
         <div class="sm-card" style="padding:0;overflow:hidden">
-          ${results.slice(0, 5).map((r, i) => `
-            <div style="padding:12px 16px;display:flex;align-items:center;gap:12px;
-                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
-              <span style="font-size:16px">
-                ${r.overall === "pass" ? icon("ok") : r.overall === "warning" ? icon("warn") : icon("fail")}
-              </span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
-                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
-              </div>
-              <div style="text-align:right">
-                <div style="font-size:12px;font-weight:600">
-                  ${r.summary ? r.summary.passed : 0}/${(r.summary ? (r.summary.passed||0) + (r.summary.failed||0) + (r.summary.warned||0) : 0)} passed
-                  ${r.summary?.warned ? `, ${r.summary.warned} warned` : ""}
+          ${results.slice(0, 10).map((r, i) => {
+            const col = r.overall === "pass" ? "var(--sm-accent)" :
+                        r.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
+            const ic  = r.overall === "pass" ? icon("ok") :
+                        r.overall === "warning" ? icon("warn") : icon("fail");
+            const passed = r.summary ? r.summary.passed || 0 : 0;
+            const total  = r.summary ? (r.summary.passed||0)+(r.summary.failed||0)+(r.summary.warned||0) : 0;
+            return `
+              <div style="padding:10px 16px;display:flex;align-items:center;gap:10px;
+                   ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+                <span style="color:${col};font-size:14px">${ic}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
+                  <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
                 </div>
-                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.duration_seconds}s</div>
+                <div style="text-align:right;flex-shrink:0">
+                  <div style="font-size:12px;font-weight:600;color:${col}">
+                    ${r.overall.toUpperCase()}
+                  </div>
+                  <div style="font-size:11px;color:var(--sm-text-secondary)">
+                    ${passed}/${total} passed &middot; ${r.duration_seconds}s
+                    ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
+                  </div>
+                </div>
               </div>
-            </div>
-          `).join("")}
+            `;
+          }).join("")}
         </div>
       ` : ""}
+
+      <!-- ── Sensor Status ──────────────────────────────────────────── -->
+      ${this._renderSensorStatus()}
+
+      <!-- ── Battery Overview ───────────────────────────────────────── -->
+      ${this._renderBatteryOverview(batteries)}
     `;
   }
 
+
   _renderTestResult(result) {
-    const mods = result.modules || {};
-    const bats = result.batteries || {};
-    const summary = result.summary || {};
+    const mods    = result.modules  || {};
+    const bats    = result.batteries || {};
+    const sensors = result.sensors  || {};
+    const summary = result.summary  || {};
+
+    const overallColor = result.overall === "pass"    ? "var(--sm-accent)" :
+                         result.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
+    const overallBg    = result.overall === "pass"    ? "var(--sm-accent-dim)" :
+                         result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)";
+    const overallIcon  = result.overall === "pass"    ? icon("ok") :
+                         result.overall === "warning" ? icon("warn") : icon("fail");
 
     return `
       <div class="sm-card" style="padding:0;overflow:hidden">
-        <div style="padding:16px 20px;background:${
-          result.overall === "pass" ? "var(--sm-accent-dim)" :
-          result.overall === "warning" ? "var(--sm-warning-dim)" : "var(--sm-danger-dim)"
-        };display:flex;align-items:center;gap:12px">
-          <span style="font-size:24px">
-            ${result.overall === "pass" ? icon("ok") : result.overall === "warning" ? icon("warn") : icon("fail")}
-          </span>
+
+        <!-- Header bar -->
+        <div style="padding:14px 18px;background:${overallBg};display:flex;align-items:center;gap:12px">
+          <span style="font-size:22px;color:${overallColor}">${overallIcon}</span>
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;text-transform:capitalize">
-              ${result.test_type} Test &mdash; ${result.overall.toUpperCase()}
+              ${result.test_type} Test &mdash;
+              <span style="color:${overallColor}">${result.overall.toUpperCase()}</span>
             </div>
-            <div style="font-size:12px;opacity:0.8">
-              ${result.timestamp} &middot; ${result.duration_seconds}s
-              &middot; ${summary.passed || 0} passed, ${summary.failed || 0} failed${summary.warned ? ", " + summary.warned + " warned" : ""}, ${summary.skipped || 0} skipped
+            <div style="font-size:11px;opacity:0.75;margin-top:2px">
+              ${result.timestamp} &middot; ${result.duration_seconds}s &middot;
+              <span style="color:var(--sm-accent)">${summary.passed || 0} passed</span>
+              ${summary.failed  ? ` &middot; <span style="color:var(--sm-danger)">${summary.failed} failed</span>` : ""}
+              ${summary.warned  ? ` &middot; <span style="color:var(--sm-warning)">${summary.warned} warned</span>` : ""}
+              ${summary.skipped ? ` &middot; ${summary.skipped} skipped` : ""}
             </div>
           </div>
         </div>
 
-        <div style="padding:12px 16px">
+        <!-- Module results -->
+        <div style="padding:8px 14px">
+          <div style="font-size:10px;font-weight:600;color:var(--sm-text-tertiary);
+               text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Modules</div>
           ${Object.entries(mods).map(([id, m]) => {
             const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
                           m.status === "warning" ? "var(--sm-warning)" :
-                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-warning)";
-            const statusText = m.status === "pass"    ? "PASS" :
-                               m.status === "skipped" ? "SKIP" :
-                               m.status === "warning" ? "WARN" :
-                               m.status === "fail"    ? "FAIL" : "ERR";
-            const detail = m.status === "warning" && m.reason === "no_entities"
-              ? "Not configured - add entities in module settings"
-              : m.test_result?.message || m.message || "";
+                          m.status === "fail"    ? "var(--sm-danger)" : "var(--sm-danger)";
+            const label = m.status === "pass"    ? "PASS" :
+                          m.status === "skipped" ? "SKIP" :
+                          m.status === "warning" ? "WARN" :
+                          m.status === "fail"    ? "FAIL" : "ERR";
+
+            // Build reason string — informative and actionable
+            let reason = "";
+            if (m.status === "warning" && m.reason === "no_entities") {
+              reason = "Not configured — add entities in module settings";
+            } else if (m.status === "skipped" && m.reason === "disabled") {
+              reason = "Module disabled";
+            } else if (m.status === "skipped" && m.reason === "not selected") {
+              reason = "Not selected in this test";
+            } else if (m.status === "fail" && m.unavailable && m.unavailable.length > 0) {
+              reason = "Unavailable: " + m.unavailable.slice(0, 2).join(", ") +
+                       (m.unavailable.length > 2 ? " +" + (m.unavailable.length-2) + " more" : "");
+            } else if (m.test_result?.message) {
+              reason = m.test_result.message;
+            } else if (m.message) {
+              reason = m.message;
+            }
+
             return `
-              <div style="display:flex;align-items:center;gap:12px;padding:8px 0;
-                   border-bottom:1px solid var(--sm-border)">
-                <span style="color:${color};font-weight:700;font-size:11px;
-                     min-width:40px">${statusText}</span>
-                <div style="flex:1">
-                  <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
-                  ${m.entities_total != null ? `
-                    <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
-                      ${m.entities_available}/${m.entities_total} entities
-                    </span>
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;
+                   border-bottom:1px solid var(--sm-border)22">
+                <span style="color:${color};font-weight:700;font-size:10px;
+                     min-width:36px;padding-top:2px">${label}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                    ${m.entities_total != null && m.entities_total > 0 ? `
+                      <span style="font-size:11px;color:var(--sm-text-secondary)">
+                        ${m.entities_available}/${m.entities_total} entities
+                      </span>
+                    ` : ""}
+                  </div>
+                  ${reason ? `
+                    <div style="font-size:11px;color:${m.status === "fail" ? "var(--sm-danger)" : "var(--sm-text-secondary)"};
+                         margin-top:2px;line-height:1.4">${reason}</div>
                   ` : ""}
-                  ${detail ? `
-                    <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:2px">${detail}</div>
+                  ${m.test_result?.details && m.status === "fail" ? `
+                    <div style="margin-top:4px;padding:6px 8px;background:rgba(255,255,255,0.03);
+                         border-radius:6px;border-left:2px solid var(--sm-danger)">
+                      ${Object.entries(m.test_result.details).slice(0,3).map(([k,v]) =>
+                        typeof v === "string" || typeof v === "number" ? `
+                          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace">
+                            ${k}: ${v}
+                          </div>` : ""
+                      ).join("")}
+                    </div>
                   ` : ""}
                 </div>
-                ${m.reason && m.reason !== "no_entities" ? `
-                  <span style="font-size:11px;color:var(--sm-text-tertiary)">${m.reason}</span>
-                ` : ""}
               </div>
             `;
           }).join("")}
 
+          <!-- Sensor summary (Full test) -->
+          ${sensors.total > 0 ? `
+            <div style="display:flex;align-items:center;gap:10px;padding:7px 0;
+                 border-bottom:1px solid var(--sm-border)22">
+              <span style="color:${sensors.offline > 0 ? "var(--sm-danger)" : "var(--sm-accent)"};
+                   font-weight:700;font-size:10px;min-width:36px">
+                ${sensors.offline > 0 ? "FAIL" : "PASS"}
+              </span>
+              <div style="flex:1">
+                <span style="font-size:13px;font-weight:500">Sensors</span>
+                <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
+                  ${sensors.online}/${sensors.total} online
+                </span>
+                ${sensors.offline > 0 ? `
+                  <div style="font-size:11px;color:var(--sm-danger);margin-top:2px">
+                    ${sensors.offline} sensor${sensors.offline > 1 ? "s" : ""} offline — check device connection
+                  </div>
+                ` : ""}
+              </div>
+            </div>
+          ` : ""}
+
+          <!-- Battery summary -->
           ${bats.total > 0 ? `
-            <div style="padding:10px 0;border-top:1px solid var(--sm-border);margin-top:4px">
-              <div style="font-size:11px;font-weight:600;color:var(--sm-text-tertiary);
-                   text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">
+            <div style="padding:8px 0;margin-top:2px">
+              <div style="font-size:10px;font-weight:600;color:var(--sm-text-tertiary);
+                   text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">
                 Batteries (informational)
               </div>
-              <div style="display:flex;gap:12px;font-size:12px">
-                <span>${bats.total} total</span>
+              <div style="display:flex;gap:14px;font-size:12px;align-items:center">
+                <span>${bats.total} tracked</span>
                 ${bats.low_count > 0 ? `
                   <span style="color:var(--sm-warning)">${bats.low_count} low</span>
                 ` : ""}
@@ -3287,6 +3417,9 @@ class SecureMePanel extends HTMLElement {
                 ${bats.low_count === 0 && bats.critical_count === 0 ? `
                   <span style="color:var(--sm-accent)">All OK</span>
                 ` : ""}
+                <span style="font-size:10px;color:var(--sm-text-tertiary);margin-left:auto">
+                  Does not affect PASS/FAIL
+                </span>
               </div>
             </div>
           ` : ""}
@@ -3294,6 +3427,7 @@ class SecureMePanel extends HTMLElement {
       </div>
     `;
   }
+
 
   _renderSensorStatus() {
     if (!this._hass) return '';
@@ -3514,6 +3648,7 @@ class SecureMePanel extends HTMLElement {
     }
 
     this._testRunning = false;
+    this._testDescExpanded = false;
     this._render();
   }
 
@@ -4874,6 +5009,13 @@ class SecureMePanel extends HTMLElement {
     // Run test buttons (testing tab)
     root.querySelectorAll("[data-run-test]").forEach(btn => {
       btn.addEventListener("click", () => this._runTest(btn.dataset.runTest));
+    });
+
+    root.querySelectorAll("[data-action='toggle-test-desc']").forEach(el => {
+      el.addEventListener("click", () => {
+        this._testDescExpanded = !this._testDescExpanded;
+        this._render();
+      });
     });
 
     // Collapsible sections
