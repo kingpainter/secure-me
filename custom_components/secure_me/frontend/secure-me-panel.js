@@ -5621,10 +5621,7 @@ class SecureMePanel extends HTMLElement {
     });
 
     // Open camera config dialog
-    const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
-    console.log(' DEBUG: Found', cameraConfigButtons.length, 'camera config buttons');
-    cameraConfigButtons.forEach(btn => {
-      console.log(' DEBUG: Attaching listener to camera button');
+    root.querySelectorAll("[data-action='open-camera-config']").forEach(btn => {
       btn.addEventListener("click", () => this._openCameraConfig());
     });
     
