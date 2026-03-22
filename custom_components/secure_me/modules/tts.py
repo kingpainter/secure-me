@@ -14,11 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_LANGUAGE = "da"
 DEFAULT_VOLUME = 0.5
 
-# Message types supported by custom messages
-MSG_TYPE_TTS = "tts"        # Text-to-speech via tts service
-MSG_TYPE_MEDIA = "media"    # Play a media file (MP3/URL)
+MSG_TYPE_TTS = "tts"
+MSG_TYPE_MEDIA = "media"
 
-# Alarm states that can trigger a custom message
 VALID_TRIGGERS = {
     "armed_away", "armed_home", "armed_night", "armed_vacation",
     "disarmed", "triggered", "arming", "pending",
@@ -26,44 +24,10 @@ VALID_TRIGGERS = {
 
 
 class TTSModule(AlarmModule):
-    """TTS module for custom voice and media announcements.
-
-    Responsibility: Play user-defined custom messages on alarm state changes.
-    System status messages (armed/disarmed/triggered/countdown) are handled
-    by notification_dispatcher.py — not this module.
-
-    Supports two message types:
-    - tts: Text-to-speech via a tts.* service + media_player entities
-    - media: Play an MP3/URL via media_player.play_media (no TTS service needed)
-
-    media_players is optional when using a custom TTS service that handles
-    routing internally (e.g. a script or automation).
-    """
+    """TTS module for custom voice and media announcements."""
 
     def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
-        """Initialize TTS module.
-
-        Config options:
-            - media_players: List of media player entity IDs (optional)
-            - tts_service: TTS service to use (default: "tts.cloud_say")
-            - language: Language code (default: "da")
-            - volume: Volume level 0.0-1.0 (default: 0.5)
-            - custom_messages: List of custom message configs (see below)
-
-        Custom message config:
-            {
-              "id": "msg_001",           # unique id
-              "name": "Politiet tilkaldt",
-              "type": "tts",             # "tts" or "media"
-              "trigger": "triggered",    # alarm state that fires this
-              "message": "Politiet er tilkaldt og video er sendt.",  # for tts
-              "media_url": "",           # for media type: URL or local path
-              "media_content_type": "music",  # for media type
-              "enabled": True,
-            }
-        """
         super().__init__(hass, config)
-
         self.media_players: list[str] = config.get("media_players", [])
         self.tts_service: str = config.get("tts_service", "tts.cloud_say")
         self.language: str = config.get("language", DEFAULT_LANGUAGE)
@@ -71,10 +35,7 @@ class TTSModule(AlarmModule):
         self.custom_messages: list[dict[str, Any]] = config.get("custom_messages", [])
         self._warned_incompatible_service: bool = False  # warn only once per session
 
-    # ── AlarmModule interface ────────────────────────────────────────────────
-
     async def async_arm(self, mode: str) -> bool:
-        """Fire custom messages for the specific arm mode."""
         if not self.enabled:
             return True
         trigger = f"armed_{mode}" if mode in ("away", "home", "night", "vacation") else mode
@@ -82,21 +43,18 @@ class TTSModule(AlarmModule):
         return True
 
     async def async_disarm(self) -> bool:
-        """Fire custom messages for disarmed state."""
         if not self.enabled:
             return True
         await self._fire_custom_messages("disarmed")
         return True
 
     async def async_trigger(self) -> bool:
-        """Fire custom messages for triggered state."""
         if not self.enabled:
             return True
         await self._fire_custom_messages("triggered")
         return True
 
     async def async_test(self) -> dict[str, Any]:
-        """Test TTS module — check players and play first enabled custom message."""
         results: dict[str, Any] = {
             "success": True,
             "message": "TTS module test passed",
@@ -108,7 +66,6 @@ class TTSModule(AlarmModule):
                 "test_announcement": False,
             },
         }
-
         for player in self.media_players:
             state = self.hass.states.get(player)
             player_info = {
@@ -122,11 +79,7 @@ class TTSModule(AlarmModule):
                 results["message"] = f"Media player {player} unavailable"
             results["details"]["media_players"].append(player_info)
 
-        # Play first enabled custom message as test
-        test_msg = next(
-            (m for m in self.custom_messages if m.get("enabled", True)),
-            None,
-        )
+        test_msg = next((m for m in self.custom_messages if m.get("enabled", True)), None)
         if test_msg:
             try:
                 await self._play_message(test_msg, test_mode=True)
@@ -137,25 +90,15 @@ class TTSModule(AlarmModule):
                 results["message"] = "TTS announcement test failed"
         elif not self.media_players and not self.custom_messages:
             results["message"] = "TTS module enabled but no messages or players configured"
-
         return results
 
-    # ── Public helpers (called by notification_dispatcher for system TTS) ────
-
     async def announce_system(self, message: str, urgent: bool = False) -> None:
-        """Play a system status message via TTS.
-
-        Called by notification_dispatcher when a notification is configured
-        with channel="tts". Uses the module's configured service + players.
-        """
+        """Play a system status message via TTS (called by notification_dispatcher)."""
         if not self.enabled or not self.media_players:
             return
         await self._announce_tts(message, urgent=urgent)
 
-    # ── Internal ─────────────────────────────────────────────────────────────
-
     async def _fire_custom_messages(self, trigger: str) -> None:
-        """Fire all enabled custom messages matching the given trigger."""
         for msg in self.custom_messages:
             if not msg.get("enabled", True):
                 continue
@@ -164,14 +107,10 @@ class TTSModule(AlarmModule):
             try:
                 await self._play_message(msg)
             except Exception as err:
-                _LOGGER.error(
-                    "TTS custom message '%s' failed: %s", msg.get("name", "?"), err
-                )
+                _LOGGER.error("TTS custom message '%s' failed: %s", msg.get("name", "?"), err)
 
     async def _play_message(self, msg: dict[str, Any], test_mode: bool = False) -> None:
-        """Play a single custom message (TTS or media file)."""
         msg_type = msg.get("type", MSG_TYPE_TTS)
-
         if msg_type == MSG_TYPE_MEDIA:
             await self._play_media(msg, test_mode=test_mode)
         else:
@@ -185,9 +124,8 @@ class TTSModule(AlarmModule):
         urgent: bool = False,
         test_mode: bool = False,
     ) -> None:
-        """Make a TTS announcement via tts service + media players."""
         if not self.media_players:
-            _LOGGER.debug("TTS: no media_players configured, skipping announcement")
+            _LOGGER.debug("TTS: no media_players configured, skipping")
             return
 
         volume = self.volume
@@ -196,7 +134,6 @@ class TTSModule(AlarmModule):
         elif test_mode:
             volume = volume * 0.5
 
-        # Set volume on all players
         for player in self.media_players:
             await self.async_call_service_with_retry(
                 "media_player", "volume_set",
@@ -207,72 +144,70 @@ class TTSModule(AlarmModule):
 
         await asyncio.sleep(0.5)
 
-        # Make TTS announcement
         try:
             service_domain, service_name = self.tts_service.split(".", 1)
         except ValueError:
             _LOGGER.error("Invalid TTS service '%s'", self.tts_service)
             return
 
-        # Standard HA TTS services (tts.*) use target + message/language/cache.
-        # Custom services (e.g. house_voice.say, notify.*) have their own schema
-        # and should only receive the message field without target or HA-specific keys.
         if service_domain == "tts":
+            # Standard HA TTS — target + message/language/cache.
+            # Language format varies by service: cloud_say uses 'da-DK',
+            # google_translate_say uses 'da', piper uses voice names.
+            # Normalise common short codes to BCP-47 for cloud services.
+            _LANG_MAP = {
+                "da": "da-DK", "en": "en-US", "de": "de-DE",
+                "sv": "sv-SE", "nb": "nb-NO", "nl": "nl-NL",
+                "fr": "fr-FR", "es": "es-ES", "it": "it-IT",
+                "fi": "fi-FI", "pl": "pl-PL",
+            }
+            language = self.language or "da-DK"
+            if service_name in ("cloud_say",) and language in _LANG_MAP:
+                language = _LANG_MAP[language]
             await self.async_call_service_with_retry(
                 service_domain, service_name,
                 service_data={
                     "message": message,
-                    "language": self.language,
+                    "language": language,
                     "cache": False,
                 },
                 target={"entity_id": self.media_players},
                 action="tts_announce",
             )
         elif service_domain == "notify":
-            # notify.* services use message field directly
+            # notify.* — message + title
             await self.async_call_service_with_retry(
                 service_domain, service_name,
                 service_data={"message": message, "title": "Secure Me"},
                 action="tts_announce",
             )
         else:
-            # Unknown custom service (e.g. house_voice.say) — these have
-            # their own schema and cannot accept free-form text.
-            # Warn only once per session to avoid log spam.
+            # Custom service (e.g. house_voice.say) — incompatible schema.
+            # Warn once per session, then skip silently.
             if not self._warned_incompatible_service:
                 self._warned_incompatible_service = True
                 _LOGGER.warning(
                     "TTS: '%s' is not a standard tts.* or notify.* service and cannot "
-                    "receive free-form text. Skipping all TTS announcements. "
-                    "Configure tts.cloud_say or similar in the TTS module settings.",
+                    "receive free-form text. Skipping TTS announcements. "
+                    "Use tts.cloud_say or similar in TTS module settings.",
                     self.tts_service,
                 )
-            return  # Skip — do not attempt call that will always fail
+            return
 
-        _LOGGER.debug("TTS announcement: %s", message)
+        _LOGGER.debug("TTS announcement sent: %s", message)
 
-    async def _play_media(
-        self,
-        msg: dict[str, Any],
-        test_mode: bool = False,
-    ) -> None:
-        """Play a media file (MP3 or URL) on configured media players."""
+    async def _play_media(self, msg: dict[str, Any], test_mode: bool = False) -> None:
         media_url = msg.get("media_url", "")
         if not media_url:
             _LOGGER.warning("TTS media message '%s' has no media_url", msg.get("name", "?"))
             return
-
         if not self.media_players:
             _LOGGER.debug("TTS: no media_players configured for media playback")
             return
 
         content_type = msg.get("media_content_type", "music")
+        volume = self.volume * 0.5 if test_mode else self.volume
 
-        volume = self.volume
-        if test_mode:
-            volume = volume * 0.5
-
-        # Set volume first
         for player in self.media_players:
             await self.async_call_service_with_retry(
                 "media_player", "volume_set",
@@ -283,7 +218,6 @@ class TTSModule(AlarmModule):
 
         await asyncio.sleep(0.3)
 
-        # Play media on all players
         for player in self.media_players:
             await self.async_call_service_with_retry(
                 "media_player", "play_media",
@@ -298,7 +232,6 @@ class TTSModule(AlarmModule):
         _LOGGER.debug("TTS media playback: %s on %s", media_url, self.media_players)
 
     def _get_mode_name(self, mode: str) -> str:
-        """Return Danish mode name."""
         return {
             "away": "ude", "home": "hjemme",
             "night": "nat", "vacation": "ferie",
