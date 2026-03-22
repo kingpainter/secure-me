@@ -4845,6 +4845,9 @@ class SecureMePanel extends HTMLElement {
     };
 
     this._showDialog = 'tts';
+    // Always force rebuild so listeners are fresh
+    const dlgMount = this.shadowRoot?.getElementById('shell-dialog-mount');
+    if (dlgMount) dlgMount.dataset.currentDialog = '';
     this._render();
   }
 
