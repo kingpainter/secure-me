@@ -1302,7 +1302,8 @@ class SecureMePanel extends HTMLElement {
     this._testRunning = false;
     this._testDescExpanded = false;
     this._schedTemp   = null;    // temp config for scheduled test editing
-    this._schedSaving  = false;   // prevents double-submit
+    this._schedSaving    = false;   // prevents double-submit
+    this._ttsTestRunning = false;  // prevents duplicate TTS test calls
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -5740,9 +5741,9 @@ class SecureMePanel extends HTMLElement {
 
     // === TTS Module Handlers ===
     root.querySelectorAll("[data-action='open-tts-config']").forEach(b => b.addEventListener("click", () => this._openTTSConfig()));
-    root.querySelectorAll("[data-action='save-tts-config']").forEach(b => b.addEventListener("click", () => this._saveTTSConfig()));
+    root.querySelectorAll("[data-action='save-tts-config']").forEach(b => b.addEventListener("click", () => this._saveTTSConfig(), { once: true }));
     root.querySelectorAll("[data-action='remove-tts']").forEach(b => b.addEventListener("click", () => this._removeTTSEntity(b.dataset.entity)));
-    root.querySelectorAll("[data-action='add-tts-message']").forEach(b => b.addEventListener("click", () => this._addTTSCustomMessage()));
+    root.querySelectorAll("[data-action='add-tts-message']").forEach(b => b.addEventListener("click", () => this._addTTSCustomMessage(), { once: true }));
 
     // Speaker dropdown
     root.querySelectorAll("[data-action='select-tts']").forEach(sel => {
@@ -5780,7 +5781,7 @@ class SecureMePanel extends HTMLElement {
 
     // Custom message remove buttons
     root.querySelectorAll("[data-tts-msg-remove]").forEach(b => {
-      b.addEventListener("click", () => this._removeTTSCustomMessage(b.dataset.ttsMsgRemove));
+      b.addEventListener("click", () => this._removeTTSCustomMessage(b.dataset.ttsMsgRemove), { once: true });
     });
 
     // Custom message enable toggle
@@ -5788,8 +5789,8 @@ class SecureMePanel extends HTMLElement {
       toggle.addEventListener("click", () => {
         const id = toggle.dataset.ttsMsgToggle;
         const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
-        if (msg) { msg.enabled = !msg.enabled; this._render(); }
-      });
+        if (msg) { msg.enabled = !msg.enabled; this._forceRebuildDialog(); }
+      }, { once: true });
     });
 
     // Test individual TTS message
@@ -5798,7 +5799,7 @@ class SecureMePanel extends HTMLElement {
         const id = b.dataset.ttsTestMsg;
         const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
         if (msg) this._testTTSMessage(msg.message || '');
-      });
+      }, { once: true });
     });
 
     root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
