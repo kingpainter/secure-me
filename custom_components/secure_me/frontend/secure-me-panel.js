@@ -3556,12 +3556,10 @@ class SecureMePanel extends HTMLElement {
     }
   }
 
-  async _cancelDialog() {
-    if (await this._confirm('Unsaved changes will be lost.', 'Discard Changes?')) {
-      this._showDialog = null;
-      this._tempConfig = null;
-      this._render();
-    }
+  _cancelDialog() {
+    this._showDialog = null;
+    this._tempConfig = null;
+    this._render();
   }
 
   _renderCameraDialog() {
@@ -3575,7 +3573,7 @@ class SecureMePanel extends HTMLElement {
           <div class="dialog-header">
             
             <div class="dialog-title">Camera Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog"></button>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
           
           <button class="add-item-btn" data-action="add-camera">
@@ -3747,27 +3745,25 @@ class SecureMePanel extends HTMLElement {
       : domainLocks;
 
     return `
-    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
-      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:620px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          
-          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lock Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;line-height:1;"></button>
-        </div>
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <div class="dialog-title">Lock Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
+          </div>
 
-        ${domainLocks.length > 0 ? `
-        <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
-           Found ${domainLocks.length} lock entity(ies) in Home Assistant
-        </div>` : `
-        <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-          Â  No entities found in lock domain. Use manual search below to add any entity.
-        </div>`}
+          <div class="info-card ${domainLocks.length > 0 ? 'success' : 'warning'}">
+            ${domainLocks.length > 0
+              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Found ${domainLocks.length} lock entity(ies) in Home Assistant</div>`
+              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>No lock entities found. Use manual search below to add any entity.</div>`
+            }
+          </div>
 
-        <button data-action="add-lock" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
-           Add Lock
-        </button>
+          <button class="add-item-btn" data-action="add-lock">
+            ${icon("plus")} Add Lock
+          </button>
 
-        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="item-list" style="display:flex;flex-direction:column;gap:12px;">
           ${locks.map((lock, idx) => `
           <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -3816,12 +3812,13 @@ class SecureMePanel extends HTMLElement {
           </div>`).join('')}
         </div>
 
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
-          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
-          <button data-action="save-lock-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-lock-config">Save Configuration</button>
+          </div>
         </div>
       </div>
-    </div>`;
+    `;
   }
 
   // === Climate Config Dialog ===
@@ -3873,27 +3870,25 @@ class SecureMePanel extends HTMLElement {
     const allEntities = this._allEntities || [];
 
     return `
-    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
-      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          
-          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Climate Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;"></button>
-        </div>
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <div class="dialog-title">Climate Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
+          </div>
 
-        ${domainEntities.length > 0 ? `
-        <div style="background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#34c759;">
-           Found ${domainEntities.length} climate entity(ies) in Home Assistant
-        </div>` : `
-        <div style="background:rgba(255,159,10,0.1);border:1px solid rgba(255,159,10,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#ff9f0a;">
-          Â  No climate entities found. Use manual search to add any entity.
-        </div>`}
+          <div class="info-card ${domainEntities.length > 0 ? 'success' : 'warning'}">
+            ${domainEntities.length > 0
+              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Found ${domainEntities.length} climate entity(ies) in Home Assistant</div>`
+              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>No climate entities found. Use manual search to add any entity.</div>`
+            }
+          </div>
 
-        <button data-action="add-climate" style="width:100%;padding:10px;background:rgba(52,199,89,0.15);border:1px dashed #34c759;border-radius:8px;color:#34c759;cursor:pointer;font-size:14px;margin-bottom:16px;">
-           Add Thermostat
-        </button>
+          <button class="add-item-btn" data-action="add-climate">
+            ${icon("plus")} Add Thermostat
+          </button>
 
-        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="item-list" style="display:flex;flex-direction:column;gap:12px;">
           ${thermostats.map((t, idx) => `
           <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -3947,12 +3942,13 @@ class SecureMePanel extends HTMLElement {
           </div>`).join('')}
         </div>
 
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
-          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
-          <button data-action="save-climate-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-climate-config">Save Configuration</button>
+          </div>
         </div>
       </div>
-    </div>`;
+    `;
   }
 
   // === Siren Config Dialog ===
@@ -4052,7 +4048,7 @@ class SecureMePanel extends HTMLElement {
           <div class="dialog-header">
             
             <div class="dialog-title">Siren Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog"></button>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
           
           <button class="add-item-btn" data-action="add-siren">
@@ -4173,13 +4169,12 @@ class SecureMePanel extends HTMLElement {
     const available = domainLights.filter(l => !selected.includes(l.entity_id));
 
     return `
-    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;backdrop-filter:blur(4px);">
-      <div style="background:var(--sm-surface,#1c1c1e);border:1px solid var(--sm-border,#333);border-radius:16px;padding:28px;max-width:640px;width:92%;max-height:88vh;overflow-y:auto;position:relative;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-          
-          <div style="flex:1;font-size:18px;font-weight:600;color:var(--sm-text,#fff);">Lights Module Configuration</div>
-          <button data-action="close-dialog" style="background:none;border:none;color:var(--sm-text,#fff);font-size:24px;cursor:pointer;"></button>
-        </div>
+      <div class="config-dialog-overlay">
+        <div class="config-dialog">
+          <div class="dialog-header">
+            <div class="dialog-title">Lights Module Configuration</div>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
+          </div>
 
         <div style="margin-bottom:16px;">
           <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Selected Lights (${selected.length})</label>
@@ -4247,12 +4242,13 @@ class SecureMePanel extends HTMLElement {
           </div>
         </div>` : ''}
 
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--sm-border,#333);">
-          <button data-action="cancel-dialog" style="padding:10px 22px;background:rgba(255,255,255,0.08);border:1px solid var(--sm-border,#444);border-radius:8px;color:var(--sm-text,#fff);cursor:pointer;font-size:14px;">Cancel</button>
-          <button data-action="save-lights-config" style="padding:10px 22px;background:#34c759;border:none;border-radius:8px;color:#000;cursor:pointer;font-size:14px;font-weight:600;">Save Configuration</button>
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-lights-config">Save Configuration</button>
+          </div>
         </div>
       </div>
-    </div>`;
+    `;
   }
 
   // === TTS Config Dialog ===
@@ -4390,7 +4386,7 @@ class SecureMePanel extends HTMLElement {
           <div class="dialog-header">
             
             <div class="dialog-title">TTS Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog"></button>
+            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
           
           <div class="form-group">
