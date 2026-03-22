@@ -2874,22 +2874,19 @@ class SecureMePanel extends HTMLElement {
           const customNotifs = Object.entries(notifications).filter(([,n]) => !SYSTEM_TRIGGERS.includes(n.trigger));
 
           const notifCard = ([id, n]) => `
-            <div class="sm-card" style="padding:10px 12px">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-                <div style="min-width:0;flex:1">
-                  <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
-                    <span style="font-size:13px;font-weight:600;white-space:nowrap">${n.name || 'Notification'}</span>
-                    ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">Push</span>' : ''}
-                    ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px">TTS</span>' : ''}
-                    <span class="badge entry" style="font-size:10px">${n.trigger || ''}</span>
-                  </div>
-                  <div style="font-size:11px;color:var(--sm-text-tertiary);font-style:italic;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.message || ''}</div>
+            <div class="sm-card" style="padding:8px 10px;display:flex;align-items:center;gap:6px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name || 'Notification'}</div>
+                <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
+                  ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px;padding:1px 5px">Push</span>' : ''}
+                  ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px;padding:1px 5px">TTS</span>' : ''}
+                  <span class="badge entry" style="font-size:10px;padding:1px 5px">${n.trigger || ''}</span>
                 </div>
-                <div style="display:flex;gap:4px;flex-shrink:0">
-                  <button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:4px 8px">${icon('play')}</button>
-                  <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:4px 8px">${icon('edit')}</button>
-                  <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete" style="padding:4px 8px">${icon('trash')}</button>
-                </div>
+              </div>
+              <div style="display:flex;gap:3px;flex-shrink:0">
+                <button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>
+                <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:3px 7px">${icon('edit')}</button>
+                <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete" style="padding:3px 7px">${icon('trash')}</button>
               </div>
             </div>`;
 
@@ -2897,7 +2894,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
               <h3 class="section-title" style="margin:0">System Notifications</h3>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Always active — routed per user</div>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Always active — routed per user. Test sends to admin users only.</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px">
