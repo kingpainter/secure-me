@@ -1301,7 +1301,8 @@ class SecureMePanel extends HTMLElement {
     this._renderTimeout = null;
     this._testRunning = false;
     this._testDescExpanded = false;
-    this._schedTemp = null;    // temp config for scheduled test editing
+    this._schedTemp   = null;    // temp config for scheduled test editing
+    this._schedSaving  = false;   // prevents double-submit
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -2564,19 +2565,25 @@ class SecureMePanel extends HTMLElement {
                    color:${mod.enabled ? def.color : "var(--sm-text-tertiary)"}">
                 ${icon(def.icon)}
               </div>
-              <div class="module-name-area" data-module-expand="${key}">
+              <div class="module-name-area" data-module-expand="${key}"
+                   style="cursor:${mod.enabled ? 'pointer' : 'default'}">
                 <div style="font-size:14px;font-weight:600">${def.name}</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary);display:flex;align-items:center;gap:6px">
                   ${def.desc}
                   ${healthBadge}
                 </div>
               </div>
+              ${mod.enabled ? `
+                <button class="sm-btn ghost sm" data-module-expand="${key}"
+                        style="margin-right:8px;padding:4px 10px;font-size:11px;opacity:0.7">
+                  ${icon('settings')}
+                </button>` : ''}
               <button class="sm-toggle ${mod.enabled ? "on" : ""}"
                       data-module-toggle="${key}">
                 <div class="dot"></div>
               </button>
             </div>
-            ${expanded ? this._renderModuleConfig(key) : ""}
+            <!-- Module config opens as dialog via data-module-expand click -->
           </div>
         `;
       }).join("")}
@@ -3472,6 +3479,7 @@ class SecureMePanel extends HTMLElement {
     };
 
     const result = await this._callWS('save_scheduled_test', { test_id: testId, config });
+    this._schedSaving = false;
     if (result?.success) {
       this._showDialog = null;
       this._schedTemp  = null;
@@ -3479,7 +3487,8 @@ class SecureMePanel extends HTMLElement {
       this._render();
       this._toast(isEdit ? 'Schedule updated' : 'Schedule added', 'success');
     } else {
-      this._toast('Could not save schedule', 'error');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isEdit ? 'Save Changes' : 'Add Schedule'; }
+      this._toast('Could not save schedule — check HA logs', 'error');
     }
   }
 
@@ -3856,7 +3865,8 @@ class SecureMePanel extends HTMLElement {
 
     this._testRunning = false;
     this._testDescExpanded = false;
-    this._schedTemp = null;    // temp config for scheduled test editing
+    this._schedTemp   = null;    // temp config for scheduled test editing
+    this._schedSaving  = false;   // prevents double-submit
     this._render();
   }
 
@@ -4906,11 +4916,18 @@ class SecureMePanel extends HTMLElement {
       enabled: true,
     };
     this._tempConfig.custom_messages.push(newMsg);
-    this._render();
+    this._forceRebuildDialog();
   }
 
   _removeTTSCustomMessage(id) {
     this._tempConfig.custom_messages = this._tempConfig.custom_messages.filter(m => m.id !== id);
+    this._forceRebuildDialog();
+  }
+
+  _forceRebuildDialog() {
+    // Force shell-dialog-mount to rebuild by resetting currentDialog marker
+    const dialogMount = this.shadowRoot?.getElementById('shell-dialog-mount');
+    if (dialogMount) dialogMount.dataset.currentDialog = '';
     this._render();
   }
 
@@ -4918,8 +4935,8 @@ class SecureMePanel extends HTMLElement {
     const msg = this._tempConfig.custom_messages.find(m => m.id === id);
     if (msg) {
       msg[field] = value;
-      // Re-render only if type changes (shows/hides fields)
-      if (field === 'type') this._render();
+      // Force rebuild when type changes (shows/hides TTS vs media fields)
+      if (field === 'type') this._forceRebuildDialog();
     }
   }
 
@@ -5117,8 +5134,18 @@ class SecureMePanel extends HTMLElement {
     this.shadowRoot.querySelectorAll("[data-module-expand]").forEach(header => {
       header.addEventListener("click", (e) => {
         const moduleKey = header.dataset.moduleExpand;
-        this._expandedModule = this._expandedModule === moduleKey ? null : moduleKey;
-        this._render();
+        const mod = this._data.modules[moduleKey] || {};
+        if (!mod.enabled) return;
+        // Call the proper init function for each module
+        const openers = {
+          camera:  () => this._openCameraConfig(),
+          lock:    () => this._openLockConfig(),
+          lights:  () => this._openLightsConfig(),
+          climate: () => this._openClimateConfig(),
+          siren:   () => this._openSirenConfig(),
+          tts:     () => this._openTTSConfig(),
+        };
+        if (openers[moduleKey]) openers[moduleKey]();
       });
     });
     
