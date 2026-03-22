@@ -167,7 +167,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         # Scheduled test runner — checks every minute
         from homeassistant.helpers.event import async_track_time_interval
-        from datetime import timedelta
         self._scheduled_test_unsub = async_track_time_interval(
             hass, self._check_scheduled_tests, timedelta(minutes=1)
         )

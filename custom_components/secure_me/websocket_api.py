@@ -1251,7 +1251,7 @@ async def ws_get_scheduled_tests(
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/save_scheduled_test",
-    vol.Required("test_id"): str,
+    vol.Optional("test_id", default=""): str,
     vol.Required("config"): dict,
 })
 @websocket_api.async_response
