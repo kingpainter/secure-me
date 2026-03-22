@@ -2279,6 +2279,11 @@ class SecureMePanel extends HTMLElement {
                   <div style="font-size:11px;color:var(--sm-blue);margin-top:4px;font-family:monospace">
                     Tracker: ${u.person_entity}
                   </div>` : ""}
+                <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
+                  ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">No push service</span>'}
+                  ${u.receive_critical !== false ? '<span class="badge" style="background:var(--sm-red-dim);color:var(--sm-red);font-size:10px">Critical</span>' : ''}
+                  ${u.tts_quiet_start != null && u.tts_quiet_end != null ? `<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px">Quiet ${u.tts_quiet_start}-${u.tts_quiet_end}h</span>` : ''}
+                </div>
               </div>
             </div>
             <div style="display:flex;gap:6px">
@@ -2319,50 +2324,101 @@ class SecureMePanel extends HTMLElement {
     const temp = this._tempConfig || {};
     const isEdit = !!temp._userId;
     const title = isEdit ? 'Edit User' : 'Add User';
+    const services = this._availableServices || [];
+
+    // Notification settings with defaults
+    const ns = temp.notification_settings || {};
+    const notifyService   = ns.notify_service   ?? '';
+    const recvCritical    = ns.receive_critical  !== false;
+    const recvAlerts      = ns.receive_alerts    !== false;
+    const recvOwnActions  = ns.receive_own_actions !== false;
+    const quietStart      = ns.tts_quiet_start   ?? '';
+    const quietEnd        = ns.tts_quiet_end      ?? '';
+
+    const checkRow = (id, label, checked, hint) =>
+      '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 12px;' +
+      'border-radius:8px;background:rgba(255,255,255,0.03);font-size:14px;margin-bottom:4px">' +
+        '<input type="checkbox" id="' + id + '"' + (checked ? ' checked' : '') + '>' +
+        '<span style="flex:1">' + label + '</span>' +
+        '<span style="font-size:11px;color:var(--sm-text-tertiary)">' + hint + '</span>' +
+      '</label>';
 
     return '<div class="config-dialog-overlay">' +
-      '<div class="config-dialog">' +
+      '<div class="config-dialog" style="max-width:520px">' +
         '<div class="dialog-header">' +
           icon('user') +
           '<div class="dialog-title">' + title + '</div>' +
           '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
+        // Name
         '<div class="form-group">' +
           '<label class="form-label">User Name</label>' +
-          '<input type="text" class="form-input" id="user-name" placeholder="e.g. Flemming, Sarah" value="' + (temp.name || '') + '">' +
+          '<input type="text" class="form-input" id="user-name" placeholder="e.g. Flemming, Lucas" value="' + (temp.name || '') + '">' +
         '</div>' +
 
+        // Code
         '<div class="form-group">' +
-          '<label class="form-label">' + (isEdit ? 'New Access Code (leave blank to keep existing)' : 'Access Code (4-6 digits)') + '</label>' +
-          '<input type="password" class="form-input" id="user-code" placeholder="' + (isEdit ? 'Leave blank to keep current code' : 'e.g. 1234') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<label class="form-label">' + (isEdit ? 'New Access Code (leave blank to keep)' : 'Access Code (4-6 digits)') + '</label>' +
+          '<input type="password" class="form-input" id="user-code" placeholder="' + (isEdit ? 'Leave blank to keep current' : 'e.g. 1234') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
-
         '<div class="form-group">' +
           '<label class="form-label">' + (isEdit ? 'Confirm New Code' : 'Confirm Code') + '</label>' +
-          '<input type="password" class="form-input" id="user-code-confirm" placeholder="' + (isEdit ? 'Leave blank to keep current code' : 'Repeat code') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<input type="password" class="form-input" id="user-code-confirm" placeholder="' + (isEdit ? 'Leave blank to keep current' : 'Repeat code') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
 
+        // Admin
         '<div class="form-group">' +
-          '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.05);font-size:14px">' +
-            '<input type="checkbox" id="user-admin"' + (temp.admin ? ' checked' : '') + '>' +
-            '<span style="flex:1">Administrator</span>' +
-            '<span style="font-size:11px;color:var(--sm-text-tertiary)">Full access</span>' +
-          '</label>' +
+          checkRow('user-admin', 'Administrator', temp.admin, 'Full access') +
         '</div>' +
 
+        // Person tracker
         '<div class="form-group">' +
           '<label class="form-label">Link Person Tracker (optional)</label>' +
           '<select class="form-select" id="user-person-entity">' +
-            '<option value="">-- None (manual arm/disarm only) --</option>' +
+            '<option value="">-- None --</option>' +
             (this._availablePersons || []).map(p =>
               '<option value="' + p.entity_id + '"' + (temp.person_entity === p.entity_id ? ' selected' : '') + '>' +
                 p.name + ' (' + p.entity_id + ')' +
               '</option>'
             ).join('') +
           '</select>' +
-          '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">' +
-            'Link to a person entity for automatic arm/disarm based on presence' +
+        '</div>' +
+
+        // ── Notification Settings ──
+        '<div style="border-top:1px solid var(--sm-border);margin:12px 0 8px;padding-top:12px">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--sm-text-secondary);margin-bottom:10px">' +
+            icon('bell') + ' Notification Settings' +
+          '</div>' +
+
+          '<div class="form-group">' +
+            '<label class="form-label">Push Notify Service</label>' +
+            '<select class="form-select" id="user-notify-service">' +
+              '<option value="">-- None (use notification default) --</option>' +
+              services.map(s =>
+                '<option value="' + s + '"' + (notifyService === s ? ' selected' : '') + '>' + s + '</option>'
+              ).join('') +
+            '</select>' +
+            '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">' +
+              'Personal notify service, e.g. notify.mobile_app_flemming' +
+            '</div>' +
+          '</div>' +
+
+          checkRow('user-recv-critical',   'Receive critical alerts',    recvCritical,   'Triggered / smoke / water / entry delay') +
+          checkRow('user-recv-alerts',      'Receive system alerts',      recvAlerts,     'Low battery, arm failures') +
+          checkRow('user-recv-own-actions', 'Receive own arm/disarm',     recvOwnActions, 'Confirmation when you arm or disarm') +
+
+          // TTS quiet hours
+          '<div style="margin-top:10px">' +
+            '<label class="form-label">TTS Quiet Hours (optional)</label>' +
+            '<div style="display:flex;align-items:center;gap:8px">' +
+              '<input type="number" class="form-input" id="user-tts-quiet-start" min="0" max="23" placeholder="22" ' +
+                'value="' + quietStart + '" style="width:70px;text-align:center">' +
+              '<span style="color:var(--sm-text-tertiary)">to</span>' +
+              '<input type="number" class="form-input" id="user-tts-quiet-end" min="0" max="23" placeholder="7" ' +
+                'value="' + quietEnd + '" style="width:70px;text-align:center">' +
+              '<span style="font-size:11px;color:var(--sm-text-tertiary)">hour (0-23). TTS silent during this period.</span>' +
+            '</div>' +
           '</div>' +
         '</div>' +
 
@@ -2376,34 +2432,52 @@ class SecureMePanel extends HTMLElement {
 
   async _saveUser() {
     const root = this.shadowRoot;
-    const name = root.querySelector('#user-name')?.value?.trim();
-    const code = root.querySelector('#user-code')?.value?.trim();
+    const name        = root.querySelector('#user-name')?.value?.trim();
+    const code        = root.querySelector('#user-code')?.value?.trim();
     const codeConfirm = root.querySelector('#user-code-confirm')?.value?.trim();
-    const admin = root.querySelector('#user-admin')?.checked || false;
+    const admin       = root.querySelector('#user-admin')?.checked || false;
     const personEntity = root.querySelector('#user-person-entity')?.value || null;
-    const isEdit = !!this._tempConfig?._userId;
-    const userId = this._tempConfig?._userId || '';
+    const isEdit      = !!this._tempConfig?._userId;
+    const userId      = this._tempConfig?._userId || '';
+
+    // Notification settings
+    const notifyService  = root.querySelector('#user-notify-service')?.value || '';
+    const recvCritical   = root.querySelector('#user-recv-critical')?.checked !== false;
+    const recvAlerts     = root.querySelector('#user-recv-alerts')?.checked !== false;
+    const recvOwnActions = root.querySelector('#user-recv-own-actions')?.checked !== false;
+    const quietStartRaw  = root.querySelector('#user-tts-quiet-start')?.value;
+    const quietEndRaw    = root.querySelector('#user-tts-quiet-end')?.value;
+    const ttsQuietStart  = quietStartRaw !== '' && quietStartRaw !== null ? parseInt(quietStartRaw) : null;
+    const ttsQuietEnd    = quietEndRaw   !== '' && quietEndRaw   !== null ? parseInt(quietEndRaw)   : null;
 
     if (!name) { this._toast('Please enter a user name.', 'warning'); return; }
 
+    const notificationSettings = {
+      notify_service:    notifyService,
+      receive_critical:  recvCritical,
+      receive_alerts:    recvAlerts,
+      receive_own_actions: recvOwnActions,
+      tts_quiet_start:   ttsQuietStart,
+      tts_quiet_end:     ttsQuietEnd,
+    };
+
     if (isEdit) {
-      // Edit mode: code is optional — only validate if provided
       if (code) {
         if (code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
         if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
         if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
       }
-      // Build config — preserve existing code if not changed
       const existing = this._data.users[userId] || {};
       const config = {
         ...existing,
-        name: name,
-        admin: admin,
+        name,
+        admin,
         person_entity: personEntity || null,
+        ...notificationSettings,
       };
-      if (code) config.code = code;  // Only update code if a new one was entered
+      if (code) config.code = code;
 
-      const result = await this._callWS('save_user', { user_id: userId, config: config });
+      const result = await this._callWS('save_user', { user_id: userId, config });
       if (result && result.success !== false) {
         this._showDialog = null;
         this._tempConfig = null;
@@ -2413,23 +2487,24 @@ class SecureMePanel extends HTMLElement {
         this._toast('Could not update user: ' + (result?.error || 'Unknown error'), 'error');
       }
     } else {
-      // Add mode: code is required
       if (!code || code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
       if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
       if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
 
       const config = {
-        name: name,
-        code: code,
-        admin: admin,
+        name,
+        code,
+        admin,
         nfc_tag: null,
         person_entity: personEntity || null,
+        ...notificationSettings,
       };
-      const result = await this._callWS('save_user', { user_id: '', config: config });
+      const result = await this._callWS('save_user', { user_id: '', config });
       if (result && result.success !== false) {
         this._showDialog = null;
         this._tempConfig = null;
         await this._loadData();
+        this._toast('User saved!', 'success');
       } else {
         this._toast('Could not save user: ' + (result?.error || 'Unknown error'), 'error');
       }
@@ -4919,16 +4994,25 @@ class SecureMePanel extends HTMLElement {
     // User actions
     root.querySelectorAll("[data-action='add-user']").forEach(btn => {
       btn.addEventListener("click", async () => {
-        this._tempConfig = { admin: false };
+        this._tempConfig = {
+          admin: false,
+          notification_settings: {
+            notify_service: '',
+            receive_critical: true,
+            receive_alerts: true,
+            receive_own_actions: true,
+            tts_quiet_start: null,
+            tts_quiet_end: null,
+          }
+        };
         this._showDialog = 'user';
         if (!this._availablePersons) {
           try {
             const result = await this._callWS('get_persons');
             this._availablePersons = result?.persons || [];
-          } catch(e) {
-            this._availablePersons = [];
-          }
+          } catch(e) { this._availablePersons = []; }
         }
+        await this._loadNotifyServices();
         this._render();
       });
     });
@@ -4942,16 +5026,23 @@ class SecureMePanel extends HTMLElement {
           admin: existing.admin || false,
           nfc_tag: existing.nfc_tag || null,
           person_entity: existing.person_entity || null,
+          notification_settings: {
+            notify_service:      existing.notify_service      ?? '',
+            receive_critical:    existing.receive_critical    !== false,
+            receive_alerts:      existing.receive_alerts      !== false,
+            receive_own_actions: existing.receive_own_actions !== false,
+            tts_quiet_start:     existing.tts_quiet_start     ?? '',
+            tts_quiet_end:       existing.tts_quiet_end       ?? '',
+          },
         };
         this._showDialog = 'user';
         if (!this._availablePersons) {
           try {
             const result = await this._callWS('get_persons');
             this._availablePersons = result?.persons || [];
-          } catch(e) {
-            this._availablePersons = [];
-          }
+          } catch(e) { this._availablePersons = []; }
         }
+        await this._loadNotifyServices();
         this._render();
       });
     });

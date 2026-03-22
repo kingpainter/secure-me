@@ -64,6 +64,13 @@ class _MigratableStore(Store):
             for user_id, user_cfg in data.get("users", {}).items():
                 if user_cfg.get("code") and not user_cfg.get("code_hashed"):
                     user_cfg["code_hashed"] = False  # flag for re-hash at next save
+                # v1.2.0+: backfill notification settings
+                user_cfg.setdefault("notify_service", "")
+                user_cfg.setdefault("receive_critical", True)
+                user_cfg.setdefault("receive_alerts", True)
+                user_cfg.setdefault("receive_own_actions", True)
+                user_cfg.setdefault("tts_quiet_start", None)
+                user_cfg.setdefault("tts_quiet_end", None)
 
         return data
 

@@ -134,6 +134,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self.modules: dict[str, Any] = {}
         self._armed_by: str | None = None
         self._disarmed_by: str | None = None
+        self._armed_by_id: str | None = None
+        self._disarmed_by_id: str | None = None
         self._triggered_by: str | None = None
         self._last_arm_mode: str | None = None  # v1.2.0: remembered for push force-arm
 
@@ -258,7 +260,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if new_state == STATE_ALARM_DISARMED:
             self.zone_manager.clear_all_triggers()
             self.hass.bus.async_fire(
-                EVENT_ALARM_DISARMED, {"disarmed_by": self._disarmed_by}
+                EVENT_ALARM_DISARMED, {
+                    "disarmed_by": self._disarmed_by,
+                    "disarmed_by_id": self._disarmed_by_id,
+                }
             )
 
         elif new_state in (
@@ -271,7 +276,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             if len(self.zone_manager._unsubscribe_callbacks) == 0:
                 self.zone_manager.start_monitoring()
             self.hass.bus.async_fire(
-                EVENT_ALARM_ARMED, {"mode": new_state, "armed_by": self._armed_by}
+                EVENT_ALARM_ARMED, {
+                    "mode": new_state,
+                    "armed_by": self._armed_by,
+                    "armed_by_id": self._armed_by_id,
+                }
             )
 
         elif new_state == STATE_ALARM_TRIGGERED:
@@ -394,12 +403,36 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return True
         if not code:
             return False
-        # If store is available, use bcrypt authenticate_user
         if hasattr(self, "store") and self.store:
             result = self.store.authenticate_user(code)
             return result is not None
-        # Fallback: plaintext comparison (pre-store state)
         return code == self._code
+
+    def identify_user(self, code: str | None) -> str:
+        """Return the user's name from code, or 'user' as fallback."""
+        if code and hasattr(self, "store") and self.store:
+            result = self.store.authenticate_user(code)
+            if result:
+                return result.get("name") or "user"
+        return "user"
+
+    def identify_user_id(self, code: str | None) -> str | None:
+        """Return the user_id from code, or None."""
+        if code and hasattr(self, "store") and self.store:
+            users = self.store.get_users()
+            for uid, user in users.items():
+                if not user.get("enabled", True):
+                    continue
+                stored = user.get("code", "")
+                if not stored:
+                    continue
+                from .store import SecureMeStore
+                if user.get("code_hashed", False):
+                    if SecureMeStore._check_code(code, stored):
+                        return uid
+                elif stored == code:
+                    return uid
+        return None
 
     # ── Arm / Disarm / Trigger ───────────────────────────────────────────────
 
@@ -434,7 +467,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         success = await self.state_machine.arm_away(skip_delay)
         if success:
-            self._armed_by = "user"
+            self._armed_by = self.identify_user(code)
+            self._armed_by_id = self.identify_user_id(code)
             await self._execute_modules_arm_away()
         await self.async_request_refresh()
         return success
@@ -446,7 +480,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Arming alarm (home, skip_delay=%s)", skip_delay)
         success = await self.state_machine.arm_home(skip_delay)
         if success:
-            self._armed_by = "user"
+            self._armed_by = self.identify_user(code)
+            self._armed_by_id = self.identify_user_id(code)
             await self._execute_modules_arm_home()
         await self.async_request_refresh()
         return success
@@ -458,7 +493,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Arming alarm (night, skip_delay=%s)", skip_delay)
         success = await self.state_machine.arm_night(skip_delay)
         if success:
-            self._armed_by = "user"
+            self._armed_by = self.identify_user(code)
+            self._armed_by_id = self.identify_user_id(code)
             await self._execute_modules_arm_night()
         await self.async_request_refresh()
         return success
@@ -470,7 +506,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Arming alarm (vacation, skip_delay=%s)", skip_delay)
         success = await self.state_machine.arm_vacation(skip_delay)
         if success:
-            self._armed_by = "user"
+            self._armed_by = self.identify_user(code)
+            self._armed_by_id = self.identify_user_id(code)
             await self._execute_modules_arm_away()
         await self.async_request_refresh()
         return success
@@ -488,7 +525,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             success = await self.state_machine.disarm()
 
         if success:
-            self._disarmed_by = "user"
+            self._disarmed_by = self.identify_user(code)
+            self._disarmed_by_id = self.identify_user_id(code)
             self.zone_manager.stop_monitoring()
             await self._execute_modules_disarm()
         await self.async_request_refresh()
