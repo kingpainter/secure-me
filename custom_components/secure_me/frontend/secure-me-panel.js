@@ -1898,7 +1898,8 @@ class SecureMePanel extends HTMLElement {
           : wantDialog === 'climate' ? this._renderClimateDialog()
           : wantDialog === 'siren'   ? this._renderSirenDialog()
           : wantDialog === 'lights'  ? this._renderLightsDialog()
-          : wantDialog === 'tts'     ? this._renderTTSDialog()
+          : wantDialog === 'tts'          ? this._renderTTSDialog()
+          : wantDialog === 'notification'  ? this._renderNotificationDialog()
           : wantDialog === 'user'    ? this._renderUserDialog()
           : '';
         dialogMount.innerHTML = dialogHtml;
@@ -2802,9 +2803,11 @@ class SecureMePanel extends HTMLElement {
           <div class="sm-card" style="padding:16px;opacity:${n.enabled ? 1 : 0.5}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
               <div style="flex:1">
-                <div style="display:flex;align-items:center;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                   <span style="font-size:14px;font-weight:600">${n.name || "Notifikation"}</span>
-                  ${n.actions ? '<span class="badge actions">Actions</span>' : ""}
+                  ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue)">Push</span>' : ''}
+                  ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">TTS</span>' : ''}
+                  <span class="badge entry">${n.trigger || ''}</span>
                 </div>
                 <div class="notif-message">${n.message || ""}</div>
               </div>
@@ -2816,6 +2819,9 @@ class SecureMePanel extends HTMLElement {
             <div class="notif-actions">
               <button class="sm-btn default sm" data-test-notif="${id}">
                 ${icon("play")} Test
+              </button>
+              <button class="sm-btn ghost sm" data-edit-notif="${id}">
+                ${icon("edit")}
               </button>
               <button class="sm-btn ghost sm" data-delete-notif="${id}">
                 ${icon("trash")}
@@ -4252,29 +4258,158 @@ class SecureMePanel extends HTMLElement {
   }
 
   // === TTS Config Dialog ===
+  // ─── Notification Dialog ──────────────────────────────────────────────────
+
+  async _openNotificationDialog(editId = null) {
+    await this._loadNotifyServices();
+    const existing = editId ? this._data.notifications[editId] : null;
+    this._tempConfig = {
+      _editId: editId,
+      name: existing?.name || '',
+      trigger: existing?.trigger || 'armed',
+      service: existing?.service || (this._availableServices?.[0] || 'notify.notify'),
+      message: existing?.message || '',
+      channels: existing?.channels || ['push'],
+      enabled: existing?.enabled !== false,
+      actions: existing?.actions || [],
+    };
+    this._showDialog = 'notification';
+    this._render();
+  }
+
+  async _loadNotifyServices() {
+    if (this._availableServices) return;
+    try {
+      const result = await this._callWS('get_notify_services', {});
+      this._availableServices = result?.services || ['notify.notify'];
+    } catch { this._availableServices = ['notify.notify']; }
+  }
+
+  async _saveNotificationDialog() {
+    if (!this._tempConfig.name) { this._toast('Enter a notification name.', 'warning'); return; }
+    if (!this._tempConfig.channels?.length) { this._toast('Select at least one channel.', 'warning'); return; }
+
+    const notifId = this._tempConfig._editId || null;
+    const config = {
+      name: this._tempConfig.name,
+      trigger: this._tempConfig.trigger,
+      service: this._tempConfig.service,
+      message: this._tempConfig.message,
+      channels: this._tempConfig.channels,
+      enabled: this._tempConfig.enabled !== false,
+    };
+
+    const result = await this._callWS('save_notification', { notification_id: notifId, config });
+    if (result && result.success !== false) {
+      this._showDialog = null;
+      this._tempConfig = null;
+      await this._loadData();
+      this._toast('Notification saved!', 'success');
+    } else {
+      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+    }
+  }
+
+  _renderNotificationDialog() {
+    const tc = this._tempConfig || {};
+    const services = this._availableServices || ['notify.notify'];
+    const channels = tc.channels || ['push'];
+    const hasPush = channels.includes('push');
+    const hasTTS  = channels.includes('tts');
+    const ttsEnabled = this._data.modules?.tts?.enabled;
+
+    const TRIGGERS = [
+      { value: 'armed',      label: 'Armed (any mode)' },
+      { value: 'disarmed',   label: 'Disarmed' },
+      { value: 'triggered',  label: 'Triggered' },
+      { value: 'arming',     label: 'Arming (exit delay)' },
+      { value: 'pending',    label: 'Pending (entry delay)' },
+      { value: 'low_battery',label: 'Low Battery' },
+      { value: 'smoke',      label: 'Smoke detected (critical)' },
+      { value: 'water_leak', label: 'Water leak (critical)' },
+    ];
+
+    return `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog" style="max-width:500px">
+          <div class="dialog-header">
+            <div class="dialog-title">${tc._editId ? 'Edit' : 'Add'} Notification</div>
+            <button class="dialog-close" data-action="close-dialog">${icon('close')}</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-input" id="notif-name"
+                   placeholder="e.g. Armed away push" value="${tc.name || ''}">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Trigger</label>
+            <select class="form-select" id="notif-trigger">
+              ${TRIGGERS.map(t => `<option value="${t.value}" ${tc.trigger===t.value?'selected':''}>${t.label}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Message</label>
+            <input type="text" class="form-input" id="notif-message"
+                   placeholder="e.g. Alarm armed by {armed_by}" value="${tc.message || ''}">
+            <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">
+              Variables: {state} {armed_by} {disarmed_by} {triggered_by} {sensor_list} {count}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Channels</label>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+                <input type="checkbox" id="notif-ch-push" ${hasPush?'checked':''}>
+                ${icon('bell')} Mobile push
+              </label>
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;${!ttsEnabled?'opacity:0.5':''}"
+                     title="${!ttsEnabled?'Enable TTS module first':''}">
+                <input type="checkbox" id="notif-ch-tts" ${hasTTS?'checked':''} ${!ttsEnabled?'disabled':''}>
+                ${icon('speaker')} TTS voice
+              </label>
+            </div>
+            ${!ttsEnabled ? '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">TTS channel requires the TTS module to be enabled.</div>' : ''}
+          </div>
+
+          <div class="form-group" id="notif-service-group" style="${!hasPush?'display:none':''}">
+            <label class="form-label">Notify Service</label>
+            <select class="form-select" id="notif-service">
+              ${services.map(s => `<option value="${s}" ${tc.service===s?'selected':''}>${s}</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog save" data-action="save-notification-dialog">Save</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   async _openTTSConfig() {
     await this._loadEntitiesByDomain('media_player');
     await this._loadEntitiesByDomain('tts');
-    
-    const currentConfig = this._data.modules.tts || {};
+
+    const currentConfig = this._data.modules.tts?.config || this._data.modules.tts || {};
     this._tempConfig = {
       entities: currentConfig.entities || [],
       tts_service: currentConfig.tts_service || 'tts.cloud_say',
       language: currentConfig.language || 'da',
-      volume: currentConfig.volume || 70,
-      messages: currentConfig.messages || {
-        armed: 'Alarm aktiveret',
-        disarmed: 'Alarm deaktiveret',
-        triggered: 'ALARM! Indtr detekteret!'
-      }
+      volume: currentConfig.volume !== undefined ? Math.round(currentConfig.volume * 100) : 50,
+      custom_messages: (currentConfig.custom_messages || []).map(m => ({...m})),
     };
-    
+
     this._showDialog = 'tts';
     this._render();
   }
 
   _addTTSEntity(entityId) {
-    if (!this._tempConfig.entities.includes(entityId)) {
+    if (entityId && !this._tempConfig.entities.includes(entityId)) {
       this._tempConfig.entities.push(entityId);
       this._patchTTSDialog();
     }
@@ -4286,51 +4421,40 @@ class SecureMePanel extends HTMLElement {
   }
 
   _patchTTSDialog() {
-    // Surgical patch: only rebuild the speaker chips and dropdown — no full re-render
     const dialogMount = this.shadowRoot.getElementById('shell-dialog-mount');
     if (!dialogMount) { this._render(); return; }
     const availableMP = this._availableEntities.media_player || [];
-    const availableTTS = this._availableEntities.tts || [];
-    const allEntities = [...availableMP, ...availableTTS];
     const selectedEntities = this._tempConfig.entities;
-    const unselected = allEntities.filter(e => !selectedEntities.includes(e.entity_id));
-    // Patch chips
+    const unselected = availableMP.filter(e => !selectedEntities.includes(e.entity_id));
     const chipsEl = dialogMount.querySelector('[data-tts-chips]');
     if (chipsEl) {
       chipsEl.innerHTML = selectedEntities.length === 0
-        ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>'
+        ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:16px;font-size:12px">No speakers added — optional if using a custom TTS service</div>'
         : selectedEntities.map(entityId => {
-            const entity = allEntities.find(e => e.entity_id === entityId);
-            return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}"></button></span>`;
+            const entity = availableMP.find(e => e.entity_id === entityId);
+            return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}">${icon('close')}</button></span>`;
           }).join('');
-      // Re-attach remove listeners
       chipsEl.querySelectorAll('[data-action="remove-tts"]').forEach(b => {
         b.addEventListener('click', () => this._removeTTSEntity(b.dataset.entity));
       });
     }
-    // Patch dropdown
     const addSelect = dialogMount.querySelector('#tts-add-select');
     if (addSelect) {
-      const currentVal = addSelect.value;
-      addSelect.innerHTML = '<option value="">-- Select Speaker to Add --</option>' +
+      addSelect.innerHTML = '<option value="">-- Add speaker --</option>' +
         unselected.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('');
-      addSelect.value = '';
     }
   }
 
   _updateTTSField(field, value) {
     if (field === 'volume') {
-      this._tempConfig[field] = parseInt(value) || 0;
-    } else if (field.startsWith('msg_')) {
-      const msgType = field.replace('msg_', '');
-      this._tempConfig.messages[msgType] = value;
+      this._tempConfig.volume = parseInt(value) || 0;
     } else if (field === 'tts_service') {
       const customInput = this.shadowRoot.querySelector('#tts-service-custom');
       if (value === 'custom') {
         if (customInput) customInput.style.display = 'block';
       } else {
         if (customInput) customInput.style.display = 'none';
-        this._tempConfig[field] = value;
+        this._tempConfig.tts_service = value;
       }
     } else {
       this._tempConfig[field] = value;
@@ -4343,26 +4467,61 @@ class SecureMePanel extends HTMLElement {
     }
   }
 
-  async _saveTTSConfig() {
-    if (this._tempConfig.entities.length === 0) {
-      this._toast('Please select at least one media player before saving.', 'warning'); return;
-      return;
+  // Custom message CRUD
+  _addTTSCustomMessage() {
+    const newMsg = {
+      id: 'msg_' + Date.now().toString(36),
+      name: 'New message',
+      type: 'tts',
+      trigger: 'triggered',
+      message: '',
+      media_url: '',
+      media_content_type: 'music',
+      enabled: true,
+    };
+    this._tempConfig.custom_messages.push(newMsg);
+    this._render();
+  }
+
+  _removeTTSCustomMessage(id) {
+    this._tempConfig.custom_messages = this._tempConfig.custom_messages.filter(m => m.id !== id);
+    this._render();
+  }
+
+  _updateTTSCustomMessage(id, field, value) {
+    const msg = this._tempConfig.custom_messages.find(m => m.id === id);
+    if (msg) {
+      msg[field] = value;
+      // Re-render only if type changes (shows/hides fields)
+      if (field === 'type') this._render();
     }
-    
+  }
+
+  async _testTTSMessage(message) {
+    if (!message) { this._toast('Enter a message to test.', 'warning'); return; }
+    const result = await this._callWS('test_tts', { message });
+    if (result && result.success !== false) {
+      this._toast('TTS test sent!', 'success');
+    } else {
+      this._toast('TTS test failed: ' + (result?.error || 'TTS module not enabled'), 'error');
+    }
+  }
+
+  async _saveTTSConfig() {
     const config = {
       enabled: true,
       entities: this._tempConfig.entities,
       tts_service: this._tempConfig.tts_service || 'tts.cloud_say',
-      language: this._tempConfig.language,
-      volume: this._tempConfig.volume,
-      messages: this._tempConfig.messages
+      language: this._tempConfig.language || 'da',
+      volume: (this._tempConfig.volume || 50) / 100,
+      custom_messages: this._tempConfig.custom_messages || [],
     };
-    
+
     const result = await this._callWS('save_module', {
       module_id: 'tts',
       config: config
     });
-    
+
     if (result && result.success !== false) {
       this._showDialog = null;
       this._tempConfig = null;
@@ -4376,99 +4535,155 @@ class SecureMePanel extends HTMLElement {
   _renderTTSDialog() {
     const selectedEntities = this._tempConfig?.entities || [];
     const availableMP = this._availableEntities.media_player || [];
-    const availableTTS = this._availableEntities.tts || [];
-    const allEntities = [...availableMP, ...availableTTS];
-    const unselected = allEntities.filter(e => !selectedEntities.includes(e.entity_id));
-    
+    const unselected = availableMP.filter(e => !selectedEntities.includes(e.entity_id));
+    const customMessages = this._tempConfig?.custom_messages || [];
+    const knownServices = ['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss'];
+    const isCustomService = this._tempConfig?.tts_service && !knownServices.includes(this._tempConfig.tts_service);
+    const vol = this._tempConfig?.volume ?? 50;
+
+    const TRIGGERS = [
+      { value: 'armed_away',     label: 'Armed Away' },
+      { value: 'armed_home',     label: 'Armed Home' },
+      { value: 'armed_night',    label: 'Armed Night' },
+      { value: 'armed_vacation', label: 'Armed Vacation' },
+      { value: 'disarmed',       label: 'Disarmed' },
+      { value: 'triggered',      label: 'Triggered' },
+      { value: 'arming',         label: 'Arming (exit delay)' },
+      { value: 'pending',        label: 'Pending (entry delay)' },
+    ];
+
     return `
       <div class="config-dialog-overlay">
-        <div class="config-dialog">
+        <div class="config-dialog" style="max-width:560px">
           <div class="dialog-header">
-            
-            <div class="dialog-title">TTS Module Configuration</div>
-            <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
+            <div class="dialog-title">TTS Module</div>
+            <button class="dialog-close" data-action="close-dialog">${icon('close')}</button>
           </div>
-          
+
+          <!-- SPEAKERS -->
           <div class="form-group">
-            <label class="form-label">Selected Speakers</label>
-            <div data-tts-chips style="min-height:60px;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--sm-border);border-radius:8px">
-              ${selectedEntities.length === 0 ? 
-                '<div style="text-align:center;color:var(--sm-text-tertiary);padding:20px">No speakers selected</div>' :
-                selectedEntities.map(entityId => {
-                  const entity = allEntities.find(e => e.entity_id === entityId);
-                  return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}"></button></span>`;
-                }).join('')
+            <label class="form-label">Media Players <span style="font-weight:400;opacity:0.6">(optional)</span></label>
+            <div data-tts-chips style="min-height:48px;padding:8px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px">
+              ${selectedEntities.length === 0
+                ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:10px 0;font-size:12px;width:100%">No speakers added — optional if using a custom TTS service</div>'
+                : selectedEntities.map(entityId => {
+                    const entity = availableMP.find(e => e.entity_id === entityId);
+                    return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}" style="margin-left:4px;background:none;border:none;cursor:pointer;padding:0;line-height:1">${icon('close')}</button></span>`;
+                  }).join('')
               }
             </div>
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Add Speaker</label>
-            <input type="text" class="entity-search" placeholder="Search speakers..." data-search-target="tts-add-select">
-            <select class="form-select" id="tts-add-select" data-action="select-tts">
-              <option value="">-- Select Speaker to Add --</option>
+            <select class="form-select" id="tts-add-select" data-action="select-tts" style="margin-top:6px">
+              <option value="">-- Add speaker --</option>
               ${unselected.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
             </select>
           </div>
-          
+
+          <!-- TTS SERVICE + LANGUAGE + VOLUME -->
           <div class="form-group">
             <label class="form-label">TTS Service</label>
             <select class="form-select" data-tts-field="tts_service" id="tts-service-select">
-              <option value="tts.cloud_say" ${(this._tempConfig?.tts_service||'tts.cloud_say')==='tts.cloud_say' ? 'selected' : ''}>tts.cloud_say (Nabu Casa Cloud)</option>
-              <option value="tts.google_translate_say" ${this._tempConfig?.tts_service==='tts.google_translate_say' ? 'selected' : ''}>tts.google_translate_say (Google Translate)</option>
-              <option value="tts.google_say" ${this._tempConfig?.tts_service==='tts.google_say' ? 'selected' : ''}>tts.google_say (Google Cast)</option>
-              <option value="tts.piper" ${this._tempConfig?.tts_service==='tts.piper' ? 'selected' : ''}>tts.piper (Local/Piper)</option>
-              <option value="tts.voice_rss" ${this._tempConfig?.tts_service==='tts.voice_rss' ? 'selected' : ''}>tts.voice_rss (VoiceRSS)</option>
-              <option value="custom" ${this._tempConfig?.tts_service && !['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss'].includes(this._tempConfig.tts_service) ? 'selected' : ''}>Custom service...</option>
+              <option value="tts.cloud_say" ${(this._tempConfig?.tts_service||'tts.cloud_say')==='tts.cloud_say'?'selected':''}>tts.cloud_say (Nabu Casa)</option>
+              <option value="tts.google_translate_say" ${this._tempConfig?.tts_service==='tts.google_translate_say'?'selected':''}>tts.google_translate_say</option>
+              <option value="tts.google_say" ${this._tempConfig?.tts_service==='tts.google_say'?'selected':''}>tts.google_say (Cast)</option>
+              <option value="tts.piper" ${this._tempConfig?.tts_service==='tts.piper'?'selected':''}>tts.piper (local)</option>
+              <option value="tts.voice_rss" ${this._tempConfig?.tts_service==='tts.voice_rss'?'selected':''}>tts.voice_rss</option>
+              <option value="custom" ${isCustomService?'selected':''}>Custom...</option>
             </select>
-            <input type="text" class="form-input" id="tts-service-custom"
-              placeholder="e.g. tts.my_custom_say"
-              style="margin-top:6px;display:${this._tempConfig?.tts_service && !['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss','',undefined,null].includes(this._tempConfig?.tts_service) ? 'block' : 'none'}"
-              value="${!['tts.cloud_say','tts.google_translate_say','tts.google_say','tts.piper','tts.voice_rss',''].includes(this._tempConfig?.tts_service||'') ? (this._tempConfig?.tts_service||'') : ''}">
+            ${isCustomService ? `<input type="text" class="form-input" id="tts-service-custom" style="margin-top:6px" placeholder="e.g. tts.my_custom_say" value="${this._tempConfig?.tts_service||''}">` : `<input type="text" class="form-input" id="tts-service-custom" style="margin-top:6px;display:none" placeholder="e.g. tts.my_custom_say">`}
           </div>
 
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div class="form-group">
               <label class="form-label">Language</label>
               <select class="form-select" data-tts-field="language">
-                <option value="da" ${this._tempConfig?.language === 'da' ? 'selected' : ''}>Danish</option>
-                <option value="en" ${this._tempConfig?.language === 'en' ? 'selected' : ''}>English</option>
-                <option value="de" ${this._tempConfig?.language === 'de' ? 'selected' : ''}>German</option>
-                <option value="sv" ${this._tempConfig?.language === 'sv' ? 'selected' : ''}>Swedish</option>
+                <option value="da" ${(this._tempConfig?.language||'da')==='da'?'selected':''}>Danish</option>
+                <option value="en" ${this._tempConfig?.language==='en'?'selected':''}>English</option>
+                <option value="de" ${this._tempConfig?.language==='de'?'selected':''}>German</option>
+                <option value="sv" ${this._tempConfig?.language==='sv'?'selected':''}>Swedish</option>
+                <option value="nb" ${this._tempConfig?.language==='nb'?'selected':''}>Norwegian</option>
               </select>
             </div>
             <div class="form-group">
-              <label class="form-label">Volume: <span data-volume-label>${this._tempConfig?.volume || 70}</span>%</label>
-              <input type="range" class="form-slider" min="0" max="100" step="5" data-tts-field="volume" value="${this._tempConfig?.volume || 70}">
+              <label class="form-label">Volume: <span data-volume-label>${vol}</span>%</label>
+              <input type="range" class="form-slider" min="0" max="100" step="5"
+                     data-tts-field="volume" value="${vol}">
             </div>
           </div>
-          
+
+          <!-- CUSTOM MESSAGES -->
           <div class="form-group">
-            <label class="form-label">Armed Message</label>
-            <input type="text" class="form-input" placeholder="e.g., Alarm aktiveret" data-tts-field="msg_armed" value="${this._tempConfig?.messages?.armed || ''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <label class="form-label" style="margin:0">Custom Messages</label>
+              <button class="sm-btn primary sm" data-action="add-tts-message">${icon('plus')} Add</button>
+            </div>
+
+            ${customMessages.length === 0 ? `
+              <div style="text-align:center;color:var(--sm-text-tertiary);padding:20px;border:1px dashed var(--sm-border);border-radius:8px;font-size:12px">
+                No custom messages yet. Add messages like "Police have been called" or play an MP3.
+              </div>
+            ` : customMessages.map((msg, idx) => `
+              <div style="border:1px solid var(--sm-border);border-radius:8px;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.03)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                  <input type="text" class="form-input" style="flex:1;margin-right:8px;font-size:13px"
+                         placeholder="Message name" value="${msg.name||''}"
+                         data-tts-msg-id="${msg.id}" data-tts-msg-field="name">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-right:8px;cursor:pointer">
+                    <span class="sm-toggle ${msg.enabled?'on':''}" data-tts-msg-toggle="${msg.id}" style="width:32px;height:18px">
+                      <div class="dot"></div>
+                    </span>
+                  </label>
+                  <button class="sm-btn ghost sm" data-tts-msg-remove="${msg.id}">${icon('trash')}</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                  <div>
+                    <label class="form-label" style="font-size:11px">Trigger</label>
+                    <select class="form-select" style="font-size:12px"
+                            data-tts-msg-id="${msg.id}" data-tts-msg-field="trigger">
+                      ${TRIGGERS.map(t => `<option value="${t.value}" ${msg.trigger===t.value?'selected':''}>${t.label}</option>`).join('')}
+                    </select>
+                  </div>
+                  <div>
+                    <label class="form-label" style="font-size:11px">Type</label>
+                    <select class="form-select" style="font-size:12px"
+                            data-tts-msg-id="${msg.id}" data-tts-msg-field="type">
+                      <option value="tts" ${(msg.type||'tts')==='tts'?'selected':''}>TTS (text to speech)</option>
+                      <option value="media" ${msg.type==='media'?'selected':''}>Media (MP3 / URL)</option>
+                    </select>
+                  </div>
+                </div>
+                ${(msg.type||'tts')==='tts' ? `
+                  <div style="display:flex;gap:6px">
+                    <input type="text" class="form-input" style="flex:1;font-size:12px"
+                           placeholder="e.g. Politiet er tilkaldt og video er sendt"
+                           value="${msg.message||''}"
+                           data-tts-msg-id="${msg.id}" data-tts-msg-field="message">
+                    <button class="sm-btn default sm" data-tts-test-msg="${msg.id}" title="Test nu">${icon('play')}</button>
+                  </div>
+                ` : `
+                  <div>
+                    <input type="text" class="form-input" style="font-size:12px;margin-bottom:4px"
+                           placeholder="MP3 URL or local path (e.g. /local/alarm.mp3)"
+                           value="${msg.media_url||''}"
+                           data-tts-msg-id="${msg.id}" data-tts-msg-field="media_url">
+                    <select class="form-select" style="font-size:12px"
+                            data-tts-msg-id="${msg.id}" data-tts-msg-field="media_content_type">
+                      <option value="music" ${(msg.media_content_type||'music')==='music'?'selected':''}>Music / MP3</option>
+                      <option value="sound" ${msg.media_content_type==='sound'?'selected':''}>Sound effect</option>
+                    </select>
+                  </div>
+                `}
+              </div>
+            `).join('')}
           </div>
-          
-          <div class="form-group">
-            <label class="form-label">Disarmed Message</label>
-            <input type="text" class="form-input" placeholder="e.g., Alarm deaktiveret" data-tts-field="msg_disarmed" value="${this._tempConfig?.messages?.disarmed || ''}">
-          </div>
-          
-          <div class="form-group">
-            <label class="form-label">Triggered Message</label>
-            <input type="text" class="form-input" placeholder="e.g., ALARM! Indtr detekteret!" data-tts-field="msg_triggered" value="${this._tempConfig?.messages?.triggered || ''}">
-          </div>
-          
+
           <div class="dialog-footer">
             <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
-            <button class="btn-dialog save" data-action="save-tts-config">Save Configuration</button>
+            <button class="btn-dialog save" data-action="save-tts-config">Save</button>
           </div>
         </div>
       </div>
     `;
   }
-
-
-
 
   _attachTabListeners() {
     
@@ -4566,6 +4781,10 @@ class SecureMePanel extends HTMLElement {
         e.stopPropagation();
         this._toggleNotification(btn.dataset.notifToggle);
       });
+    });
+
+    root.querySelectorAll("[data-edit-notif]").forEach(btn => {
+      btn.addEventListener("click", () => this._openNotificationDialog(btn.dataset.editNotif));
     });
 
     // Test buttons
@@ -4752,7 +4971,7 @@ class SecureMePanel extends HTMLElement {
             this._toast("Import NFC tags - coming soon.", "info");
             break;
           case "add-notification":
-            this._toast("Add Notification - coming soon.", "info");
+            this._openNotificationDialog();
             break;
           case "add-automation":
             this._toast("Add Automation - coming soon.", "info");
@@ -4761,7 +4980,43 @@ class SecureMePanel extends HTMLElement {
       });
     });
     // === Dialog Event Listeners ===
-    
+
+    // Notification dialog save
+    root.querySelectorAll("[data-action='save-notification-dialog']").forEach(b => {
+      b.addEventListener('click', () => this._saveNotificationDialog());
+    });
+
+    // Notification dialog channels toggle — show/hide service dropdown
+    const chPush = root.querySelector('#notif-ch-push');
+    const chTTS  = root.querySelector('#notif-ch-tts');
+    const svcGroup = root.querySelector('#notif-service-group');
+    if (chPush) {
+      chPush.addEventListener('change', () => {
+        const channels = [];
+        if (chPush.checked) channels.push('push');
+        if (chTTS && chTTS.checked) channels.push('tts');
+        if (this._tempConfig) this._tempConfig.channels = channels;
+        if (svcGroup) svcGroup.style.display = chPush.checked ? '' : 'none';
+      });
+    }
+    if (chTTS) {
+      chTTS.addEventListener('change', () => {
+        const channels = [];
+        if (chPush && chPush.checked) channels.push('push');
+        if (chTTS.checked) channels.push('tts');
+        if (this._tempConfig) this._tempConfig.channels = channels;
+      });
+    }
+
+    // Notification dialog field sync
+    ['notif-name','notif-trigger','notif-service','notif-message'].forEach(id => {
+      const el = root.querySelector('#' + id);
+      if (!el) return;
+      const field = id.replace('notif-', '');
+      el.addEventListener('input',  () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
+      el.addEventListener('change', () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
+    });
+
     // Open camera config dialog
     const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
     console.log(' DEBUG: Found', cameraConfigButtons.length, 'camera config buttons');
@@ -4966,27 +5221,22 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='open-tts-config']").forEach(b => b.addEventListener("click", () => this._openTTSConfig()));
     root.querySelectorAll("[data-action='save-tts-config']").forEach(b => b.addEventListener("click", () => this._saveTTSConfig()));
     root.querySelectorAll("[data-action='remove-tts']").forEach(b => b.addEventListener("click", () => this._removeTTSEntity(b.dataset.entity)));
-    
-    // Fix F2: Add handler for TTS speaker selection
+    root.querySelectorAll("[data-action='add-tts-message']").forEach(b => b.addEventListener("click", () => this._addTTSCustomMessage()));
+
+    // Speaker dropdown
     root.querySelectorAll("[data-action='select-tts']").forEach(sel => {
       sel.addEventListener("change", () => {
-        if (sel.value) {
-          this._addTTSEntity(sel.value);
-          sel.value = ""; // Reset dropdown
-        }
+        if (sel.value) { this._addTTSEntity(sel.value); sel.value = ''; }
       });
     });
-    
-    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
-      sel.addEventListener("change", () => { if (sel.value) this._addLightEntity(sel.value); });
-    });
+
+    // TTS service/language/volume fields
     root.querySelectorAll("select[data-tts-field], input[data-tts-field]").forEach(inp => {
       inp.addEventListener("change", () => this._updateTTSField(inp.dataset.ttsField, inp.value));
     });
     root.querySelectorAll("input[type='range'][data-tts-field]").forEach(inp => {
       inp.addEventListener("input", () => {
         this._updateTTSField(inp.dataset.ttsField, inp.value);
-        // Patch volume label surgically — no full re-render needed
         const label = root.querySelector('[data-volume-label]');
         if (label) label.textContent = inp.value + '%';
       });
@@ -4996,6 +5246,43 @@ class SecureMePanel extends HTMLElement {
       ttsCustomInput.addEventListener("change", () => this._updateTTSCustomService(ttsCustomInput.value));
       ttsCustomInput.addEventListener("blur", () => this._updateTTSCustomService(ttsCustomInput.value));
     }
+
+    // Custom message fields (name, trigger, type, message, media_url, media_content_type)
+    root.querySelectorAll("input[data-tts-msg-field], select[data-tts-msg-field]").forEach(inp => {
+      inp.addEventListener("change", () => {
+        this._updateTTSCustomMessage(inp.dataset.ttsMsgId, inp.dataset.ttsMsgField, inp.value);
+      });
+      inp.addEventListener("input", () => {
+        this._updateTTSCustomMessage(inp.dataset.ttsMsgId, inp.dataset.ttsMsgField, inp.value);
+      });
+    });
+
+    // Custom message remove buttons
+    root.querySelectorAll("[data-tts-msg-remove]").forEach(b => {
+      b.addEventListener("click", () => this._removeTTSCustomMessage(b.dataset.ttsMsgRemove));
+    });
+
+    // Custom message enable toggle
+    root.querySelectorAll("[data-tts-msg-toggle]").forEach(toggle => {
+      toggle.addEventListener("click", () => {
+        const id = toggle.dataset.ttsMsgToggle;
+        const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
+        if (msg) { msg.enabled = !msg.enabled; this._render(); }
+      });
+    });
+
+    // Test individual TTS message
+    root.querySelectorAll("[data-tts-test-msg]").forEach(b => {
+      b.addEventListener("click", () => {
+        const id = b.dataset.ttsTestMsg;
+        const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
+        if (msg) this._testTTSMessage(msg.message || '');
+      });
+    });
+
+    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
+      sel.addEventListener("change", () => { if (sel.value) this._addLightEntity(sel.value); });
+    });
 
             // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {

@@ -104,6 +104,10 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
         normalized["lights"] = extract_ids(config.get("lights", []))
     elif module_id == "tts":
         normalized["media_players"] = extract_ids(config.get("entities", []))
+        normalized["tts_service"] = config.get("tts_service", "tts.cloud_say")
+        normalized["language"] = config.get("language", "da")
+        normalized["volume"] = config.get("volume", 0.5)
+        normalized["custom_messages"] = config.get("custom_messages", [])
     elif module_id == "siren":
         normalized["lights"] = extract_ids(config.get("lights", []))
 

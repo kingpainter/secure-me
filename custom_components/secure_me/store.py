@@ -125,7 +125,7 @@ class SecureMeStore:
                 "lights":  {"enabled": False, "entities": [], "config": {}},
                 "climate": {"enabled": False, "entities": [], "config": {}},
                 "siren":   {"enabled": False, "entities": [], "config": {}},
-                "tts":     {"enabled": False, "entities": [], "config": {}},
+                "tts":     {"enabled": False, "entities": [], "config": {"tts_service": "tts.cloud_say", "language": "da", "volume": 0.5, "custom_messages": []}},
             },
             "notifications": {},
             "automations": {},

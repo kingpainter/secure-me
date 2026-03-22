@@ -38,6 +38,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_delete_notification)
     websocket_api.async_register_command(hass, ws_test_notification)
     websocket_api.async_register_command(hass, ws_get_notify_services)
+    websocket_api.async_register_command(hass, ws_test_tts)
     # v1.2.0: sensor groups (anti-masking)
     websocket_api.async_register_command(hass, ws_get_sensor_groups)
     websocket_api.async_register_command(hass, ws_save_sensor_group)
@@ -714,6 +715,35 @@ async def ws_get_notify_services(
         services.append(f"notify.{service_name}")
 
     connection.send_result(msg["id"], {"services": services})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/test_tts",
+    vol.Required("message"): str,
+})
+@websocket_api.async_response
+async def ws_test_tts(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Test TTS by playing a message immediately via the TTS module."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        return
+
+    tts_module = coordinator.modules.get("tts")
+    if not tts_module or not tts_module.enabled:
+        connection.send_error(msg["id"], "tts_not_enabled", "TTS module is not enabled")
+        return
+
+    try:
+        await tts_module.announce_system(msg["message"])
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as err:
+        _LOGGER.error("TTS test failed: %s", err)
+        connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
 
 #

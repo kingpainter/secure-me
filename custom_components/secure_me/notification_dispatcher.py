@@ -7,7 +7,14 @@ CRITICAL SAFETY ALERTS (smoke + water_leak):
   - Fallback to notify.notify if nothing configured
   - Auto-discovers smoke/moisture sensors at startup
 
-User-configurable: armed, disarmed, triggered, arming, pending, low_battery
+System status notifications (armed/disarmed/triggered/arming/pending/low_battery):
+  - User-configurable per notification entry
+  - Channel: "push" (mobile notify service) or "tts" (TTS module) or both
+  - Armed/disarmed/triggered/arming/pending must have at least one channel configured
+
+TTS channel:
+  - Routes system status messages through the TTS module when channel includes "tts"
+  - TTS module handles media_player selection, volume, and service
 """
 # VERSION = "1.2.0"
 
@@ -29,9 +36,24 @@ _LOGGER = logging.getLogger(__name__)
 
 NOTIF_BATTERY_THRESHOLD = 15
 
+# Notification channels
+CHANNEL_PUSH = "push"
+CHANNEL_TTS = "tts"
+
 
 def _get_store(hass: HomeAssistant):
     return hass.data.get(DOMAIN, {}).get("store")
+
+
+def _get_tts_module(hass: HomeAssistant):
+    """Get TTS module from coordinator if enabled."""
+    for entry_data in hass.data.get(DOMAIN, {}).values():
+        if isinstance(entry_data, dict) and "coordinator" in entry_data:
+            coordinator = entry_data["coordinator"]
+            tts = getattr(coordinator, "modules", {}).get("tts")
+            if tts and tts.enabled:
+                return tts
+    return None
 
 
 def _build_message(template: str, context: dict[str, str]) -> str:
@@ -81,6 +103,22 @@ async def _send_notification(
         _LOGGER.error("Failed to send notification via %s: %s", service_target, err)
 
 
+async def _send_tts(
+    hass: HomeAssistant,
+    message: str,
+    urgent: bool = False,
+) -> None:
+    """Route message through TTS module if enabled."""
+    tts = _get_tts_module(hass)
+    if tts is None:
+        _LOGGER.debug("TTS channel requested but TTS module not enabled")
+        return
+    try:
+        await tts.announce_system(message, urgent=urgent)
+    except Exception as err:
+        _LOGGER.error("TTS system announcement failed: %s", err)
+
+
 async def _send_critical_to_all_services(
     hass: HomeAssistant, store, title: str, message: str
 ) -> None:
@@ -128,7 +166,9 @@ async def _dispatch_for_trigger(
     trigger: str,
     context: dict[str, str],
     title_override: str | None = None,
+    urgent: bool = False,
 ) -> None:
+    """Dispatch notifications for a given trigger to all matching channels."""
     store = _get_store(hass)
     if not store:
         return
@@ -137,13 +177,29 @@ async def _dispatch_for_trigger(
             continue
         if notif.get("trigger") != trigger:
             continue
+
         message = _build_message(notif.get("message", ""), context)
         title = title_override or f"Secure Me: {notif.get('name', 'Alert')}"
-        await _send_notification(hass, notif, title, message)
+
+        # Determine channels — default to push for backwards compatibility
+        channels = notif.get("channels", [CHANNEL_PUSH])
+        if isinstance(channels, str):
+            channels = [channels]
+
+        if CHANNEL_PUSH in channels:
+            await _send_notification(hass, notif, title, message)
+
+        if CHANNEL_TTS in channels and message:
+            await _send_tts(hass, message, urgent=urgent)
 
 
 class NotificationDispatcher:
     """Secure Me notification dispatcher.
+
+    Channels per notification:
+    - push: mobile notify service (default)
+    - tts: routes through TTS module announce_system()
+    - both: push + tts simultaneously
 
     Safety rules (smoke + water_leak):
       - ALWAYS fires, toggle is ignored
@@ -190,8 +246,7 @@ class NotificationDispatcher:
         self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_arming", self._on_arming))
         self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_pending", self._on_pending))
 
-        # Sensor state changes — listen to all state_changed events via bus.
-        # async_track_state_change_event does NOT accept None as entity_ids.
+        # Sensor state changes
         self._unsubs.append(
             hass.bus.async_listen("state_changed", self._on_sensor_state_change)
         )
@@ -215,6 +270,7 @@ class NotificationDispatcher:
             self.hass, "triggered",
             {"state": "triggered", "triggered_by": triggered_by},
             title_override="ALERT: Secure Me Alarm Triggered",
+            urgent=True,
         )
 
     async def _on_armed(self, event: Event) -> None:
@@ -285,15 +341,16 @@ class NotificationDispatcher:
         if store:
             for notif in store.get_notifications().values():
                 if notif.get("trigger") == "smoke":
-                    # Critical: ignore enabled toggle
                     user_notifs.append(notif)
 
         if user_notifs:
             for notif in user_notifs:
                 msg = _build_message(notif.get("message", default_message), context)
                 await _send_notification(self.hass, notif, title, msg, critical=True)
+                channels = notif.get("channels", [CHANNEL_PUSH])
+                if CHANNEL_TTS in channels:
+                    await _send_tts(self.hass, msg, urgent=True)
         else:
-            # Fallback: no smoke notification configured, send to all services anyway
             await _send_critical_to_all_services(self.hass, store, title, default_message)
 
     async def _fire_moisture_alert(self, sensor_name: str, entity_id: str) -> None:
@@ -317,6 +374,9 @@ class NotificationDispatcher:
             for notif in user_notifs:
                 msg = _build_message(notif.get("message", default_message), context)
                 await _send_notification(self.hass, notif, title, msg, critical=True)
+                channels = notif.get("channels", [CHANNEL_PUSH])
+                if CHANNEL_TTS in channels:
+                    await _send_tts(self.hass, msg, urgent=True)
         else:
             await _send_critical_to_all_services(self.hass, store, title, default_message)
 
@@ -342,7 +402,11 @@ class NotificationDispatcher:
                 continue
             msg = _build_message(notif.get("message", ""), {"sensor_list": sensor_list, "count": count})
             title = f"Secure Me: {notif.get('name', 'Low Battery Alert')}"
-            await _send_notification(self.hass, notif, title, msg)
+            channels = notif.get("channels", [CHANNEL_PUSH])
+            if CHANNEL_PUSH in channels:
+                await _send_notification(self.hass, notif, title, msg)
+            if CHANNEL_TTS in channels and msg:
+                await _send_tts(self.hass, msg)
 
     # ── Introspection ────────────────────────────────────────────
 
