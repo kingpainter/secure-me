@@ -4920,12 +4920,29 @@ class SecureMePanel extends HTMLElement {
       enabled: true,
     };
     this._tempConfig.custom_messages.push(newMsg);
-    this._render();
+    this._rebuildDialog();
   }
 
   _removeTTSCustomMessage(id) {
     this._tempConfig.custom_messages = this._tempConfig.custom_messages.filter(m => m.id !== id);
-    this._render();
+    this._rebuildDialog();
+  }
+
+  _rebuildDialog() {
+    // Force dialog rebuild by resetting currentDialog marker,
+    // then render (which rebuilds HTML) and attaches fresh listeners.
+    const dlg = this.shadowRoot?.getElementById('shell-dialog-mount');
+    if (dlg) {
+      const scrollTop = dlg.querySelector('.config-dialog')?.scrollTop || 0;
+      dlg.dataset.currentDialog = '';
+      this._render();
+      requestAnimationFrame(() => {
+        const d = dlg.querySelector('.config-dialog');
+        if (d && scrollTop) d.scrollTop = scrollTop;
+      });
+    } else {
+      this._render();
+    }
   }
 
   _updateTTSCustomMessage(id, field, value) {
@@ -4933,7 +4950,7 @@ class SecureMePanel extends HTMLElement {
     if (msg) {
       msg[field] = value;
       // Re-render only if type changes (shows/hides fields)
-      if (field === 'type') this._render();
+      if (field === 'type') this._rebuildDialog();
     }
   }
 
