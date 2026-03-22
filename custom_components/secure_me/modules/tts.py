@@ -207,8 +207,9 @@ class TTSModule(AlarmModule):
 
             await asyncio.sleep(0.4)
 
-            # Kald tts.speak direkte — omgaar ultra_tts ducking
-            await self.async_call_service_with_retry(
+            # Kald tts.speak direkte — single attempt, NO retry.
+            # Retry ville afspille beskeden to gange hvis Alexa er optaget.
+            await self.async_call_service(
                 "tts", "speak",
                 service_data={
                     "message": message,
@@ -216,7 +217,6 @@ class TTSModule(AlarmModule):
                     "media_player_entity_id": self.media_players,
                 },
                 target={"entity_id": self.tts_entity},
-                action="tts_announce",
             )
 
             # Vent pa at beskeden er faerdig (dynamisk baseret paa laengde)
