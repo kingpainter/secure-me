@@ -1491,6 +1491,7 @@ class SecureMePanel extends HTMLElement {
     } else {
       this._healthUpdateUnsubscribe = null;
     }
+    this._healthSubscribePending = false;
     
     if (this._renderTimeout) {
       clearTimeout(this._renderTimeout);
@@ -1506,9 +1507,12 @@ class SecureMePanel extends HTMLElement {
       return;
     }
 
-    if (this._healthUpdateUnsubscribe) {
+    // Guard against race condition: async subscribe called multiple times
+    // before the first await returns
+    if (this._healthUpdateUnsubscribe || this._healthSubscribePending) {
       return;
     }
+    this._healthSubscribePending = true;
 
     // subscribeEvents() returns a Promise<unsubscribe_fn>.
     // Must be awaited — storing the raw Promise causes "not a function" on disconnectedCallback.
@@ -1535,10 +1539,12 @@ class SecureMePanel extends HTMLElement {
         },
         'secure_me_health_updated'
       );
+      this._healthSubscribePending = false;
       console.log('[Secure Me] Subscribed to health updates');
     } catch (err) {
       console.warn('[Secure Me] Health subscription failed:', err);
       this._healthUpdateUnsubscribe = null;
+      this._healthSubscribePending = false;
     }
   }
 
