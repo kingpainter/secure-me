@@ -21,23 +21,24 @@
 
 ## Active Development (v1.2.0 — ongoing)
 
-### TTS Module — Rebuilt
-- System messages (armed/disarmed/triggered/countdown) removed from TTS module — now belongs to Notifications
-- `media_players` is now optional — works without players if using custom TTS service
-- Custom messages list with per-message: trigger, type (tts/media), text/URL, enabled toggle
-- MP3/media file support via `media_player.play_media`
-- New `announce_system()` method — called by notification dispatcher for TTS channel
-- Test button per custom message
+### TTS Module — Multi-service + Volume Control
+- Supports `tts.*` (cloud_say etc.), `notify.*`, and `script.*` (e.g. `script.ultra_tts` / House Voice)
+- `script.*` path: sets Alexa volume to configured level → calls `tts.speak` directly (bypasses ultra_tts ducking) → restores original volume
+- `tts.cloud_say`: auto-maps short language codes to BCP-47 (`da` → `da-DK`)
+- `tts_entity` field: configurable TTS entity (default: `tts.home_assistant_cloud`)
+- `_warned_incompatible_service` flag: unknown service types warn once then skip silently
+- Single-attempt (`async_call_service`) for TTS speak calls — retry would cause double playback
+- Custom messages + test play button per message
 
 ### Notification System — User-Routed
 - **Channels per notification:** `push`, `tts`, or both
-- **User-routed arm/disarm:** `armed_by_id` / `disarmed_by_id` tracked in coordinator. Armed → only the arming user gets confirmation. Disarmed → only the disarming user gets confirmation.
-- **Broadcast triggers:** `triggered` and `pending` sent to all users with `receive_critical=True`. Smoke/water_leak always broadcast critical.
-- **Low battery** sent to all users with `receive_alerts=True`
-- **Test notifications** routed to admin users only (by `notify_service` on user). Falls back to notification service if no admins configured.
-- **TTS quiet hours** per user — `tts_quiet_start` / `tts_quiet_end` (hour 0-23). TTS suppressed during quiet period.
+- **User-routed arm/disarm:** `armed_by_id` / `disarmed_by_id` tracked. Armed → only arming user gets confirmation.
+- **Broadcast triggers:** `triggered` / `pending` → all users with `receive_critical=True`. Smoke/water always broadcast critical.
+- **Low battery** → all users with `receive_alerts=True`
+- **Test notifications** → admin users only
+- **TTS quiet hours** per user — `tts_quiet_start` / `tts_quiet_end` (hour 0-23)
 
-### User Notification Settings (new fields on each user)
+### User Notification Settings
 | Field | Type | Description |
 |---|---|---|
 | `notify_service` | str | Personal push service, e.g. `notify.mobile_app_flemming` |
@@ -48,24 +49,30 @@
 | `tts_quiet_end` | int | Hour to end TTS silence (0-23) |
 
 ### Actions Tab — Redesigned
-- **System Notifications** section — compact 3-column grid, no toggle (always-on), subtitle: "Always active — routed per user. Test sends to admin users only."
-- **Custom Notifications** section — separate grid below with Add button
-- Notification cards: name + channel badges + trigger badge only — no message text in card
-- Add/Edit notification dialog with channel selector (push + TTS toggle)
+- System Notifications: compact 3-column grid, always-on (no toggle)
+- Custom Notifications: separate section with Add button
+- Notification cards: name + channel badges + trigger badge only
 
-### Frontend — User Dialog Extended
-- Notification Settings section added to User dialog
-- Push notify service dropdown (loads from HA)
-- Checkboxes: receive critical / receive alerts / receive own actions
-- TTS quiet hours (from/to hour inputs)
-- User cards show badges: notify service name, Critical badge, quiet hours range
+### Frontend — Dialog System Rebuilt
+- `_attachDialogListeners()` — separate method, called once per dialog build, never from `_attachTabListeners()`
+- `_rebuildDialog()` — forces dialog rebuild with fresh listeners (used by add/remove/toggle)
+- All `_open*Config()` functions reset `currentDialog` before render — ensures listeners are always fresh
+- `_ttsTestRunning` guard — prevents duplicate WS calls from play button
+- Module save toast: now says "Active immediately." (was incorrectly "Restart HA to activate")
+- Health subscription: moved from `set hass` (called per state-update = 169×) to `_loadData` (called once)
+- `_healthSubscribePending` race condition guard added
+
+### Scheduled Tests
+- Backend: `async_track_time_interval` checks every minute. Supports `weekly`, `interval`, `daily` modes.
+- Frontend: Add/Edit dialog in `shell-dialog-mount`, `_schedSaving` double-submit guard
+- `vol.Optional("test_id", default="")` — empty string for new entries
 
 ---
 
 ## Version History
 
 ### v1.2.0 — Security & Stability (2026-03-22)
-**Backend security upgrades + notification system overhaul**
+**Backend security upgrades + notification system overhaul + TTS multi-service**
 
 #### Security
 - bcrypt user PIN hashing (10 rounds, base64). `authenticate_user()` with ThreadPoolExecutor.
@@ -77,7 +84,7 @@
 
 #### Integration
 - Mobile push actions: `mobile_app_notification_action` handler for ARM/DISARM/FORCE_ARM.
-- `identify_user()` / `identify_user_id()` — user name and ID resolved from bcrypt code on arm/disarm.
+- `identify_user()` / `identify_user_id()` — user name and ID resolved from bcrypt code.
 - `armed_by_id` / `disarmed_by_id` passed in alarm events.
 
 #### Frontend
@@ -112,28 +119,45 @@
 ### Backend (Python)
 | File | Role |
 |---|---|
-| `coordinator.py` | DataUpdateCoordinator, state machine, push handler, user identification |
+| `coordinator.py` | DataUpdateCoordinator, state machine, push handler, user identification, scheduled tests |
 | `state_machine.py` | Alarm states, entry/exit delays, auto-reset, race-safe async lock |
 | `zones.py` | Zone management, sensor groups, auto_bypass, arm_on_close, debouncing |
-| `store.py` | Versioned storage (v2), bcrypt, sensor groups CRUD, migration, user notification fields |
-| `websocket_api.py` | 35+ WS endpoints incl. test_tts, sensor_groups |
+| `store.py` | Versioned storage (v2), bcrypt, sensor groups CRUD, migration, user notification fields, scheduled tests |
+| `websocket_api.py` | 35+ WS endpoints incl. test_tts, sensor_groups, scheduled_tests |
 | `module_manager.py` | Module lifecycle |
-| `modules/tts.py` | Custom messages, MP3 support, optional media_players, announce_system() |
+| `modules/tts.py` | Custom messages, MP3, tts.*/notify.*/script.* service support, volume control, announce_system() |
+| `modules/base.py` | Retry + degraded state, exponential backoff, direct persistent_notification import |
 | `modules/` | Camera, Lock, Lights, Climate, Siren — retry + degraded state |
 | `system_health.py` | Health metrics, severity-weighted scoring |
 | `notification_dispatcher.py` | User-routed dispatch: armed→acting user, triggered→broadcast, quiet hours |
 
-### Frontend (Vanilla JS, ~5400 lines)
+### Frontend (Vanilla JS, ~5840 lines)
 | Tab | Status |
 |---|---|
 | Sensors | Done — 2-line layout, env section, hide/exclude |
 | Zones | Done |
 | Users | Done — person binding, notification settings, quiet hours |
-| Modules | Done — 6 modules, all dialogs fixed, TTS rebuilt |
+| Modules | Done — 6 modules, all dialogs fixed, TTS multi-service + volume |
 | Actions / Notifications | Done — system/custom split, 3-column grid, user-routed |
 | Actions / Automations | Done |
-| Test | Done — severity scoring, module + sensor tests |
+| Test | Done — severity scoring, module + sensor tests, scheduled tests |
 | Future | In progress — Home Alone Monitor |
+
+### Dialog Architecture
+- `shell-dialog-mount` is the single mount point for all dialogs
+- `data-currentDialog` tracks what's open — dialog only rebuilds when type changes
+- `_attachDialogListeners()` called once per build — no listener accumulation
+- `_rebuildDialog()` used when dialog content changes (e.g. adding a TTS message)
+
+---
+
+## Known Issues (v1.2.0)
+| Issue | Status |
+|---|---|
+| TTS double playback via `script.ultra_tts` | Fixed — single-attempt tts.speak |
+| Health subscription fires 169× at startup | Fixed — moved to `_loadData`, 2× remaining (two panel mounts) |
+| Dialog buttons dead after re-open | Fixed — `currentDialog` reset on every `_open*Config()` call |
+| Module save said "Restart HA" | Fixed — now says "Active immediately" |
 
 ---
 
@@ -143,14 +167,16 @@
 | Per-sensor `delay_on` debounce | Medium | v1.3.0 |
 | 5 arm modes fully wired in UI (vacation) | Low | v1.3.0 |
 | MQTT support | Low | v1.4.0 |
+| Health subscription fires 2× (two panel mounts) | Low | v1.3.0 |
 
 ---
 
 ## Next Steps
+- [ ] Verify TTS play button now fires only once (needs manual test after tonight's fixes)
 - [ ] Manual test: User notification settings — arm as Flemming, verify only Flemming gets push
 - [ ] Manual test: TTS quiet hours — set 22-07, verify TTS silent at night
 - [ ] Manual test: Triggered → broadcast — verify all users with receive_critical get notified
-- [ ] Manual test: TTS custom message — add "Politiet er tilkaldt", arm/trigger, verify playback
 - [ ] Manual test: Test notification button → only admins receive
 - [ ] HACS brands PR (separate repo)
+- [ ] Commit tonight's JS fixes (dialog listeners, health subscription, debug spam removal)
 - [ ] Version bump to v1.3.0 when above tests pass

@@ -107,7 +107,18 @@ class CameraModule(AlarmModule):
         return True
 
     async def async_test(self) -> dict[str, Any]:
-        """Test camera module functionality."""
+        """Test camera module functionality.
+
+        POE-aware test logic:
+        - If POE switches are configured and ALL are off: skip camera test.
+          Cameras are intentionally powered down and cannot be tested.
+          This is not a failure.
+        - If POE is on (or no POE switches configured): test cameras normally.
+          Unavailable cameras are reported as failures.
+        """
+        poe_on = await self._check_poe_status()
+        poe_configured = bool(self.poe_switches)
+
         results: dict[str, Any] = {
             "success": True,
             "message": "Camera module test passed",
@@ -115,32 +126,46 @@ class CameraModule(AlarmModule):
                 "poe_switches": [],
                 "cameras": [],
                 "recording_entities": [],
-                "poe_optimization": {},
-                "configuration": {
-                    "poe_delay": f"{self.poe_delay}s",
-                    "delay_range": f"{MIN_POE_DELAY}-{MAX_POE_DELAY}s",
+                "poe_status": {
+                    "configured": poe_configured,
+                    "on": poe_on,
+                    "delay": f"{self.poe_delay}s",
                     "auto_record": self.auto_record,
                 },
             },
         }
 
+        # Always check POE switch availability
         for switch in self.poe_switches:
             available = self.is_entity_available(switch)
+            state = self.get_entity_state(switch)
             results["details"]["poe_switches"].append({
                 "entity_id": switch,
                 "available": available,
-                "state": self.get_entity_state(switch),
+                "state": state,
             })
             if not available:
                 results["success"] = False
                 results["message"] = f"POE switch {switch} unavailable"
 
+        # If POE is configured but off: cameras are intentionally powered down
+        if poe_configured and not poe_on:
+            results["message"] = "Camera test skipped — POE is off (cameras intentionally powered down)"
+            results["details"]["skipped"] = True
+            # Do not mark as failure — this is expected behaviour
+            return results
+
+        # POE is on (or no POE configured): test cameras
         for camera in self.cameras:
+            available = self.is_entity_available(camera)
             results["details"]["cameras"].append({
                 "entity_id": camera,
-                "available": self.is_entity_available(camera),
+                "available": available,
                 "state": self.get_entity_state(camera),
             })
+            if not available:
+                results["success"] = False
+                results["message"] = f"Camera {camera} unavailable (POE is on)"
 
         for entity in self.recording_entities:
             results["details"]["recording_entities"].append({
@@ -148,13 +173,6 @@ class CameraModule(AlarmModule):
                 "available": self.is_entity_available(entity),
                 "current_mode": self.get_entity_state(entity),
             })
-
-        poe_on = await self._check_poe_status()
-        results["details"]["poe_optimization"] = {
-            "currently_on": poe_on,
-            "time_saved_if_on": f"{self.poe_delay}s",
-            "optimization_active": poe_on,
-        }
 
         return results
 
