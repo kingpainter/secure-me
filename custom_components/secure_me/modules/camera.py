@@ -21,17 +21,7 @@ class CameraModule(AlarmModule):
     """Camera control module with POE optimization and retry logic."""
 
     def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
-        """Initialize camera module.
-
-        Config options:
-            - poe_switches: List of POE switch entity IDs
-            - cameras: List of camera entity IDs for verification
-            - recording_entities: List of recording mode select entities
-            - poe_delay: Seconds to wait after POE on (30-300, default: 120)
-            - auto_record: Enable 24/7 recording when armed (default: False)
-        """
         super().__init__(hass, config)
-
         self.poe_switches = config.get("poe_switches", [])
         self.cameras = config.get("cameras", [])
         self.recording_entities = config.get("recording_entities", [])
@@ -45,7 +35,6 @@ class CameraModule(AlarmModule):
         )
 
     async def async_arm(self, mode: str) -> bool:
-        """Turn on cameras when arming (with retry on POE switches)."""
         if not self.enabled:
             return True
 
@@ -77,7 +66,6 @@ class CameraModule(AlarmModule):
         return True
 
     async def async_disarm(self) -> bool:
-        """Turn off cameras when disarming (with retry)."""
         if not self.enabled:
             return True
 
@@ -103,21 +91,21 @@ class CameraModule(AlarmModule):
         return True
 
     async def async_trigger(self) -> bool:
-        """No action on trigger (cameras already recording)."""
         return True
 
     async def async_test(self) -> dict[str, Any]:
-        """Test camera module functionality.
+        """Test camera module with smart POE handling.
 
-        POE-aware test logic:
-        - If POE switches are configured and ALL are off: skip camera test.
-          Cameras are intentionally powered down and cannot be tested.
-          This is not a failure.
-        - If POE is on (or no POE switches configured): test cameras normally.
-          Unavailable cameras are reported as failures.
+        Logic (from v3.0.3 alarm test):
+        1. Check if POE is already ON (save initial state)
+        2. POE already ON  -> test cameras immediately (no wait, saves poe_delay seconds)
+        3. POE is OFF      -> turn on POE, wait poe_delay seconds,
+                             test cameras, then restore POE to OFF
+        4. Camera unavailable after POE on -> FAIL
+        5. No POE switches -> test cameras directly
         """
-        poe_on = await self._check_poe_status()
         poe_configured = bool(self.poe_switches)
+        poe_initially_on = await self._check_poe_status()
 
         results: dict[str, Any] = {
             "success": True,
@@ -128,34 +116,50 @@ class CameraModule(AlarmModule):
                 "recording_entities": [],
                 "poe_status": {
                     "configured": poe_configured,
-                    "on": poe_on,
+                    "initially_on": poe_initially_on,
                     "delay": f"{self.poe_delay}s",
                     "auto_record": self.auto_record,
                 },
             },
         }
 
-        # Always check POE switch availability
+        # Always check POE switch availability first
         for switch in self.poe_switches:
             available = self.is_entity_available(switch)
-            state = self.get_entity_state(switch)
             results["details"]["poe_switches"].append({
                 "entity_id": switch,
                 "available": available,
-                "state": state,
+                "state": self.get_entity_state(switch),
             })
             if not available:
                 results["success"] = False
                 results["message"] = f"POE switch {switch} unavailable"
+                return results
 
-        # If POE is configured but off: cameras are intentionally powered down
-        if poe_configured and not poe_on:
-            results["message"] = "Camera test skipped — POE is off (cameras intentionally powered down)"
-            results["details"]["skipped"] = True
-            # Do not mark as failure — this is expected behaviour
-            return results
+        # POE is OFF: turn on, wait for cameras to boot, then test
+        if poe_configured and not poe_initially_on:
+            _LOGGER.info(
+                "Camera test: POE is OFF — turning on and waiting %ds for cameras to boot",
+                self.poe_delay,
+            )
+            results["details"]["poe_status"]["powered_on_for_test"] = True
 
-        # POE is on (or no POE configured): test cameras
+            for switch in self.poe_switches:
+                await self.async_call_service_with_retry(
+                    "switch", "turn_on",
+                    target={"entity_id": switch},
+                    action=f"test_poe_on:{switch}",
+                )
+
+            await asyncio.sleep(self.poe_delay)
+
+        elif poe_configured and poe_initially_on:
+            # POE already on — test immediately, save poe_delay seconds
+            _LOGGER.info("Camera test: POE already ON — testing feeds immediately (no wait)")
+            results["details"]["poe_status"]["powered_on_for_test"] = False
+            await asyncio.sleep(2)
+
+        # Test cameras (POE is now on, or no POE configured)
         for camera in self.cameras:
             available = self.is_entity_available(camera)
             results["details"]["cameras"].append({
@@ -165,7 +169,7 @@ class CameraModule(AlarmModule):
             })
             if not available:
                 results["success"] = False
-                results["message"] = f"Camera {camera} unavailable (POE is on)"
+                results["message"] = f"Camera {camera} unavailable after POE on"
 
         for entity in self.recording_entities:
             results["details"]["recording_entities"].append({
@@ -173,6 +177,15 @@ class CameraModule(AlarmModule):
                 "available": self.is_entity_available(entity),
                 "current_mode": self.get_entity_state(entity),
             })
+
+        # Restore POE to OFF if it was off before the test
+        if poe_configured and not poe_initially_on:
+            _LOGGER.info("Camera test: restoring POE to OFF (initial state)")
+            for switch in self.poe_switches:
+                await self.async_call_service(
+                    "switch", "turn_off",
+                    target={"entity_id": switch},
+                )
 
         return results
 
