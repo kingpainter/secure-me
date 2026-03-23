@@ -1,6 +1,7 @@
 """WebSocket API for Secure Me panel."""
 # VERSION = "1.2.0"
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -1171,6 +1172,61 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
                 "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
             }
 
+    # --- Environmental sensors: smoke + water leak (standard + full) ---
+    # These are always-on sensors not tied to a module, so we test them explicitly.
+    if test_type in ("standard", "full") and store:
+        env_sensors = [
+            s for s in store.get_available_sensors()
+            if s.get("sensor_type") == "environmental" or s.get("is_environmental", False)
+        ]
+        env_results = {}
+        for sensor in env_sensors:
+            eid = sensor.get("entity_id", "")
+            state = hass.states.get(eid)
+            online = state is not None and state.state not in ("unavailable", "unknown")
+            env_results[eid] = {
+                "name": sensor.get("name", eid),
+                "device_class": sensor.get("device_class", "unknown"),
+                "online": online,
+                "state": state.state if state else "missing",
+                "status": "pass" if online else "fail",
+            }
+        results["environmental"] = {
+            "total": len(env_sensors),
+            "online": sum(1 for s in env_results.values() if s["online"]),
+            "offline": sum(1 for s in env_results.values() if not s["online"]),
+            "details": env_results,
+            "status": "fail" if any(not s["online"] for s in env_results.values()) else "pass",
+        }
+
+    # --- Siren sound test (standard + full) ---
+    # Brief 2s test tone at low volume, mirrors v3.0.3 logic.
+    if test_type in ("standard", "full"):
+        siren_module = coordinator.modules.get("siren") if coordinator else None
+        if siren_module and siren_module.enabled and siren_module.gateway_mac:
+            try:
+                await siren_module.hass.services.async_call(
+                    "xiaomi_aqara", "play_ringtone",
+                    service_data={
+                        "gw_mac": siren_module.gateway_mac,
+                        "ringtone_id": siren_module.ringtone_id,
+                        "ringtone_vol": 30,
+                    },
+                    blocking=True,
+                )
+                await asyncio.sleep(2)
+                await siren_module.hass.services.async_call(
+                    "xiaomi_aqara", "stop_ringtone",
+                    service_data={"gw_mac": siren_module.gateway_mac},
+                    blocking=True,
+                )
+                results["siren_test"] = {"success": True, "message": "2s test tone at 30% volume"}
+            except Exception as err:
+                _LOGGER.warning("Siren sound test failed during standard test: %s", err)
+                results["siren_test"] = {"success": False, "message": str(err)}
+        else:
+            results["siren_test"] = {"success": None, "message": "Siren not configured or not enabled"}
+
     # --- Battery discovery (standard + full) ---
     if test_type in ("standard", "full"):
         batteries = _discover_batteries(hass)
@@ -1187,7 +1243,9 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
 
     any_fail = any(m.get("status") in ("fail", "error") for m in results["modules"].values())
     sensor_fail = results.get("sensors", {}).get("status") == "fail"
-    if any_fail or sensor_fail:
+    env_fail = results.get("environmental", {}).get("status") == "fail"
+    siren_fail = results.get("siren_test", {}).get("success") is False
+    if any_fail or sensor_fail or env_fail or siren_fail:
         results["overall"] = "fail"
     elif any(m.get("status") == "warning" for m in results["modules"].values()):
         results["overall"] = "warning"
