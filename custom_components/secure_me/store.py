@@ -146,16 +146,23 @@ class SecureMeStore:
 
     @staticmethod
     def _hash_code(code: str) -> str:
-        """Hash a PIN/code with bcrypt. Returns base64-encoded hash string."""
-        hashed = bcrypt.hashpw(code.encode("utf-8"), bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
+        """Hash a PIN/code with bcrypt. Returns base64-encoded hash string.
+
+        bcrypt rejects passwords longer than 72 bytes — truncate to the
+        bcrypt maximum before hashing. This is consistent with how virtually
+        all bcrypt implementations handle long passwords.
+        """
+        code_bytes = code.encode("utf-8")[:72]
+        hashed = bcrypt.hashpw(code_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
         return base64.b64encode(hashed).decode("utf-8")
 
     @staticmethod
     def _check_code(code: str, stored_hash: str) -> bool:
         """Verify a code against a stored bcrypt hash."""
         try:
+            code_bytes = code.encode("utf-8")[:72]
             raw_hash = base64.b64decode(stored_hash.encode("utf-8"))
-            return bcrypt.checkpw(code.encode("utf-8"), raw_hash)
+            return bcrypt.checkpw(code_bytes, raw_hash)
         except Exception:
             return False
 
