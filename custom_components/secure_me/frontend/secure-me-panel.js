@@ -1304,6 +1304,11 @@ class SecureMePanel extends HTMLElement {
     this._schedTemp   = null;    // temp config for scheduled test editing
     this._schedSaving    = false;   // prevents double-submit
     this._ttsTestRunning = false;  // prevents duplicate TTS test calls
+    this._cameraSaving   = false;  // prevents duplicate camera saves
+    this._lockSaving     = false;
+    this._climateSaving  = false;
+    this._sirenSaving    = false;
+    this._lightsSaving   = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -3973,12 +3978,13 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveCameraConfig() {
+    if (this._cameraSaving) return;
     // Validation
     const invalid = this._tempConfig.cameras.filter(c => !c.entity_id);
     if (invalid.length > 0) {
       this._toast('Please select a camera entity for all cameras before saving.', 'warning'); return;
-      return;
     }
+    this._cameraSaving = true;
     
     // Build config
     const config = {
@@ -3997,11 +4003,13 @@ class SecureMePanel extends HTMLElement {
     });
     
     if (result && result.success !== false) {
+      this._cameraSaving = false;
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
       this._toast('Camera configuration saved! Active immediately.', 'success');
     } else {
+      this._cameraSaving = false;
       this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
     }
   }
@@ -4175,6 +4183,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveLockConfig() {
+    if (this._lockSaving) return;
+    this._lockSaving = true;
     const invalid = this._tempConfig.locks.filter(l => !l.entity_id);
     if (invalid.length > 0) { this._toast('Please select an entity for all locks.', 'warning'); return; }
     const config = { enabled: true, locks: this._tempConfig.locks.map(l => ({ entity_id: l.entity_id, lock_on_arm: l.lock_on_arm, unlock_on_disarm: l.unlock_on_disarm, retry_attempts: l.retry_attempts, retry_delay: l.retry_delay })) };
@@ -4304,6 +4314,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveClimateConfig() {
+    if (this._climateSaving) return;
+    this._climateSaving = true;
     const invalid = this._tempConfig.thermostats.filter(t => !t.entity_id);
     if (invalid.length > 0) { this._toast('Please select an entity for all thermostats.', 'warning'); return; }
     const config = { enabled: true, thermostats: this._tempConfig.thermostats.map(t => ({ entity_id: t.entity_id, arm_mode: t.arm_mode, disarm_mode: t.disarm_mode, eco_temp: t.eco_temp, comfort_temp: t.comfort_temp })) };
@@ -4457,6 +4469,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveSirenConfig() {
+    if (this._sirenSaving) return;
+    this._sirenSaving = true;
     const invalid = this._tempConfig.sirens.filter(s => !s.entity_id);
     if (invalid.length > 0) {
       this._toast('Please select a siren entity for all sirens before saving.', 'warning'); return;
@@ -4603,6 +4617,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveLightsConfig() {
+    if (this._lightsSaving) return;
+    this._lightsSaving = true;
     if (this._tempConfig.entities.length === 0) { this._toast('Please add at least one light entity.', 'warning'); return; }
     const config = { enabled: true, entities: this._tempConfig.entities, arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
     const result = await this._callWS('save_module', { module_id: 'lights', config });
@@ -5625,7 +5641,8 @@ class SecureMePanel extends HTMLElement {
     });
 
     // Open camera config dialog
-    root.querySelectorAll("[data-action='open-camera-config']").forEach(btn => {
+    const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
+    cameraConfigButtons.forEach(btn => {
       btn.addEventListener("click", () => this._openCameraConfig());
     });
     
