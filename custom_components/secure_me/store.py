@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 STORAGE_KEY = f"{DOMAIN}.panel_config"
 SAVE_DELAY = 10  # seconds — delay-save to batch rapid changes
 
-# bcrypt work factor — 10 rounds matches Alarmo
+# bcrypt work factor — 10 rounds matches Alarmo (v1.2.0: truncate to 72 bytes)
 BCRYPT_ROUNDS = 10
 # Max parallel threads for bcrypt code checking
 MAX_WORKERS = 4

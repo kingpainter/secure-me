@@ -351,7 +351,7 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     @property
     def is_on(self) -> bool:
         """Return True if any battery is critically low."""
-        for bat in _discover_battery_levels(self.hass):
+        for bat in self._get_batteries():
             if bat["available"] and bat["level"] is not None:
                 if bat["level"] < BATTERY_THRESHOLD_CRITICAL:
                     return True
@@ -362,10 +362,26 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
         """Return icon based on battery alert state."""
         return "mdi:battery-alert-variant-outline" if self.is_on else "mdi:battery-check-outline"
 
+    def _get_batteries(self) -> list[dict[str, Any]]:
+        """Get batteries from cache — discover once per update cycle.
+
+        Caches results so is_on and extra_state_attributes share one
+        scan instead of calling hass.states.async_all() twice per update.
+        """
+        if not hasattr(self, "_battery_cache"):
+            self._battery_cache: list[dict[str, Any]] = []
+            self._battery_cache_key: int = -1
+        # Use coordinator last_update_success count as cache key
+        current_key = id(self.coordinator.data)
+        if current_key != self._battery_cache_key:
+            self._battery_cache = _discover_battery_levels(self.hass)
+            self._battery_cache_key = current_key
+        return self._battery_cache
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return details about critical and low batteries."""
-        batteries = _discover_battery_levels(self.hass)
+        batteries = self._get_batteries()
 
         critical: list[dict[str, Any]] = []
         low: list[dict[str, Any]] = []
