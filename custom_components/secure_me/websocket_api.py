@@ -55,6 +55,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_alarm_state)
     websocket_api.async_register_command(hass, ws_get_health_summary)
     websocket_api.async_register_command(hass, ws_run_test)
+    websocket_api.async_register_command(hass, ws_quick_test_siren)
     websocket_api.async_register_command(hass, ws_get_test_results)
     websocket_api.async_register_command(hass, ws_get_fake_presence)
     websocket_api.async_register_command(hass, ws_set_fake_presence)
@@ -1284,6 +1285,51 @@ async def ws_run_test(
 
     results = await _run_test_internal(hass, msg["test_type"])
     connection.send_result(msg["id"], results)
+
+
+#
+# QUICK SIREN TEST
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/quick_test_siren",
+})
+@websocket_api.async_response
+async def ws_quick_test_siren(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run a quick 2s siren test using the configured siren entities."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "not_ready", "Coordinator not initialized")
+        return
+
+    siren_module = coordinator.modules.get("siren")
+    if not siren_module or not siren_module.enabled:
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": "Siren module is not enabled",
+        })
+        return
+
+    if not siren_module.sirens and not siren_module.gateway_mac:
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": "No siren entities configured",
+        })
+        return
+
+    try:
+        result = await siren_module.async_test()
+        connection.send_result(msg["id"], result)
+    except Exception as err:
+        _LOGGER.error("Quick siren test failed: %s", err)
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": str(err),
+        })
 
 
 #

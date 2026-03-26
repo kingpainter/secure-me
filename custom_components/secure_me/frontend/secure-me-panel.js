@@ -3241,6 +3241,29 @@ class SecureMePanel extends HTMLElement {
             </div>
           </div>
         ` : ""}
+
+        <!-- Quick Siren Test -->
+        ${modules.siren && modules.siren.enabled ? `
+          <div style="border-top:1px solid var(--sm-border);padding-top:10px;margin-top:10px">
+            <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">Quick siren test:</div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <button class="sm-btn" data-action="quick-test-siren"
+                      ${isRunning || this._sirenTestRunning ? "disabled" : ""}
+                      style="background:var(--sm-danger-dim);color:var(--sm-danger);border:1px solid var(--sm-danger)44;font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px">
+                ${icon("siren")} ${this._sirenTestRunning ? "Testing... (2s)" : "Test Siren Now"}
+              </button>
+              ${this._sirenTestResult ? `
+                <span style="font-size:12px;color:${this._sirenTestResult.success ? 'var(--sm-accent)' : 'var(--sm-danger)'}">
+                  ${this._sirenTestResult.success
+                    ? (icon("check") + " " + (this._sirenTestResult.details?.entities_tested?.length
+                        ? this._sirenTestResult.details.entities_tested.map(e => e.entity_id).join(", ")
+                        : "Test passed"))
+                    : (icon("fail") + " " + (this._sirenTestResult.message || "Test failed"))}
+                </span>
+              ` : ""}
+            </div>
+          </div>
+        ` : ""}
       </div>
 
       <!-- ── Scheduled Tests ───────────────────────────────────────── -->
@@ -3884,8 +3907,24 @@ class SecureMePanel extends HTMLElement {
     this._render();
   }
 
+  async _quickTestSiren() {
+    if (this._sirenTestRunning || this._testRunning) return;
+    this._sirenTestRunning = true;
+    this._sirenTestResult = null;
+    this._render();
+
+    try {
+      const result = await this._callWS('quick_test_siren');
+      this._sirenTestResult = result || { success: false, message: 'No response' };
+    } catch (err) {
+      this._sirenTestResult = { success: false, message: String(err) };
+    }
+
+    this._sirenTestRunning = false;
+    this._render();
+  }
+
   // ===
-  // EVENT LISTENER ATTACHMENT
   // ===
   // === Entity Loading ===
   async _loadEntitiesByDomain(domain) {
@@ -5381,6 +5420,9 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-run-test]").forEach(btn => {
       btn.addEventListener("click", () => this._runTest(btn.dataset.runTest));
     });
+
+    const quickSirenBtn = root.querySelector("[data-action='quick-test-siren']");
+    if (quickSirenBtn) quickSirenBtn.addEventListener("click", () => this._quickTestSiren());
 
     // Scheduled test listeners
     root.querySelectorAll("[data-action='add-sched-test']").forEach(btn => {
