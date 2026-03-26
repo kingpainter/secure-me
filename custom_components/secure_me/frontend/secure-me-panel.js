@@ -316,7 +316,7 @@ const panelStyles = `
 
   /* === Sensor two-column layout === */
   .sensor-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-  @media (max-width: 900px) { .sensor-two-col { grid-template-columns: 1fr; } }
+  @media (max-width: 600px) { .sensor-two-col { grid-template-columns: 1fr; } }
 
   /* === Zone === */
   .zone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -1979,17 +1979,18 @@ class SecureMePanel extends HTMLElement {
     `;
 
     const renderEnvRow = (s) => `
-      <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;
+      <div style="display:flex;flex-direction:column;gap:4px;
                   padding:10px 16px;border-bottom:1px solid var(--sm-border)">
-        <div>
-          <div style="font-size:14px;font-weight:500">${s.name}</div>
-          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+        <div style="font-size:14px;font-weight:500">${s.name}</div>
+        <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace;
+                    overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity_id}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
+          <span class="badge environmental">Required</span>
+          <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-text-tertiary)"
+                  data-unmark-env="${s.entity_id}" title="Remove incorrect environmental classification">
+            Remove
+          </button>
         </div>
-        <span class="badge environmental" style="margin-right:8px">Required</span>
-        <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-text-tertiary)"
-                data-unmark-env="${s.entity_id}" title="Remove incorrect environmental classification">
-          Remove
-        </button>
       </div>
     `;
 
@@ -2053,12 +2054,12 @@ class SecureMePanel extends HTMLElement {
 
       ${envSensors.length > 0 ? `
         <div class="sm-card no-pad" style="overflow:hidden;margin-bottom:16px;border-color:rgba(255,59,48,0.3)">
-          <div class="sm-list-header" style="background:rgba(255,59,48,0.08);border-bottom:1px solid rgba(255,59,48,0.2)">
-            <span style="display:flex;align-items:center;gap:8px">
-              <span style="color:var(--sm-danger)">${icon("warn")}</span>
-              Environmental Sensors — Always Active (${envSensors.length})
+          <div class="sm-list-header" style="background:rgba(255,59,48,0.08);border-bottom:1px solid rgba(255,59,48,0.2);display:flex;flex-direction:column;align-items:flex-start;gap:4px">
+            <span style="display:flex;align-items:center;gap:6px;color:var(--sm-danger)">
+              ${icon("warn")}
+              <span>Environmental Sensors &mdash; Always Active (${envSensors.length})</span>
             </span>
-            <span style="font-size:11px;color:var(--sm-text-secondary)">Notifications cannot be disabled</span>
+            <span style="font-size:11px;color:var(--sm-text-secondary);padding-left:2px">Notifications cannot be disabled</span>
           </div>
           ${envSensors.map(s => renderEnvRow(s)).join("")}
         </div>
@@ -5577,9 +5578,6 @@ class SecureMePanel extends HTMLElement {
         await this._loadNotifyServices();
         this._render();
       });
-    });
-    root.querySelectorAll("[data-action='save-user']").forEach(btn => {
-      btn.addEventListener("click", () => this._saveUser());
     });
     root.querySelectorAll("[data-delete-user]").forEach(btn => {
       btn.addEventListener("click", () => this._deleteUser(btn.dataset.deleteUser));
