@@ -2125,6 +2125,7 @@ class SecureMePanel extends HTMLElement {
     const zones = this._data.zones || {};
     const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
     const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
+    const modeColors = { away: "var(--sm-danger)", home: "var(--sm-accent)", night: "var(--sm-blue)", vacation: "var(--sm-purple)" };
 
     return `
       <div class="section-header">
@@ -2135,7 +2136,9 @@ class SecureMePanel extends HTMLElement {
       </div>
 
       <div class="zone-grid">
-        ${Object.entries(zones).map(([id, z]) => `
+        ${Object.entries(zones).map(([id, z]) => {
+          const armModes = z.arm_modes || z.modes || ["away"];
+          return `
           <div class="sm-card zone-card" style="padding:16px;
                border-color:${z.enabled ? "var(--sm-" + (z.type === "entry" ? "warning" : z.type === "perimeter" ? "danger" : "blue") + ")" : "var(--sm-border)"};
                opacity:${z.enabled ? 1 : 0.5}">
@@ -2145,22 +2148,27 @@ class SecureMePanel extends HTMLElement {
                 <span class="badge ${z.type}">${typeLabels[z.type] || z.type}</span>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
+                <button class="sm-btn ghost sm" data-edit-zone="${id}" title="Edit zone">${icon("settings")}</button>
                 <button class="sm-btn ghost sm" data-delete-zone="${id}" title="Delete zone">${icon("trash")}</button>
                 <button class="sm-toggle ${z.enabled ? "on" : ""}" data-zone-toggle="${id}">
                   <div class="dot"></div>
                 </button>
               </div>
             </div>
-            <div style="margin-top:12px;font-size:12px;color:var(--sm-text-secondary)">
+            <div style="margin-top:10px;font-size:12px;color:var(--sm-text-secondary)">
               ${(z.sensors || []).length} sensors assigned
             </div>
-            <div class="zone-modes">
-              ${(z.modes || ["away", "home", "night"]).map(m =>
-                '<span class="zone-mode">' + m + '</span>'
-              ).join("")}
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
+              ${armModes.map(m => `
+                <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;
+                             background:${modeColors[m] || "var(--sm-primary)"}22;
+                             color:${modeColors[m] || "var(--sm-primary)"}">
+                  ${m}
+                </span>
+              `).join("")}
             </div>
           </div>
-        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
+        `}).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
       </div>
 
       ${this._showDialog === 'zone' ? this._renderZoneDialog() : ''}
@@ -2170,13 +2178,21 @@ class SecureMePanel extends HTMLElement {
   _renderZoneDialog() {
     const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
     const temp = this._tempConfig || {};
-    const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
+    const isEdit = !!temp._zoneId;
+    const armModes = temp.arm_modes || ['away'];
+    const modeColors = { away: 'var(--sm-danger)', home: 'var(--sm-accent)', night: 'var(--sm-blue)', vacation: 'var(--sm-purple)' };
+    const modeDesc = {
+      away: 'All sensors active',
+      home: 'Perimeter only, no interior',
+      night: 'Perimeter + selected interior',
+      vacation: 'Like Away with extra alerts',
+    };
 
     return '<div class="config-dialog-overlay">' +
       '<div class="config-dialog">' +
         '<div class="dialog-header">' +
           icon('shield') +
-          '<div class="dialog-title">Add Zone</div>' +
+          '<div class="dialog-title">' + (isEdit ? 'Edit Zone' : 'Add Zone') + '</div>' +
           '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
@@ -2188,21 +2204,29 @@ class SecureMePanel extends HTMLElement {
         '<div class="form-group">' +
           '<label class="form-label">Zone Type</label>' +
           '<select class="form-select" id="zone-type">' +
-            '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Entry/Exit - Doors with delay</option>' +
-            '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Interior - Motion sensors</option>' +
-            '<option value="perimeter"' + (temp.type === 'perimeter' ? ' selected' : '') + '>Perimeter - Instant windows</option>' +
-            '<option value="instant"' + (temp.type === 'instant' ? ' selected' : '') + '>Instant - No delay trigger</option>' +
+            '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Entry/Exit — Doors with delay</option>' +
+            '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Interior — Motion sensors</option>' +
+            '<option value="perimeter"' + (temp.type === 'perimeter' ? ' selected' : '') + '>Perimeter — Instant windows</option>' +
+            '<option value="instant"' + (temp.type === 'instant' ? ' selected' : '') + '>Instant — No delay trigger</option>' +
           '</select>' +
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Active in Modes</label>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
-            ['away', 'home', 'night', 'vacation'].map(m =>
-              '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:rgba(255,255,255,0.05);cursor:pointer;font-size:13px">' +
-                '<input type="checkbox" class="zone-mode-cb" value="' + m + '"' + ((temp.modes || ['away','home','night']).includes(m) ? ' checked' : '') + '> ' + m +
-              '</label>'
-            ).join('') +
+          '<label class="form-label">Active in Arm Modes</label>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
+            ['away', 'home', 'night', 'vacation'].map(m => {
+              const checked = armModes.includes(m);
+              const c = modeColors[m];
+              return '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;' +
+                'background:' + (checked ? c + '18' : 'rgba(255,255,255,0.04)') + ';' +
+                'border:1px solid ' + (checked ? c + '66' : 'var(--sm-border)') + ';font-size:12px">' +
+                '<input type="checkbox" class="zone-mode-cb" value="' + m + '"' + (checked ? ' checked' : '') + '>' +
+                '<div>' +
+                  '<div style="font-weight:600;color:' + (checked ? c : 'var(--sm-text)') + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</div>' +
+                  '<div style="font-size:10px;color:var(--sm-text-tertiary)">' + modeDesc[m] + '</div>' +
+                '</div>' +
+              '</label>';
+            }).join('') +
           '</div>' +
         '</div>' +
 
@@ -2213,6 +2237,7 @@ class SecureMePanel extends HTMLElement {
               '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--sm-border);margin-bottom:6px;font-size:13px">' +
                 '<input type="checkbox" class="zone-sensor-cb" value="' + s.entity_id + '"' + ((temp.sensors || []).includes(s.entity_id) ? ' checked' : '') + '>' +
                 '<span style="flex:1">' + s.name + '</span>' +
+                '<span style="font-size:10px;color:var(--sm-text-tertiary);margin-right:4px">' + s.entity_id + '</span>' +
                 '<span class="badge ' + s.sensor_type + '" style="font-size:10px">' + s.sensor_type + '</span>' +
               '</label>'
             ).join('') :
@@ -2232,31 +2257,47 @@ class SecureMePanel extends HTMLElement {
     const root = this.shadowRoot;
     const name = root.querySelector('#zone-name')?.value?.trim();
     const type = root.querySelector('#zone-type')?.value || 'entry';
-    const modes = Array.from(root.querySelectorAll('.zone-mode-cb:checked')).map(cb => cb.value);
+    const armModes = Array.from(root.querySelectorAll('.zone-mode-cb:checked')).map(cb => cb.value);
     const sensors = Array.from(root.querySelectorAll('.zone-sensor-cb:checked')).map(cb => cb.value);
 
-    if (!name) {
-      this._toast('Please enter a zone name.', 'warning'); return;
-      return;
-    }
+    if (!name) { this._toast('Please enter a zone name.', 'warning'); return; }
+    if (armModes.length === 0) { this._toast('Select at least one arm mode.', 'warning'); return; }
 
-    const zoneId = 'zone_' + Date.now();
+    const temp = this._tempConfig || {};
+    const zoneId = temp._zoneId || ('zone_' + Date.now());
     const config = {
-      name: name,
-      type: type,
-      enabled: true,
-      modes: modes,
-      sensors: sensors,
+      name,
+      type,
+      enabled: temp.enabled !== false,
+      arm_modes: armModes,
+      sensors,
     };
 
-    const result = await this._callWS('save_zone', { zone_id: zoneId, config: config });
+    const result = await this._callWS('save_zone', { zone_id: zoneId, config });
     if (result && result.success !== false) {
       this._showDialog = null;
       this._tempConfig = null;
+      this._toast((temp._zoneId ? 'Zone updated.' : 'Zone created.'), 'success');
       await this._loadData();
     } else {
       this._toast('Could not save zone: ' + (result?.error || 'Unknown error'), 'error');
     }
+  }
+
+  _editZone(zoneId) {
+    const zones = this._data.zones || {};
+    const z = zones[zoneId];
+    if (!z) return;
+    this._tempConfig = {
+      _zoneId: zoneId,
+      name: z.name || '',
+      type: z.type || 'entry',
+      arm_modes: z.arm_modes || z.modes || ['away'],
+      sensors: z.sensors || [],
+      enabled: z.enabled !== false,
+    };
+    this._showDialog = 'zone';
+    this._render();
   }
 
   async _deleteZone(zoneId) {
@@ -5580,13 +5621,16 @@ class SecureMePanel extends HTMLElement {
     // Zone actions
     root.querySelectorAll("[data-action='add-zone']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._tempConfig = { type: 'entry', modes: ['away','home','night'], sensors: [] };
+        this._tempConfig = { type: 'entry', arm_modes: ['away'], sensors: [] };
         this._showDialog = 'zone';
         this._render();
       });
     });
     root.querySelectorAll("[data-action='save-zone']").forEach(btn => {
       btn.addEventListener("click", () => this._saveZone());
+    });
+    root.querySelectorAll("[data-edit-zone]").forEach(btn => {
+      btn.addEventListener("click", () => this._editZone(btn.dataset.editZone));
     });
     root.querySelectorAll("[data-delete-zone]").forEach(btn => {
       btn.addEventListener("click", () => this._deleteZone(btn.dataset.deleteZone));
