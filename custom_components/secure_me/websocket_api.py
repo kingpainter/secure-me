@@ -971,7 +971,13 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
             normalized["messages"] = config["messages"]
 
     elif module_id == "siren":
-        normalized["lights"] = extract_ids(config.get("lights", []))
+        # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)
+        normalized["sirens"] = config.get("sirens", [])
+        # Legacy gateway fields
+        if config.get("gateway_mac"):
+            normalized["gateway_mac"] = config["gateway_mac"]
+        if config.get("gateway_light"):
+            normalized["gateway_light"] = config["gateway_light"]
 
     return normalized
 
@@ -986,6 +992,15 @@ def _get_module_entity_ids(module) -> list[str]:
         val = getattr(module, attr, None)
         if isinstance(val, list):
             entities.extend(val)
+
+    # Siren module: sirens is a list of dicts with entity_id
+    sirens_val = getattr(module, "sirens", None)
+    if isinstance(sirens_val, list):
+        for entry in sirens_val:
+            if isinstance(entry, dict) and entry.get("entity_id"):
+                entities.append(entry["entity_id"])
+            elif isinstance(entry, str) and "." in entry:
+                entities.append(entry)
     
     # Check dict attributes
     for attr in ("door_sensors", "battery_sensors"):
