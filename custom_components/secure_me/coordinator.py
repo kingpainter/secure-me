@@ -109,7 +109,13 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
         normalized["volume"] = config.get("volume", 0.5)
         normalized["custom_messages"] = config.get("custom_messages", [])
     elif module_id == "siren":
-        normalized["lights"] = extract_ids(config.get("lights", []))
+        # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)
+        normalized["sirens"] = config.get("sirens", [])
+        # Legacy gateway fields
+        if config.get("gateway_mac"):
+            normalized["gateway_mac"] = config["gateway_mac"]
+        if config.get("gateway_light"):
+            normalized["gateway_light"] = config["gateway_light"]
 
     return normalized
 
