@@ -1928,6 +1928,7 @@ class SecureMePanel extends HTMLElement {
           : wantDialog === 'notification'  ? this._renderNotificationDialog()
           : wantDialog === 'user'         ? this._renderUserDialog()
           : wantDialog === 'sched-test'   ? this._renderSchedDialog()
+          : wantDialog === 'zone'         ? this._renderZoneDialog()
           : '';
         dialogMount.innerHTML = dialogHtml;
         dialogMount.dataset.currentDialog = wantDialog;
@@ -2181,7 +2182,6 @@ class SecureMePanel extends HTMLElement {
         `}).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
       </div>
 
-      ${this._showDialog === 'zone' ? this._renderZoneDialog() : ''}
     `;
   }
 
@@ -5355,6 +5355,9 @@ class SecureMePanel extends HTMLElement {
 
     // User dialog
     on("[data-action='save-user']", "click", () => this._saveUser());
+
+    // Zone dialog
+    on("[data-action='save-zone']", "click", () => this._saveZone());
   }
 
   _attachTabListeners() {
@@ -5649,9 +5652,6 @@ class SecureMePanel extends HTMLElement {
         this._showDialog = 'zone';
         this._render();
       });
-    });
-    root.querySelectorAll("[data-action='save-zone']").forEach(btn => {
-      btn.addEventListener("click", () => this._saveZone());
     });
     root.querySelectorAll("[data-edit-zone]").forEach(btn => {
       btn.addEventListener("click", () => this._editZone(btn.dataset.editZone));
