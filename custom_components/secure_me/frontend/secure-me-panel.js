@@ -3226,42 +3226,6 @@ class SecureMePanel extends HTMLElement {
           ` : ""}
         </div>
 
-        <!-- Individual module test buttons -->
-        ${Object.entries(modules).filter(([, m]) => m.enabled).length > 0 ? `
-          <div style="border-top:1px solid var(--sm-border);padding-top:10px;margin-top:10px">
-            <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">Test individual module:</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              ${Object.entries(modules).filter(([, m]) => m.enabled).map(([id]) => `
-                <button class="sm-btn ghost-outlined" data-run-test="${id}"
-                        ${isRunning ? "disabled" : ""}
-                        style="text-transform:capitalize;font-size:12px;padding:5px 12px">
-                  ${id}
-                </button>
-              `).join("")}
-            </div>
-          </div>
-        ` : ""}
-
-        <!-- Quick Siren Test -->
-        <div style="border-top:1px solid var(--sm-border);padding-top:10px;margin-top:10px">
-          <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">Quick siren test:</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button class="sm-btn" data-action="quick-test-siren"
-                    ${isRunning || this._sirenTestRunning ? "disabled" : ""}
-                    style="background:var(--sm-danger-dim);color:var(--sm-danger);border:1px solid var(--sm-danger)44;font-size:12px;padding:6px 14px;display:flex;align-items:center;gap:6px">
-              ${icon("siren")} ${this._sirenTestRunning ? "Testing... (2s)" : "Test Siren Now"}
-            </button>
-            ${this._sirenTestResult ? `
-              <span style="font-size:12px;color:${this._sirenTestResult.success ? 'var(--sm-accent)' : 'var(--sm-danger)'}">
-                ${this._sirenTestResult.success
-                  ? (icon("check") + " " + (this._sirenTestResult.details?.entities_tested?.length
-                      ? this._sirenTestResult.details.entities_tested.map(e => e.entity_id).join(", ")
-                      : "Test passed"))
-                  : (icon("fail") + " " + (this._sirenTestResult.message || "Test failed"))}
-              </span>
-            ` : ""}
-          </div>
-        </div>
       </div>
 
       <!-- ── Scheduled Tests ───────────────────────────────────────── -->
@@ -3922,6 +3886,23 @@ class SecureMePanel extends HTMLElement {
     this._render();
   }
 
+  async _quickTestLights() {
+    if (this._lightsTestRunning || this._testRunning) return;
+    this._lightsTestRunning = true;
+    this._lightsTestResult = null;
+    this._render();
+
+    try {
+      const result = await this._callWS('quick_test_lights');
+      this._lightsTestResult = result || { success: false, message: 'No response' };
+    } catch (err) {
+      this._lightsTestResult = { success: false, message: String(err) };
+    }
+
+    this._lightsTestRunning = false;
+    this._render();
+  }
+
   // ===
   // ===
   // === Entity Loading ===
@@ -4568,6 +4549,11 @@ class SecureMePanel extends HTMLElement {
           
           <div class="dialog-footer">
             <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="sm-btn ghost-outlined" data-action="quick-test-siren"
+                    ${this._sirenTestRunning ? 'disabled' : ''}
+                    style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:5px">
+              ${icon("siren")} ${this._sirenTestRunning ? 'Testing...' : 'Test Sound'}
+            </button>
             <button class="btn-dialog save" data-action="save-siren-config">Save Configuration</button>
           </div>
         </div>
@@ -4788,6 +4774,11 @@ class SecureMePanel extends HTMLElement {
 
           <div class="dialog-footer">
             <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="sm-btn ghost-outlined" data-action="quick-test-lights"
+                    ${this._lightsTestRunning ? 'disabled' : ''}
+                    style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:5px">
+              ${icon("lights")} ${this._lightsTestRunning ? 'Testing...' : 'Test Flash'}
+            </button>
             <button class="btn-dialog save" data-action="save-lights-config">Save Configuration</button>
           </div>
         </div>
@@ -5419,9 +5410,6 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", () => this._runTest(btn.dataset.runTest));
     });
 
-    const quickSirenBtn = root.querySelector("[data-action='quick-test-siren']");
-    if (quickSirenBtn) quickSirenBtn.addEventListener("click", () => this._quickTestSiren());
-
     // Scheduled test listeners
     root.querySelectorAll("[data-action='add-sched-test']").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -5871,6 +5859,7 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='open-siren-config']").forEach(b => b.addEventListener("click", () => this._openSirenConfig()));
     root.querySelectorAll("[data-action='add-siren']").forEach(b => b.addEventListener("click", () => this._addSirenRow()));
     root.querySelectorAll("[data-action='save-siren-config']").forEach(b => b.addEventListener("click", () => this._saveSirenConfig()));
+    root.querySelectorAll("[data-action='quick-test-siren']").forEach(b => b.addEventListener("click", () => this._quickTestSiren()));
     root.querySelectorAll("[data-action='remove-siren']").forEach(b => b.addEventListener("click", () => this._removeSirenRow(parseInt(b.dataset.sirenId))));
     root.querySelectorAll("select[data-siren-id], input[data-siren-id]").forEach(inp => {
       inp.addEventListener("change", () => this._updateSirenField(parseInt(inp.dataset.sirenId), inp.dataset.field, inp.value));
@@ -5879,6 +5868,7 @@ class SecureMePanel extends HTMLElement {
     // === Lights Module Handlers ===
     root.querySelectorAll("[data-action='open-lights-config']").forEach(b => b.addEventListener("click", () => this._openLightsConfig()));
     root.querySelectorAll("[data-action='save-lights-config']").forEach(b => b.addEventListener("click", () => this._saveLightsConfig()));
+    root.querySelectorAll("[data-action='quick-test-lights']").forEach(b => b.addEventListener("click", () => this._quickTestLights()));
     root.querySelectorAll("[data-action='remove-light']").forEach(b => b.addEventListener("click", () => this._removeLightEntity(b.dataset.entity)));
 
     // Lights: add from select
