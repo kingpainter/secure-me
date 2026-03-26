@@ -56,6 +56,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_get_health_summary)
     websocket_api.async_register_command(hass, ws_run_test)
     websocket_api.async_register_command(hass, ws_quick_test_siren)
+    websocket_api.async_register_command(hass, ws_quick_test_lights)
     websocket_api.async_register_command(hass, ws_get_test_results)
     websocket_api.async_register_command(hass, ws_get_fake_presence)
     websocket_api.async_register_command(hass, ws_set_fake_presence)
@@ -1388,6 +1389,98 @@ async def ws_quick_test_siren(
         connection.send_result(msg["id"], result)
     except Exception as err:
         _LOGGER.error("Quick siren test failed: %s", err)
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": str(err),
+        })
+
+
+#
+# QUICK LIGHTS TEST
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/quick_test_lights",
+})
+@websocket_api.async_response
+async def ws_quick_test_lights(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Run a quick 2s emergency flash test on all configured lights."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "not_ready", "Coordinator not initialized")
+        return
+
+    lights_module = coordinator.modules.get("lights")
+    if not lights_module or not lights_module.enabled:
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": "Lights module is not enabled",
+        })
+        return
+
+    if not lights_module.lights:
+        connection.send_result(msg["id"], {
+            "success": False,
+            "message": "No lights configured",
+        })
+        return
+
+    try:
+        # Flash all lights red/blue for 2 seconds then restore
+        tested = []
+        for light in lights_module.lights:
+            lights_module.backup_state(light)
+
+        for color in ([255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]):
+            await hass.services.async_call(
+                "light", "turn_on",
+                service_data={"brightness": 255, "rgb_color": color},
+                target={"entity_id": lights_module.lights},
+                blocking=True,
+            )
+            await asyncio.sleep(0.5)
+
+        await hass.services.async_call(
+            "light", "turn_off",
+            target={"entity_id": lights_module.lights},
+            blocking=True,
+        )
+
+        # Restore original states
+        for light in lights_module.lights:
+            backup = lights_module.get_backup_state(light)
+            if backup:
+                if backup["state"] == "on":
+                    attrs = backup.get("attributes", {})
+                    svc_data = {k: attrs[k] for k in ("brightness", "rgb_color", "color_temp") if k in attrs}
+                    await hass.services.async_call(
+                        "light", "turn_on",
+                        service_data=svc_data or None,
+                        target={"entity_id": light},
+                        blocking=True,
+                    )
+                else:
+                    await hass.services.async_call(
+                        "light", "turn_off",
+                        target={"entity_id": light},
+                        blocking=True,
+                    )
+            tested.append(light)
+
+        lights_module.clear_backup()
+
+        connection.send_result(msg["id"], {
+            "success": True,
+            "message": "2s flash test completed",
+            "details": {"lights_tested": tested},
+        })
+    except Exception as err:
+        _LOGGER.error("Quick lights test failed: %s", err)
+        lights_module.clear_backup()
         connection.send_result(msg["id"], {
             "success": False,
             "message": str(err),
