@@ -892,24 +892,63 @@ async def ws_test_automation(
 # HEALTH SUMMARY
 #
 
-def _discover_batteries(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Discover all battery sensors in HA."""
-    batteries = []
+def _discover_batteries(
+    hass: HomeAssistant,
+    configured_entity_ids: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Discover battery sensors for configured Secure Me sensors only.
+
+    Strategy:
+    1. Build a set of HA device_ids from the configured sensor entity_ids.
+    2. Return only battery-class sensors that belong to those same devices.
+    3. If device registry is unavailable, fall back to name-prefix matching.
+    """
+    if not configured_entity_ids:
+        return []
+
+    # --- Build set of device_ids for configured sensors ---
+    device_ids: set[str] = set()
+    try:
+        from homeassistant.helpers import entity_registry as er, device_registry as dr
+        ent_reg = er.async_get(hass)
+        for eid in configured_entity_ids:
+            entry = ent_reg.async_get(eid)
+            if entry and entry.device_id:
+                device_ids.add(entry.device_id)
+    except Exception:
+        device_ids = set()
+
+    batteries: list[dict[str, Any]] = []
+
     for state in hass.states.async_all("sensor"):
         if state.attributes.get("device_class") != "battery":
             continue
+
+        # Match by device_id if we have registry access
+        if device_ids:
+            try:
+                from homeassistant.helpers import entity_registry as er
+                ent_reg = er.async_get(hass)
+                entry = ent_reg.async_get(state.entity_id)
+                if not entry or entry.device_id not in device_ids:
+                    continue
+            except Exception:
+                pass
+
         level = None
         try:
             level = int(float(state.state))
         except (ValueError, TypeError):
             pass
+
         batteries.append({
             "entity_id": state.entity_id,
             "name": state.attributes.get("friendly_name", state.entity_id),
             "level": level,
             "available": state.state not in ("unavailable", "unknown", None),
         })
-    return batteries
+
+    return sorted(batteries, key=lambda b: (b["level"] is None, b["level"] or 0))
 
 
 
@@ -1070,8 +1109,13 @@ async def ws_get_health_summary(
 
     health_score = round((available_entities / total_entities) * 100) if total_entities > 0 else 100
 
-    # Battery summary
-    batteries = _discover_batteries(hass)
+    # Battery summary — only for configured sensors
+    configured_eids: set[str] = set()
+    if coordinator:
+        store = _get_store(hass)
+        if store:
+            configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+    batteries = _discover_batteries(hass, configured_eids)
     low_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
     critical_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
 
@@ -1243,9 +1287,12 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
         else:
             results["siren_test"] = {"success": None, "message": "Siren not configured or not enabled"}
 
-    # --- Battery discovery (standard + full) ---
+    # --- Battery discovery (standard + full) — only configured sensors ---
     if test_type in ("standard", "full"):
-        batteries = _discover_batteries(hass)
+        configured_eids: set[str] = set()
+        if store:
+            configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+        batteries = _discover_batteries(hass, configured_eids)
         low = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
         critical = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
         results["batteries"] = {
