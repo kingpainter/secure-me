@@ -60,6 +60,10 @@ class _MigratableStore(Store):
                 sensor_cfg.setdefault("auto_bypass", False)
                 sensor_cfg.setdefault("arm_on_close", False)
 
+            # Add arm_modes to existing zones (default: away)
+            for zone_cfg in data.get("zones", {}).values():
+                zone_cfg.setdefault("arm_modes", ["away"])
+
             # Users: mark existing codes as plaintext so we can re-hash on
             # next save. We do NOT re-hash here (no blocking crypto in migration).
             for user_id, user_cfg in data.get("users", {}).items():

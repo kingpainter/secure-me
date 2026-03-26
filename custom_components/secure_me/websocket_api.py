@@ -277,14 +277,35 @@ async def ws_save_zone(
         connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
         return
 
-    await store.async_save_zone(msg["zone_id"], msg["config"])
+    config = msg["config"]
+    # Ensure arm_modes has a valid default
+    config.setdefault("arm_modes", ["away"])
+    await store.async_save_zone(msg["zone_id"], config)
 
-    # Sync with zone manager
+    # Sync with zone manager — reload all zones so arm_modes take effect
     coordinator = _get_coordinator(hass)
     if coordinator and hasattr(coordinator, "zone_manager"):
-        _LOGGER.info("Zone %s saved, syncing with zone manager", msg["zone_id"])
+        _reload_zones_into_coordinator(coordinator, store)
+        _LOGGER.info("Zone %s saved and reloaded into zone manager", msg["zone_id"])
 
     connection.send_result(msg["id"], {"success": True})
+
+
+def _reload_zones_into_coordinator(coordinator, store) -> None:
+    """Rebuild zone_manager zones from store data."""
+    zm = coordinator.zone_manager
+    # Remove all existing zones cleanly
+    for zone_id in list(zm._zones.keys()):
+        zm.remove_zone(zone_id)
+    # Re-add from store
+    for zone_id, zone_cfg in store.get_zones().items():
+        zm.add_zone(
+            zone_id=zone_id,
+            zone_type=zone_cfg.get("zone_type", "entry"),
+            sensors=zone_cfg.get("sensors", []),
+            enabled=zone_cfg.get("enabled", True),
+            arm_modes=zone_cfg.get("arm_modes", ["away"]),
+        )
 
 
 @websocket_api.websocket_command({

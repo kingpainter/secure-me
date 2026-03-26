@@ -396,7 +396,16 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         ):
             self._last_arm_mode = new_state
             if len(self.zone_manager._unsubscribe_callbacks) == 0:
-                self.zone_manager.start_monitoring()
+                # Derive short mode string from state constant
+                _mode_map = {
+                    STATE_ALARM_ARMED_AWAY:     "away",
+                    STATE_ALARM_ARMED_HOME:     "home",
+                    STATE_ALARM_ARMED_NIGHT:    "night",
+                    STATE_ALARM_ARMED_VACATION: "vacation",
+                }
+                self.zone_manager.start_monitoring(
+                    arm_mode=_mode_map.get(new_state, "away")
+                )
             self.hass.bus.async_fire(
                 EVENT_ALARM_ARMED, {
                     "mode": new_state,
@@ -579,7 +588,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return False
 
         if not force:
-            all_sensors = [s for z in self.zone_manager.zones.values() for s in z.sensors]
+            # Only check sensors in zones that are active for 'away' mode
+            all_sensors = [
+                s for z in self.zone_manager.zones.values()
+                if z.enabled and z.is_active_for_mode("away")
+                for s in z.sensors
+            ]
             bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
                 _LOGGER.warning(
@@ -596,10 +610,22 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return success
 
     async def async_arm_home(
-        self, code: str | None = None, skip_delay: bool = False
+        self, code: str | None = None, skip_delay: bool = False, force: bool = False
     ) -> bool:
         """Arm in home mode."""
-        _LOGGER.info("Arming alarm (home, skip_delay=%s)", skip_delay)
+        _LOGGER.info("Arming alarm (home, skip_delay=%s, force=%s)", skip_delay, force)
+        if not force:
+            all_sensors = [
+                s for z in self.zone_manager.zones.values()
+                if z.enabled and z.is_active_for_mode("home")
+                for s in z.sensors
+            ]
+            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+                _LOGGER.warning(
+                    "Cannot arm home — open sensors: %s", self.zone_manager.get_all_open_sensors()
+                )
+                return False
         success = await self.state_machine.arm_home(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -609,10 +635,22 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return success
 
     async def async_arm_night(
-        self, code: str | None = None, skip_delay: bool = False
+        self, code: str | None = None, skip_delay: bool = False, force: bool = False
     ) -> bool:
         """Arm in night mode."""
-        _LOGGER.info("Arming alarm (night, skip_delay=%s)", skip_delay)
+        _LOGGER.info("Arming alarm (night, skip_delay=%s, force=%s)", skip_delay, force)
+        if not force:
+            all_sensors = [
+                s for z in self.zone_manager.zones.values()
+                if z.enabled and z.is_active_for_mode("night")
+                for s in z.sensors
+            ]
+            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+                _LOGGER.warning(
+                    "Cannot arm night — open sensors: %s", self.zone_manager.get_all_open_sensors()
+                )
+                return False
         success = await self.state_machine.arm_night(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -622,10 +660,22 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return success
 
     async def async_arm_vacation(
-        self, code: str | None = None, skip_delay: bool = False
+        self, code: str | None = None, skip_delay: bool = False, force: bool = False
     ) -> bool:
         """Arm in vacation mode."""
-        _LOGGER.info("Arming alarm (vacation, skip_delay=%s)", skip_delay)
+        _LOGGER.info("Arming alarm (vacation, skip_delay=%s, force=%s)", skip_delay, force)
+        if not force:
+            all_sensors = [
+                s for z in self.zone_manager.zones.values()
+                if z.enabled and z.is_active_for_mode("vacation")
+                for s in z.sensors
+            ]
+            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+                _LOGGER.warning(
+                    "Cannot arm vacation — open sensors: %s", self.zone_manager.get_all_open_sensors()
+                )
+                return False
         success = await self.state_machine.arm_vacation(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -818,6 +868,17 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 if config:
                     normalized = _normalize_coordinator_config(module_id, config)
                     self.update_module_config(module_id, normalized)
+
+        # Load zones into zone manager (with arm_modes)
+        for zone_id, zone_cfg in store.get_zones().items():
+            self.zone_manager.add_zone(
+                zone_id=zone_id,
+                zone_type=zone_cfg.get("zone_type", "entry"),
+                sensors=zone_cfg.get("sensors", []),
+                enabled=zone_cfg.get("enabled", True),
+                arm_modes=zone_cfg.get("arm_modes", ["away"]),
+            )
+        _LOGGER.info("Loaded %d zones from store", len(store.get_zones()))
 
         # v1.2.0: Push sensor configs and groups into zone manager
         sensor_configs = store.get_sensors()

@@ -23,6 +23,13 @@ _LOGGER = logging.getLogger(__name__)
 _OPEN_STATES = frozenset({"on", "open", "detected", "unlocked"})
 
 
+# All valid arm modes
+ALL_ARM_MODES = frozenset({"away", "home", "night", "vacation"})
+
+# Default arm_modes if not specified (away only — safe default)
+DEFAULT_ARM_MODES = ["away"]
+
+
 class Zone:
     """Representation of a security zone."""
 
@@ -32,11 +39,13 @@ class Zone:
         zone_type: str,
         sensors: list[str] | None = None,
         enabled: bool = True,
+        arm_modes: list[str] | None = None,
     ) -> None:
         self.zone_id = zone_id
         self.zone_type = zone_type
         self.sensors = sensors or []
         self.enabled = enabled
+        self.arm_modes: list[str] = arm_modes if arm_modes else list(DEFAULT_ARM_MODES)
         self._open_sensors: list[str] = []
 
     @property
@@ -59,12 +68,17 @@ class Zone:
     def clear_open_sensors(self) -> None:
         self._open_sensors.clear()
 
+    def is_active_for_mode(self, arm_mode: str) -> bool:
+        """Return True if this zone should be active for the given arm mode."""
+        return arm_mode in self.arm_modes
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "zone_id": self.zone_id,
             "zone_type": self.zone_type,
             "sensors": self.sensors,
             "enabled": self.enabled,
+            "arm_modes": self.arm_modes,
             "is_triggered": self.is_triggered,
             "open_sensors": self._open_sensors,
         }
@@ -242,15 +256,16 @@ class ZoneManager:
         zone_type: str,
         sensors: list[str] | None = None,
         enabled: bool = True,
+        arm_modes: list[str] | None = None,
     ) -> None:
-        zone = Zone(zone_id, zone_type, sensors, enabled)
+        zone = Zone(zone_id, zone_type, sensors, enabled, arm_modes)
         self._zones[zone_id] = zone
         if sensors:
             for sensor in sensors:
                 self._sensor_to_zone[sensor] = zone_id
         _LOGGER.info(
-            "Added zone: %s (type=%s, sensors=%d, enabled=%s)",
-            zone_id, zone_type, len(sensors or []), enabled,
+            "Added zone: %s (type=%s, sensors=%d, enabled=%s, arm_modes=%s)",
+            zone_id, zone_type, len(sensors or []), enabled, zone.arm_modes,
         )
 
     def remove_zone(self, zone_id: str) -> None:
@@ -366,11 +381,14 @@ class ZoneManager:
 
     # ── Monitoring ──────────────────────────────────────────────────────────
 
-    def start_monitoring(self, callback_func=None) -> None:
-        """Start monitoring sensors.
+    def start_monitoring(self, callback_func=None, arm_mode: str = "away") -> None:
+        """Start monitoring sensors for a specific arm mode.
 
-        v1.2.0: Also tracks arm_on_close sensors regardless of zone assignment.
+        Only zones that include the given arm_mode in their arm_modes list
+        are activated. v1.2.0: Also tracks arm_on_close sensors regardless
+        of zone assignment.
         """
+        self._active_arm_mode = arm_mode
         trigger_callback = callback_func or self._trigger_callback
         if not trigger_callback:
             _LOGGER.error("No trigger callback registered")
@@ -378,7 +396,20 @@ class ZoneManager:
 
         all_sensors: set[str] = set()
         for zone in self._zones.values():
+            if not zone.enabled:
+                continue
+            if not zone.is_active_for_mode(arm_mode):
+                _LOGGER.debug(
+                    "Zone %s skipped — not active for mode '%s' (arm_modes=%s)",
+                    zone.zone_id, arm_mode, zone.arm_modes,
+                )
+                continue
             all_sensors.update(zone.sensors)
+
+        _LOGGER.info(
+            "Monitoring %d sensors for arm_mode='%s'",
+            len(all_sensors), arm_mode,
+        )
 
         # Also monitor arm_on_close sensors even if not yet in a zone
         for eid, cfg in self._sensor_configs.items():
