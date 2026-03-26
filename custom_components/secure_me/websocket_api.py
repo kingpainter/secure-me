@@ -1015,8 +1015,9 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
         normalized["climates"] = extract_ids(config.get("thermostats", []))
 
     elif module_id == "lights":
-        # lights: [{entity_id, ...}] -> lights: [str]
-        normalized["lights"] = extract_ids(config.get("lights", []))
+        # Frontend saves as 'entities' (flat strings); module class expects 'lights'
+        raw = config.get("entities") or config.get("lights", [])
+        normalized["lights"] = extract_ids(raw) if raw else []
 
     elif module_id == "tts":
         # entities: already flat strings in TTS - no change needed

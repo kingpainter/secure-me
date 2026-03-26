@@ -101,7 +101,9 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
     elif module_id == "climate":
         normalized["climates"] = extract_ids(config.get("thermostats", []))
     elif module_id == "lights":
-        normalized["lights"] = extract_ids(config.get("lights", []))
+        # Frontend saves as 'entities' (flat strings); module class expects 'lights'
+        raw = config.get("entities") or config.get("lights", [])
+        normalized["lights"] = extract_ids(raw) if raw else []
     elif module_id == "tts":
         normalized["media_players"] = extract_ids(config.get("entities", []))
         normalized["tts_service"] = config.get("tts_service", "tts.cloud_say")

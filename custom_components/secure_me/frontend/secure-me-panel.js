@@ -3913,35 +3913,49 @@ class SecureMePanel extends HTMLElement {
   async _quickTestSiren() {
     if (this._sirenTestRunning || this._testRunning) return;
     this._sirenTestRunning = true;
-    this._sirenTestResult = null;
-    this._render();
+
+    // Update button in-place without re-render (which would close the dialog)
+    const btn = this.shadowRoot.querySelector("[data-action='quick-test-siren']");
+    if (btn) { btn.disabled = true; btn.textContent = 'Testing...'; }
 
     try {
       const result = await this._callWS('quick_test_siren');
-      this._sirenTestResult = result || { success: false, message: 'No response' };
+      if (result?.success) {
+        const tested = result.details?.entities_tested?.map(e => e.entity_id).join(', ') || 'done';
+        this._toast('Siren test OK: ' + tested, 'success');
+      } else {
+        this._toast('Siren test failed: ' + (result?.message || 'Unknown error'), 'error');
+      }
     } catch (err) {
-      this._sirenTestResult = { success: false, message: String(err) };
+      this._toast('Siren test error: ' + String(err), 'error');
     }
 
     this._sirenTestRunning = false;
-    this._render();
+    if (btn) { btn.disabled = false; btn.innerHTML = icon('siren') + ' Test Sound'; }
   }
 
   async _quickTestLights() {
     if (this._lightsTestRunning || this._testRunning) return;
     this._lightsTestRunning = true;
-    this._lightsTestResult = null;
-    this._render();
+
+    // Update button in-place without re-render (which would close the dialog)
+    const btn = this.shadowRoot.querySelector("[data-action='quick-test-lights']");
+    if (btn) { btn.disabled = true; btn.textContent = 'Testing...'; }
 
     try {
       const result = await this._callWS('quick_test_lights');
-      this._lightsTestResult = result || { success: false, message: 'No response' };
+      if (result?.success) {
+        const tested = result.details?.lights_tested?.join(', ') || 'done';
+        this._toast('Flash test OK: ' + tested, 'success');
+      } else {
+        this._toast('Flash test failed: ' + (result?.message || 'Unknown error'), 'error');
+      }
     } catch (err) {
-      this._lightsTestResult = { success: false, message: String(err) };
+      this._toast('Flash test error: ' + String(err), 'error');
     }
 
     this._lightsTestRunning = false;
-    this._render();
+    if (btn) { btn.disabled = false; btn.innerHTML = icon('lights') + ' Test Flash'; }
   }
 
   // ===
