@@ -15,24 +15,34 @@ DEFAULT_VOLUME = 100
 DEFAULT_RINGTONE_ID = 0
 DEFAULT_FLASH_DURATION = 300
 
+# Domains supported as on/off siren triggers (no volume support)
+ONOFF_DOMAINS = {"switch", "input_boolean"}
+
 
 class SirenModule(AlarmModule):
-    """Siren control module for Xiaomi Gateway."""
+    """Siren control module supporting native siren entities, switch/input_boolean-based sirens, and Xiaomi Gateway."""
 
     def __init__(self, hass: HomeAssistant, config: dict[str, Any]) -> None:
         """Initialize siren module.
 
         Config options:
-            - gateway_mac: Xiaomi Gateway MAC address
-            - gateway_light: Gateway light entity ID
-            - volume: Siren volume 0-100 (default: 100)
-            - ringtone_id: Ringtone ID (default: 0 = police)
+            - sirens: list of siren entries, each with:
+                  entity_id: siren.*, switch.*, or input_boolean.* entity
+                  pattern:   continuous / intermittent / rapid
+                  duration:  seconds (default 300)
+                  volume:    0-100 (default 80, ignored for switch/input_boolean)
+            - gateway_mac: Xiaomi Gateway MAC address (legacy)
+            - gateway_light: Gateway light entity ID (legacy)
             - flash_duration: Seconds to flash light (default: 300)
             - sound_on_trigger: Play sound when triggered (default: True)
             - light_on_trigger: Flash light when triggered (default: True)
         """
         super().__init__(hass, config)
 
+        # Generic entity list (new style)
+        self.sirens: list[dict[str, Any]] = config.get("sirens", [])
+
+        # Xiaomi Gateway (legacy)
         self.gateway_mac = config.get("gateway_mac")
         self.gateway_light = config.get("gateway_light")
         self.volume = config.get("volume", DEFAULT_VOLUME)
@@ -41,16 +51,92 @@ class SirenModule(AlarmModule):
         self.sound_on_trigger = config.get("sound_on_trigger", True)
         self.light_on_trigger = config.get("light_on_trigger", True)
         self._flash_task = None
+        self._duration_tasks: list[asyncio.Task] = []
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _domain(self, entity_id: str) -> str:
+        """Return HA domain of an entity_id."""
+        return entity_id.split(".")[0] if "." in entity_id else ""
+
+    async def _turn_on_entity(self, entity_id: str, volume: int = 80) -> None:
+        """Turn on a siren, switch, or input_boolean entity."""
+        domain = self._domain(entity_id)
+        if domain == "siren":
+            await self.async_call_service_with_retry(
+                "siren", "turn_on",
+                target={"entity_id": entity_id},
+                service_data={"volume_level": volume / 100.0},
+                action=f"siren_on_{entity_id}",
+            )
+        elif domain in ONOFF_DOMAINS:
+            await self.async_call_service_with_retry(
+                "homeassistant", "turn_on",
+                target={"entity_id": entity_id},
+                action=f"onoff_siren_on_{entity_id}",
+            )
+        else:
+            _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+
+    async def _turn_off_entity(self, entity_id: str) -> None:
+        """Turn off a siren, switch, or input_boolean entity."""
+        domain = self._domain(entity_id)
+        if domain == "siren":
+            await self.async_call_service_with_retry(
+                "siren", "turn_off",
+                target={"entity_id": entity_id},
+                action=f"siren_off_{entity_id}",
+            )
+        elif domain in ONOFF_DOMAINS:
+            await self.async_call_service_with_retry(
+                "homeassistant", "turn_off",
+                target={"entity_id": entity_id},
+                action=f"onoff_siren_off_{entity_id}",
+            )
+        else:
+            _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+
+    async def _auto_off_after(self, entity_id: str, duration: int) -> None:
+        """Auto-turn-off entity after duration seconds."""
+        try:
+            await asyncio.sleep(duration)
+            await self._turn_off_entity(entity_id)
+            _LOGGER.info("Siren module: auto-off after %ds for %s", duration, entity_id)
+        except asyncio.CancelledError:
+            pass
+        except Exception as err:
+            _LOGGER.error("Siren auto-off failed for %s: %s", entity_id, err)
+
+    def _cancel_duration_tasks(self) -> None:
+        """Cancel all running auto-off tasks."""
+        for task in self._duration_tasks:
+            task.cancel()
+        self._duration_tasks.clear()
+
+    # ------------------------------------------------------------------
+    # AlarmModule interface
+    # ------------------------------------------------------------------
 
     async def async_arm(self, mode: str) -> bool:
         """No action when arming."""
         return True
 
     async def async_disarm(self) -> bool:
-        """Stop siren and light when disarming."""
+        """Stop all sirens when disarming."""
         if not self.enabled:
             return True
 
+        self._cancel_duration_tasks()
+
+        # Generic entities
+        for entry in self.sirens:
+            entity_id = entry.get("entity_id", "")
+            if entity_id:
+                await self._turn_off_entity(entity_id)
+
+        # Legacy Xiaomi Gateway
         if self.gateway_mac:
             await self.async_call_service_with_retry(
                 "xiaomi_aqara", "stop_ringtone",
@@ -69,14 +155,28 @@ class SirenModule(AlarmModule):
                 action="siren_light_off",
             )
 
-        _LOGGER.info("Siren module: Siren stopped")
+        _LOGGER.info("Siren module: all sirens stopped")
         return True
 
     async def async_trigger(self) -> bool:
-        """Activate siren and flash light when alarm triggers."""
+        """Activate all configured sirens when alarm triggers."""
         if not self.enabled:
             return True
 
+        self._cancel_duration_tasks()
+
+        # Generic entities (siren.*, switch.*, input_boolean.*)
+        for entry in self.sirens:
+            entity_id = entry.get("entity_id", "")
+            if not entity_id:
+                continue
+            volume = int(entry.get("volume", 80))
+            duration = int(entry.get("duration", 300))
+            await self._turn_on_entity(entity_id, volume)
+            task = asyncio.create_task(self._auto_off_after(entity_id, duration))
+            self._duration_tasks.append(task)
+
+        # Legacy Xiaomi Gateway
         if self.sound_on_trigger and self.gateway_mac:
             await self.async_call_service_with_retry(
                 "xiaomi_aqara", "play_ringtone",
@@ -91,23 +191,53 @@ class SirenModule(AlarmModule):
         if self.light_on_trigger and self.gateway_light:
             self._flash_task = asyncio.create_task(self._flash_gateway_light())
 
-        _LOGGER.info("Siren module: Alarm activated (sound=%s, light=%s)",
-                     self.sound_on_trigger, self.light_on_trigger)
+        _LOGGER.info("Siren module: alarm triggered (%d entity sirens, gateway=%s)",
+                     len(self.sirens), bool(self.gateway_mac))
         return True
 
     async def async_test(self) -> dict[str, Any]:
-        """Test siren module — brief 2s sound + light flash."""
+        """Test siren module — brief 2s activation of all entities."""
         results: dict[str, Any] = {
             "success": True,
             "message": "Siren module test passed",
             "details": {
                 "gateway_mac": self.gateway_mac,
                 "gateway_light": None,
+                "entities_tested": [],
                 "sound_test": False,
                 "light_test": False,
             },
         }
 
+        # Test generic entities
+        for entry in self.sirens:
+            entity_id = entry.get("entity_id", "")
+            if not entity_id:
+                continue
+            available = self.is_entity_available(entity_id)
+            entity_result = {
+                "entity_id": entity_id,
+                "domain": self._domain(entity_id),
+                "available": available,
+                "state": self.get_entity_state(entity_id),
+                "test_fired": False,
+            }
+            if available:
+                try:
+                    await self._turn_on_entity(entity_id, 50)
+                    await asyncio.sleep(2)
+                    await self._turn_off_entity(entity_id)
+                    entity_result["test_fired"] = True
+                except Exception as err:
+                    _LOGGER.error("Siren entity test failed for %s: %s", entity_id, err)
+                    results["success"] = False
+                    results["message"] = f"Test failed for {entity_id}"
+            else:
+                results["success"] = False
+                results["message"] = f"Entity {entity_id} unavailable"
+            results["details"]["entities_tested"].append(entity_result)
+
+        # Legacy gateway light info
         if self.gateway_light:
             available = self.is_entity_available(self.gateway_light)
             results["details"]["gateway_light"] = {
@@ -154,6 +284,7 @@ class SirenModule(AlarmModule):
 
     async def async_shutdown(self) -> None:
         """Cleanup on shutdown."""
+        self._cancel_duration_tasks()
         if self._flash_task:
             self._flash_task.cancel()
             self._flash_task = None

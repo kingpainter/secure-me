@@ -4417,6 +4417,8 @@ class SecureMePanel extends HTMLElement {
   // === Siren Config Dialog ===
   async _openSirenConfig() {
     await this._loadEntitiesByDomain('siren');
+    await this._loadEntitiesByDomain('switch');
+    await this._loadEntitiesByDomain('input_boolean');
     
     const currentConfig = this._data.modules.siren || {};
     this._tempConfig = {
@@ -4537,26 +4539,58 @@ class SecureMePanel extends HTMLElement {
   }
 
   _renderSirenRow(siren, idx) {
-    const availableSirens = this._availableEntities.siren || [];
-    
+    const availableSirens       = this._availableEntities.siren         || [];
+    const availableSwitches     = this._availableEntities.switch        || [];
+    const availableInputBooleans = this._availableEntities.input_boolean || [];
+
+    const domainGroups = [
+      { label: 'Siren entities',                     entities: availableSirens,        domain: 'siren' },
+      { label: 'Switch entities (dumb sirens)',       entities: availableSwitches,      domain: 'switch' },
+      { label: 'Input Boolean (virtual triggers)',    entities: availableInputBooleans, domain: 'input_boolean' }
+    ];
+
+    const isOnOff = siren.entity_id &&
+      (siren.entity_id.startsWith('switch.') || siren.entity_id.startsWith('input_boolean.'));
+
+    const domainColor = siren.entity_id
+      ? (siren.entity_id.startsWith('siren.')         ? 'var(--sm-primary)'
+       : siren.entity_id.startsWith('input_boolean.') ? 'var(--sm-success)'
+       :                                                 'var(--sm-warning)')
+      : '';
+
+    const domainLabel = siren.entity_id
+      ? (siren.entity_id.startsWith('siren.')         ? 'siren'
+       : siren.entity_id.startsWith('input_boolean.') ? 'input_boolean (on/off)'
+       :                                                 'switch (on/off)')
+      : '';
+
     return `
       <div class="item-card">
         <div class="item-header">
           <div class="item-number">Siren ${idx + 1}</div>
           <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">Delete</button>
         </div>
-        
+
         <div class="form-group">
           <label class="form-label">Siren Entity</label>
-          <input type="text" class="entity-search" placeholder="Search sirens..." data-search-target="siren-select-${siren.id}">
+          <input type="text" class="entity-search" placeholder="Search siren, switch or input_boolean..." data-search-target="siren-select-${siren.id}">
           <select class="form-select" id="siren-select-${siren.id}" data-siren-id="${siren.id}" data-field="entity_id">
-            <option value="">-- Select Siren --</option>
-            ${availableSirens.map(s => `
-              <option value="${s.entity_id}" ${s.entity_id === siren.entity_id ? 'selected' : ''}>${s.name} (${s.entity_id})</option>
+            <option value="">-- Select Entity --</option>
+            ${domainGroups.map(group => group.entities.length === 0 ? '' : `
+              <optgroup label="${group.label}">
+                ${group.entities.map(e => `
+                  <option value="${e.entity_id}" ${e.entity_id === siren.entity_id ? 'selected' : ''}>${e.name} (${e.entity_id})</option>
+                `).join('')}
+              </optgroup>
             `).join('')}
           </select>
+          ${siren.entity_id ? `
+            <div style="margin-top:6px;font-size:11px;color:var(--sm-text-tertiary)">
+              Domain: <span style="font-weight:600;color:${domainColor}">${domainLabel}</span>
+            </div>
+          ` : ''}
         </div>
-        
+
         <div class="form-group">
           <label class="form-label">Alarm Pattern</label>
           <select class="form-select" data-siren-id="${siren.id}" data-field="pattern">
@@ -4564,8 +4598,13 @@ class SecureMePanel extends HTMLElement {
             <option value="intermittent" ${siren.pattern === 'intermittent' ? 'selected' : ''}>Intermittent</option>
             <option value="rapid" ${siren.pattern === 'rapid' ? 'selected' : ''}>Rapid Beeps</option>
           </select>
+          ${isOnOff ? `
+            <div style="margin-top:4px;font-size:11px;color:var(--sm-text-tertiary)">
+              This entity type uses on/off only. Pattern has no effect.
+            </div>
+          ` : ''}
         </div>
-        
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Duration (seconds)</label>
@@ -4573,7 +4612,8 @@ class SecureMePanel extends HTMLElement {
           </div>
           <div class="form-group">
             <label class="form-label">Volume (%)</label>
-            <input type="number" class="form-input" min="0" max="100" step="5" data-siren-id="${siren.id}" data-field="volume" value="${siren.volume}">
+            <input type="number" class="form-input" min="0" max="100" step="5" data-siren-id="${siren.id}" data-field="volume" value="${siren.volume}"
+              ${isOnOff ? 'disabled style="opacity:0.4"' : ''}>
           </div>
         </div>
       </div>
