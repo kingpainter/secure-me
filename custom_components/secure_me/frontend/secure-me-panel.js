@@ -1471,8 +1471,18 @@ class SecureMePanel extends HTMLElement {
       this._initialized = true;
       this._loadData();
     }
-    // DON'T re-render on every hass update - only when needed
-    // This prevents scroll jumping
+
+    // Track alarm state directly from hass.states — fires immediately on state change
+    // without waiting for the 5s health event interval.
+    const alarmEntity = Object.values(hass.states || {}).find(
+      s => s.entity_id.startsWith('alarm_control_panel.')
+    );
+    if (alarmEntity && alarmEntity.state !== this._alarmState) {
+      this._alarmState = alarmEntity.state;
+      this._updateStatusPills();
+      // Also queue a render so countdown/armed_by etc. refresh
+      this._queueRender();
+    }
   }
 
   set narrow(narrow) {
