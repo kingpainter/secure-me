@@ -5430,6 +5430,37 @@ class SecureMePanel extends HTMLElement {
 
     // Zone dialog
     on("[data-action='save-zone']", "click", () => this._saveZone());
+
+    // Lights dialog: multi-select picker
+    dlg.querySelectorAll('[data-lp-search]').forEach(inp => {
+      const pickerId = inp.dataset.lpSearch;
+      const list = dlg.querySelector(`[data-lp-list="${pickerId}"]`);
+      if (!list) return;
+      inp.addEventListener('input', () => {
+        const q = inp.value.toLowerCase();
+        list.querySelectorAll('[data-lp-row]').forEach(row => {
+          row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+      });
+    });
+    dlg.querySelectorAll('[data-lp-add]').forEach(btn => {
+      const pickerId = btn.dataset.lpAdd;
+      const list = dlg.querySelector(`[data-lp-list="${pickerId}"]`);
+      if (!list) return;
+      btn.addEventListener('click', () => {
+        const checked = [...list.querySelectorAll('[data-lp-cb]:checked')].map(cb => cb.dataset.entity);
+        if (!checked.length) return;
+        if (pickerId === 'flash') {
+          checked.forEach(eid => { if (!this._tempConfig.entities.includes(eid)) this._tempConfig.entities.push(eid); });
+        } else {
+          checked.forEach(eid => {
+            if (!(this._tempConfig.steady_entities || []).includes(eid))
+              this._tempConfig.steady_entities = [...(this._tempConfig.steady_entities || []), eid];
+          });
+        }
+        this._rebuildDialog();
+      });
+    });
   }
 
   _attachTabListeners() {
@@ -6023,35 +6054,6 @@ class SecureMePanel extends HTMLElement {
       this._render();
     }));
 
-    // Lights: multi-select picker — search filtering
-    root.querySelectorAll('[data-lp-search]').forEach(inp => {
-      const pickerId = inp.dataset.lpSearch;
-      const list = root.querySelector(`[data-lp-list="${pickerId}"]`);
-      if (!list) return;
-      inp.addEventListener('input', () => {
-        const q = inp.value.toLowerCase();
-        list.querySelectorAll('[data-lp-row]').forEach(row => {
-          const text = row.textContent.toLowerCase();
-          row.style.display = text.includes(q) ? '' : 'none';
-        });
-      });
-    });
-    // Lights: multi-select picker — add selected
-    root.querySelectorAll('[data-lp-add]').forEach(btn => {
-      const pickerId = btn.dataset.lpAdd;
-      const list = root.querySelector(`[data-lp-list="${pickerId}"]`);
-      if (!list) return;
-      btn.addEventListener('click', () => {
-        const checked = [...list.querySelectorAll('[data-lp-cb]:checked')].map(cb => cb.dataset.entity);
-        if (!checked.length) return;
-        if (pickerId === 'flash') {
-          checked.forEach(eid => { if (!this._tempConfig.entities.includes(eid)) this._tempConfig.entities.push(eid); });
-        } else {
-          checked.forEach(eid => { if (!(this._tempConfig.steady_entities || []).includes(eid)) { this._tempConfig.steady_entities = [...(this._tempConfig.steady_entities || []), eid]; } });
-        }
-        this._render();
-      });
-    });
     // Lights field selects and checkboxes
     root.querySelectorAll("select[data-lights-field]").forEach(sel => {
       sel.addEventListener("change", () => this._updateLightsField(sel.dataset.lightsField, sel.value));
