@@ -1327,6 +1327,7 @@ class SecureMePanel extends HTMLElement {
     this._sirenSaving    = false;
     this._lightsSaving   = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
+    this._testHistoryExpanded = false; // Collapsible: test history older entries
     this._envExpanded = false;           // Collapsible: environmental sensors (default collapsed)
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
@@ -3329,41 +3330,55 @@ class SecureMePanel extends HTMLElement {
       `}
 
       <!-- ── Test History ───────────────────────────────────────────── -->
-      ${results.length > 1 ? `
-        <div class="section-header" style="margin-top:20px">
-          <h3 class="section-title">Test History</h3>
-          <span class="badge actions">${results.length} results</span>
-        </div>
-        <div class="sm-card" style="padding:0;overflow:hidden">
-          ${results.slice(0, 10).map((r, i) => {
-            const col = r.overall === "pass" ? "var(--sm-accent)" :
-                        r.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
-            const ic  = r.overall === "pass" ? icon("ok") :
-                        r.overall === "warning" ? icon("warn") : icon("fail");
-            const passed = r.summary ? r.summary.passed || 0 : 0;
-            const total  = r.summary ? (r.summary.passed||0)+(r.summary.failed||0)+(r.summary.warned||0) : 0;
-            return `
-              <div style="padding:10px 16px;display:flex;align-items:center;gap:10px;
-                   ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
-                <span style="color:${col};font-size:14px">${ic}</span>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
-                  <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
-                </div>
-                <div style="text-align:right;flex-shrink:0">
-                  <div style="font-size:12px;font-weight:600;color:${col}">
-                    ${r.overall.toUpperCase()}
-                  </div>
-                  <div style="font-size:11px;color:var(--sm-text-secondary)">
-                    ${passed}/${total} passed &middot; ${r.duration_seconds}s
-                    ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
-                  </div>
+      ${results.length > 1 ? (() => {
+        const renderRow = (r, i) => {
+          const col = r.overall === "pass" ? "var(--sm-accent)" :
+                      r.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
+          const ic  = r.overall === "pass" ? icon("ok") :
+                      r.overall === "warning" ? icon("warn") : icon("fail");
+          const passed = r.summary ? r.summary.passed || 0 : 0;
+          const total  = r.summary ? (r.summary.passed||0)+(r.summary.failed||0)+(r.summary.warned||0) : 0;
+          return `
+            <div style="padding:10px 16px;display:flex;align-items:center;gap:10px;
+                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+              <span style="color:${col};font-size:14px">${ic}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
+                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0">
+                <div style="font-size:12px;font-weight:600;color:${col}">${r.overall.toUpperCase()}</div>
+                <div style="font-size:11px;color:var(--sm-text-secondary)">
+                  ${passed}/${total} passed &middot; ${r.duration_seconds}s
+                  ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
                 </div>
               </div>
-            `;
-          }).join("")}
-        </div>
-      ` : ""}
+            </div>`;
+        };
+        const recent = results.slice(0, 3);
+        const older  = results.slice(3, 50);
+        return `
+          <div class="section-header" style="margin-top:20px">
+            <h3 class="section-title">Test History</h3>
+            <span class="badge actions">${results.length} results</span>
+          </div>
+          <div class="sm-card" style="padding:0;overflow:hidden">
+            ${recent.map((r, i) => renderRow(r, i)).join("")}
+            ${older.length > 0 ? `
+              <div class="collapsible-header ${this._testHistoryExpanded ? 'expanded' : ''}"
+                   data-action="toggle-test-history"
+                   style="padding:8px 16px;margin:0;border-top:1px solid var(--sm-border);background:rgba(255,255,255,0.02);">
+                <span style="font-size:12px;color:var(--sm-text-secondary)">
+                  ${this._testHistoryExpanded ? 'Hide older results' : `Show ${older.length} older result${older.length > 1 ? 's' : ''}`}
+                </span>
+                <span class="chevron">${icon("chevron")}</span>
+              </div>
+              <div class="collapsible-body ${this._testHistoryExpanded ? 'expanded' : ''}">
+                ${older.map((r, i) => renderRow(r, i + recent.length)).join("")}
+              </div>
+            ` : ''}
+          </div>`;
+      })() : ""}
 
       <!-- ── Sensor Status ──────────────────────────────────────────── -->
       ${this._renderSensorStatus()}
@@ -5648,6 +5663,13 @@ class SecureMePanel extends HTMLElement {
     });
 
     // Collapsible sections
+    root.querySelectorAll("[data-action='toggle-test-history']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._testHistoryExpanded = !this._testHistoryExpanded;
+        this._render();
+      });
+    });
+
     root.querySelectorAll("[data-action='toggle-battery-ok']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._batteryOkExpanded = !this._batteryOkExpanded;
