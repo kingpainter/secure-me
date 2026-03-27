@@ -1331,7 +1331,7 @@ class SecureMePanel extends HTMLElement {
     this._envExpanded = false;           // Collapsible: environmental sensors (default collapsed)
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
-    this._sensorStatusExpanded = true; // Sensor online/offline section
+    this._sensorStatusExpanded = false; // Collapsible: sensor status hidden entries
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
     this._lastHealthUpdate = null;
@@ -3381,7 +3381,7 @@ class SecureMePanel extends HTMLElement {
                   <div class="collapsible-body ${this._testHistoryExpanded ? 'expanded' : ''}">
                     ${older.map((r, i) => renderRow(r, i + recent.length)).join("")}
                   </div>
-                \` : ''}
+                ` : ''}
               </div>`;
           })() : `
             <div class="section-header"><h3 class="section-title">Test History</h3></div>
@@ -3754,16 +3754,15 @@ class SecureMePanel extends HTMLElement {
 
   _renderSensorStatus() {
     if (!this._hass) return '';
-    
-    // Discover all sensors that are configured in the alarm
+
     const configuredSensors = this._data.sensors || [];
     if (configuredSensors.length === 0) {
       return `
-        <div class="section-header" style="margin-top:24px">
+        <div class="section-header">
           <h3 class="section-title">Sensor Status</h3>
         </div>
         <div class="sm-card" style="text-align:center;padding:24px;color:var(--sm-text-tertiary)">
-          No sensors configured. Enable sensors in the Sensors tab.
+          No sensors configured.
         </div>
       `;
     }
@@ -3777,37 +3776,54 @@ class SecureMePanel extends HTMLElement {
         name: s.name || s.entity_id,
         sensor_type: s.sensor_type,
         online: isOnline,
-        state: state ? state.state : 'unknown',
       };
     });
 
-    const online = sensorStatuses.filter(s => s.online).length;
+    const online  = sensorStatuses.filter(s => s.online).length;
     const offline = sensorStatuses.filter(s => !s.online).length;
+    const visible = sensorStatuses.slice(0, 8);
+    const hidden  = sensorStatuses.slice(8);
+
+    const renderSensorRow = (s, i, border) => `
+      <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
+           ${border ? 'border-top:1px solid var(--sm-border)' : ''}">
+        <div class="sensor-status-dot ${s.online ? 'online' : 'offline'}"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:500;white-space:nowrap;
+               overflow:hidden;text-overflow:ellipsis">${s.name}</div>
+          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+        </div>
+        <span class="badge ${s.sensor_type}">${s.sensor_type}</span>
+        <span style="font-size:11px;font-weight:600;
+              color:${s.online ? 'var(--sm-accent)' : 'var(--sm-danger)'};
+              min-width:50px;text-align:right">
+          ${s.online ? 'ONLINE' : 'OFFLINE'}
+        </span>
+      </div>`;
 
     return `
-      <div class="section-header" style="margin-top:24px">
+      <div class="section-header">
         <h3 class="section-title">Sensor Status</h3>
         <span class="badge ${offline > 0 ? 'perimeter' : 'accent'}">${online}/${sensorStatuses.length} online</span>
       </div>
 
       <div class="sm-card" style="padding:0;overflow:hidden">
-        ${sensorStatuses.map((s, i) => `
-          <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
-               ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
-            <div class="sensor-status-dot ${s.online ? 'online' : 'offline'}"></div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:500;white-space:nowrap;
-                   overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+        ${visible.map((s, i) => renderSensorRow(s, i, i > 0)).join("")}
+        ${hidden.length > 0 ? `
+          <div style="border-top:1px solid var(--sm-border)">
+            <div class="collapsible-header ${this._sensorStatusExpanded ? 'expanded' : ''}"
+                 data-action="toggle-sensor-status-hidden"
+                 style="padding:12px 16px;margin:0">
+              <span style="font-size:12px;color:var(--sm-text-secondary)">
+                ${hidden.length} more sensor${hidden.length > 1 ? 's' : ''}
+              </span>
+              <span class="chevron">${icon("chevron")}</span>
             </div>
-            <span class="badge ${s.sensor_type}">${s.sensor_type}</span>
-            <span style="font-size:11px;font-weight:600;
-                  color:${s.online ? 'var(--sm-accent)' : 'var(--sm-danger)'};
-                  min-width:50px;text-align:right">
-              ${s.online ? 'ONLINE' : 'OFFLINE'}
-            </span>
+            <div class="collapsible-body ${this._sensorStatusExpanded ? 'expanded' : ''}">
+              ${hidden.map((s, i) => renderSensorRow(s, i, true)).join("")}
+            </div>
           </div>
-        `).join("")}
+        ` : ''}
       </div>
     `;
   }
@@ -5674,6 +5690,13 @@ class SecureMePanel extends HTMLElement {
     });
 
     // Collapsible sections
+    root.querySelectorAll("[data-action='toggle-sensor-status-hidden']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._sensorStatusExpanded = !this._sensorStatusExpanded;
+        this._render();
+      });
+    });
+
     root.querySelectorAll("[data-action='toggle-test-history']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._testHistoryExpanded = !this._testHistoryExpanded;
