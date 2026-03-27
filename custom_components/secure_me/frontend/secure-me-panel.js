@@ -3314,77 +3314,88 @@ class SecureMePanel extends HTMLElement {
       <!-- ── Scheduled Tests ───────────────────────────────────────── -->
       ` + this._renderScheduledTests() + `
 
-      <!-- ── Last Test Result ──────────────────────────────────────── -->
-      <div class="section-header" style="margin-top:20px">
-        <h3 class="section-title">Last Test Run</h3>
-        ${lastResult ? `<span class="badge ${
-          lastResult.overall === "pass" ? "accent" :
-          lastResult.overall === "warning" ? "entry" : "perimeter"
-        }">${lastResult.overall.toUpperCase()}</span>` : ""}
-      </div>
+      <!-- 2-col grid: [Last Test Run | Test History] / [Sensor Status | Battery Overview] -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;align-items:start">
 
-      ${lastResult ? this._renderTestResult(lastResult) : `
-        <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
-          No tests run yet. Click a test button above to start.
-        </div>
-      `}
-
-      <!-- ── Test History ───────────────────────────────────────────── -->
-      ${results.length > 1 ? (() => {
-        const renderRow = (r, i) => {
-          const col = r.overall === "pass" ? "var(--sm-accent)" :
-                      r.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
-          const ic  = r.overall === "pass" ? icon("ok") :
-                      r.overall === "warning" ? icon("warn") : icon("fail");
-          const passed = r.summary ? r.summary.passed || 0 : 0;
-          const total  = r.summary ? (r.summary.passed||0)+(r.summary.failed||0)+(r.summary.warned||0) : 0;
-          return `
-            <div style="padding:10px 16px;display:flex;align-items:center;gap:10px;
-                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
-              <span style="color:${col};font-size:14px">${ic}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
-                <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
-              </div>
-              <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:12px;font-weight:600;color:${col}">${r.overall.toUpperCase()}</div>
-                <div style="font-size:11px;color:var(--sm-text-secondary)">
-                  ${passed}/${total} passed &middot; ${r.duration_seconds}s
-                  ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
-                </div>
-              </div>
-            </div>`;
-        };
-        const recent = results.slice(0, 3);
-        const older  = results.slice(3, 50);
-        return `
-          <div class="section-header" style="margin-top:20px">
-            <h3 class="section-title">Test History</h3>
-            <span class="badge actions">${results.length} results</span>
+        <!-- col 1: Last Test Run -->
+        <div>
+          <div class="section-header">
+            <h3 class="section-title">Last Test Run</h3>
+            ${lastResult ? `<span class="badge ${
+              lastResult.overall === "pass" ? "accent" :
+              lastResult.overall === "warning" ? "entry" : "perimeter"
+            }">${lastResult.overall.toUpperCase()}</span>` : ""}
           </div>
-          <div class="sm-card" style="padding:0;overflow:hidden">
-            ${recent.map((r, i) => renderRow(r, i)).join("")}
-            ${older.length > 0 ? `
-              <div class="collapsible-header ${this._testHistoryExpanded ? 'expanded' : ''}"
-                   data-action="toggle-test-history"
-                   style="padding:8px 16px;margin:0;border-top:1px solid var(--sm-border);background:rgba(255,255,255,0.02);">
-                <span style="font-size:12px;color:var(--sm-text-secondary)">
-                  ${this._testHistoryExpanded ? 'Hide older results' : `Show ${older.length} older result${older.length > 1 ? 's' : ''}`}
-                </span>
-                <span class="chevron">${icon("chevron")}</span>
-              </div>
-              <div class="collapsible-body ${this._testHistoryExpanded ? 'expanded' : ''}">
-                ${older.map((r, i) => renderRow(r, i + recent.length)).join("")}
-              </div>
-            ` : ''}
-          </div>`;
-      })() : ""}
+          ${lastResult ? this._renderTestResult(lastResult) : `
+            <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
+              No tests run yet.
+            </div>
+          `}
+        </div>
 
-      <!-- ── Sensor Status ──────────────────────────────────────────── -->
-      ${this._renderSensorStatus()}
+        <!-- col 2: Test History -->
+        <div>
+          ${results.length > 1 ? (() => {
+            const renderRow = (r, i) => {
+              const col = r.overall === "pass" ? "var(--sm-accent)" :
+                          r.overall === "warning" ? "var(--sm-warning)" : "var(--sm-danger)";
+              const ic  = r.overall === "pass" ? icon("ok") :
+                          r.overall === "warning" ? icon("warn") : icon("fail");
+              const passed = r.summary ? r.summary.passed || 0 : 0;
+              const total  = r.summary ? (r.summary.passed||0)+(r.summary.failed||0)+(r.summary.warned||0) : 0;
+              return `
+                <div style="padding:10px 16px;display:flex;align-items:center;gap:10px;
+                     ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+                  <span style="color:${col};font-size:14px">${ic}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
+                    <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:12px;font-weight:600;color:${col}">${r.overall.toUpperCase()}</div>
+                    <div style="font-size:11px;color:var(--sm-text-secondary)">
+                      ${passed}/${total} passed &middot; ${r.duration_seconds}s
+                      ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
+                    </div>
+                  </div>
+                </div>`;
+            };
+            const recent = results.slice(0, 3);
+            const older  = results.slice(3, 50);
+            return `
+              <div class="section-header">
+                <h3 class="section-title">Test History</h3>
+                <span class="badge actions">${results.length} results</span>
+              </div>
+              <div class="sm-card" style="padding:0;overflow:hidden">
+                ${recent.map((r, i) => renderRow(r, i)).join("")}
+                ${older.length > 0 ? `
+                  <div class="collapsible-header ${this._testHistoryExpanded ? 'expanded' : ''}"
+                       data-action="toggle-test-history"
+                       style="padding:8px 16px;margin:0;border-top:1px solid var(--sm-border);background:rgba(255,255,255,0.02);">
+                    <span style="font-size:12px;color:var(--sm-text-secondary)">
+                      ${this._testHistoryExpanded ? 'Hide older results' : `Show ${older.length} older result${older.length > 1 ? 's' : ''}`}
+                    </span>
+                    <span class="chevron">${icon("chevron")}</span>
+                  </div>
+                  <div class="collapsible-body ${this._testHistoryExpanded ? 'expanded' : ''}">
+                    ${older.map((r, i) => renderRow(r, i + recent.length)).join("")}
+                  </div>
+                \` : ''}
+              </div>`;
+          })() : `
+            <div class="section-header"><h3 class="section-title">Test History</h3></div>
+            <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary);font-size:13px">No history yet.</div>
+          `}
+        </div>
 
-      <!-- ── Battery Overview ───────────────────────────────────────── -->
-      ${this._renderBatteryOverview(batteries)}
+        <!-- col 1: Sensor Status -->
+        <div>${this._renderSensorStatus()}</div>
+
+        <!-- col 2: Battery Overview -->
+        <div>${this._renderBatteryOverview(batteries)}</div>
+
+      </div>
     `;
   }
 
