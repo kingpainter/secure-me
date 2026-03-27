@@ -1,3 +1,27 @@
+## [1.3.0] - 2026-03-27
+
+### UI/UX Polish Release
+
+#### Frontend
+- **Test tab 2-column layout** — Last Test Run | Test History on top, Sensor Status | Battery Overview on bottom. Both rows align correctly.
+- **Test History collapsible** — Shows 3 most recent results, older results behind expandable section.
+- **Sensor Status** — Shows 7 sensors visible, rest behind collapsible. Consistent with Battery Overview column height.
+- **Battery Overview** — Shows 8 batteries sorted low-first, rest behind collapsible.
+- **Countdown in sidebar** — Status pill shows live countdown during arming/pending: "Arming 28s", "Pending 15s" etc. Backend already sent countdown — frontend now stores and displays it.
+- **Lights module: Steady white** — New section in Lights dialog: turn on lights at 100% white brightness on alarm (no flashing). Separate entity list from emergency flash lights.
+- **Lights module: Multi-select picker** — Search field + checkbox list replaces native select dropdown for light entity selection.
+- **Environmental sensors collapsible** — Folded by default in Sensors tab, shows sensor names as pills when collapsed.
+- **Dark CSS fix for select elements** — All `<select>` and `<option>` elements now themed correctly in shadow DOM.
+- **Module name fix** — "Tts" corrected to "TTS" in test result module rows.
+- **Test type labels** — "quick" -> "Quick Test", "standard" -> "Standard Test" etc.
+- **Person tracker** — Shows short name (strips `person.` prefix) on user cards.
+- **Notification cards** — 3-column -> 2-column grid with more padding for breathing room.
+- **System/Custom notifications divider** — Visual separator between sections in Actions tab.
+- **Zone edit button** — Shows "Edit" text label instead of icon-only.
+- **Add Automation** — Renamed from "Ny automation" to "Add Automation".
+
+---
+
 ## [1.2.0] - 2026-03-21
 
 ### Security & Stability Release (Alarmo-Inspired)

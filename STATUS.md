@@ -1,6 +1,6 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-03-27 (session 3)
+**Last updated:** 2026-03-27 (v1.3.0 release)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Active Development (v1.3.0 — in progress)
+## Released: v1.3.0 (2026-03-27)
 
 ### Completed today (2026-03-27)
 - [x] Environmental sensors section: collapsible — foldet som standard, viser sensor-navne som pills
@@ -32,13 +32,11 @@
 - [x] Sensor Status: viser 7 sensorer, resten bag collapsible "X more sensors"
 - [x] Battery Overview: viser 8 batteries (sorteret lav-forst), resten bag collapsible "X more batteries"
 
-### Next Steps
-- [ ] Manuel test: TTS play button fires only once
-- [ ] Manuel test: User notification routing — arm as Flemming, verify only Flemming gets push
-- [ ] Manuel test: TTS quiet hours — set 22-07, verify TTS silent at night
-- [ ] Manuel test: Triggered broadcast — verify all users with receive_critical get notified
-- [ ] Manuel test: Test notification button — only admins receive
-- [ ] Version bump to v1.3.0 when ready
+### Next Steps (v1.4.0)
+- [ ] Per-sensor `delay_on` debounce
+- [ ] 5 arm modes fully wired in UI (vacation)
+- [ ] MQTT support
+
 
 ### Known Gaps (tracked for future versions)
 | Feature | Priority | Target |

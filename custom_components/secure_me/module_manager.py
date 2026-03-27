@@ -1,5 +1,5 @@
 """Module manager for Secure Me alarm system."""
-# VERSION = "1.2.0"
+# VERSION = "1.3.0"
 
 import logging
 from typing import Any

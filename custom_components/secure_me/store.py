@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.2.0"
+# VERSION = "1.3.0"
 
 import base64
 import concurrent.futures
