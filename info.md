@@ -30,12 +30,15 @@ Secure Me turns Home Assistant into a full-featured alarm system. You configure 
 - **Climate** — Sets away temperature when armed, restores on disarm
 - **Siren** — Sounds alarm patterns via Xiaomi gateway or compatible devices
 - **TTS** — Voice notifications via any TTS service (cloud_say, google_say, piper, custom)
+- **Steady white** — Separate light list at 100% brightness on alarm, independent of flash lights
 
 **Health & Testing**
 - Per-module health status visible directly on the Modules tab
 - Battery auto-discovery with low/critical warnings
 - Three test levels: Quick, Standard, Full
+- Scheduled tests with configurable day, time, and type
 - Test history stored for the last 10 runs
+- 2-column test dashboard with collapsible sensor and battery overview
 
 **Configuration Panel**
 - Modern sidebar UI — no YAML required
@@ -47,6 +50,11 @@ Secure Me turns Home Assistant into a full-featured alarm system. You configure 
 - Sensor hide/exclude for irrelevant device trackers
 - User to person tracker binding for presence automation
 - Home Alone Monitor camera configuration
+- Sensor groups (anti-masking) — require N sensors within a time window
+- Per-sensor overrides: entry delay, auto-bypass, arm-on-close
+- bcrypt PIN hashing — codes never stored plaintext
+- Mobile push actions — arm/disarm from Companion app
+- Live countdown in sidebar during arming/pending
 
 ---
 

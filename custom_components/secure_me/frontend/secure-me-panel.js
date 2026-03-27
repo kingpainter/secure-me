@@ -4813,7 +4813,7 @@ class SecureMePanel extends HTMLElement {
 
   _removeLightEntity(entityId) {
     this._tempConfig.entities = this._tempConfig.entities.filter(e => e !== entityId);
-    this._render();
+    this._rebuildDialog();
   }
 
   _updateLightsField(field, value) {
@@ -4912,7 +4912,7 @@ class SecureMePanel extends HTMLElement {
                 ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No flash lights selected</span>'
                 : selected.map(eid => {
                     const e = domainLights.find(l => l.entity_id === eid);
-                    return `<span style="${chipStyle('#ff9f0a')}">${e?.name || eid}<button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px;"></button></span>`;
+                    return `<span style="${chipStyle('#ff9f0a')}">${e?.name || eid}<button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:4px;" title="Remove">&#x2715;</button></span>`;
                   }).join('')
               }
             </div>
@@ -4947,7 +4947,7 @@ class SecureMePanel extends HTMLElement {
                 ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No steady lights selected</span>'
                 : steadySelected.map(eid => {
                     const e = domainLights.find(l => l.entity_id === eid);
-                    return `<span style="${chipStyle('#64d2ff')}">${e?.name || eid}<button data-action="remove-steady-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px;"></button></span>`;
+                    return `<span style="${chipStyle('#64d2ff')}">${e?.name || eid}<button data-action="remove-steady-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:4px;" title="Remove">&#x2715;</button></span>`;
                   }).join('')
               }
             </div>
@@ -6110,7 +6110,7 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='remove-light']").forEach(b => b.addEventListener("click", () => this._removeLightEntity(b.dataset.entity)));
     root.querySelectorAll("[data-action='remove-steady-light']").forEach(b => b.addEventListener("click", () => {
       this._tempConfig.steady_entities = (this._tempConfig.steady_entities || []).filter(e => e !== b.dataset.entity);
-      this._render();
+      this._rebuildDialog();
     }));
 
     // Lights field selects and checkboxes

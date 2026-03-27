@@ -2,7 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.1.0-green)](https://github.com/kingpainter/secure-me/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, real-time health monitoring, and a modern configuration panel.
@@ -42,8 +42,10 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 
 **Testing**
 - Three test levels: Quick (~30s), Standard (~60s), Full (~90s)
+- Scheduled tests with configurable day, time, and type
 - Test result history (last 10 runs)
 - Per-module async test execution
+- 2-column test dashboard: Last Run | History and Sensor Status | Battery Overview
 
 **Configuration Panel**
 - Modern sidebar UI (Alarmo-style)
@@ -56,6 +58,12 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Home Alone Monitor camera configuration
 - Sensor hide/exclude for irrelevant device trackers
 - User to person tracker binding for presence automation
+- Sensor groups (anti-masking) — require N sensors within a time window to trigger
+- Per-sensor overrides: individual entry delay, auto-bypass, arm-on-close
+- bcrypt PIN hashing — user codes never stored plaintext
+- Mobile push actions — arm/disarm from Companion app notification buttons
+- Steady white lights — separate light list at 100% brightness on alarm (no flash)
+- Live arming/pending countdown in sidebar status pill
 
 ---
 
@@ -307,5 +315,5 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 MIT License — see [LICENSE](LICENSE) for details.
 
 **Developer:** KingPainter  
-**Version:** 1.1.0  
+**Version:** 1.3.0  
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)
