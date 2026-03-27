@@ -1,6 +1,6 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-03-27
+**Last updated:** 2026-03-27 (session 2)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
@@ -19,21 +19,23 @@
 
 ---
 
-## Active Development (v1.3.0 — planning)
+## Active Development (v1.3.0 — in progress)
+
+### Completed today (2026-03-27)
+- [x] Environmental sensors section: collapsible — foldet som standard, viser sensor-navne som pills
+- [x] Lights module: ny "Steady white lights" sektion — tænder hvidt 100% brightness, ingen flash
+- [x] Lights module: multi-select light picker — soegefelt + checkboxes + "Add selected"
+- [x] All select dropdowns: mork CSS fix (`select` + `option` global regel i shadow DOM)
+- [x] Light picker event binding: flyttet til `_attachDialogListeners` (var fejlagtigt i `_attachTabListeners`)
 
 ### Next Steps
-- [ ] Manual test: TTS play button fires only once
-- [ ] Manual test: User notification routing — arm as Flemming, verify only Flemming gets push
-- [ ] Manual test: TTS quiet hours — set 22-07, verify TTS silent at night
-- [ ] Manual test: Triggered broadcast — verify all users with receive_critical get notified
-- [ ] Manual test: Test notification button — only admins receive
-- [ ] Version bump to v1.3.0 when manual tests pass
-- [ ] Stability checks
-- [ ] Error handling
-
-## Future Development (v1.9.0)
-
+- [ ] Manuel test: TTS play button fires only once
+- [ ] Manuel test: User notification routing — arm as Flemming, verify only Flemming gets push
+- [ ] Manuel test: TTS quiet hours — set 22-07, verify TTS silent at night
+- [ ] Manuel test: Triggered broadcast — verify all users with receive_critical get notified
+- [ ] Manuel test: Test notification button — only admins receive
 - [ ] HACS brands PR (separate repo)
+- [ ] Version bump to v1.3.0 when ready
 
 ### Known Gaps (tracked for future versions)
 | Feature | Priority | Target |
@@ -157,13 +159,13 @@
 | `system_health.py` | Health metrics, severity-weighted scoring |
 | `notification_dispatcher.py` | User-routed dispatch: armed→acting user, triggered→broadcast, quiet hours |
 
-### Frontend (Vanilla JS, ~5840 lines)
+### Frontend (Vanilla JS, ~5900 lines)
 | Tab | Status |
 |---|---|
-| Sensors | Done — 2-line layout, env section, hide/exclude |
+| Sensors | Done — 2-line layout, env section collapsible, hide/exclude |
 | Zones | Done |
 | Users | Done — person binding, notification settings, quiet hours |
-| Modules | Done — 6 modules, all dialogs fixed, TTS multi-service + volume |
+| Modules | Done — 6 modules, Lights: steady white + multi-select picker, all dialogs fixed |
 | Actions / Notifications | Done — system/custom split, 3-column grid, user-routed |
 | Actions / Automations | Done |
 | Test | Done — severity scoring, module + sensor tests, scheduled tests |
