@@ -22,7 +22,8 @@ class LightsModule(AlarmModule):
         """Initialize lights module.
 
         Config options:
-            - lights: List of light entity IDs
+            - lights: List of light entity IDs to flash (red/blue)
+            - steady_lights: List of light entity IDs to turn on white 100% (no flash)
             - turn_off_on_arm: Turn off lights when arming (default: True)
             - restore_on_disarm: Restore light states when disarming (default: True)
             - emergency_mode: Enable red/blue flashing on trigger (default: True)
@@ -31,6 +32,7 @@ class LightsModule(AlarmModule):
         super().__init__(hass, config)
 
         self.lights = config.get("lights", [])
+        self.steady_lights = config.get("steady_lights", [])
         self.turn_off_on_arm = config.get("turn_off_on_arm", True)
         self.restore_on_disarm = config.get("restore_on_disarm", True)
         self.emergency_mode = config.get("emergency_mode", True)
@@ -42,15 +44,17 @@ class LightsModule(AlarmModule):
         if not self.enabled:
             return True
 
-        for light in self.lights:
+        all_lights = self.lights + self.steady_lights
+        for light in all_lights:
             self.backup_state(light)
 
         if self.turn_off_on_arm:
-            await self.async_call_service_with_retry(
-                "light", "turn_off",
-                target={"entity_id": self.lights},
-                action="lights_off_on_arm",
-            )
+            if all_lights:
+                await self.async_call_service_with_retry(
+                    "light", "turn_off",
+                    target={"entity_id": all_lights},
+                    action="lights_off_on_arm",
+                )
             _LOGGER.info("Lights module: Lights turned off, states backed up")
         else:
             _LOGGER.info("Lights module: Light states backed up")
@@ -66,16 +70,18 @@ class LightsModule(AlarmModule):
             self._flash_task.cancel()
             self._flash_task = None
 
+        all_lights = self.lights + self.steady_lights
         if self.restore_on_disarm:
-            for light in self.lights:
+            for light in all_lights:
                 await self._restore_light_state(light)
             _LOGGER.info("Lights module: Light states restored")
         else:
-            await self.async_call_service_with_retry(
-                "light", "turn_off",
-                target={"entity_id": self.lights},
-                action="lights_off_on_disarm",
-            )
+            if all_lights:
+                await self.async_call_service_with_retry(
+                    "light", "turn_off",
+                    target={"entity_id": all_lights},
+                    action="lights_off_on_disarm",
+                )
             _LOGGER.info("Lights module: Lights turned off")
 
         self.clear_backup()
@@ -86,15 +92,29 @@ class LightsModule(AlarmModule):
         if not self.enabled:
             return True
 
-        await self.async_call_service_with_retry(
-            "light", "turn_on",
-            service_data={"brightness": EMERGENCY_BRIGHTNESS},
-            target={"entity_id": self.lights},
-            action="lights_on_trigger",
-        )
+        # Steady white lights: turn on immediately at full white brightness
+        if self.steady_lights:
+            await self.async_call_service_with_retry(
+                "light", "turn_on",
+                service_data={
+                    "brightness": EMERGENCY_BRIGHTNESS,
+                    "rgb_color": [255, 255, 255],
+                },
+                target={"entity_id": self.steady_lights},
+                action="steady_lights_on_trigger",
+            )
+            _LOGGER.info("Lights module: %d steady white light(s) activated", len(self.steady_lights))
 
-        if self.emergency_mode:
-            self._flash_task = asyncio.create_task(self._emergency_flash())
+        # Flash lights: initial full brightness then start flash loop
+        if self.lights:
+            await self.async_call_service_with_retry(
+                "light", "turn_on",
+                service_data={"brightness": EMERGENCY_BRIGHTNESS},
+                target={"entity_id": self.lights},
+                action="lights_on_trigger",
+            )
+            if self.emergency_mode:
+                self._flash_task = asyncio.create_task(self._emergency_flash())
 
         _LOGGER.info("Lights module: Emergency mode activated")
         return True

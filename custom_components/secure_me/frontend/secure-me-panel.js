@@ -954,16 +954,33 @@ const panelStyles = `
     cursor: pointer;
   }
   
-  /* Dropdown options styling - Fix F1 */
-  .form-select option {
-    background: var(--primary-background-color, #111);
-    color: var(--primary-text-color, #fff);
+  /* Dropdown options styling — applies to ALL selects in shadow DOM */
+  select {
+    background: #1c1c1e;
+    color: #f5f5f7;
+    border: 1px solid rgba(255,255,255,0.12);
+    font-family: inherit;
+    cursor: pointer;
+  }
+  select option {
+    background: #1c1c1e;
+    color: #f5f5f7;
     padding: 8px;
   }
-  
+  select option:hover,
+  select option:focus,
+  select option:checked {
+    background: #2c2c2e;
+    color: #f5f5f7;
+  }
+  .form-select option {
+    background: #1c1c1e;
+    color: #f5f5f7;
+    padding: 8px;
+  }
   .form-select option:hover,
   .form-select option:focus {
-    background: var(--accent-color, #3498db);
+    background: rgba(52,199,89,0.25);
     color: #fff;
   }
   
@@ -4731,6 +4748,7 @@ class SecureMePanel extends HTMLElement {
     const cur = this._data.modules?.lights || {};
     this._tempConfig = {
       entities: cur.entities || [],
+      steady_entities: cur.steady_entities || [],
       arm_action: cur.arm_action || 'turn_off',
       disarm_action: cur.disarm_action || 'restore',
       trigger_flash: cur.trigger_flash !== false,
@@ -4763,7 +4781,7 @@ class SecureMePanel extends HTMLElement {
     if (this._lightsSaving) return;
     this._lightsSaving = true;
     if (this._tempConfig.entities.length === 0) { this._toast('Please add at least one light entity.', 'warning'); return; }
-    const config = { enabled: true, entities: this._tempConfig.entities, arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
+    const config = { enabled: true, entities: this._tempConfig.entities, steady_entities: this._tempConfig.steady_entities || [], arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
@@ -4773,9 +4791,14 @@ class SecureMePanel extends HTMLElement {
 
   _renderLightsDialog() {
     const selected = this._tempConfig?.entities || [];
+    const steadySelected = this._tempConfig?.steady_entities || [];
     const domainLights = this._availableEntities.light || [];
-    const allEntities = this._allEntities || [];
-    const available = domainLights.filter(l => !selected.includes(l.entity_id));
+    const allUsed = [...selected, ...steadySelected];
+    const availableForFlash = domainLights.filter(l => !allUsed.includes(l.entity_id));
+    const availableForSteady = domainLights.filter(l => !allUsed.includes(l.entity_id));
+
+    const chipStyle = (color) => `display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:${color}26;border:1px solid ${color}66;border-radius:20px;font-size:12px;color:${color}`;
+    const sectionBox = `padding:12px;background:rgba(255,255,255,0.03);border:1px solid var(--sm-border,#333);border-radius:8px;margin-bottom:14px`;
 
     return `
       <div class="config-dialog-overlay">
@@ -4785,78 +4808,96 @@ class SecureMePanel extends HTMLElement {
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
 
-        <div style="margin-bottom:16px;">
-          <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Selected Lights (${selected.length})</label>
-          <div style="min-height:48px;padding:8px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;">
-            ${selected.length === 0
-              ? '<span style="color:#666;font-size:12px;padding:6px;">No lights selected yet</span>'
-              : selected.map(eid => {
-                  const e = domainLights.find(l => l.entity_id === eid);
-                  const name = e?.name || eid;
-                  return `<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(52,199,89,0.15);border:1px solid rgba(52,199,89,0.4);border-radius:20px;font-size:12px;color:#34c759;">
-                    ${name}
-                    <button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:#34c759;cursor:pointer;font-size:16px;line-height:1;padding:0;"></button>
-                  </span>`;
-                }).join('')
-            }
+          <!-- ARM / DISARM behaviour -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+            <div>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
+              <select data-lights-field="arm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                <option value="turn_off" ${this._tempConfig?.arm_action==='turn_off'?'selected':''}>Turn Off</option>
+                <option value="leave" ${this._tempConfig?.arm_action==='leave'?'selected':''}>Leave As-Is</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
+              <select data-lights-field="disarm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                <option value="restore" ${this._tempConfig?.disarm_action==='restore'?'selected':''}>Restore Previous</option>
+                <option value="turn_on" ${this._tempConfig?.disarm_action==='turn_on'?'selected':''}>Turn On</option>
+              </select>
+            </div>
           </div>
-        </div>
 
-        <div style="margin-bottom:16px;">
-          <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Add Light</label>
-          <input type="text" id="lights-search-input" placeholder="Search entities (type 2+ chars for all, or leave blank for light domain)..."
-            style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
-          <select id="lights-add-select" data-action="add-light-from-select"
-            style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-            <option value="">-- Select light to add --</option>
-            ${available.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
-          </select>
-        </div>
+          <!-- SECTION 1: Flash lights -->
+          <div style="${sectionBox}">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Flash lights on alarm</span>
+                <span style="font-size:11px;color:var(--sm-text-secondary);">(red / blue)</span>
+              </div>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" data-lights-field="trigger_flash" ${this._tempConfig?.trigger_flash?'checked':''} style="width:16px;height:16px;cursor:pointer;">
+                <span style="font-size:12px;color:var(--sm-text-secondary);">Enabled</span>
+              </label>
+            </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-          <div>
-            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
-            <select data-lights-field="arm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-              <option value="turn_off" ${this._tempConfig?.arm_action==='turn_off'?'selected':''}>Turn Off</option>
-              <option value="leave" ${this._tempConfig?.arm_action==='leave'?'selected':''}>Leave As-Is</option>
+            <div style="min-height:36px;padding:6px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+              ${selected.length === 0
+                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No flash lights selected</span>'
+                : selected.map(eid => {
+                    const e = domainLights.find(l => l.entity_id === eid);
+                    return `<span style="${chipStyle('#ff9f0a')}">${e?.name || eid}<button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px;"></button></span>`;
+                  }).join('')
+              }
+            </div>
+            <select data-action="add-light-from-select" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+              <option value="">-- Add flash light --</option>
+              ${availableForFlash.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
+            </select>
+
+            ${this._tempConfig?.trigger_flash ? `
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Flash Pattern</label>
+                <select data-lights-field="flash_pattern" style="width:100%;padding:7px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+                  <option value="rapid" ${this._tempConfig?.flash_pattern==='rapid'?'selected':''}>Rapid</option>
+                  <option value="slow" ${this._tempConfig?.flash_pattern==='slow'?'selected':''}>Slow</option>
+                  <option value="intermittent" ${this._tempConfig?.flash_pattern==='intermittent'?'selected':''}>Intermittent</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Duration (seconds)</label>
+                <input type="number" min="5" max="300" data-lights-field="flash_duration" value="${this._tempConfig?.flash_duration||30}" style="width:100%;padding:7px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
+              </div>
+            </div>` : ''}
+          </div>
+
+          <!-- SECTION 2: Steady white lights -->
+          <div style="${sectionBox}">
+            <div style="margin-bottom:10px;">
+              <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Steady white lights on alarm</span>
+              <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:2px;">Turns on immediately at 100% white brightness. No flashing.</div>
+            </div>
+
+            <div style="min-height:36px;padding:6px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+              ${steadySelected.length === 0
+                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No steady lights selected</span>'
+                : steadySelected.map(eid => {
+                    const e = domainLights.find(l => l.entity_id === eid);
+                    return `<span style="${chipStyle('#64d2ff')}">${e?.name || eid}<button data-action="remove-steady-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px;"></button></span>`;
+                  }).join('')
+              }
+            </div>
+            <select data-action="add-steady-light-from-select" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
+              <option value="">-- Add steady light --</option>
+              ${availableForSteady.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
             </select>
           </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
-            <select data-lights-field="disarm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-              <option value="restore" ${this._tempConfig?.disarm_action==='restore'?'selected':''}>Restore Previous</option>
-              <option value="turn_on" ${this._tempConfig?.disarm_action==='turn_on'?'selected':''}>Turn On</option>
-            </select>
-          </div>
-        </div>
-
-        <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;padding:10px;background:rgba(255,255,255,0.04);border-radius:8px;">
-          <input type="checkbox" data-lights-field="trigger_flash" ${this._tempConfig?.trigger_flash?'checked':''} style="width:16px;height:16px;cursor:pointer;">
-          <span style="font-size:13px;color:var(--sm-text,#fff);">Flash lights when alarm triggers</span>
-        </label>
-
-        ${this._tempConfig?.trigger_flash ? `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;margin-bottom:12px;">
-          <div>
-            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Flash Pattern</label>
-            <select data-lights-field="flash_pattern" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-              <option value="rapid" ${this._tempConfig?.flash_pattern==='rapid'?'selected':''}>Rapid</option>
-              <option value="slow" ${this._tempConfig?.flash_pattern==='slow'?'selected':''}>Slow</option>
-              <option value="intermittent" ${this._tempConfig?.flash_pattern==='intermittent'?'selected':''}>Intermittent</option>
-            </select>
-          </div>
-          <div>
-            <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Duration (seconds)</label>
-            <input type="number" min="5" max="300" data-lights-field="flash_duration" value="${this._tempConfig?.flash_duration||30}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
-          </div>
-        </div>` : ''}
 
           <div class="dialog-footer">
             <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
             <button class="sm-btn ghost-outlined" data-action="quick-test-lights"
                     ${this._lightsTestRunning ? 'disabled' : ''}
                     style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:5px">
-              ${icon("lights")} ${this._lightsTestRunning ? 'Testing...' : 'Test Flash'}
+              ${icon("bulb")} ${this._lightsTestRunning ? 'Testing...' : 'Test Flash'}
             </button>
             <button class="btn-dialog save" data-action="save-lights-config">Save Configuration</button>
           </div>
@@ -5960,31 +6001,28 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='save-lights-config']").forEach(b => b.addEventListener("click", () => this._saveLightsConfig()));
     root.querySelectorAll("[data-action='quick-test-lights']").forEach(b => b.addEventListener("click", () => this._quickTestLights()));
     root.querySelectorAll("[data-action='remove-light']").forEach(b => b.addEventListener("click", () => this._removeLightEntity(b.dataset.entity)));
+    root.querySelectorAll("[data-action='remove-steady-light']").forEach(b => b.addEventListener("click", () => {
+      this._tempConfig.steady_entities = (this._tempConfig.steady_entities || []).filter(e => e !== b.dataset.entity);
+      this._render();
+    }));
 
-    // Lights: add from select
-    const lightsAddSelect = root.querySelector("#lights-add-select");
-    if (lightsAddSelect) {
-      lightsAddSelect.addEventListener("change", () => {
-        if (lightsAddSelect.value) { this._addLightEntity(lightsAddSelect.value); lightsAddSelect.value = ''; }
+    // Lights: add flash light from select
+    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
+      sel.addEventListener("change", () => {
+        if (sel.value) { this._addLightEntity(sel.value); sel.value = ''; }
       });
-    }
-    // Lights: search filters select
-    const lightsSearchInput = root.querySelector("#lights-search-input");
-    if (lightsSearchInput) {
-      lightsSearchInput.addEventListener("input", () => {
-        const search = lightsSearchInput.value.toLowerCase();
-        const allEntities = this._allEntities || [];
-        const domainEntities = this._availableEntities.light || [];
-        const selected = this._tempConfig?.entities || [];
-        const filtered = search.length > 1
-          ? allEntities.filter(e => !selected.includes(e.entity_id) && (e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search))).slice(0, 25)
-          : domainEntities.filter(e => !selected.includes(e.entity_id));
-        if (lightsAddSelect) {
-          lightsAddSelect.innerHTML = '<option value="">-- Select light to add --</option>' +
-            filtered.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('');
+    });
+    // Lights: add steady light from select
+    root.querySelectorAll("[data-action='add-steady-light-from-select']").forEach(sel => {
+      sel.addEventListener("change", () => {
+        const eid = sel.value;
+        if (eid && !(this._tempConfig.steady_entities || []).includes(eid)) {
+          this._tempConfig.steady_entities = [...(this._tempConfig.steady_entities || []), eid];
+          sel.value = '';
+          this._render();
         }
       });
-    }
+    });
     // Lights field selects and checkboxes
     root.querySelectorAll("select[data-lights-field]").forEach(sel => {
       sel.addEventListener("change", () => this._updateLightsField(sel.dataset.lightsField, sel.value));
