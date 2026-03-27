@@ -4789,6 +4789,29 @@ class SecureMePanel extends HTMLElement {
     } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
   }
 
+  _renderLightPicker(pickerId, available, accentColor) {
+    // Inline multi-select picker: search box + scrollable checkbox list
+    const rows = available.slice(0, 80).map(e =>
+      `<label data-lp-row style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--sm-text);" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
+        <input type="checkbox" data-lp-cb data-entity="${e.entity_id}" style="width:14px;height:14px;cursor:pointer;accent-color:${accentColor};">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name}</span>
+        <span style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace;flex-shrink:0">${e.entity_id.split('.')[1]}</span>
+      </label>`
+    ).join('');
+    return `
+      <div style="position:relative;margin-top:6px;">
+        <input data-lp-search="${pickerId}" type="text" placeholder="Search lights..." autocomplete="off"
+          style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px 6px 0 0;color:var(--sm-text,#fff);font-size:12px;box-sizing:border-box;outline:none;">
+        <div data-lp-list="${pickerId}"
+          style="max-height:160px;overflow-y:auto;background:rgba(28,28,30,0.98);border:1px solid var(--sm-border,#444);border-top:none;border-radius:0 0 6px 6px;padding:2px 0;">
+          ${rows || '<span style="display:block;padding:8px 10px;font-size:12px;color:var(--sm-text-tertiary);">No lights available</span>'}
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:5px;">
+          <button data-lp-add="${pickerId}" style="padding:5px 14px;background:${accentColor}22;border:1px solid ${accentColor}66;border-radius:6px;color:${accentColor};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Add selected</button>
+        </div>
+      </div>`;
+  }
+
   _renderLightsDialog() {
     const selected = this._tempConfig?.entities || [];
     const steadySelected = this._tempConfig?.steady_entities || [];
@@ -4848,10 +4871,7 @@ class SecureMePanel extends HTMLElement {
                   }).join('')
               }
             </div>
-            <select data-action="add-light-from-select" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-              <option value="">-- Add flash light --</option>
-              ${availableForFlash.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
-            </select>
+            ${this._renderLightPicker('flash', availableForFlash, '#ff9f0a')}
 
             ${this._tempConfig?.trigger_flash ? `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
@@ -4886,10 +4906,7 @@ class SecureMePanel extends HTMLElement {
                   }).join('')
               }
             </div>
-            <select data-action="add-steady-light-from-select" style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-              <option value="">-- Add steady light --</option>
-              ${availableForSteady.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('')}
-            </select>
+            ${this._renderLightPicker('steady', availableForSteady, '#64d2ff')}
           </div>
 
           <div class="dialog-footer">
@@ -6006,21 +6023,33 @@ class SecureMePanel extends HTMLElement {
       this._render();
     }));
 
-    // Lights: add flash light from select
-    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
-      sel.addEventListener("change", () => {
-        if (sel.value) { this._addLightEntity(sel.value); sel.value = ''; }
+    // Lights: multi-select picker — search filtering
+    root.querySelectorAll('[data-lp-search]').forEach(inp => {
+      const pickerId = inp.dataset.lpSearch;
+      const list = root.querySelector(`[data-lp-list="${pickerId}"]`);
+      if (!list) return;
+      inp.addEventListener('input', () => {
+        const q = inp.value.toLowerCase();
+        list.querySelectorAll('[data-lp-row]').forEach(row => {
+          const text = row.textContent.toLowerCase();
+          row.style.display = text.includes(q) ? '' : 'none';
+        });
       });
     });
-    // Lights: add steady light from select
-    root.querySelectorAll("[data-action='add-steady-light-from-select']").forEach(sel => {
-      sel.addEventListener("change", () => {
-        const eid = sel.value;
-        if (eid && !(this._tempConfig.steady_entities || []).includes(eid)) {
-          this._tempConfig.steady_entities = [...(this._tempConfig.steady_entities || []), eid];
-          sel.value = '';
-          this._render();
+    // Lights: multi-select picker — add selected
+    root.querySelectorAll('[data-lp-add]').forEach(btn => {
+      const pickerId = btn.dataset.lpAdd;
+      const list = root.querySelector(`[data-lp-list="${pickerId}"]`);
+      if (!list) return;
+      btn.addEventListener('click', () => {
+        const checked = [...list.querySelectorAll('[data-lp-cb]:checked')].map(cb => cb.dataset.entity);
+        if (!checked.length) return;
+        if (pickerId === 'flash') {
+          checked.forEach(eid => { if (!this._tempConfig.entities.includes(eid)) this._tempConfig.entities.push(eid); });
+        } else {
+          checked.forEach(eid => { if (!(this._tempConfig.steady_entities || []).includes(eid)) { this._tempConfig.steady_entities = [...(this._tempConfig.steady_entities || []), eid]; } });
         }
+        this._render();
       });
     });
     // Lights field selects and checkboxes
@@ -6037,11 +6066,7 @@ class SecureMePanel extends HTMLElement {
     // === TTS Module Handlers (tab-level only — dialog listeners in _attachDialogListeners) ===
     root.querySelectorAll("[data-action='open-tts-config']").forEach(b => b.addEventListener("click", () => this._openTTSConfig()));
 
-    root.querySelectorAll("[data-action='add-light-from-select']").forEach(sel => {
-      sel.addEventListener("change", () => { if (sel.value) this._addLightEntity(sel.value); });
-    });
-
-            // Segment control
+    // Segment control
     root.querySelectorAll("[data-auto-section]").forEach(btn => {
       btn.addEventListener("click", () => this._setAutoSection(btn.dataset.autoSection));
     });

@@ -27,8 +27,13 @@
 - [ ] Manual test: TTS quiet hours — set 22-07, verify TTS silent at night
 - [ ] Manual test: Triggered broadcast — verify all users with receive_critical get notified
 - [ ] Manual test: Test notification button — only admins receive
-- [ ] HACS brands PR (separate repo)
 - [ ] Version bump to v1.3.0 when manual tests pass
+- [ ] Stability checks
+- [ ] Error handling
+
+## Future Development (v1.9.0)
+
+- [ ] HACS brands PR (separate repo)
 
 ### Known Gaps (tracked for future versions)
 | Feature | Priority | Target |
