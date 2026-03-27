@@ -1,6 +1,6 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-03-27 (session 2)
+**Last updated:** 2026-03-27 (session 3)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
@@ -23,10 +23,14 @@
 
 ### Completed today (2026-03-27)
 - [x] Environmental sensors section: collapsible — foldet som standard, viser sensor-navne som pills
-- [x] Lights module: ny "Steady white lights" sektion — tænder hvidt 100% brightness, ingen flash
+- [x] Lights module: ny "Steady white lights" sektion — taender hvidt 100% brightness, ingen flash
 - [x] Lights module: multi-select light picker — soegefelt + checkboxes + "Add selected"
 - [x] All select dropdowns: mork CSS fix (`select` + `option` global regel i shadow DOM)
 - [x] Light picker event binding: flyttet til `_attachDialogListeners` (var fejlagtigt i `_attachTabListeners`)
+- [x] Test tab: 2-kolonne layout — Last Test Run | Test History og Sensor Status | Battery Overview
+- [x] Test History: viser 3 nyeste, resten bag collapsible "Show N older results"
+- [x] Sensor Status: viser 7 sensorer, resten bag collapsible "X more sensors"
+- [x] Battery Overview: viser 8 batteries (sorteret lav-forst), resten bag collapsible "X more batteries"
 
 ### Next Steps
 - [ ] Manuel test: TTS play button fires only once
