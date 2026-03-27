@@ -2191,7 +2191,7 @@ class SecureMePanel extends HTMLElement {
                 <span class="badge ${z.type}">${typeLabels[z.type] || z.type}</span>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
-                <button class="sm-btn ghost sm" data-edit-zone="${id}" title="Edit zone">${icon("settings")}</button>
+                <button class="sm-btn default sm" data-edit-zone="${id}" title="Edit zone" style="font-size:11px;padding:4px 10px">Edit</button>
                 <button class="sm-btn ghost sm" data-delete-zone="${id}" title="Delete zone">${icon("trash")}</button>
                 <button class="sm-toggle ${z.enabled ? "on" : ""}" data-zone-toggle="${id}">
                   <div class="dot"></div>
@@ -2380,8 +2380,8 @@ class SecureMePanel extends HTMLElement {
                   Code: &#8226;&#8226;&#8226;&#8226;
                 </div>
                 ${u.person_entity ? `
-                  <div style="font-size:11px;color:var(--sm-blue);margin-top:4px;font-family:monospace">
-                    Tracker: ${u.person_entity}
+                  <div style="font-size:11px;color:var(--sm-blue);margin-top:4px">
+                    Tracker: <span style="font-family:monospace">${u.person_entity.replace("person.","")}</span>
                   </div>` : ""}
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
                   ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">No push service</span>'}
@@ -2984,7 +2984,7 @@ class SecureMePanel extends HTMLElement {
           const customNotifs = Object.entries(notifications).filter(([,n]) => !SYSTEM_TRIGGERS.includes(n.trigger));
 
           const notifCard = ([id, n]) => `
-            <div class="sm-card" style="padding:8px 10px;display:flex;align-items:center;gap:6px">
+            <div class="sm-card" style="padding:12px 14px;display:flex;align-items:center;gap:8px">
               <div style="flex:1;min-width:0">
                 <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name || 'Notification'}</div>
                 <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
@@ -3007,10 +3007,11 @@ class SecureMePanel extends HTMLElement {
               <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Always active — routed per user. Test sends to admin users only.</div>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:16px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
             ${systemNotifs.map(notifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No system notifications yet.</div>'}
           </div>
 
+          <div style="border-top:1px solid var(--sm-border);margin:16px 0 12px"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
               <h3 class="section-title" style="margin:0">Custom Notifications</h3>
@@ -3018,7 +3019,7 @@ class SecureMePanel extends HTMLElement {
             </div>
             <button class="sm-btn primary sm" data-action="add-notification">${icon('plus')} Add</button>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
             ${customNotifs.map(notifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No custom notifications. Click Add to create one.</div>'}
           </div>`;
         })() + `
@@ -3026,7 +3027,7 @@ class SecureMePanel extends HTMLElement {
         <div class="section-header">
           <h3 class="section-title">Automations</h3>
           <button class="sm-btn primary sm" data-action="add-automation">
-            ${icon("plus")} Ny automation
+            ${icon("plus")} Add Automation
           </button>
         </div>
         ${Object.entries(automations).map(([id, a]) => `
@@ -3354,7 +3355,7 @@ class SecureMePanel extends HTMLElement {
                      ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
                   <span style="color:${col};font-size:14px">${ic}</span>
                   <div style="flex:1;min-width:0">
-                    <div style="font-size:13px;font-weight:600;text-transform:capitalize">${r.test_type} Test</div>
+                    <div style="font-size:13px;font-weight:600">${{quick:"Quick",standard:"Standard",full:"Full",lights:"Lights",sensor:"Sensor",module:"Module"}[r.test_type] || r.test_type} Test</div>
                     <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
                   </div>
                   <div style="text-align:right;flex-shrink:0">
@@ -3674,7 +3675,7 @@ class SecureMePanel extends HTMLElement {
                      min-width:36px;padding-top:2px">${label}</span>
                 <div style="flex:1;min-width:0">
                   <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font-size:13px;font-weight:500;text-transform:capitalize">${id}</span>
+                    <span style="font-size:13px;font-weight:500">${MODULE_DEFS[id]?.name || id}</span>
                     ${m.entities_total != null && m.entities_total > 0 ? `
                       <span style="font-size:11px;color:var(--sm-text-secondary)">
                         ${m.entities_available}/${m.entities_total} entities
