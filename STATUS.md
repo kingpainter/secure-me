@@ -1,6 +1,6 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-27
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
@@ -14,12 +14,33 @@
 | HACS Validation | 7/8 (brands PR pending — expected) |
 | Hassfest | All passed |
 | Pytest Python 3.11 | All passed |
-| Pytest Python 3.12 | All passed |
+| Pytest Python 3.12 | All passed (cancelled when 3.11 fails) |
 | Version Consistency | Passed |
 
 ---
 
-## Active Development (v1.2.0 — ongoing)
+## Active Development (v1.3.0 — planning)
+
+### Next Steps
+- [ ] Manual test: TTS play button fires only once
+- [ ] Manual test: User notification routing — arm as Flemming, verify only Flemming gets push
+- [ ] Manual test: TTS quiet hours — set 22-07, verify TTS silent at night
+- [ ] Manual test: Triggered broadcast — verify all users with receive_critical get notified
+- [ ] Manual test: Test notification button — only admins receive
+- [ ] HACS brands PR (separate repo)
+- [ ] Version bump to v1.3.0 when manual tests pass
+
+### Known Gaps (tracked for future versions)
+| Feature | Priority | Target |
+|---|---|---|
+| Per-sensor `delay_on` debounce | Medium | v1.3.0 |
+| 5 arm modes fully wired in UI (vacation) | Low | v1.3.0 |
+| MQTT support | Low | v1.4.0 |
+| Health subscription fires 2x (two panel mounts) | Low | v1.3.0 |
+
+---
+
+## v1.2.0 — Completed Features
 
 ### TTS Module — Multi-service + Volume Control
 - Supports `tts.*` (cloud_say etc.), `notify.*`, and `script.*` (e.g. `script.ultra_tts` / House Voice)
@@ -155,28 +176,6 @@
 | Issue | Status |
 |---|---|
 | TTS double playback via `script.ultra_tts` | Fixed — single-attempt tts.speak |
-| Health subscription fires 169× at startup | Fixed — moved to `_loadData`, 2× remaining (two panel mounts) |
+| Health subscription fires 169x at startup | Fixed — moved to `_loadData`, 2x remaining (two panel mounts) |
 | Dialog buttons dead after re-open | Fixed — `currentDialog` reset on every `_open*Config()` call |
 | Module save said "Restart HA" | Fixed — now says "Active immediately" |
-
----
-
-## Known Gaps (tracked for future versions)
-| Feature | Priority | Target |
-|---|---|---|
-| Per-sensor `delay_on` debounce | Medium | v1.3.0 |
-| 5 arm modes fully wired in UI (vacation) | Low | v1.3.0 |
-| MQTT support | Low | v1.4.0 |
-| Health subscription fires 2× (two panel mounts) | Low | v1.3.0 |
-
----
-
-## Next Steps
-- [ ] Verify TTS play button now fires only once (needs manual test after tonight's fixes)
-- [ ] Manual test: User notification settings — arm as Flemming, verify only Flemming gets push
-- [ ] Manual test: TTS quiet hours — set 22-07, verify TTS silent at night
-- [ ] Manual test: Triggered → broadcast — verify all users with receive_critical get notified
-- [ ] Manual test: Test notification button → only admins receive
-- [ ] HACS brands PR (separate repo)
-- [ ] Commit tonight's JS fixes (dialog listeners, health subscription, debug spam removal)
-- [ ] Version bump to v1.3.0 when above tests pass
