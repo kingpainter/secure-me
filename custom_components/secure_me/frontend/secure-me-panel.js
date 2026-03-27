@@ -1301,6 +1301,7 @@ class SecureMePanel extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._activeTab = "sensors";
     this._alarmState = "disarmed";
+    this._alarmCountdown = 0;
     this._data = {
       sensors: [],
       zones: {},
@@ -1346,9 +1347,9 @@ class SecureMePanel extends HTMLElement {
       : this._alarmState.includes("armed") ? "armed"
       : this._alarmState === "arming" ? "arming" : "disarmed";
 
-    const stateLabel = {
+    const baseLabel = {
       disarmed: "Disarmed",
-      arming: "Arming...",
+      arming: "Arming",
       armed_away: "Armed Away",
       armed_home: "Armed Home",
       armed_night: "Armed Night",
@@ -1356,6 +1357,10 @@ class SecureMePanel extends HTMLElement {
       pending: "Pending",
       triggered: "TRIGGERED",
     }[this._alarmState] || this._alarmState;
+    const cd = this._alarmCountdown || 0;
+    const stateLabel = (cd > 0 && (this._alarmState === 'arming' || this._alarmState === 'pending'))
+      ? `${baseLabel} ${cd}s`
+      : baseLabel;
 
     const allClasses = ["disarmed", "armed", "arming", "pending", "triggered"];
 
@@ -1498,6 +1503,7 @@ class SecureMePanel extends HTMLElement {
     );
     if (alarmEntity && alarmEntity.state !== this._alarmState) {
       this._alarmState = alarmEntity.state;
+      this._alarmCountdown = parseInt(alarmEntity.attributes?.countdown || 0);
       this._updateStatusPills();
       // Also queue a render so countdown/armed_by etc. refresh
       this._queueRender();
@@ -1563,6 +1569,7 @@ class SecureMePanel extends HTMLElement {
             // PERF: Update alarm state pill in-place without full re-render
             if (event.data.alarm_state && event.data.alarm_state !== this._alarmState) {
               this._alarmState = event.data.alarm_state;
+              if (event.data.countdown != null) this._alarmCountdown = event.data.countdown;
               this._updateStatusPills();
             }
           }
@@ -1644,7 +1651,7 @@ class SecureMePanel extends HTMLElement {
     if (modules) this._data.modules = modules.modules || {};
     if (notifications) this._data.notifications = notifications.notifications || {};
     if (automations) this._data.automations = automations.automations || {};
-    if (state) this._alarmState = state.state || "disarmed";
+    if (state) { this._alarmState = state.state || "disarmed"; this._alarmCountdown = state.countdown || 0; }
     if (fakePresence) {
       this._data.fakePresence = fakePresence.active || false;
       this._data.homeAloneCameras = fakePresence.home_alone_cameras || [];
