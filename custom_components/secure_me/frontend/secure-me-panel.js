@@ -3314,11 +3314,11 @@ class SecureMePanel extends HTMLElement {
       <!-- ── Scheduled Tests ───────────────────────────────────────── -->
       ` + this._renderScheduledTests() + `
 
-      <!-- 2-col grid: [Last Test Run | Test History] / [Sensor Status | Battery Overview] -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px;align-items:start">
+      <!-- Row 1: Last Test Run | Test History -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:20px">
 
-        <!-- col 1: Last Test Run -->
-        <div>
+        <!-- Last Test Run -->
+        <div style="display:flex;flex-direction:column">
           <div class="section-header">
             <h3 class="section-title">Last Test Run</h3>
             ${lastResult ? `<span class="badge ${
@@ -3326,15 +3326,21 @@ class SecureMePanel extends HTMLElement {
               lastResult.overall === "warning" ? "entry" : "perimeter"
             }">${lastResult.overall.toUpperCase()}</span>` : ""}
           </div>
-          ${lastResult ? this._renderTestResult(lastResult) : `
-            <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
-              No tests run yet.
-            </div>
-          `}
+          <div style="flex:1">
+            ${lastResult ? this._renderTestResult(lastResult) : `
+              <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
+                No tests run yet.
+              </div>
+            `}
+          </div>
         </div>
 
-        <!-- col 2: Test History -->
-        <div>
+        <!-- Test History -->
+        <div style="display:flex;flex-direction:column">
+          <div class="section-header">
+            <h3 class="section-title">Test History</h3>
+            ${results.length > 1 ? `<span class="badge actions">${results.length} results</span>` : ""}
+          </div>
           ${results.length > 1 ? (() => {
             const renderRow = (r, i) => {
               const col = r.overall === "pass" ? "var(--sm-accent)" :
@@ -3363,11 +3369,7 @@ class SecureMePanel extends HTMLElement {
             const recent = results.slice(0, 3);
             const older  = results.slice(3, 50);
             return `
-              <div class="section-header">
-                <h3 class="section-title">Test History</h3>
-                <span class="badge actions">${results.length} results</span>
-              </div>
-              <div class="sm-card" style="padding:0;overflow:hidden">
+              <div class="sm-card" style="padding:0;overflow:hidden;flex:1">
                 ${recent.map((r, i) => renderRow(r, i)).join("")}
                 ${older.length > 0 ? `
                   <div class="collapsible-header ${this._testHistoryExpanded ? 'expanded' : ''}"
@@ -3384,17 +3386,16 @@ class SecureMePanel extends HTMLElement {
                 ` : ''}
               </div>`;
           })() : `
-            <div class="section-header"><h3 class="section-title">Test History</h3></div>
             <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary);font-size:13px">No history yet.</div>
           `}
         </div>
 
-        <!-- col 1: Sensor Status -->
-        <div>${this._renderSensorStatus()}</div>
+      </div>
 
-        <!-- col 2: Battery Overview -->
-        <div>${this._renderBatteryOverview(batteries)}</div>
-
+      <!-- Row 2: Sensor Status | Battery Overview -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;align-items:start">
+        <div style="display:flex;flex-direction:column">${this._renderSensorStatus()}</div>
+        <div style="display:flex;flex-direction:column">${this._renderBatteryOverview(batteries)}</div>
       </div>
     `;
   }
@@ -3781,8 +3782,8 @@ class SecureMePanel extends HTMLElement {
 
     const online  = sensorStatuses.filter(s => s.online).length;
     const offline = sensorStatuses.filter(s => !s.online).length;
-    const visible = sensorStatuses.slice(0, 8);
-    const hidden  = sensorStatuses.slice(8);
+    const visible = sensorStatuses.slice(0, 7);
+    const hidden  = sensorStatuses.slice(7);
 
     const renderSensorRow = (s, i, border) => `
       <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
@@ -3831,11 +3832,11 @@ class SecureMePanel extends HTMLElement {
   _renderBatteryOverview(batteries) {
     if (!batteries || batteries.length === 0) {
       return `
-        <div class="section-header" style="margin-top:24px">
+        <div class="section-header">
           <h3 class="section-title">Battery Overview</h3>
         </div>
         <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
-          No battery sensors discovered. Battery sensors with device_class "battery" will appear here.
+          No battery sensors discovered.
         </div>
       `;
     }
@@ -3881,35 +3882,29 @@ class SecureMePanel extends HTMLElement {
       `;
     };
 
+    const visibleBat = sorted.slice(0, 8);
+    const hiddenBat  = sorted.slice(8);
+
     return `
-      <div class="section-header" style="margin-top:24px">
+      <div class="section-header">
         <h3 class="section-title">Battery Overview</h3>
         <span class="badge accent">${batteries.length} tracked</span>
       </div>
 
       <div class="sm-card" style="padding:0;overflow:hidden">
-        <!-- Low batteries (always visible) -->
-        ${lowBatteries.length > 0 ? `
-          ${lowBatteries.map((bat, i) => renderBatteryRow(bat, i, i > 0)).join("")}
-        ` : `
-          <div style="padding:16px;text-align:center;color:var(--sm-accent);font-size:13px;font-weight:600">
-            All batteries above 50%
-          </div>
-        `}
-
-        <!-- OK batteries (collapsible) -->
-        ${okBatteries.length > 0 ? `
+        ${visibleBat.map((bat, i) => renderBatteryRow(bat, i, i > 0)).join("")}
+        ${hiddenBat.length > 0 ? `
           <div style="border-top:1px solid var(--sm-border)">
             <div class="collapsible-header ${this._batteryOkExpanded ? 'expanded' : ''}"
                  data-action="toggle-battery-ok"
                  style="padding:12px 16px;margin:0">
               <span style="font-size:12px;color:var(--sm-text-secondary)">
-                ${okBatteries.length} batteries above 50%
+                ${hiddenBat.length} more batteries
               </span>
               <span class="chevron">${icon("chevron")}</span>
             </div>
             <div class="collapsible-body ${this._batteryOkExpanded ? 'expanded' : ''}">
-              ${okBatteries.map((bat, i) => renderBatteryRow(bat, i, true)).join("")}
+              ${hiddenBat.map((bat, i) => renderBatteryRow(bat, i, true)).join("")}
             </div>
           </div>
         ` : ''}
