@@ -1310,6 +1310,7 @@ class SecureMePanel extends HTMLElement {
     this._sirenSaving    = false;
     this._lightsSaving   = false;
     this._batteryOkExpanded = false;  // Collapsible: batteries >50%
+    this._envExpanded = false;           // Collapsible: environmental sensors (default collapsed)
     this._hiddenSensorsExpanded = false; // Collapsible: auto-hidden sensors
     this._availablePersons = null;       // Cached person entities for user dialog
     this._sensorStatusExpanded = true; // Sensor online/offline section
@@ -2065,14 +2066,27 @@ class SecureMePanel extends HTMLElement {
 
       ${envSensors.length > 0 ? `
         <div class="sm-card no-pad" style="overflow:hidden;margin-bottom:16px;border-color:rgba(255,59,48,0.3)">
-          <div class="sm-list-header" style="background:rgba(255,59,48,0.08);border-bottom:1px solid rgba(255,59,48,0.2);display:flex;flex-direction:column;align-items:flex-start;gap:4px">
-            <span style="display:flex;align-items:center;gap:6px;color:var(--sm-danger)">
-              ${icon("warn")}
-              <span>Environmental Sensors &mdash; Always Active (${envSensors.length})</span>
-            </span>
-            <span style="font-size:11px;color:var(--sm-text-secondary);padding-left:2px">Notifications cannot be disabled</span>
+          <div class="collapsible-header ${this._envExpanded ? 'expanded' : ''}"
+               data-action="toggle-env-sensors"
+               style="background:rgba(255,59,48,0.08);border-bottom:${this._envExpanded ? '1px solid rgba(255,59,48,0.2)' : 'none'};padding:10px 16px;margin:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+              <span style="display:flex;align-items:center;gap:6px;color:var(--sm-danger)">
+                ${icon("warn")}
+                <span style="font-weight:500">Environmental Sensors &mdash; Always Active (${envSensors.length})</span>
+              </span>
+              <span class="chevron">${icon("chevron")}</span>
+            </div>
+            ${!this._envExpanded ? `
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;padding-left:22px">
+                ${envSensors.map(s => `<span style="font-size:11px;color:var(--sm-text-secondary);background:rgba(255,59,48,0.10);border:1px solid rgba(255,59,48,0.18);border-radius:4px;padding:1px 6px">${s.name}</span>`).join("")}
+              </div>
+            ` : `
+              <span style="font-size:11px;color:var(--sm-text-secondary);padding-left:2px">Notifications cannot be disabled</span>
+            `}
           </div>
-          ${envSensors.map(s => renderEnvRow(s)).join("")}
+          <div class="collapsible-body ${this._envExpanded ? 'expanded' : ''}">
+            ${envSensors.map(s => renderEnvRow(s)).join("")}
+          </div>
         </div>
       ` : ""}
 
@@ -5554,6 +5568,14 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='toggle-sensors-inactive']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._sensorsInactiveExpanded = !this._sensorsInactiveExpanded;
+        this._render();
+      });
+    });
+
+    // Environmental sensors section toggle
+    root.querySelectorAll("[data-action='toggle-env-sensors']").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._envExpanded = !this._envExpanded;
         this._render();
       });
     });
