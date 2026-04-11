@@ -24,8 +24,10 @@ from .const import (
     STATE_ALARM_ARMED_HOME,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMED_HOME_ALONE,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
+    VERSION,
 )
 from .coordinator import SecureMeCoordinator
 
@@ -209,7 +211,7 @@ class SecureMeBaseSensor(CoordinatorEntity[SecureMeCoordinator], SensorEntity):
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
 
     @callback

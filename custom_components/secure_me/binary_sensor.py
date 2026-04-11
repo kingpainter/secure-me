@@ -23,6 +23,7 @@ from .const import (
     MODULE_CLIMATE,
     MODULE_SIREN,
     MODULE_TTS,
+    VERSION,
 )
 from .coordinator import SecureMeCoordinator
 
@@ -139,7 +140,7 @@ class SecureMeSystemHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
 
     @property
@@ -235,7 +236,7 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
         # Subscriptions to tracker entity state changes
         self._tracker_unsubs: list = []
@@ -383,7 +384,7 @@ class SecureMeModuleHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
 
     @property
@@ -500,7 +501,7 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
 
     @property

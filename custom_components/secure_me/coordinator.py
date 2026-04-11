@@ -322,35 +322,32 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return
 
         _LOGGER.info("Received push action: %s", action)
-        import asyncio
-        loop = asyncio.get_event_loop()
-
         if action == EVENT_ACTION_DISARM:
-            loop.create_task(self.async_disarm())
+            self.hass.async_create_task(self.async_disarm())
 
         elif action == EVENT_ACTION_FORCE_ARM:
             # Force-arm in last used mode (or away if unknown)
             mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
-            loop.create_task(self._arm_by_state(mode, skip_delay=True, force=True))
+            self.hass.async_create_task(self._arm_by_state(mode, skip_delay=True, force=True))
 
         elif action == EVENT_ACTION_RETRY_ARM:
             mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
-            loop.create_task(self._arm_by_state(mode))
+            self.hass.async_create_task(self._arm_by_state(mode))
 
         elif action == EVENT_ACTION_ARM_AWAY:
-            loop.create_task(self.async_arm_away())
+            self.hass.async_create_task(self.async_arm_away())
 
         elif action == EVENT_ACTION_ARM_HOME:
-            loop.create_task(self.async_arm_home())
+            self.hass.async_create_task(self.async_arm_home())
 
         elif action == EVENT_ACTION_ARM_NIGHT:
-            loop.create_task(self.async_arm_night())
+            self.hass.async_create_task(self.async_arm_night())
 
         elif action == EVENT_ACTION_ARM_VACATION:
-            loop.create_task(self.async_arm_vacation())
+            self.hass.async_create_task(self.async_arm_vacation())
 
         elif action == EVENT_ACTION_ARM_HOME_ALONE:
-            loop.create_task(self.async_arm_home_alone())
+            self.hass.async_create_task(self.async_arm_home_alone())
 
     async def _arm_by_state(
         self, state: str, skip_delay: bool = False, force: bool = False

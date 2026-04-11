@@ -463,8 +463,7 @@ class ZoneManager:
                     _LOGGER.info(
                         "arm_on_close triggered by %s (was open, now closed)", entity_id
                     )
-                    import asyncio as _asyncio
-                    _asyncio.ensure_future(self._arm_on_close_callback(entity_id))
+                    self.hass.async_create_task(self._arm_on_close_callback(entity_id))
 
             changed, zone = self.update_sensor_state(entity_id, new_state)
             if not changed or not zone or not zone.is_triggered:
@@ -493,9 +492,8 @@ class ZoneManager:
                 # Door/contact sensor — dispatch action notification
                 if device_class in ("door", "window", "opening"):
                     sensor_cfg = self.get_home_alone_sensor_config(entity_id)
-                    import asyncio as _asyncio
                     from .notification_dispatcher import dispatch_home_alone_door_trigger
-                    _asyncio.ensure_future(
+                    self.hass.async_create_task(
                         dispatch_home_alone_door_trigger(
                             self.hass, entity_id, sensor_name, sensor_cfg
                         )
