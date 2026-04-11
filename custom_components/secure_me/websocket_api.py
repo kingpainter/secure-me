@@ -27,6 +27,11 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_arm_vacation)
     websocket_api.async_register_command(hass, ws_arm_home_alone)
     websocket_api.async_register_command(hass, ws_disarm)
+    # Speaker profiles (v1.4.0)
+    websocket_api.async_register_command(hass, ws_get_speaker_profiles)
+    websocket_api.async_register_command(hass, ws_save_speaker_profiles)
+    # Home Alone quick messages for alarm card
+    websocket_api.async_register_command(hass, ws_get_home_alone_messages)
     websocket_api.async_register_command(hass, ws_get_zones)
     websocket_api.async_register_command(hass, ws_save_zone)
     websocket_api.async_register_command(hass, ws_delete_zone)
@@ -782,6 +787,7 @@ async def ws_get_notify_services(
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/test_tts",
     vol.Required("message"): str,
+    vol.Optional("speaker_ids"): list,
 })
 @websocket_api.async_response
 async def ws_test_tts(
@@ -789,7 +795,11 @@ async def ws_test_tts(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Test TTS by playing a message immediately via the TTS module."""
+    """Test TTS by playing a message immediately via the TTS module.
+
+    speaker_ids: optional list of media_player entity_ids to target.
+                 None/omitted = all configured speakers.
+    """
     coordinator = _get_coordinator(hass)
     if not coordinator:
         connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
@@ -800,7 +810,8 @@ async def ws_test_tts(
         connection.send_error(msg["id"], "tts_not_enabled", "TTS module is not enabled")
         return
 
-    # Respects admin quiet hours for TTS test
+    speaker_ids = msg.get("speaker_ids") or None
+
     try:
         from .notification_dispatcher import _is_tts_quiet_now
         store = _get_store(hass)
@@ -808,11 +819,10 @@ async def ws_test_tts(
             u for u in (store.get_users().values() if store else [])
             if u.get("enabled", True) and u.get("admin")
         ]
-        # Only suppress if ALL admins are in quiet hours — otherwise play
         if admins and all(_is_tts_quiet_now(u) for u in admins):
             connection.send_result(msg["id"], {"success": False, "error": "TTS quiet hours active for all admins"})
             return
-        await tts_module.announce_system(msg["message"])
+        await tts_module.announce_system(msg["message"], speaker_ids=speaker_ids)
         connection.send_result(msg["id"], {"success": True})
     except Exception as err:
         _LOGGER.error("TTS test failed: %s", err)
@@ -1884,3 +1894,110 @@ async def ws_disarm(
     code = msg.get("code")
     success = await coordinator.async_disarm(code=code)
     connection.send_result(msg["id"], {"success": success})
+
+
+#
+# SPEAKER PROFILES (v1.4.0)
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
+})
+@websocket_api.async_response
+async def ws_get_speaker_profiles(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get all speaker profiles."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    profiles = store.get_speaker_profiles()
+    # Enrich with current media_player state
+    enriched = []
+    for p in profiles:
+        eid = p.get("entity_id", "")
+        state = hass.states.get(eid)
+        enriched.append({
+            **p,
+            "available": state is not None and state.state not in ("unavailable", "unknown"),
+            "current_volume": state.attributes.get("volume_level") if state else None,
+        })
+    connection.send_result(msg["id"], {"profiles": enriched})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_speaker_profiles",
+    vol.Required("profiles"): list,
+})
+@websocket_api.async_response
+async def ws_save_speaker_profiles(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save speaker profiles and reload TTS module config."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    profiles = msg["profiles"]
+    # Validate each profile has required fields
+    for p in profiles:
+        if not p.get("entity_id"):
+            connection.send_error(msg["id"], "invalid_profile", "Each profile needs entity_id")
+            return
+        p.setdefault("name", p["entity_id"])
+        p.setdefault("volume", 0.5)
+        p.setdefault("tts_service", "tts.cloud_say")
+        p.setdefault("tts_entity", "tts.home_assistant_cloud")
+
+    await store.async_save_speaker_profiles(profiles)
+
+    # Reload TTS module config so it picks up new profiles immediately
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        tts = coordinator.modules.get("tts")
+        if tts:
+            tts._speaker_profiles = profiles
+            _LOGGER.debug("TTS speaker profiles reloaded: %d profiles", len(profiles))
+
+    connection.send_result(msg["id"], {"success": True, "count": len(profiles)})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
+})
+@websocket_api.async_response
+async def ws_get_home_alone_messages(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get Home Alone quick messages for the alarm card.
+
+    Returns notifications with trigger=home_alone_action, formatted for
+    the alarm card's quick-message buttons. Each message includes speaker
+    preferences so the card can target the right speakers.
+    """
+    store = _get_store(hass)
+    if not store:
+        connection.send_result(msg["id"], {"messages": []})
+        return
+
+    messages = []
+    for notif in store.get_notifications().values():
+        if not notif.get("enabled", True):
+            continue
+        if notif.get("trigger") != "home_alone_action":
+            continue
+        messages.append({
+            "label": notif.get("name", ""),
+            "message": notif.get("message", ""),
+            "speakers": notif.get("tts_speakers", []),
+        })
+
+    connection.send_result(msg["id"], {"messages": messages})

@@ -57,6 +57,7 @@ class SecureMeAlarmCard extends HTMLElement {
     this._ttsOpen      = false;
     this._ttsSending   = null;   // label of in-progress TTS send
     this._ttsError     = null;   // error message from last TTS attempt
+    this._dynamicMsgs  = null;   // v1.4.0: loaded from secure_me/get_home_alone_messages
     // Render cache keys -- sections only re-render when these change
     this._lastStatusState = null;
     this._lastPinState    = null;
@@ -73,8 +74,21 @@ class SecureMeAlarmCard extends HTMLElement {
     if (!this._shellBuilt) {
       this._buildShell();
       this._shellBuilt = true;
+      this._loadDynamicMessages();
     } else {
       this._update();
+    }
+  }
+
+  async _loadDynamicMessages() {
+    try {
+      const result = await this._hass.callWS({ type: 'secure_me/get_home_alone_messages' });
+      if (result?.messages) {
+        this._dynamicMsgs = result.messages;
+        this._update(true);
+      }
+    } catch {
+      this._dynamicMsgs = null;
     }
   }
 
@@ -82,7 +96,10 @@ class SecureMeAlarmCard extends HTMLElement {
   _requireCode()  { return this._config.require_code !== false; }
   _showHA()       { return this._config.show_home_alone !== false; }
   _showTTS()      { return this._config.show_tts !== false; }
-  _ttsMessages()  { return this._config.tts_messages || []; }
+  _ttsMessages() {
+    // v1.4.0: prefer dynamic messages from panel; fallback to yaml config
+    return this._dynamicMsgs ?? this._config.tts_messages ?? [];
+  }
   _state()        { return this._hass?.states?.[this._entity()]?.state ?? "unknown"; }
   _attr(a)        { return this._hass?.states?.[this._entity()]?.attributes?.[a]; }
 
@@ -528,7 +545,7 @@ class SecureMeAlarmCard extends HTMLElement {
     if (ttsBtn) {
       const idx = parseInt(ttsBtn.dataset.smTtsIdx, 10);
       const msgs = this._ttsMessages();
-      if (msgs[idx]) this._sendTTS(msgs[idx].label, msgs[idx].message);
+      if (msgs[idx]) this._sendTTS(msgs[idx].label, msgs[idx].message, msgs[idx].speakers);
       return;
     }
 
@@ -633,7 +650,7 @@ class SecureMeAlarmCard extends HTMLElement {
   }
 
   // -- TTS logic --------------------------------------------------------
-  async _sendTTS(label, message) {
+  async _sendTTS(label, message, speakers) {
     if (this._ttsSending) return;
     this._ttsSending = label;
     this._ttsError = null;
@@ -643,6 +660,7 @@ class SecureMeAlarmCard extends HTMLElement {
       await this._hass.callWS({
         type: "secure_me/test_tts",
         message: message,
+        ...(speakers?.length ? { speaker_ids: speakers } : {}),
       });
     } catch (err) {
       // Do NOT fall through to tts/speak -- it requires media_player_entity_id

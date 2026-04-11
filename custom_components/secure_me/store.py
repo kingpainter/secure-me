@@ -142,6 +142,7 @@ class SecureMeStore:
             "notifications": {},
             "automations": {},
             "scheduled_tests": {},
+            "speaker_profiles": [],
             "fake_presence": False,
             "home_alone_cameras": [],
         }
@@ -437,7 +438,18 @@ class SecureMeStore:
             for s in self.hass.states.async_all(domain)
         ]
 
-    # ─── Notifications ────────────────────────────────────────────────────────
+    # -- Speaker Profiles (v1.4.0) ------------------------------------------
+
+    def get_speaker_profiles(self) -> list[dict[str, Any]]:
+        """Get all speaker profiles."""
+        return self._data.get("speaker_profiles", [])
+
+    async def async_save_speaker_profiles(self, profiles: list[dict[str, Any]]) -> None:
+        """Save the full speaker profile list."""
+        self._data["speaker_profiles"] = profiles
+        await self.async_save()
+
+    # -- Notifications -------------------------------------------------------
 
     def get_notifications(self) -> dict[str, Any]:
         """Get all notification configurations."""

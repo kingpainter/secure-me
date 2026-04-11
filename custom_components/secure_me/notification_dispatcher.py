@@ -140,8 +140,12 @@ async def _send_tts_to_user(
     user: dict,
     message: str,
     urgent: bool = False,
+    speaker_ids: list | None = None,
 ) -> None:
-    """Send TTS announcement, respecting the user's quiet hours."""
+    """Send TTS announcement, respecting the user's quiet hours.
+
+    speaker_ids: optional list of entity_ids to target. None = all speakers.
+    """
     if _is_tts_quiet_now(user):
         _LOGGER.debug(
             "TTS suppressed for user '%s' — quiet hours active", user.get("name", "?")
@@ -152,7 +156,7 @@ async def _send_tts_to_user(
         _LOGGER.debug("TTS channel requested but TTS module not enabled")
         return
     try:
-        await tts.announce_system(message, urgent=urgent)
+        await tts.announce_system(message, urgent=urgent, speaker_ids=speaker_ids or None)
     except Exception as err:
         _LOGGER.error("TTS system announcement failed: %s", err)
 
@@ -188,7 +192,8 @@ async def _dispatch_to_user(
         )
 
     if CHANNEL_TTS in channels and message:
-        await _send_tts_to_user(hass, user or {}, message, urgent=critical)
+        speaker_ids = notif.get("tts_speakers") or None
+        await _send_tts_to_user(hass, user or {}, message, urgent=critical, speaker_ids=speaker_ids)
 
 
 async def _dispatch_for_trigger(
@@ -568,7 +573,8 @@ class NotificationDispatcher:
                     svc = user.get("notify_service") or notif.get("service", "notify.notify")
                     await _send_push(self.hass, svc, title, msg, critical=True)
                     if CHANNEL_TTS in channels:
-                        await _send_tts_to_user(self.hass, user, msg, urgent=True)
+                        sp_ids = notif.get("tts_speakers") or None
+                        await _send_tts_to_user(self.hass, user, msg, urgent=True, speaker_ids=sp_ids)
                     sent = True
                 if not sent:
                     await _send_push(self.hass, notif.get("service", "notify.notify"), title, msg, critical=True)

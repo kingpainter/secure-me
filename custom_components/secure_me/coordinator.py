@@ -112,6 +112,8 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
         normalized["language"] = config.get("language", "da")
         normalized["volume"] = config.get("volume", 0.5)
         normalized["custom_messages"] = config.get("custom_messages", [])
+        # v1.4.0: speaker profiles passed through from store
+        normalized["speaker_profiles"] = config.get("speaker_profiles", [])
     elif module_id == "siren":
         # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)
         normalized["sirens"] = config.get("sirens", [])
@@ -897,9 +899,16 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         """Load module and sensor configs from store, re-initialize modules."""
         self.store = store
         stored = store.get_modules()
+
+        # v1.4.0: inject speaker_profiles into TTS module config
+        speaker_profiles = store.get_speaker_profiles()
+
         if stored:
             for module_id, config in stored.items():
                 if config:
+                    if module_id == "tts" and speaker_profiles:
+                        config = dict(config)
+                        config["speaker_profiles"] = speaker_profiles
                     normalized = _normalize_coordinator_config(module_id, config)
                     self.update_module_config(module_id, normalized)
 
