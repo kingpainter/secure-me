@@ -37,10 +37,6 @@ CUSTOM_COMPONENTS = "custom_components"
 CARD_URL      = f"/api/{DOMAIN}-alarm-card"
 CARD_FILENAME = "secure-me-alarm-card.js"
 
-# Info card (persons, weather, alarm status, lock)
-INFO_CARD_URL      = f"/api/{DOMAIN}-info-card"
-INFO_CARD_FILENAME = "secure-me-info-card.js"
-
 
 async def async_register_panel(
     hass: HomeAssistant,
@@ -59,8 +55,7 @@ async def async_register_panel(
     panel_dir = os.path.join(root_dir, PANEL_FOLDER)
     panel_file = os.path.join(panel_dir, PANEL_FILENAME)
 
-    card_file      = os.path.join(panel_dir, CARD_FILENAME)
-    info_card_file = os.path.join(panel_dir, INFO_CARD_FILENAME)
+    card_file = os.path.join(panel_dir, CARD_FILENAME)
 
     if not os.path.isfile(panel_file):
         _LOGGER.error(
@@ -87,30 +82,16 @@ async def async_register_panel(
             _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
         else:
             _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
-        # Info card
-        if os.path.isfile(info_card_file):
-            paths.append(StaticPathConfig(INFO_CARD_URL, info_card_file, cache_headers=False))
-            _LOGGER.info("Secure Me: info card registered at %s", INFO_CARD_URL)
-        else:
-            _LOGGER.debug("Secure Me: info card JS not found at %s, skipping", info_card_file)
         await hass.http.async_register_static_paths(paths)
         hass.data[DOMAIN]["_static_registered"] = True
         _LOGGER.info(
             "Secure Me: static path registered %s -> %s", PANEL_URL, panel_file
         )
 
-        # Register both cards as Lovelace extra modules
-        for url, fpath, label in [
-            (CARD_URL,      card_file,      "alarm card"),
-            (INFO_CARD_URL, info_card_file, "info card"),
-        ]:
-            if os.path.isfile(fpath):
-                try:
-                    versioned = f"{url}?v={VERSION}"
-                    frontend.async_register_extra_module_url(hass, versioned)
-                    _LOGGER.info("Secure Me: %s registered as Lovelace module at %s", label, versioned)
-                except Exception as err:
-                    _LOGGER.warning("Secure Me: could not register %s as Lovelace module: %s", label, err)
+        # Register alarm card as a Lovelace resource
+        await _async_register_lovelace_resources(hass, [
+            (f"{CARD_URL}?v={VERSION}", card_file, "alarm card"),
+        ])
     else:
         _LOGGER.debug(
             "Secure Me: static path %s already registered, skipping", PANEL_URL
@@ -135,6 +116,79 @@ async def async_register_panel(
         sidebar_icon,
         DOMAIN,
     )
+
+
+async def _async_register_lovelace_resources(
+    hass: HomeAssistant,
+    cards: list[tuple[str, str, str]],
+) -> None:
+    """Register JS files as Lovelace resources (module type).
+
+    Uses the lovelace storage collection directly so the cards appear
+    in HA's resource list and are loaded on every dashboard.
+    Falls back gracefully if the lovelace component is not available.
+
+    Args:
+        cards: list of (url, filepath, label) tuples.
+               url      — versioned URL e.g. /api/secure_me-info-card?v=1.3.0
+               filepath — absolute path to the JS file (used for existence check)
+               label    — human-readable name for logging
+    """
+    try:
+        from homeassistant.components.lovelace import resources as ll_resources  # type: ignore[import]
+    except ImportError:
+        _LOGGER.warning(
+            "Secure Me: lovelace resources module not available — "
+            "add cards manually via Settings > Dashboards > Resources"
+        )
+        return
+
+    try:
+        ll = hass.data.get("lovelace")
+        if ll is None:
+            _LOGGER.debug("Secure Me: lovelace not yet loaded, skipping resource registration")
+            return
+
+        resources = ll.get("resources")
+        if resources is None:
+            _LOGGER.debug("Secure Me: lovelace resources collection not available")
+            return
+
+        # Load existing resources so we can check for duplicates
+        try:
+            await resources.async_load()
+        except Exception:
+            pass
+
+        existing_urls: set[str] = set()
+        try:
+            for item in resources.async_items():
+                existing_urls.add(item.get("url", "").split("?")[0])
+        except Exception:
+            pass
+
+        for url, fpath, label in cards:
+            if not os.path.isfile(fpath):
+                _LOGGER.debug("Secure Me: %s not found at %s, skipping", label, fpath)
+                continue
+
+            base_url = url.split("?")[0]
+            if base_url in existing_urls:
+                _LOGGER.debug("Secure Me: %s already in Lovelace resources, skipping", label)
+                continue
+
+            try:
+                await resources.async_create_item({"res_type": "module", "url": url})
+                _LOGGER.info("Secure Me: %s added to Lovelace resources at %s", label, url)
+            except Exception as err:
+                _LOGGER.warning("Secure Me: could not add %s to Lovelace resources: %s", label, err)
+
+    except Exception as err:
+        _LOGGER.warning(
+            "Secure Me: Lovelace resource registration failed (%s) — "
+            "add cards manually via Settings > Dashboards > Resources",
+            err,
+        )
 
 
 def async_unregister_panel(hass: HomeAssistant) -> None:
