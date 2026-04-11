@@ -54,8 +54,9 @@ class SecureMeAlarmCard extends HTMLElement {
     this._pinMode    = null;  // 'arm-away' | 'arm-home' | ... | 'disarm' | null
     this._pinValue   = "";
     this._pinError   = "";
-    this._ttsOpen    = false;
-    this._ttsSending = null;  // label of in-progress TTS send
+    this._ttsOpen      = false;
+    this._ttsSending   = null;   // label of in-progress TTS send
+    this._lastTTSState = null;   // cache key to skip redundant TTS re-renders
   }
 
   setConfig(config) {
@@ -334,7 +335,7 @@ class SecureMeAlarmCard extends HTMLElement {
   }
 
   // -- Update (called on every hass change) --------------------------------
-  _update() {
+  _update(forceTTS = false) {
     const root = this.shadowRoot;
     if (!root || !this._hass) return;
 
@@ -346,7 +347,15 @@ class SecureMeAlarmCard extends HTMLElement {
     if (ss) ss.innerHTML = this._renderStatus();
     if (ps) ps.innerHTML = this._pinMode ? this._renderPin() : "";
     if (as) as.innerHTML = !this._pinMode ? this._renderArmButtons() : "";
-    if (ts) ts.innerHTML = (!this._pinMode && this._showTTS()) ? this._renderTTS() : "";
+
+    // Only re-render TTS section when its state actually changes (open/closed,
+    // sending state) — not on every hass update. Prevents hover blink loop
+    // caused by innerHTML replacement resetting CSS hover state.
+    const ttsState = `${this._ttsOpen}:${this._ttsSending}`;
+    if (ts && (forceTTS || ttsState !== this._lastTTSState)) {
+      this._lastTTSState = ttsState;
+      ts.innerHTML = (!this._pinMode && this._showTTS()) ? this._renderTTS() : "";
+    }
   }
 
   // -- Renders -------------------------------------------------------------
@@ -486,7 +495,7 @@ class SecureMeAlarmCard extends HTMLElement {
     const toggle = e.target.closest("[data-sm-tts-toggle]");
     if (toggle) {
       this._ttsOpen = !this._ttsOpen;
-      this._update();
+      this._update(true);
       return;
     }
 
@@ -599,7 +608,7 @@ class SecureMeAlarmCard extends HTMLElement {
   async _sendTTS(label, message) {
     if (this._ttsSending) return;
     this._ttsSending = label;
-    this._update();
+    this._update(true);
     try {
       // Call Secure Me websocket TTS endpoint
       await this._hass.callWS({
@@ -615,7 +624,7 @@ class SecureMeAlarmCard extends HTMLElement {
       } catch (_) {}
     }
     this._ttsSending = null;
-    this._update();
+    this._update(true);
   }
 
   getCardSize() { return 4; }
