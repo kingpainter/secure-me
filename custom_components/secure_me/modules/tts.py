@@ -220,8 +220,10 @@ class TTSModule(AlarmModule):
                 target={"entity_id": self.tts_entity},
             )
 
-            # Vent pa at beskeden er faerdig (dynamisk baseret paa laengde)
-            wait_seconds = max(3, len(message) // 12)
+            # Wait for playback to finish before restoring volume.
+            # Danish speech rate ~= 13 chars/sec. Add 2s buffer for
+            # Alexa processing delay + end-of-sentence pause.
+            wait_seconds = max(4, len(message) / 13 + 2)
             await asyncio.sleep(wait_seconds)
 
             # Restore original volumen
