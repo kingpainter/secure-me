@@ -366,7 +366,7 @@ class SecureMeAlarmCard extends HTMLElement {
       pending:          { color: "#f59e0b", bg: "rgba(245,158,11,.18)", label: `Indgang... ${countdown > 0 ? countdown + "s" : ""}` },
       triggered:        { color: "#ef4444", bg: "rgba(239,68,68,.20)",  label: "ALARM UDLOEST!" },
     };
-    const cfg = CFG[state] || { color: "#64748b", bg: "var(--bg3)", label: _smEsc(state) };
+    const cfg = CFG[state] || { color: "#64748b", bg: "var(--bg3)", label: state === "unknown" ? "Henter status..." : _smEsc(state) };
     const pulse = ["arming","pending","triggered"].includes(state)
       ? "animation:pulse 1s infinite;" : "";
 
@@ -454,10 +454,11 @@ class SecureMeAlarmCard extends HTMLElement {
     if (!msgs.length) return "";
     const open = this._ttsOpen;
 
-    const msgButtons = open ? msgs.map(m => `
+    // Use index-based lookup to avoid HTML attribute escaping issues with
+    // message content (quotes, special chars break inline data attributes).
+    const msgButtons = open ? msgs.map((m, i) => `
       <button class="tts-msg-btn ${this._ttsSending === m.label ? "sending" : ""}"
-              data-sm-tts="${_smEsc(m.label)}"
-              data-sm-tts-msg="${_smEsc(m.message)}">
+              data-sm-tts-idx="${i}">
         <span>${_smEsc(m.label)}</span>
         <span class="tts-msg-icon">${SMI.speaker}</span>
       </button>`).join("") : "";
@@ -489,10 +490,12 @@ class SecureMeAlarmCard extends HTMLElement {
       return;
     }
 
-    // TTS message send
-    const ttsBtn = e.target.closest("[data-sm-tts]");
-    if (ttsBtn && ttsBtn.dataset.smTtsMsg !== undefined) {
-      this._sendTTS(ttsBtn.dataset.smTts, ttsBtn.dataset.smTtsMsg);
+    // TTS message send (index-based to avoid attribute escaping issues)
+    const ttsBtn = e.target.closest("[data-sm-tts-idx]");
+    if (ttsBtn) {
+      const idx = parseInt(ttsBtn.dataset.smTtsIdx, 10);
+      const msgs = this._ttsMessages();
+      if (msgs[idx]) this._sendTTS(msgs[idx].label, msgs[idx].message);
       return;
     }
 
@@ -525,23 +528,33 @@ class SecureMeAlarmCard extends HTMLElement {
 
   async _callArm(action, code) {
     const entity = this._entity();
-    const domain  = "alarm_control_panel";
-    const data    = { entity_id: entity };
-    if (code) data.code = code;
 
-    const serviceMap = {
-      "arm_away":       "alarm_arm_away",
-      "arm_home":       "alarm_arm_home",
-      "arm_night":      "alarm_arm_night",
-      "arm_vacation":   "alarm_arm_custom_bypass",
-      "arm_home_alone": "alarm_arm_home_alone",
-      "disarm":         "alarm_disarm",
+    // Standard HA alarm services for common modes
+    const haServiceMap = {
+      "arm_away":  "alarm_arm_away",
+      "arm_home":  "alarm_arm_home",
+      "arm_night": "alarm_arm_night",
+      "disarm":    "alarm_disarm",
     };
-    const service = serviceMap[action];
-    if (!service) return;
+
+    // Secure Me custom modes go via WebSocket API
+    const smWSMap = {
+      "arm_vacation":   "arm_vacation",
+      "arm_home_alone": "arm_home_alone",
+    };
 
     try {
-      await this._hass.callService(domain, service, data);
+      if (haServiceMap[action]) {
+        const data = { entity_id: entity };
+        if (code) data.code = code;
+        await this._hass.callService("alarm_control_panel", haServiceMap[action], data);
+      } else if (smWSMap[action]) {
+        const ws = { type: `secure_me/${smWSMap[action]}` };
+        if (code) ws.code = code;
+        await this._hass.callWS(ws);
+      } else {
+        return;
+      }
       this._pinMode  = null;
       this._pinValue = "";
       this._pinError = "";
