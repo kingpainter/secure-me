@@ -184,75 +184,23 @@ class TTSModule(AlarmModule):
             )
 
         elif service_domain == "script":
-            # script.ultra_tts dukker volumen ned internt (original * 0.25).
-            # For at sikre at TTS tales ved den konfigurerede volumen,
-            # bypasser vi ducking ved at kalde tts.speak direkte med
-            # volumen sat til det oenskede niveau foer og restore bagefter.
+            # For script services (e.g. script.ultra_tts), call the script
+            # directly with the expected parameters. Let the script handle
+            # all volume ducking and restore internally -- do NOT manipulate
+            # volume here as that conflicts with the script's own logic.
             tts_volume = min(self.volume * 1.5, 1.0) if urgent else self.volume
             if test_mode:
                 tts_volume = tts_volume * 0.5
 
-            # Gem original volumen og saet til oenset TTS-niveau
-            original_volumes: dict[str, float] = {}
-            for player in self.media_players:
-                state = self.hass.states.get(player)
-                if state:
-                    original_volumes[player] = float(
-                        state.attributes.get("volume_level", tts_volume)
-                    )
-                await self.async_call_service(
-                    "media_player", "volume_set",
-                    service_data={"volume_level": tts_volume},
-                    target={"entity_id": player},
-                )
-
-            await asyncio.sleep(0.4)
-
-            # Kald tts.speak direkte — single attempt, NO retry.
-            # Retry ville afspille beskeden to gange hvis Alexa er optaget.
             await self.async_call_service(
-                "tts", "speak",
+                service_domain, service_name,
                 service_data={
+                    "speaker": self.media_players[0] if len(self.media_players) == 1 else self.media_players,
                     "message": message,
-                    "cache": False,
-                    "media_player_entity_id": self.media_players,
+                    "volume": tts_volume,
+                    "priority": "critical" if urgent else "normal",
                 },
-                target={"entity_id": self.tts_entity},
             )
-
-            # Wait for playback to finish by monitoring media_player state.
-            # Poll until all players return to idle/paused/standby, or timeout.
-            # This is more reliable than a fixed sleep since cloud TTS latency varies.
-            timeout = max(15, len(message) / 13 + 6)
-            poll_interval = 0.5
-            elapsed = 0.0
-
-            # Brief initial delay to let Alexa start playing
-            await asyncio.sleep(1.5)
-
-            while elapsed < timeout:
-                all_done = all(
-                    (
-                        self.hass.states.get(p) is not None
-                        and self.hass.states.get(p).state in ("idle", "paused", "standby", "off")
-                    )
-                    for p in self.media_players
-                )
-                if all_done:
-                    break
-                await asyncio.sleep(poll_interval)
-                elapsed += poll_interval
-
-            # Small trailing buffer so volume restore doesn't cut last syllable
-            await asyncio.sleep(0.3)
-
-            # Restore original volumen
-            for player, vol in original_volumes.items():
-                await self.async_call_service(
-                    "media_player", "volume_set",
-                    service_data={"volume_level": vol},
-                    target={"entity_id": player},
-                )
 
         else:
             # Unknown service type — warn once, skip silently.
