@@ -149,7 +149,8 @@ async def _async_register_lovelace_resources(
             _LOGGER.debug("Secure Me: lovelace not yet loaded, skipping resource registration")
             return
 
-        resources = ll.get("resources")
+        # LovelaceData is an object, not a dict — access .resources directly
+        resources = getattr(ll, "resources", None)
         if resources is None:
             _LOGGER.debug("Secure Me: lovelace resources collection not available")
             return

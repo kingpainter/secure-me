@@ -12,10 +12,14 @@ from .const import DOMAIN, COORDINATOR
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_register(
+def async_register(
     hass: HomeAssistant, register: system_health.SystemHealthRegistration
 ) -> None:
-    """Register system health callbacks."""
+    """Register system health callbacks.
+
+    Must be a plain (non-async) function — HA's system_health platform
+    calls this synchronously via platform.async_register().
+    """
     register.async_register_info(system_health_info)
 
 
