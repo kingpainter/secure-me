@@ -184,22 +184,32 @@ class TTSModule(AlarmModule):
             )
 
         elif service_domain == "script":
-            # For script services (e.g. script.ultra_tts), call the script
-            # directly with the expected parameters. Let the script handle
-            # all volume ducking and restore internally -- do NOT manipulate
-            # volume here as that conflicts with the script's own logic.
+            # Call tts.speak directly at the configured volume.
+            # Do NOT use script.ultra_tts -- it applies internal ducking
+            # that conflicts with the user's configured volume level.
+            # Do NOT restore volume after -- the user controls speaker volume.
             tts_volume = min(self.volume * 1.5, 1.0) if urgent else self.volume
             if test_mode:
                 tts_volume = tts_volume * 0.5
 
+            for player in self.media_players:
+                await self.async_call_service(
+                    "media_player", "volume_set",
+                    service_data={"volume_level": tts_volume},
+                    target={"entity_id": player},
+                )
+
+            await asyncio.sleep(0.5)
+
+            # Single attempt -- retry would cause double playback
             await self.async_call_service(
-                service_domain, service_name,
+                "tts", "speak",
                 service_data={
-                    "speaker": self.media_players[0] if len(self.media_players) == 1 else self.media_players,
                     "message": message,
-                    "volume": tts_volume,
-                    "priority": "critical" if urgent else "normal",
+                    "cache": False,
+                    "media_player_entity_id": self.media_players,
                 },
+                target={"entity_id": self.tts_entity},
             )
 
         else:
