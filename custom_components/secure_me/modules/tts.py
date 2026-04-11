@@ -19,6 +19,7 @@ MSG_TYPE_MEDIA = "media"
 
 VALID_TRIGGERS = {
     "armed_away", "armed_home", "armed_night", "armed_vacation",
+    "armed_home_alone",
     "disarmed", "triggered", "arming", "pending",
 }
 
@@ -160,7 +161,7 @@ class TTSModule(AlarmModule):
                 "fi": "fi-FI", "pl": "pl-PL",
             }
             language = self.language or "da-DK"
-            if service_name in ("cloud_say",) and language in _LANG_MAP:
+            if service_name in ("cloud_say", "google_say", "google_translate_say", "piper") and language in _LANG_MAP:
                 language = _LANG_MAP[language]
 
             await self.async_call_service_with_retry(

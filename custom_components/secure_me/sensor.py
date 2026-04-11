@@ -43,6 +43,7 @@ STATE_DISPLAY = {
     STATE_ALARM_ARMED_HOME: "Armed Home",
     STATE_ALARM_ARMED_NIGHT: "Armed Night",
     STATE_ALARM_ARMED_VACATION: "Armed Vacation",
+    STATE_ALARM_ARMED_HOME_ALONE: "Armed Home Alone",
     STATE_ALARM_PENDING: "Entry Delay",
     STATE_ALARM_TRIGGERED: "TRIGGERED",
 }
@@ -55,6 +56,7 @@ STATE_ICONS = {
     STATE_ALARM_ARMED_HOME: "mdi:shield-home",
     STATE_ALARM_ARMED_NIGHT: "mdi:shield-moon",
     STATE_ALARM_ARMED_VACATION: "mdi:shield-airplane",
+    STATE_ALARM_ARMED_HOME_ALONE: "mdi:shield-account",
     STATE_ALARM_PENDING: "mdi:shield-alert",
     STATE_ALARM_TRIGGERED: "mdi:shield-alert",
 }

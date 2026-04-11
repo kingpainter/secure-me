@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING
-
-import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -17,13 +15,14 @@ from .const import (
     COORDINATOR,
     UNDO_UPDATE_LISTENER,
     DEFAULT_NAME,
+    VERSION,
 )
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
 
 if TYPE_CHECKING:
-    from homeassistant.components import system_health
+    pass  # No TYPE_CHECKING imports currently needed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,7 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         name=entry.data.get("name", DEFAULT_NAME),
         manufacturer="KingPainter",
         model="Secure Me",
-        sw_version=entry.data.get("version", "1.2.0"),
+        sw_version=VERSION,
     )
 
     # Register WebSocket API (global, once)

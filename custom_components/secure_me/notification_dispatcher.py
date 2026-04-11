@@ -325,8 +325,9 @@ async def dispatch_home_alone_door_trigger(
     if store is None:
         return
 
-    data = await store.async_load() or {}
-    users: dict[str, dict] = data.get("users", {})
+    # store.get_users() returns the in-memory user dict directly.
+    # async_load() is void (loads from disk into self._data) — do NOT use its return value.
+    users: dict[str, dict] = store.get_users()
 
     camera_entity = sensor_cfg.get(CONF_HOME_ALONE_CAMERA)
     speaker_entity = sensor_cfg.get(CONF_HOME_ALONE_SPEAKER)
@@ -379,9 +380,17 @@ async def dispatch_home_alone_door_trigger(
         try:
             tts_module = _get_tts_module(hass)
             if tts_module:
-                await tts_module.announce_on_entity(message, speaker_entity)
+                # announce_system() plays via all configured media_players.
+                # For Home Alone, we want a specific speaker -- call tts.speak directly.
+                await hass.services.async_call(
+                    "tts", "speak",
+                    {
+                        "media_player_entity_id": speaker_entity,
+                        "message": message,
+                    },
+                    blocking=False,
+                )
             else:
-                # Fallback: call tts.speak service directly
                 await hass.services.async_call(
                     "tts", "speak",
                     {

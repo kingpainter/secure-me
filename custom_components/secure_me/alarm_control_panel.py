@@ -27,6 +27,7 @@ from .const import (
     STATE_ALARM_TRIGGERED,
     ATTR_CHANGED_BY,
     ATTR_CODE_ARM_REQUIRED,
+    VERSION,
 )
 from .coordinator import SecureMeCoordinator
 
@@ -76,7 +77,7 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
             "name": "Secure Me Alarm System",
             "manufacturer": "Secure Me",
             "model": "Alarm Manager",
-            "sw_version": "0.2.0",
+            "sw_version": VERSION,
         }
 
     @property
@@ -105,9 +106,10 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
             ATTR_CODE_ARM_REQUIRED: self.code_arm_required,
         }
         
-        # Add countdown if in arming/pending state
+        # Add countdown during arming/pending -- key must be 'countdown' to match
+        # what the alarm card reads via this._attr("countdown").
         if self.coordinator.alarm_state in [STATE_ALARM_ARMING, STATE_ALARM_PENDING]:
-            attrs["delay_countdown"] = self.coordinator.delay_countdown
+            attrs["countdown"] = self.coordinator.delay_countdown
         
         # Add triggered_by if triggered
         if self.coordinator.alarm_state == STATE_ALARM_TRIGGERED:

@@ -185,9 +185,10 @@ class LightsModule(AlarmModule):
             for key in ("brightness", "rgb_color", "color_temp"):
                 if key in attrs:
                     service_data[key] = attrs[key]
+            # Pass service_data only if non-empty to avoid HA rejecting empty dict
             await self.async_call_service(
                 "light", "turn_on",
-                service_data=service_data or None,
+                service_data=service_data if service_data else None,
                 target={"entity_id": light},
             )
 
