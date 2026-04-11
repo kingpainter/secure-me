@@ -87,16 +87,22 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
 
     @property
     def code_arm_required(self) -> bool:
-        """Whether the code is required for arm actions."""
-        # For now, code is optional for arming
-        # Will be configurable in Phase 2
-        return False
+        """Whether the code is required for arm actions.
+
+        Secure Me handles code validation internally via bcrypt.
+        We set this to True so HA passes the code through to our
+        async_alarm_arm_* methods instead of ignoring it.
+        """
+        return True
 
     @property
     def code_format(self) -> str | None:
-        """Return the regex for code format."""
-        # Code must be 4-6 digits
-        return r"^\d{4,6}$"
+        """Return the regex for code format or None to skip HA validation.
+
+        We return None so HA does not validate the format itself.
+        Secure Me validates internally via authenticate_user() + bcrypt.
+        """
+        return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -134,26 +140,41 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
         _LOGGER.info("Alarm panel: Arm away requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Arm away rejected — invalid code")
+            return
         await self.coordinator.async_arm_away(code)
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
         _LOGGER.info("Alarm panel: Arm home requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Arm home rejected — invalid code")
+            return
         await self.coordinator.async_arm_home(code)
 
     async def async_alarm_arm_night(self, code: str | None = None) -> None:
         """Send arm night command."""
         _LOGGER.info("Alarm panel: Arm night requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Arm night rejected — invalid code")
+            return
         await self.coordinator.async_arm_night(code)
 
     async def async_alarm_arm_custom_bypass(self, code: str | None = None) -> None:
         """Send arm vacation command (mapped to ARM_CUSTOM_BYPASS feature)."""
         _LOGGER.info("Alarm panel: Arm vacation requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Arm vacation rejected — invalid code")
+            return
         await self.coordinator.async_arm_vacation(code)
 
     async def async_alarm_arm_home_alone(self, code: str | None = None) -> None:
         """Send arm home alone command."""
         _LOGGER.info("Alarm panel: Arm home alone requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Arm home alone rejected — invalid code")
+            return
         await self.coordinator.async_arm_home_alone(code)
 
     async def async_alarm_trigger(self, code: str | None = None) -> None:

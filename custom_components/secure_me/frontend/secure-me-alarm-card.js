@@ -4,7 +4,7 @@
 // VERSION = "1.3.0"
 //
 // Config:
-//   entity:          alarm_control_panel.secure_me   (optional)
+//   entity:          alarm_control_panel.secure_me_alarm_system_alarm   (optional)
 //   show_home_alone: true                            (show Home Alone arm button)
 //   show_tts:        true                            (show TTS quick messages)
 //   require_code:    true                            (PIN required for arm + disarm)
@@ -33,7 +33,7 @@ const SMI = {
 class SecureMeAlarmCard extends HTMLElement {
   static getStubConfig() {
     return {
-      entity: "alarm_control_panel.secure_me",
+      entity: "alarm_control_panel.secure_me_alarm_system_alarm",
       show_home_alone: true,
       show_tts: true,
       require_code: true,
@@ -78,7 +78,7 @@ class SecureMeAlarmCard extends HTMLElement {
     }
   }
 
-  _entity()       { return this._config.entity || "alarm_control_panel.secure_me"; }
+  _entity()       { return this._config.entity || "alarm_control_panel.secure_me_alarm_system_alarm"; }
   _requireCode()  { return this._config.require_code !== false; }
   _showHA()       { return this._config.show_home_alone !== false; }
   _showTTS()      { return this._config.show_tts !== false; }
@@ -592,7 +592,12 @@ class SecureMeAlarmCard extends HTMLElement {
       this._pinValue = "";
       this._pinError = "";
     } catch (err) {
-      this._pinError = "Forkert kode eller fejl";
+      // If the alarm entity doesn't exist yet (HA not restarted), the service
+      // call will fail with a generic error. Show a clearer message.
+      const entityMissing = this._state() === "unknown";
+      this._pinError = entityMissing
+        ? "Alarm ikke fundet. Genstart HA."
+        : "Forkert kode eller fejl";
     }
     this._update();
   }
