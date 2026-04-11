@@ -54,6 +54,17 @@ PLATFORMS = [
     Platform.SELECT,
 ]
 
+# Panel / sidebar configuration
+CONF_SIDEBAR_TITLE = "sidebar_title"
+CONF_SIDEBAR_ICON  = "sidebar_icon"
+CONF_PANEL_ENABLED = "panel_enabled"
+CONF_REQUIRE_ADMIN = "require_admin"
+
+DEFAULT_SIDEBAR_TITLE = "Secure Me"
+DEFAULT_SIDEBAR_ICON  = "mdi:shield-lock"
+DEFAULT_PANEL_ENABLED = True
+DEFAULT_REQUIRE_ADMIN = False
+
 # Configuration
 CONF_CODE = "code"
 CONF_EXIT_DELAY = "exit_delay"

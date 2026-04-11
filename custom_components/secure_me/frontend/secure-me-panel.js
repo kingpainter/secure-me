@@ -12,1229 +12,239 @@ const VERSION = "1.3.0";
 
 // === Styles ===
 const panelStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap');
+
   :host {
-    --sm-accent: #34c759;
-    --sm-accent-dim: rgba(52,199,89,0.12);
-    --sm-accent-glow: rgba(52,199,89,0.3);
-    --sm-danger: #ff453a;
-    --sm-danger-dim: rgba(255,69,58,0.12);
-    --sm-warning: #ff9f0a;
-    --sm-warning-dim: rgba(255,159,10,0.12);
-    --sm-blue: #0a84ff;
-    --sm-blue-dim: rgba(10,132,255,0.12);
-    --sm-purple: #bf5af2;
-    --sm-purple-dim: rgba(191,90,242,0.12);
-    --sm-teal: #64d2ff;
-    --sm-teal-dim: rgba(100,210,255,0.12);
-
-    /* Use HA variables with fallbacks */
-    --sm-bg: var(--primary-background-color, #1c1c1e);
-    --sm-surface: var(--card-background-color, #2c2c2e);
-    --sm-border: var(--divider-color, rgba(255,255,255,0.06));
-    --sm-text: var(--primary-text-color, #f5f5f7);
-    --sm-text-secondary: var(--secondary-text-color, rgba(255,255,255,0.55));
-    --sm-text-tertiary: var(--disabled-text-color, rgba(255,255,255,0.35));
-
-    display: flex;
-    font-family: var(--paper-font-body1_-_font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
-    background: var(--sm-bg);
-    color: var(--sm-text);
-    height: 100vh;
-    -webkit-font-smoothing: antialiased;
+    --sm-accent:     #7c3aed;
+    --sm-accent2:    #3b82f6;
+    --sm-accent3:    #06b6d4;
+    --sm-accent-dim: rgba(124,58,237,0.14);
+    --sm-accent-glow: rgba(124,58,237,0.22);
+    --sm-danger:     #ef4444;  --sm-danger-dim: rgba(239,68,68,0.14);
+    --sm-warning:    #f59e0b;  --sm-warning-dim: rgba(245,158,11,0.14);
+    --sm-green:      #10b981;  --sm-green-dim: rgba(16,185,129,0.12);
+    --sm-blue:       #3b82f6;  --sm-blue-dim: rgba(59,130,246,0.12);
+    --sm-cyan:       #06b6d4;  --sm-cyan-dim: rgba(6,182,212,0.12);
+    --sm-purple:     #7c3aed;  --sm-purple-dim: rgba(124,58,237,0.12);
+    --sm-teal:       #14b8a6;  --sm-teal-dim: rgba(20,184,166,0.12);
+    --sm-bg:      var(--primary-background-color,   #0f1923);
+    --sm-surface: var(--secondary-background-color, #1a2535);
+    --sm-bg3:     #243044;
+    --sm-text:           var(--primary-text-color,   #e2e8f0);
+    --sm-text-secondary: var(--secondary-text-color, #94a3b8);
+    --sm-text-tertiary:  var(--disabled-text-color,  rgba(148,163,184,0.55));
+    --sm-border: var(--divider-color, rgba(148,163,184,0.12));
+    --sm-card-radius: 18px;
+    display: flex; flex-direction: column;
+    font-family: 'DM Sans', var(--paper-font-body1_-_font-family, sans-serif);
+    background: var(--sm-bg); color: var(--sm-text);
+    height: 100%; overflow: hidden; -webkit-font-smoothing: antialiased;
   }
 
-  /* === Sidebar === */
-  .sidebar {
-    width: 220px;
-    min-height: 100vh;
-    background: var(--sm-surface);
-    border-right: 1px solid var(--sm-border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow-y: auto;
-  }
-  .sidebar-header {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--sm-border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .sidebar-logo {
-    width: 36px; height: 36px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, var(--sm-accent), var(--sm-blue));
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 4px 12px var(--sm-accent-glow);
-  }
-  .sidebar-logo svg { width: 20px; height: 20px; color: #fff; }
-  .sidebar-title { font-size: 17px; font-weight: 700; line-height: 1.2; }
-  .sidebar-byline { font-size: 11px; color: var(--sm-text-tertiary); font-weight: 400; opacity: 0.7; }
-  .sidebar-version { font-size: 11px; color: var(--sm-text-tertiary); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  .sidebar-status {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--sm-border);
-  }
-  .status-pill {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; border-radius: 10px;
-    font-size: 12px; font-weight: 600;
-  }
-  .status-pill.disarmed { background: var(--sm-accent-dim); color: var(--sm-accent); }
-  .status-pill.armed { background: var(--sm-danger-dim); color: var(--sm-danger); }
-  .status-pill.arming { background: var(--sm-warning-dim); color: var(--sm-warning); }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
-  }
+  .panel-topbar { flex-shrink: 0; padding: 16px 28px 12px; background: var(--sm-bg); border-bottom: 1px solid var(--sm-border); }
+  @media (max-width: 600px) { .panel-topbar { padding: 12px 16px 8px; } }
 
-  /* === Nav Tabs === */
-  .nav-tabs {
-    padding: 8px 10px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .nav-tab {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 10px;
-    border: none; cursor: pointer;
-    background: transparent;
-    color: var(--sm-text-secondary);
-    font-size: 13px; font-weight: 400;
-    font-family: inherit;
-    text-align: left; width: 100%;
-    transition: background 0.15s ease;
-  }
-  .nav-tab:hover { background: rgba(255,255,255,0.04); }
-  .nav-tab.active {
-    background: rgba(255,255,255,0.1);
-    color: var(--sm-text);
-    font-weight: 600;
-  }
-  .nav-tab svg { width: 18px; height: 18px; opacity: 0.6; }
-  .nav-tab.active svg { opacity: 1; }
-  .nav-tab .badge-soon {
-    margin-left: auto; font-size: 9px;
-    padding: 1px 5px; border-radius: 4px;
-    background: rgba(255,255,255,0.08);
-    color: var(--sm-text-tertiary);
-  }
+  .sm-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .sm-header-icon { width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(135deg, var(--sm-accent), var(--sm-accent2)); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px var(--sm-accent-glow); flex-shrink: 0; }
+  .sm-header-icon svg { width: 22px; height: 22px; color: #fff; }
+  .sm-header-text { flex: 1; min-width: 0; }
+  .sm-header-title { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; color: var(--sm-text); }
+  .sm-header-sub { font-size: 11px; color: var(--sm-text-tertiary); font-family: 'DM Mono', monospace; margin-top: 1px; }
+  .sm-header-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .sm-header-pill .pill-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor; }
+  .sm-header-pill.disarmed  { background: var(--sm-green-dim);   color: var(--sm-green); }
+  .sm-header-pill.armed     { background: var(--sm-danger-dim);  color: var(--sm-danger); }
+  .sm-header-pill.arming    { background: var(--sm-warning-dim); color: var(--sm-warning); }
+  .sm-header-pill.triggered { background: var(--sm-danger-dim);  color: var(--sm-danger); animation: sm-pulse-red 1s ease-in-out infinite; }
+  .sm-header-pill.pending   { background: var(--sm-warning-dim); color: var(--sm-warning); }
 
-  .sidebar-footer {
-    padding: 16px 20px;
-    border-top: 1px solid var(--sm-border);
-    font-size: 11px;
-    color: var(--sm-text-tertiary);
-  }
+  .sm-tabs { display: flex; gap: 2px; flex-wrap: wrap; }
+  .sm-tab { padding: 7px 14px; border-radius: 10px; border: none; background: transparent; color: var(--sm-text-secondary); cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .sm-tab svg { width: 15px; height: 15px; }
+  .sm-tab.active { background: var(--sm-bg3); border: 1px solid var(--sm-border); color: var(--sm-accent); }
+  .sm-tab:hover:not(.active) { color: var(--sm-text); background: rgba(255,255,255,0.04); }
+  @media (max-width: 600px) { .sm-tab span.tab-label { display: none; } .sm-header-title { font-size: 17px; } }
 
-  /* === Main Content === */
-  .main-content {
-    flex: 1;
-    padding: 28px 32px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scroll-behavior: smooth;
-  }
+  .panel-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 20px 28px 48px; }
+  .panel-scroll::-webkit-scrollbar { width: 5px; }
+  .panel-scroll::-webkit-scrollbar-track { background: transparent; }
+  .panel-scroll::-webkit-scrollbar-thumb { background: var(--sm-bg3); border-radius: 3px; }
+  @media (max-width: 600px) { .panel-scroll { padding: 12px 16px 32px; } }
 
-  /* === Cards === */
-  .sm-card {
-    background: var(--sm-surface);
-    border-radius: 16px;
-    border: 1px solid var(--sm-border);
-    padding: 20px;
-    margin-bottom: 12px;
-  }
+  .sm-card { background: var(--sm-surface); border-radius: var(--sm-card-radius); border: 1px solid var(--sm-border); padding: 20px; margin-bottom: 12px; transition: border-color 0.2s; }
+  .sm-card:hover { border-color: rgba(148,163,184,0.28); }
   .sm-card.no-pad { padding: 0; }
 
-  /* === Table === */
-  .sm-list-header {
-    display: grid; gap: 0; align-items: center;
-    padding: 10px 16px;
-    background: rgba(255,255,255,0.03);
-    border-bottom: 1px solid var(--sm-border);
-    font-size: 11px; font-weight: 600;
-    color: var(--sm-text-tertiary);
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
-  .sm-list-row {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 5px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--sm-border);
-    transition: opacity 0.2s ease;
-  }
+  .sm-list-header { display: grid; gap: 0; align-items: center; padding: 10px 16px; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--sm-border); font-size: 11px; font-weight: 600; color: var(--sm-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; }
+  .sm-list-row { display: flex; flex-direction: column; align-items: stretch; gap: 5px; padding: 12px 16px; border-bottom: 1px solid var(--sm-border); transition: opacity 0.2s; }
   .sm-list-row:last-child { border-bottom: none; }
   .sm-list-row.disabled { opacity: 0.45; }
-  .sm-list-row-top {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-  }
-  .sm-list-row-name {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-  }
-  .sm-list-row-eid {
-    font-size: 11px;
-    color: var(--sm-text-tertiary);
-    font-family: monospace;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .sm-list-row-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .sm-list-row-name { flex: 1; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .sm-list-row-eid { font-size: 11px; color: var(--sm-text-tertiary); font-family: 'DM Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* === Badges === */
-  .badge {
-    display: inline-block;
-    padding: 2px 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-  .badge.contact { color: var(--sm-blue); background: var(--sm-blue-dim); }
-  .badge.environmental { color: var(--sm-danger); background: var(--sm-danger-dim); font-weight: 700; }
-  .badge.motion { color: var(--sm-purple); background: var(--sm-purple-dim); }
-  .badge.presence { color: var(--sm-teal); background: var(--sm-teal-dim); }
-  .badge.entry { color: var(--sm-warning); background: var(--sm-warning-dim); }
-  .badge.interior { color: var(--sm-blue); background: var(--sm-blue-dim); }
-  .badge.perimeter { color: var(--sm-danger); background: var(--sm-danger-dim); }
-  .badge.instant { color: var(--sm-purple); background: var(--sm-purple-dim); }
-  .badge.accent { color: var(--sm-accent); background: var(--sm-accent-dim); }
-  .badge.actions { color: var(--sm-purple); background: var(--sm-purple-dim); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+  .badge.contact      { color: var(--sm-blue);    background: var(--sm-blue-dim); }
+  .badge.environmental{ color: var(--sm-danger);  background: var(--sm-danger-dim); font-weight: 700; }
+  .badge.motion       { color: var(--sm-purple);  background: var(--sm-purple-dim); }
+  .badge.presence     { color: var(--sm-teal);    background: var(--sm-teal-dim); }
+  .badge.entry        { color: var(--sm-warning); background: var(--sm-warning-dim); }
+  .badge.interior     { color: var(--sm-blue);    background: var(--sm-blue-dim); }
+  .badge.perimeter    { color: var(--sm-danger);  background: var(--sm-danger-dim); }
+  .badge.instant      { color: var(--sm-purple);  background: var(--sm-purple-dim); }
+  .badge.accent       { color: var(--sm-accent);  background: var(--sm-accent-dim); }
+  .badge.actions      { color: var(--sm-purple);  background: var(--sm-purple-dim); }
 
-  /* === Checkbox === */
-  .sm-checkbox {
-    width: 20px; height: 20px; border-radius: 6px;
-    border: 2px solid var(--sm-text-tertiary);
-    background: transparent;
-    cursor: pointer; display: flex;
-    align-items: center; justify-content: center;
-    transition: all 0.15s ease; padding: 0;
-    flex-shrink: 0;
-  }
-  .sm-checkbox.checked {
-    border: none;
-    background: var(--sm-accent);
-  }
+  .sm-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--sm-text-tertiary); background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; padding: 0; flex-shrink: 0; }
+  .sm-checkbox.checked { border: none; background: var(--sm-accent); }
   .sm-checkbox svg { width: 14px; height: 14px; color: #fff; }
 
-  /* === Toggle === */
-  .sm-toggle {
-    width: 44px; height: 24px; border-radius: 24px;
-    background: rgba(255,255,255,0.15);
-    cursor: pointer; position: relative;
-    transition: background 0.2s ease;
-    flex-shrink: 0; border: none; padding: 0;
-  }
+  .sm-toggle { width: 44px; height: 24px; border-radius: 24px; background: rgba(255,255,255,0.15); cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; border: none; padding: 0; }
   .sm-toggle.on { background: var(--sm-accent); }
-  .sm-toggle .dot {
-    width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; position: absolute; top: 3px;
-    left: 3px; transition: left 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
+  .sm-toggle .dot { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: left 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
   .sm-toggle.on .dot { left: 23px; }
 
-  /* === Buttons === */
-  .sm-btn {
-    border: none; border-radius: 10px;
-    padding: 8px 16px; font-size: 13px;
-    cursor: pointer; display: inline-flex;
-    align-items: center; gap: 6px;
-    transition: all 0.15s ease;
-    font-family: inherit;
-  }
+  .sm-btn { border: none; border-radius: 10px; padding: 8px 16px; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; font-family: inherit; }
   .sm-btn.sm { padding: 6px 12px; font-size: 12px; }
-  .sm-btn.primary { background: var(--sm-accent); color: #000; font-weight: 600; }
+  .sm-btn.primary { background: var(--sm-accent); color: #fff; font-weight: 600; }
   .sm-btn.default { background: rgba(255,255,255,0.08); color: var(--sm-text); }
-  .sm-btn.danger { background: var(--sm-danger-dim); color: var(--sm-danger); }
-  .sm-btn.ghost { background: transparent; color: var(--sm-text-secondary); }
-  .sm-btn.ghost-outlined {
-    background: transparent;
-    color: var(--sm-text-secondary);
-    border: 1px solid var(--sm-text-tertiary);
-    border-radius: 20px;
-    padding: 6px 14px;
-    font-size: 12px;
-  }
-  .sm-btn.ghost-outlined:hover {
-    border-color: var(--sm-text-secondary);
-    background: rgba(255,255,255,0.04);
-  }
+  .sm-btn.danger  { background: var(--sm-danger-dim); color: var(--sm-danger); }
+  .sm-btn.ghost   { background: transparent; color: var(--sm-text-secondary); }
+  .sm-btn.ghost-outlined { background: transparent; color: var(--sm-text-secondary); border: 1px solid var(--sm-text-tertiary); border-radius: 20px; padding: 6px 14px; font-size: 12px; }
+  .sm-btn.ghost-outlined:hover { border-color: var(--sm-text-secondary); background: rgba(255,255,255,0.04); }
   .sm-btn:hover { filter: brightness(1.1); }
   .sm-btn svg { width: 14px; height: 14px; }
 
-  /* === Inputs === */
-  .sm-input, .sm-select {
-    width: 100%; padding: 8px 12px; border-radius: 8px;
-    background: rgba(255,255,255,0.08); color: var(--sm-text);
-    border: 1px solid var(--sm-border); font-size: 13px;
-    font-family: inherit; box-sizing: border-box;
-  }
+  .sm-input, .sm-select { width: 100%; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.08); color: var(--sm-text); border: 1px solid var(--sm-border); font-size: 13px; font-family: inherit; box-sizing: border-box; }
   .sm-select { appearance: auto; }
-  .sm-label {
-    font-size: 11px; color: var(--sm-text-secondary);
-    display: block; margin-bottom: 4px;
-  }
+  .sm-label { font-size: 11px; color: var(--sm-text-secondary); display: block; margin-bottom: 4px; }
 
-  /* === Section === */
-  .section-header {
-    display: flex; justify-content: space-between;
-    align-items: center; margin-bottom: 16px;
-  }
-  .section-title {
-    font-size: 16px; font-weight: 600;
-    color: var(--sm-text); margin: 0;
-  }
-  .section-subtitle {
-    font-size: 13px; color: var(--sm-text-secondary);
-    margin: 4px 0 0;
-  }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title  { font-size: 11px; font-weight: 700; color: var(--sm-text-secondary); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 10px 2px; }
+  .section-subtitle { font-size: 13px; color: var(--sm-text-secondary); margin: 4px 0 0; }
 
-  /* === Info === */
-  .info-card {
-    padding: 14px 16px; border-radius: 12px;
-    display: flex; gap: 12px; align-items: flex-start;
-    margin-bottom: 12px;
-  }
-  .info-card.warning { background: var(--sm-warning-dim); border: 1px solid rgba(255,159,10,0.2); }
-  .info-card.info { background: var(--sm-blue-dim); border: 1px solid rgba(10,132,255,0.2); }
+  .info-card { padding: 14px 16px; border-radius: 12px; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .info-card.warning { background: var(--sm-warning-dim); border: 1px solid rgba(245,158,11,0.2); }
+  .info-card.info    { background: var(--sm-blue-dim);    border: 1px solid rgba(59,130,246,0.2); }
   .info-card .info-title { font-size: 13px; font-weight: 600; }
-  .info-card .info-text { font-size: 12px; color: var(--sm-text-secondary); margin-top: 4px; }
+  .info-card .info-text  { font-size: 12px; color: var(--sm-text-secondary); margin-top: 4px; }
 
-  /* === Sensor two-column layout === */
   .sensor-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
   @media (max-width: 600px) { .sensor-two-col { grid-template-columns: 1fr; } }
-
-  /* === Zone === */
   .zone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .zone-grid { grid-template-columns: 1fr; } }
   .zone-card { cursor: pointer; }
   .zone-modes { display: flex; gap: 4px; margin-top: 8px; }
-  .zone-mode {
-    padding: 2px 6px; border-radius: 4px; font-size: 10px;
-    background: rgba(255,255,255,0.08); color: var(--sm-text-secondary);
-  }
+  .zone-mode { padding: 2px 6px; border-radius: 4px; font-size: 10px; background: rgba(255,255,255,0.08); color: var(--sm-text-secondary); }
 
-  /* === User === */
-  .user-avatar {
-    width: 40px; height: 40px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 16px; flex-shrink: 0;
-  }
-  .nfc-tag {
-    padding: 8px 12px; border-radius: 8px;
-    display: flex; align-items: center; gap: 8px;
-    border: 1px solid rgba(191,90,242,0.15);
-    background: var(--sm-purple-dim);
-    margin-top: 12px;
-  }
-  .nfc-tag-id { font-size: 12px; color: var(--sm-purple); font-family: monospace; }
+  .user-avatar { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+  .nfc-tag { padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid rgba(124,58,237,0.15); background: var(--sm-purple-dim); margin-top: 12px; }
+  .nfc-tag-id { font-size: 12px; color: var(--sm-purple); font-family: 'DM Mono', monospace; }
 
-  /* === Module === */
-  .module-header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px;
-    transition: opacity 0.2s ease;
-  }
+  .module-header { display: flex; align-items: center; gap: 14px; padding: 14px 16px; transition: opacity 0.2s; }
   .module-header.disabled { opacity: 0.45; }
-  .module-icon {
-    width: 38px; height: 38px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s ease;
-    cursor: pointer;
-  }
-  .module-icon:hover {
-    filter: brightness(1.2);
-    transform: scale(1.05);
-  }
-  .module-icon.disabled-icon {
-    cursor: default;
-  }
-  .module-icon.disabled-icon:hover {
-    filter: none;
-    transform: none;
-  }
-  .module-name-area {
-    flex: 1;
-    cursor: pointer;
-  }
-  .module-header.disabled .module-name-area {
-    cursor: default;
-  }
-  .module-config {
-    padding: 0 16px 16px;
-    border-top: 1px solid var(--sm-border);
-    padding-top: 16px;
-  }
-  .module-entity-row {
-    display: flex; align-items: center;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--sm-border);
-  }
+  .module-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; }
+  .module-icon:hover { filter: brightness(1.2); transform: scale(1.05); }
+  .module-icon.disabled-icon { cursor: default; }
+  .module-icon.disabled-icon:hover { filter: none; transform: none; }
+  .module-name-area { flex: 1; cursor: pointer; }
+  .module-header.disabled .module-name-area { cursor: default; }
+  .module-config { padding: 0 16px 16px; border-top: 1px solid var(--sm-border); padding-top: 16px; }
+  .module-entity-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--sm-border); }
 
-  /* === Segmented === */
-  .segment-control {
-    display: flex; background: rgba(255,255,255,0.05);
-    border-radius: 10px; padding: 3px;
-    margin-bottom: 16px;
-  }
-  .segment-btn {
-    flex: 1; padding: 8px 12px; border-radius: 8px;
-    border: none; background: transparent;
-    color: var(--sm-text-secondary);
-    font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: all 0.2s ease;
-    font-family: inherit;
-  }
-  .segment-btn.active {
-    background: var(--sm-surface);
-    color: var(--sm-text);
-  }
+  .segment-control { display: flex; background: var(--sm-bg3); border-radius: 10px; padding: 3px; margin-bottom: 16px; }
+  .segment-btn { flex: 1; padding: 8px 12px; border-radius: 8px; border: none; background: transparent; color: var(--sm-text-secondary); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .segment-btn.active { background: var(--sm-surface); color: var(--sm-text); }
 
-  /* === Notification Automation === */
-  .notif-message {
-    font-size: 12px; color: var(--sm-text-secondary);
-    margin-top: 6px; padding: 6px 10px; border-radius: 6px;
-    background: rgba(255,255,255,0.04);
-    font-family: monospace;
-  }
+  .notif-message { font-size: 12px; color: var(--sm-text-secondary); margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.04); font-family: 'DM Mono', monospace; }
   .notif-actions { display: flex; gap: 8px; margin-top: 12px; }
 
-  /* === Placeholder === */
-  .placeholder {
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 60px 20px; text-align: center;
-  }
-  .placeholder-icon {
-    width: 64px; height: 64px; border-radius: 16px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0; margin-bottom: 16px;
-  }
+  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; text-align: center; }
+  .placeholder-icon { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 0; margin-bottom: 16px; }
   .placeholder-icon svg { width: 32px; height: 32px; }
+  .placeholder h3 { margin: 0; font-size: 18px; font-weight: 600; }
+  .placeholder p { color: var(--sm-text-secondary); font-size: 14px; max-width: 320px; margin-top: 8px; }
 
-  /* Status SVG icons inline sizing */
   .info-card svg { width: 20px; height: 20px; flex-shrink: 0; }
   .test-overall-icon svg { width: 28px; height: 28px; }
   .module-status-icon svg { width: 16px; height: 16px; }
   .dialog-close svg { width: 18px; height: 18px; }
-  .dialog-close {
-    background: none; border: none;
-    color: var(--sm-text-secondary);
-    cursor: pointer; padding: 4px;
-    display: flex; align-items: center;
-    border-radius: 6px;
-    transition: color 0.15s, background 0.15s;
-  }
+  .dialog-close { background: none; border: none; color: var(--sm-text-secondary); cursor: pointer; padding: 4px; display: flex; align-items: center; border-radius: 6px; transition: color 0.15s, background 0.15s; }
   .dialog-close:hover { color: var(--sm-text); background: rgba(255,255,255,0.08); }
-  .placeholder h3 { margin: 0; font-size: 18px; font-weight: 600; }
-  .placeholder p {
-    color: var(--sm-text-secondary); font-size: 14px;
-    max-width: 320px; margin-top: 8px;
-  }
 
-  /* === Narrow === */
-  :host([narrow]) .sidebar { width: 56px; }
-  :host([narrow]) .sidebar-header span,
-  :host([narrow]) .sidebar-status,
-  :host([narrow]) .nav-tab span:not(.nav-icon),
-  :host([narrow]) .nav-tab .badge-soon,
-  :host([narrow]) .sidebar-footer { display: none; }
-  :host([narrow]) .nav-tab { justify-content: center; padding: 12px; }
-  :host([narrow]) .main-content { padding: 16px; }
-  :host([narrow]) .zone-grid { grid-template-columns: 1fr; }
+  .collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px 0; user-select: none; }
+  .collapsible-header .chevron { width: 16px; height: 16px; transition: transform 0.2s; color: var(--sm-text-tertiary); }
+  .collapsible-header.expanded .chevron { transform: rotate(180deg); }
+  .collapsible-body { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
+  .collapsible-body.expanded { max-height: 2000px; }
 
-  /* Mobile Responsive */
-
-  .checkbox-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-    margin-bottom: 8px;
-  }
-  
-  .checkbox-option:hover {
-    background: rgba(255,255,255,0.05);
-  }
-  
-  .checkbox-option input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    margin: 0;
-  }
-  
-  .checkbox-option span {
-    cursor: pointer;
-    font-size: 14px;
-    flex: 1;
-  }
-
-  .form-slider {
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: var(--sm-border);
-    outline: none;
-    -webkit-appearance: none;
-  }
-  
-  .form-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--sm-accent);
-    cursor: pointer;
-  }
-  
-  .form-slider::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: var(--sm-accent);
-    cursor: pointer;
-    border: none;
-  }
-  
-  .entity-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: var(--sm-accent-dim);
-    border: 1px solid var(--sm-accent);
-    border-radius: 16px;
-    font-size: 12px;
-    margin: 4px;
-  }
-  
-  .entity-chip button {
-    background: none;
-    border: none;
-    color: var(--sm-text);
-    cursor: pointer;
-    font-size: 16px;
-    line-height: 1;
-    padding: 0;
-    margin-left: 4px;
-  }
-
-
-  /* === Mobile Header (hidden on desktop) === */
-  .mobile-header {
-    display: none;
-  }
-
-  /* === Bottom Navigation Bar (hidden on desktop) === */
-  .bottom-nav {
-    display: none;
-  }
-
-  /* === More Drawer (hidden on desktop) === */
-  .more-drawer-overlay {
-    display: none;
-  }
-
-  @media (max-width: 768px) {
-    :host {
-      flex-direction: column;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    /* Hide desktop sidebar completely */
-    .sidebar {
-      display: none;
-    }
-
-    /* Mobile top header */
-    .mobile-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      background: var(--sm-surface);
-      border-bottom: 1px solid var(--sm-border);
-      flex-shrink: 0;
-      z-index: 10;
-      min-height: 52px;
-    }
-    .mobile-header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .mobile-header-logo {
-      width: 32px; height: 32px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, var(--sm-accent), var(--sm-blue));
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 3px 8px var(--sm-accent-glow);
-      flex-shrink: 0;
-    }
-    .mobile-header-logo svg { width: 17px; height: 17px; color: #fff; }
-    .mobile-header-title {
-      font-size: 16px;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-    .mobile-header-subtitle {
-      font-size: 10px;
-      color: var(--sm-text-tertiary);
-      opacity: 0.7;
-    }
-    .mobile-status-pill {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px; font-weight: 600;
-      flex-shrink: 0;
-    }
-    .mobile-status-pill.disarmed { background: var(--sm-accent-dim); color: var(--sm-accent); }
-    .mobile-status-pill.armed    { background: var(--sm-danger-dim); color: var(--sm-danger); }
-    .mobile-status-pill.arming   { background: var(--sm-warning-dim); color: var(--sm-warning); }
-    .mobile-status-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: currentColor;
-      box-shadow: 0 0 6px currentColor;
-    }
-
-    /* Main content fills between header and bottom nav */
-    .main-content {
-      padding: 16px;
-      max-width: 100%;
-      flex: 1;
-      overflow-y: auto;
-      padding-bottom: 80px; /* room for bottom nav */
-    }
-
-    .zone-grid { grid-template-columns: 1fr; }
-
-    .config-dialog-overlay { align-items: flex-end; }
-    .config-dialog {
-      width: 100%;
-      max-height: 90vh;
-      border-radius: 16px 16px 0 0;
-      padding: 20px;
-    }
-
-    /* === Bottom Navigation Bar === */
-    .bottom-nav {
-      display: flex;
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      height: 64px;
-      background: var(--sm-surface);
-      border-top: 1px solid var(--sm-border);
-      z-index: 100;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-    }
-    .bottom-nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      border: none;
-      background: transparent;
-      color: var(--sm-text-tertiary);
-      font-family: inherit;
-      font-size: 10px;
-      font-weight: 500;
-      cursor: pointer;
-      padding: 8px 4px;
-      transition: color 0.15s ease;
-      -webkit-tap-highlight-color: transparent;
-      position: relative;
-    }
-    .bottom-nav-item svg {
-      width: 22px; height: 22px;
-      opacity: 0.5;
-      transition: opacity 0.15s ease, transform 0.15s ease;
-    }
-    .bottom-nav-item.active {
-      color: var(--sm-accent);
-    }
-    .bottom-nav-item.active svg {
-      opacity: 1;
-      transform: scale(1.1);
-    }
-    .bottom-nav-item.active::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 32px;
-      height: 2px;
-      background: var(--sm-accent);
-      border-radius: 0 0 2px 2px;
-    }
-    .bottom-nav-item.more-active {
-      color: var(--sm-text-secondary);
-    }
-    .bottom-nav-item.more-active svg {
-      opacity: 0.8;
-    }
-
-    /* === More Drawer === */
-    .more-drawer-overlay {
-      display: block;
-      position: fixed;
-      bottom: 0; left: 0; right: 0; top: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 200;
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-      animation: fadeIn 0.15s ease;
-    }
-    .more-drawer-overlay.hidden {
-      display: none;
-    }
-    .more-drawer {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: var(--sm-surface);
-      border-radius: 20px 20px 0 0;
-      border-top: 1px solid var(--sm-border);
-      padding: 12px 16px 32px;
-      animation: slideUp 0.2s ease;
-    }
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
-    .more-drawer-handle {
-      width: 36px; height: 4px;
-      background: var(--sm-border);
-      border-radius: 2px;
-      margin: 0 auto 16px;
-    }
-    .more-drawer-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--sm-text-tertiary);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 8px;
-      padding: 0 4px;
-    }
-    .more-drawer-item {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 12px;
-      border-radius: 12px;
-      border: none;
-      background: transparent;
-      color: var(--sm-text);
-      font-family: inherit;
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      width: 100%;
-      text-align: left;
-      transition: background 0.15s ease;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .more-drawer-item:active { background: rgba(255,255,255,0.06); }
-    .more-drawer-item svg { width: 22px; height: 22px; color: var(--sm-text-secondary); flex-shrink: 0; }
-    .more-drawer-item.active { color: var(--sm-accent); }
-    .more-drawer-item.active svg { color: var(--sm-accent); }
-  }
-
-  @media (max-width: 480px) {
-    .main-content {
-      padding: 12px;
-      padding-bottom: 80px;
-    }
-    .sm-card {
-      padding: 12px;
-      margin-bottom: 8px;
-      border-radius: 12px;
-    }
-    .section-title { font-size: 15px; }
-  }
-
-
-
-  /* === Dialog System === */
-  .collapsible-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    padding: 12px 0;
-    user-select: none;
-  }
-  .collapsible-header .chevron {
-    width: 16px; height: 16px;
-    transition: transform 0.2s ease;
-    color: var(--sm-text-tertiary);
-  }
-  .collapsible-header.expanded .chevron {
-    transform: rotate(180deg);
-  }
-  .collapsible-body {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.3s ease;
-  }
-  .collapsible-body.expanded {
-    max-height: 2000px;
-  }
-  .sensor-status-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .sensor-status-dot.online { background: var(--sm-accent); box-shadow: 0 0 6px var(--sm-accent); }
+  .sensor-status-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .sensor-status-dot.online  { background: var(--sm-green);  box-shadow: 0 0 6px var(--sm-green); }
   .sensor-status-dot.offline { background: var(--sm-danger); box-shadow: 0 0 6px var(--sm-danger); }
-  .test-grid-3 {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
-  }
-  @media (max-width: 600px) {
-    .test-grid-3 { grid-template-columns: 1fr; }
-  }
 
-  .config-dialog-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    backdrop-filter: blur(4px);
-    animation: fadeIn 0.2s ease;
-  }
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  
-  .config-dialog {
-    max-width: 650px;
-    max-height: 90vh;
-    width: 90%;
-    background: var(--sm-surface);
-    border-radius: 16px;
-    border: 1px solid var(--sm-border);
-    padding: 24px;
-    overflow-y: auto;
-    animation: slideUp 0.3s ease;
-  }
-  
-  @keyframes slideUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-  }
-  
-  .dialog-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--sm-border);
-  }
-  
-  .dialog-title {
-    font-size: 20px;
-    font-weight: 700;
-    flex: 1;
-  }
-  
-  .dialog-close {
-    background: rgba(255,255,255,0.08);
-    border: none;
-    border-radius: 8px;
-    width: 32px;
-    height: 32px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--sm-text-secondary);
-    transition: all 0.2s;
-  }
-  
-  .dialog-close:hover {
-    background: rgba(255,255,255,0.12);
-  }
-  
-  .item-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 20px;
-  }
-  
-  .item-card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--sm-border);
-    border-radius: 12px;
-    padding: 16px;
-  }
-  
-  .item-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  
-  .item-number {
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--sm-text);
-  }
-  
-  .form-group {
-    margin-bottom: 16px;
-  }
-  
-  .form-group:last-child {
-    margin-bottom: 0;
-  }
-  
-  .form-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    margin-bottom: 6px;
-    color: var(--sm-text-secondary);
-  }
-  
-  .form-label .optional-hint {
-    font-size: 12px;
-    color: var(--sm-text-tertiary);
-    font-style: italic;
-    font-weight: 400;
-  }
-  
-  .form-select, .form-input {
-    width: 100%;
-    padding: 10px 12px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid var(--sm-border);
-    border-radius: 8px;
-    color: var(--sm-text);
-    font-size: 14px;
-    font-family: inherit;
-    box-sizing: border-box;
-  }
-  
-  .form-select {
-    cursor: pointer;
-  }
-  
-  /* Dropdown options styling — applies to ALL selects in shadow DOM */
-  select {
-    background: #1c1c1e;
-    color: #f5f5f7;
-    border: 1px solid rgba(255,255,255,0.12);
-    font-family: inherit;
-    cursor: pointer;
-  }
-  select option {
-    background: #1c1c1e;
-    color: #f5f5f7;
-    padding: 8px;
-  }
-  select option:hover,
-  select option:focus,
-  select option:checked {
-    background: #2c2c2e;
-    color: #f5f5f7;
-  }
-  .form-select option {
-    background: #1c1c1e;
-    color: #f5f5f7;
-    padding: 8px;
-  }
-  .form-select option:hover,
-  .form-select option:focus {
-    background: rgba(52,199,89,0.25);
-    color: #fff;
-  }
-  
-  .form-select:focus, .form-input:focus {
-    outline: none;
-    border-color: var(--sm-accent);
-    background: rgba(255,255,255,0.1);
-  }
-  
-  .entity-search {
-    width: 100%;
-    padding: 8px 12px;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid var(--sm-border);
-    border-radius: 8px;
-    color: var(--sm-text);
-    font-size: 14px;
-    margin-bottom: 8px;
-    box-sizing: border-box;
-  }
-  
-  .entity-search:focus {
-    outline: none;
-    border-color: var(--sm-accent);
-  }
-  
-  .entity-search::placeholder {
-    color: var(--sm-text-tertiary);
-  }
-  
-  .radio-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .radio-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.2s;
-    border: 1px solid transparent;
-  }
-  
-  .radio-option:hover {
-    background: rgba(255,255,255,0.05);
-  }
-  
-  .radio-option.selected {
-    background: rgba(52,199,89,0.12);
-    border-color: var(--sm-accent);
-  }
-  
-  .radio-option input[type="radio"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    margin: 0;
-  }
-  
-  .radio-option label {
-    cursor: pointer;
-    font-size: 14px;
-    flex: 1;
-    margin: 0;
-  }
-  
-  .dialog-footer {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    padding-top: 20px;
-    margin-top: 20px;
-    border-top: 1px solid var(--sm-border);
-  }
-  
-  .btn-dialog {
-    padding: 10px 20px;
-    border-radius: 10px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-  }
-  
-  .btn-dialog.cancel {
-    background: rgba(255,255,255,0.08);
-    color: var(--sm-text);
-  }
-  
-  .btn-dialog.cancel:hover {
-    background: rgba(255,255,255,0.12);
-  }
-  
-  .btn-dialog.save {
-    background: var(--sm-accent);
-    color: #000;
-  }
-  
-  .btn-dialog.save:hover {
-    filter: brightness(1.1);
-  }
-  
-  .add-item-btn {
-    background: rgba(52,199,89,0.12);
-    color: var(--sm-accent);
-    border: 1px solid rgba(52,199,89,0.3);
-    border-radius: 10px;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 20px;
-    transition: all 0.2s;
-  }
-  
-  .add-item-btn:hover {
-    background: rgba(52,199,89,0.2);
-  }
-  
-  .delete-item-btn {
-    background: rgba(255,69,58,0.12);
-    color: var(--sm-danger);
-    border: none;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .delete-item-btn:hover {
-    background: rgba(255,69,58,0.2);
-  }
-  
-  @media (max-width: 768px) {
-    .config-dialog {
-      width: 95%;
-      max-height: 85vh;
-      padding: 20px;
-    }
-    
-    .dialog-header {
-      margin-bottom: 20px;
-    }
-    
-    .dialog-title {
-      font-size: 18px;
-    }
-  }
+  .test-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  @media (max-width: 600px) { .test-grid-3 { grid-template-columns: 1fr; } }
 
-  /* === v0.7.0: Toast Notifications === */
-  .sm-toast-container {
-    position: fixed;
-    top: 20px; right: 20px;
-    z-index: 9999;
-    display: flex; flex-direction: column; gap: 8px;
-    pointer-events: none;
-  }
-  .sm-toast {
-    display: flex; align-items: center; gap: 10px;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 13px; font-weight: 500;
-    max-width: 320px;
-    pointer-events: all;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    animation: sm-toast-in 0.25s cubic-bezier(0.34,1.56,0.64,1);
-    backdrop-filter: blur(12px);
-  }
-  .sm-toast.success { background: rgba(52,199,89,0.18); border: 1px solid rgba(52,199,89,0.3); color: var(--sm-accent); }
-  .sm-toast.error   { background: rgba(255,69,58,0.18);  border: 1px solid rgba(255,69,58,0.3);  color: var(--sm-danger); }
-  .sm-toast.warning { background: rgba(255,159,10,0.18); border: 1px solid rgba(255,159,10,0.3); color: var(--sm-warning); }
-  .sm-toast.info    { background: rgba(10,132,255,0.18); border: 1px solid rgba(10,132,255,0.3); color: var(--sm-blue); }
-  .sm-toast svg { width: 18px; height: 18px; flex-shrink: 0; }
-  .sm-toast-msg { flex: 1; }
-  .sm-toast-close { opacity: 0.6; cursor: pointer; background: none; border: none; color: inherit; padding: 0; line-height: 1; }
-  .sm-toast-close:hover { opacity: 1; }
-  .sm-toast.fading { animation: sm-toast-out 0.2s ease forwards; }
-  @keyframes sm-toast-in  { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
-  @keyframes sm-toast-out { from { opacity:1; transform:translateX(0);    } to { opacity:0; transform:translateX(20px); } }
-
-  /* === v0.7.0: In-panel Confirm Dialog === */
-  .sm-confirm-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(4px);
-    z-index: 9998;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .sm-confirm-dialog {
-    background: var(--sm-surface);
-    border: 1px solid var(--sm-border);
-    border-radius: 16px;
-    padding: 24px;
-    max-width: 320px; width: 90%;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-    animation: sm-toast-in 0.2s ease;
-  }
-  .sm-confirm-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-  .sm-confirm-msg   { font-size: 13px; color: var(--sm-text-secondary); margin-bottom: 20px; line-height: 1.5; }
-  .sm-confirm-btns  { display: flex; gap: 10px; justify-content: flex-end; }
+  .config-dialog-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(4px); animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .config-dialog { max-width: 650px; max-height: 90vh; width: 90%; background: var(--sm-surface); border-radius: var(--sm-card-radius); border: 1px solid var(--sm-border); padding: 24px; overflow-y: auto; animation: slideUp 0.3s ease; }
+  @media (max-width: 768px) { .config-dialog-overlay { align-items: flex-end; } .config-dialog { width: 100%; max-height: 90vh; border-radius: 16px 16px 0 0; padding: 20px; } }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .dialog-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--sm-border); }
+  .dialog-title  { font-size: 20px; font-weight: 700; flex: 1; }
+  .item-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+  .item-card { background: var(--sm-bg3); border: 1px solid var(--sm-border); border-radius: 12px; padding: 16px; }
+  .item-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .item-number { font-size: 16px; font-weight: 600; color: var(--sm-text); }
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--sm-text-secondary); }
+  .form-label .optional-hint { font-size: 12px; color: var(--sm-text-tertiary); font-style: italic; font-weight: 400; }
+  .form-select, .form-input { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--sm-border); border-radius: 8px; color: var(--sm-text); font-size: 14px; font-family: inherit; box-sizing: border-box; }
+  .form-select { cursor: pointer; }
+  select { background: #1a2535; color: var(--sm-text); border: 1px solid var(--sm-border); font-family: inherit; cursor: pointer; }
+  select option { background: #1a2535; color: var(--sm-text); padding: 8px; }
+  select option:hover, select option:focus, select option:checked { background: #243044; color: var(--sm-text); }
+  .form-select option { background: #1a2535; color: var(--sm-text); padding: 8px; }
+  .form-select option:hover, .form-select option:focus { background: rgba(124,58,237,0.22); color: #fff; }
+  .form-select:focus, .form-input:focus { outline: none; border-color: var(--sm-accent); background: rgba(255,255,255,0.1); }
+  .entity-search { width: 100%; padding: 8px 12px; background: rgba(255,255,255,0.08); border: 1px solid var(--sm-border); border-radius: 8px; color: var(--sm-text); font-size: 14px; font-family: inherit; box-sizing: border-box; }
+  .form-slider { width: 100%; height: 6px; border-radius: 3px; background: var(--sm-border); outline: none; -webkit-appearance: none; }
+  .form-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--sm-accent); cursor: pointer; }
+  .form-slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--sm-accent); cursor: pointer; border: none; }
+  .entity-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--sm-accent-dim); border: 1px solid var(--sm-accent); border-radius: 16px; font-size: 12px; margin: 4px; }
+  .entity-chip button { background: none; border: none; color: var(--sm-text); cursor: pointer; font-size: 16px; line-height: 1; padding: 0; margin-left: 4px; }
+  .checkbox-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.2s; margin-bottom: 8px; }
+  .checkbox-option:hover { background: rgba(255,255,255,0.05); }
+  .checkbox-option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; margin: 0; }
+  .checkbox-option span { cursor: pointer; font-size: 14px; flex: 1; }
   .sm-confirm-cancel { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--sm-border); background: transparent; color: var(--sm-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; }
   .sm-confirm-ok     { padding: 8px 16px; border-radius: 8px; border: none; background: var(--sm-danger); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  .sm-confirm-cancel:hover { background: rgba(255,255,255,0.06); }
+  .sm-confirm-cancel:hover { filter: brightness(1.1); }
   .sm-confirm-ok:hover     { filter: brightness(1.1); }
-
-  /* === v0.7.0: Module health badge on module card === */
-  .module-health-badge {
-    display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 8px; border-radius: 20px;
-    font-size: 10px; font-weight: 600; letter-spacing: 0.3px;
-  }
-  .module-health-badge.ok      { background: rgba(52,199,89,0.15);  color: var(--sm-accent);  }
-  .module-health-badge.warn    { background: rgba(255,159,10,0.15); color: var(--sm-warning); }
-  .module-health-badge.error   { background: rgba(255,69,58,0.15);  color: var(--sm-danger);  }
-  .module-health-badge.degraded{ background: rgba(255,69,58,0.15);  color: var(--sm-danger);  }
+  .sm-toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 20000; display: flex; flex-direction: column; gap: 8px; }
+  .sm-toast { padding: 12px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; color: var(--sm-text); max-width: 320px; animation: slideUp 0.3s ease; display: flex; align-items: center; gap: 8px; border: 1px solid var(--sm-border); }
+  .sm-toast.success { background: var(--sm-green-dim);   border-color: rgba(16,185,129,0.3);  color: var(--sm-green); }
+  .sm-toast.error   { background: var(--sm-danger-dim);  border-color: rgba(239,68,68,0.3);   color: var(--sm-danger); }
+  .sm-toast.warning { background: var(--sm-warning-dim); border-color: rgba(245,158,11,0.3);  color: var(--sm-warning); }
+  .sm-toast.info    { background: var(--sm-accent-dim);  border-color: rgba(124,58,237,0.3);  color: var(--sm-accent); }
+  .sm-toast.fading  { animation: sm-toast-out 0.2s ease forwards; }
+  @keyframes sm-toast-out { to { opacity: 0; transform: translateX(20px); } }
+  .module-health-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: 0.3px; }
+  .module-health-badge.ok      { background: var(--sm-green-dim);   color: var(--sm-green); }
+  .module-health-badge.warn    { background: var(--sm-warning-dim); color: var(--sm-warning); }
+  .module-health-badge.error   { background: var(--sm-danger-dim);  color: var(--sm-danger); }
+  .module-health-badge.degraded{ background: var(--sm-danger-dim);  color: var(--sm-danger); }
   .module-health-badge.unknown { background: rgba(255,255,255,0.07);color: var(--sm-text-tertiary); }
   .module-health-badge svg { width: 10px; height: 10px; }
-
-  /* === v0.7.0: Triggered state pulse on sidebar status pill === */
-  .status-pill.triggered {
-    background: rgba(255,69,58,0.2);
-    color: var(--sm-danger);
-    animation: sm-pulse-red 1s ease-in-out infinite;
-  }
-  .mobile-status-pill.triggered {
-    background: rgba(255,69,58,0.2);
-    color: var(--sm-danger);
-    animation: sm-pulse-red 1s ease-in-out infinite;
-  }
-  .status-pill.pending {
-    background: rgba(255,159,10,0.18);
-    color: var(--sm-warning);
-  }
-  .mobile-status-pill.pending {
-    background: rgba(255,159,10,0.18);
-    color: var(--sm-warning);
-  }
+  .arming-countdown { font-variant-numeric: tabular-nums; font-family: 'DM Mono', monospace; }
   @keyframes sm-pulse-red {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255,69,58,0.4); }
-    50%       { box-shadow: 0 0 0 8px rgba(255,69,58,0); }
-  }`;
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+    50%       { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+  }
+`;
 
 // === Icons ===
 const ICONS = {
@@ -1342,153 +352,24 @@ class SecureMePanel extends HTMLElement {
   // PERF: In-place patch of alarm state pills — avoids full re-render on every state change.
   // Mirrors the _updateWattDisplay / _updateBarsInPlace pattern from pc-user-statistics-panel.
   _updateStatusPills() {
-    const stateClass = this._alarmState === "triggered" ? "triggered"
-      : this._alarmState === "pending" ? "pending"
-      : this._alarmState.includes("armed") ? "armed"
-      : this._alarmState === "arming" ? "arming" : "disarmed";
-
-    const baseLabel = {
-      disarmed: "Disarmed",
-      arming: "Arming",
-      armed_away: "Armed Away",
-      armed_home: "Armed Home",
-      armed_night: "Armed Night",
-      armed_vacation: "Armed Vacation",
-      pending: "Pending",
-      triggered: "TRIGGERED",
-    }[this._alarmState] || this._alarmState;
-    const cd = this._alarmCountdown || 0;
-    const stateLabel = (cd > 0 && (this._alarmState === 'arming' || this._alarmState === 'pending'))
-      ? `${baseLabel} ${cd}s`
-      : baseLabel;
-
-    const allClasses = ["disarmed", "armed", "arming", "pending", "triggered"];
-
-    // Desktop sidebar pill (use shell ID for reliability)
-    const pill = this.shadowRoot?.getElementById("shell-status-pill")
-              || this.shadowRoot?.querySelector(".status-pill");
-    if (pill) {
-      allClasses.forEach(c => pill.classList.remove(c));
-      pill.classList.add(stateClass);
-      const dot = pill.querySelector(".status-dot");
-      const textNode = [...pill.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
-      if (textNode) textNode.textContent = " " + stateLabel;
-      else if (dot) dot.insertAdjacentText("afterend", " " + stateLabel);
-    }
-
-    // Mobile header pill (use shell ID for reliability)
-    const mobilePill = this.shadowRoot?.getElementById("shell-mobile-pill")
-                    || this.shadowRoot?.querySelector(".mobile-status-pill");
-    if (mobilePill) {
-      allClasses.forEach(c => mobilePill.classList.remove(c));
-      mobilePill.classList.add(stateClass);
-      const mDot = mobilePill.querySelector(".mobile-status-dot");
-      const mText = [...mobilePill.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
-      if (mText) mText.textContent = " " + stateLabel;
-      else if (mDot) mDot.insertAdjacentText("afterend", " " + stateLabel);
-    }
+    const root = this.shadowRoot;
+    if (!root) return;
+    const pill = root.getElementById("shell-status-pill");
+    const textEl = root.getElementById("shell-status-text");
+    if (!pill) return;
+    const state = this._alarmState || "disarmed";
+    const cd = this._armingCountdown;
+    let cls = "disarmed", label = "Disarmed";
+    if      (state === "armed_away")     { cls = "armed";    label = "Armed Away"; }
+    else if (state === "armed_home")     { cls = "armed";    label = "Armed Home"; }
+    else if (state === "armed_night")    { cls = "armed";    label = "Armed Night"; }
+    else if (state === "armed_vacation") { cls = "armed";    label = "Armed Vacation"; }
+    else if (state === "arming")         { cls = "arming";   label = cd > 0 ? `Arming ${cd}s` : "Arming"; }
+    else if (state === "pending")        { cls = "pending";  label = cd > 0 ? `Entry ${cd}s` : "Pending"; }
+    else if (state === "triggered")      { cls = "triggered";label = "Triggered"; }
+    pill.className = "sm-header-pill " + cls;
+    if (textEl) textEl.textContent = label;
   }
-
-  // PERF v0.6.0: Two render modes:
-  //   _render()       — immediate, for user-initiated actions (tab switch, dialog)
-  //   _queueRender()  — debounced 50ms, for data loads and background updates
-  //                     Batches multiple rapid calls into one DOM update.
-  _queueRender() {
-    if (this._renderTimeout) {
-      clearTimeout(this._renderTimeout);
-    }
-    this._renderTimeout = setTimeout(() => {
-      // Focus guard: never wipe the DOM while the user is actively typing
-      // in an input, textarea or select. Background events (health updates,
-      // data polls) must not destroy unsaved keystrokes or cursor position.
-      // _render() can still be called directly for user-initiated actions.
-      const active = this.shadowRoot?.activeElement;
-      if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) {
-        // Reschedule and check again in 300ms
-        this._renderTimeout = setTimeout(() => {
-          this._render();
-          this._renderTimeout = null;
-        }, 300);
-        return;
-      }
-      this._render();
-      this._renderTimeout = null;
-    }, 50);
-  }
-
-  // === v0.7.0: Toast Notification System ===
-  // Replaces all alert() calls with non-blocking in-panel toasts.
-  // type: 'success' | 'error' | 'warning' | 'info'
-  _toast(message, type = 'success', duration = 4000) {
-    // Use the persistent shell toast container (never rebuilt)
-    let container = this.shadowRoot.getElementById('shell-toast')
-                 || this.shadowRoot.querySelector('.sm-toast-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.className = 'sm-toast-container';
-      this.shadowRoot.appendChild(container);
-    }
-
-    const toastIcon = {
-      success: icon('ok'),
-      error:   icon('fail'),
-      warning: icon('warn'),
-      info:    icon('circle'),
-    }[type] || icon('circle');
-
-    const toast = document.createElement('div');
-    toast.className = `sm-toast ${type}`;
-    toast.innerHTML = `
-      ${toastIcon}
-      <span class="sm-toast-msg">${message}</span>
-      <button class="sm-toast-close">${icon('close')}</button>
-    `;
-
-    const dismiss = () => {
-      toast.classList.add('fading');
-      toast.addEventListener('animationend', () => toast.remove(), { once: true });
-    };
-
-    toast.querySelector('.sm-toast-close').addEventListener('click', dismiss);
-    container.appendChild(toast);
-    if (duration > 0) setTimeout(dismiss, duration);
-  }
-
-  // === v0.7.0: In-panel Confirm Dialog ===
-  // Replaces browser confirm() with a styled panel-native dialog.
-  // Returns a Promise<boolean>.
-  _confirm(message, title = 'Confirm') {
-    return new Promise((resolve) => {
-      // Remove any existing confirm overlay
-      this.shadowRoot.querySelector('.sm-confirm-overlay')?.remove();
-
-      const overlay = document.createElement('div');
-      overlay.className = 'sm-confirm-overlay';
-      overlay.innerHTML = `
-        <div class="sm-confirm-dialog">
-          <div class="sm-confirm-title">${title}</div>
-          <div class="sm-confirm-msg">${message}</div>
-          <div class="sm-confirm-btns">
-            <button class="sm-confirm-cancel">Cancel</button>
-            <button class="sm-confirm-ok">Delete</button>
-          </div>
-        </div>
-      `;
-
-      overlay.querySelector('.sm-confirm-cancel').addEventListener('click', () => {
-        overlay.remove(); resolve(false);
-      });
-      overlay.querySelector('.sm-confirm-ok').addEventListener('click', () => {
-        overlay.remove(); resolve(true);
-      });
-      overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) { overlay.remove(); resolve(false); }
-      });
-
-      this.shadowRoot.appendChild(overlay);
-    });
-  }
-
   set hass(hass) {
     this._hass = hass;
     if (!this._initialized) {
@@ -1763,92 +644,36 @@ class SecureMePanel extends HTMLElement {
   }
 
   _buildShell() {
-    const BOTTOM_TABS = TABS.slice(0, 5);
-    const MORE_TABS   = TABS.slice(5);
-
     this.shadowRoot.innerHTML = `
       <style>${panelStyles}</style>
 
-      <!-- MOBILE HEADER (hidden on desktop) -->
-      <header class="mobile-header">
-        <div class="mobile-header-left">
-          <div class="mobile-header-logo">${icon("shield")}</div>
-          <div>
-            <div class="mobile-header-title">Secure Me</div>
-            <div class="mobile-header-subtitle">by KingPainter</div>
+      <!-- TOP BAR — never scrolls -->
+      <div class="panel-topbar">
+        <div class="sm-header">
+          <div class="sm-header-icon">${icon("shield")}</div>
+          <div class="sm-header-text">
+            <div class="sm-header-title">Secure Me</div>
+            <div class="sm-header-sub">v${VERSION} by KingPainter</div>
+          </div>
+          <div class="sm-header-pill disarmed" id="shell-status-pill">
+            <span class="pill-dot"></span>
+            <span id="shell-status-text">Disarmed</span>
           </div>
         </div>
-        <div class="mobile-status-pill disarmed" id="shell-mobile-pill">
-          <div class="mobile-status-dot"></div>
-          Disarmed
-        </div>
-      </header>
-
-      <!-- SIDEBAR (desktop only) -->
-      <nav class="sidebar">
-        <div class="sidebar-header">
-          <div class="sidebar-logo">${icon("shield")}</div>
-          <span>
-            <div class="sidebar-title">Secure Me</div>
-            <div class="sidebar-byline">by KingPainter</div>
-          </span>
-        </div>
-
-        <div class="sidebar-status">
-          <div class="status-pill disarmed" id="shell-status-pill">
-            <div class="status-dot"></div>
-            Disarmed
-          </div>
-        </div>
-
-        <div class="nav-tabs" id="shell-nav-tabs">
+        <div class="sm-tabs" id="shell-nav-tabs">
           ${TABS.map(t => `
-            <button class="nav-tab ${this._activeTab === t.key ? "active" : ""}"
+            <button class="sm-tab ${this._activeTab === t.key ? "active" : ""}"
                     data-tab="${t.key}">
               <span class="nav-icon">${icon(t.icon)}</span>
-              <span>${t.label}</span>
-              ${t.badge ? `<span class="badge-soon">${t.badge}</span>` : ""}
-            </button>
-          `).join("")}
-        </div>
-
-        <div class="sidebar-footer">
-          <div>Secure Me v${VERSION}</div>
-        </div>
-      </nav>
-
-      <!-- MAIN CONTENT — patched by _render() -->
-      <main class="main-content" id="shell-main"></main>
-
-      <!-- BOTTOM NAVIGATION BAR (mobile only) -->
-      <nav class="bottom-nav" id="shell-bottom-nav">
-        ${BOTTOM_TABS.map(t => `
-          <button class="bottom-nav-item ${this._activeTab === t.key ? "active" : ""}"
-                  data-tab="${t.key}">
-            ${icon(t.icon)}
-            <span>${t.label}</span>
-          </button>
-        `).join("")}
-        <button class="bottom-nav-item" id="more-btn">
-          ${icon("dots")}
-          <span>More</span>
-        </button>
-      </nav>
-
-      <!-- MORE DRAWER OVERLAY (mobile only) -->
-      <div class="more-drawer-overlay hidden" id="more-overlay">
-        <div class="more-drawer">
-          <div class="more-drawer-handle"></div>
-          <div class="more-drawer-title">More</div>
-          ${MORE_TABS.map(t => `
-            <button class="more-drawer-item ${this._activeTab === t.key ? "active" : ""}"
-                    data-tab="${t.key}">
-              ${icon(t.icon)}
-              <span>${t.label}</span>
+              <span class="tab-label">${t.label}</span>
+              ${t.badge ? `<span style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,0.08);color:var(--sm-text-tertiary)">${t.badge}</span>` : ""}
             </button>
           `).join("")}
         </div>
       </div>
+
+      <!-- MAIN CONTENT — patched by _render() -->
+      <div class="panel-scroll" id="shell-main"></div>
 
       <!-- DIALOG MOUNT POINT — managed by _render() -->
       <div id="shell-dialog-mount"></div>
@@ -1863,51 +688,28 @@ class SecureMePanel extends HTMLElement {
   // Attach nav/drawer listeners once on the shell — these never need re-binding.
   _attachShellListeners() {
     const root = this.shadowRoot;
-
-    // Desktop sidebar nav
-    root.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
+    // Topbar tab navigation
+    root.querySelectorAll(".sm-tab[data-tab]").forEach(btn => {
       btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
     });
-
-    // Mobile bottom nav
-    root.querySelectorAll("#shell-bottom-nav .bottom-nav-item[data-tab]").forEach(btn => {
-      btn.addEventListener("click", () => this._setTab(btn.dataset.tab));
-    });
-
-    // More drawer
-    const moreBtn     = root.getElementById("more-btn");
-    const moreOverlay = root.getElementById("more-overlay");
-    if (moreBtn && moreOverlay) {
-      moreBtn.addEventListener("click", () => moreOverlay.classList.toggle("hidden"));
-      moreOverlay.addEventListener("click", (e) => {
-        if (e.target === moreOverlay) moreOverlay.classList.add("hidden");
-      });
-      moreOverlay.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          moreOverlay.classList.add("hidden");
-          this._setTab(btn.dataset.tab);
-        });
-      });
-    }
   }
 
   // Update nav active state without full re-render
   _updateNavActive() {
-    this.shadowRoot.querySelectorAll(".nav-tab[data-tab]").forEach(btn => {
+    this.shadowRoot.querySelectorAll(".sm-tab[data-tab]").forEach(btn => {
       btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
     });
-    this.shadowRoot.querySelectorAll("#shell-bottom-nav .bottom-nav-item[data-tab]").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
-    });
-    // More button: highlight if active tab is in MORE_TABS
-    const MORE_TABS = TABS.slice(5);
-    const moreIsActive = MORE_TABS.some(t => t.key === this._activeTab);
-    const moreBtn = this.shadowRoot.getElementById("more-btn");
-    if (moreBtn) moreBtn.classList.toggle("more-active", moreIsActive);
-    // More drawer items
-    this.shadowRoot.querySelectorAll(".more-drawer-item[data-tab]").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.tab === this._activeTab);
-    });
+  }
+
+  // === Debounced render — coalesces rapid back-to-back updates into one paint ===
+  // Uses a 50ms timeout so multiple state changes (e.g. hass update + health event)
+  // only trigger a single _render() call instead of causing visual flicker.
+  _queueRender() {
+    if (this._renderTimeout) clearTimeout(this._renderTimeout);
+    this._renderTimeout = setTimeout(() => {
+      this._renderTimeout = null;
+      this._render();
+    }, 50);
   }
 
   // === Render — patches main-content only ===
@@ -2019,7 +821,7 @@ class SecureMePanel extends HTMLElement {
       <div style="display:flex;flex-direction:column;gap:4px;
                   padding:10px 16px;border-bottom:1px solid var(--sm-border)">
         <div style="font-size:14px;font-weight:500">${s.name}</div>
-        <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace;
+        <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace;
                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity_id}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
           <span class="badge environmental">Required</span>
@@ -2036,7 +838,7 @@ class SecureMePanel extends HTMLElement {
                   padding:8px 16px;border-bottom:1px solid var(--sm-border);opacity:0.65">
         <div>
           <div style="font-size:13px;font-weight:400;color:var(--sm-text-secondary)">${s.name}</div>
-          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace">${s.entity_id}</div>
         </div>
         <span class="badge" style="background:rgba(255,255,255,0.06);color:var(--sm-text-tertiary)">Auto-hidden</span>
         <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;margin-left:8px"
@@ -2073,7 +875,7 @@ class SecureMePanel extends HTMLElement {
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
               ${fakePresenceActive
                 ? 'Active &mdash; automatic arming is blocked'
-                : 'Inactive &mdash; alarm behaves normally.'}
+                : 'Blocks automatic arming while you are nearby but away from home'}
             </div>
           </div>
           <button class="sm-toggle ${fakePresenceActive ? 'on' : ''}" data-action="toggle-fake-presence">
@@ -2083,7 +885,7 @@ class SecureMePanel extends HTMLElement {
         ${fakePresenceActive ? `
           <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--sm-warning-dim);
                       border:1px solid rgba(255,159,10,0.2);font-size:12px;color:var(--sm-warning)">
-            Fake presence is ON. The alarm will not auto-arm while this is active.
+            Fake Presence is ON. The alarm will not auto-arm while this is active.
             Remember to turn it off when you leave.
           </div>
         ` : ''}
@@ -2388,7 +1190,7 @@ class SecureMePanel extends HTMLElement {
                 </div>
                 ${u.person_entity ? `
                   <div style="font-size:11px;color:var(--sm-blue);margin-top:4px">
-                    Tracker: <span style="font-family:monospace">${u.person_entity.replace("person.","")}</span>
+                    Tracker: <span style="font-family:'DM Mono',monospace">${u.person_entity.replace("person.","")}</span>
                   </div>` : ""}
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
                   ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">No push service</span>'}
@@ -2413,7 +1215,7 @@ class SecureMePanel extends HTMLElement {
             <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:var(--sm-blue-dim);
                         border:1px solid rgba(10,132,255,0.15);display:flex;align-items:center;gap:8px">
               <span style="color:var(--sm-blue);font-size:13px">Person tracker linked</span>
-              <span style="font-size:11px;color:var(--sm-text-secondary);font-family:monospace;margin-left:auto">${u.person_entity}</span>
+              <span style="font-size:11px;color:var(--sm-text-secondary);font-family:'DM Mono',monospace;margin-left:auto">${u.person_entity}</span>
             </div>
           ` : ""}
         </div>
@@ -2902,7 +1704,7 @@ class SecureMePanel extends HTMLElement {
         <textarea id="module-config-${moduleKey}" 
                   style="width:100%;min-height:200px;padding:12px;background:var(--sm-surface);
                          border:1px solid var(--sm-border);border-radius:8px;color:var(--sm-text);
-                         font-family:monospace;font-size:12px;resize:vertical">${configJson}</textarea>
+                         font-family:'DM Mono',monospace;font-size:12px;resize:vertical">${configJson}</textarea>
         
         <div style="margin-top:16px;display:flex;gap:8px">
           <button class="sm-btn primary" data-save-module-config="${moduleKey}">
@@ -3078,78 +1880,66 @@ class SecureMePanel extends HTMLElement {
   // PLACEHOLDER TAB
   // ===
   _renderFuture() {
-    const cameras = this._data.homeAloneCameras || [];
-    const availableCameras = this._availableEntities.camera || [];
-
     return `
       <div class="section-header">
         <h3 class="section-title">Future & Advanced</h3>
-        <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">Preview</span>
+        <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">Roadmap</span>
       </div>
 
-      <div class="sm-card" style="padding:16px;margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-          <div style="width:38px;height:38px;border-radius:10px;background:var(--sm-blue-dim);
+      <!-- Home Alone Mode roadmap card -->
+      <div class="sm-card" style="padding:16px;margin-bottom:16px;border-color:var(--sm-purple);opacity:0.85">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="width:38px;height:38px;border-radius:10px;background:var(--sm-purple-dim);
                       display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sm-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
-              <line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/>
-              <line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/>
-              <line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/>
-              <line x1="17" y1="7" x2="22" y2="7"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sm-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
           </div>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:600">Home Alone Monitor</div>
+            <div style="font-size:14px;font-weight:600;color:var(--sm-purple)">Home Alone Mode</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-              Simulate presence by activating cameras randomly while away
+              Dedicated arm mode for when children are home alone
             </div>
           </div>
-          <span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue)">${cameras.length} camera${cameras.length !== 1 ? 's' : ''}</span>
+          <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">v1.4.0</span>
         </div>
-
-        <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:10px">
-          Select cameras to include in the Home Alone rotation:
+        <div style="font-size:12px;color:var(--sm-text-secondary);line-height:1.6;padding:10px 12px;
+                    background:rgba(0,0,0,0.2);border-radius:8px">
+          A full alarm mode alongside Away, Home, Night and Vacation.
+          Cameras activate on arm. Door sensors send push notifications with a camera snapshot
+          and action buttons (e.g. &ldquo;Where are you going?&rdquo;).
+          Motion sensors show live movement across rooms &mdash; visual only, no alarm trigger.
+          TTS speaker per door configurable for closest-room voice feedback.
         </div>
+      </div>
 
-        ${cameras.length > 0 ? `
-          <div style="margin-bottom:12px;padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px">
-            ${cameras.map(c => `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0">
-                <span style="font-size:12px">${c.name || c.entity_id || c}</span>
-                <button class="sm-btn ghost sm" style="padding:2px 8px;font-size:11px;color:var(--sm-danger)"
-                        data-remove-home-alone="${c.entity_id || c}">Remove</button>
-              </div>
-            `).join('')}
+      <!-- Fake Presence roadmap note -->
+      <div class="sm-card" style="padding:16px;margin-bottom:16px;opacity:0.7">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.06);
+                      display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sm-text-tertiary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
           </div>
-        ` : `
-          <div style="padding:12px;text-align:center;color:var(--sm-text-tertiary);font-size:12px;margin-bottom:10px">
-            No cameras selected yet
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600">Fake Presence</div>
+            <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
+              Toggle available under the Sensors tab
+            </div>
           </div>
-        `}
-
-        <div style="display:flex;gap:8px;align-items:center">
-          <select class="sm-select" id="home-alone-camera-select" style="flex:1">
-            <option value="">-- Add a camera --</option>
-            ${availableCameras
-              .filter(c => !cameras.some(x => (x.entity_id || x) === c.entity_id))
-              .map(c => `<option value="${c.entity_id}">${c.name || c.entity_id}</option>`)
-              .join('')}
-          </select>
-          <button class="sm-btn primary sm" data-action="add-home-alone-camera">Add</button>
         </div>
-
-        ${cameras.length > 0 ? `
-          <div style="margin-top:12px;display:flex;justify-content:flex-end">
-            <button class="sm-btn default sm" data-action="save-home-alone-cameras">Save Camera List</button>
-          </div>
-        ` : ''}
       </div>
 
       <div class="sm-card" style="padding:20px;text-align:center;opacity:0.6">
         <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:8px">Coming Soon</div>
         <div style="font-size:12px;color:var(--sm-text-tertiary)">
-          Pet immunity &bull; AI person detection &bull; Cloud sync &bull; Voice control
+          Pet immunity &bull; AI person detection &bull; House map with live motion &bull; Cloud sync &bull; Voice control
         </div>
       </div>
     `;
@@ -3698,7 +2488,7 @@ class SecureMePanel extends HTMLElement {
                          border-radius:6px;border-left:2px solid var(--sm-danger)">
                       ${Object.entries(m.test_result.details).slice(0,3).map(([k,v]) =>
                         typeof v === "string" || typeof v === "number" ? `
-                          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace">
+                          <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace">
                             ${k}: ${v}
                           </div>` : ""
                       ).join("")}
@@ -3800,7 +2590,7 @@ class SecureMePanel extends HTMLElement {
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:500;white-space:nowrap;
                overflow:hidden;text-overflow:ellipsis">${s.name}</div>
-          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace">${s.entity_id}</div>
+          <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace">${s.entity_id}</div>
         </div>
         <span class="badge ${s.sensor_type}">${s.sensor_type}</span>
         <span style="font-size:11px;font-weight:600;
@@ -4840,7 +3630,7 @@ class SecureMePanel extends HTMLElement {
       `<label data-lp-row style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--sm-text);" onmouseover="this.style.background='rgba(255,255,255,0.06)'" onmouseout="this.style.background='transparent'">
         <input type="checkbox" data-lp-cb data-entity="${e.entity_id}" style="width:14px;height:14px;cursor:pointer;accent-color:${accentColor};">
         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.name}</span>
-        <span style="font-size:10px;color:var(--sm-text-tertiary);font-family:monospace;flex-shrink:0">${e.entity_id.split('.')[1]}</span>
+        <span style="font-size:10px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace;flex-shrink:0">${e.entity_id.split('.')[1]}</span>
       </label>`
     ).join('');
     return `
@@ -5775,42 +4565,6 @@ class SecureMePanel extends HTMLElement {
           this._render();
         } else {
           this._toast('Could not update Fake Presence', 'error');
-        }
-      });
-    });
-
-    // Future tab — Home Alone Monitor
-    root.querySelectorAll("[data-action='add-home-alone-camera']").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const sel = this.shadowRoot.querySelector('#home-alone-camera-select');
-        if (!sel || !sel.value) return;
-        const cameras = [...(this._data.homeAloneCameras || [])];
-        const entityId = sel.value;
-        if (!cameras.some(c => (c.entity_id || c) === entityId)) {
-          cameras.push({ entity_id: entityId, name: sel.options[sel.selectedIndex]?.text || entityId });
-          this._data.homeAloneCameras = cameras;
-          this._render();
-        }
-      });
-    });
-
-    root.querySelectorAll("[data-remove-home-alone]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const entityId = btn.dataset.removeHomeAlone;
-        this._data.homeAloneCameras = (this._data.homeAloneCameras || [])
-          .filter(c => (c.entity_id || c) !== entityId);
-        this._render();
-      });
-    });
-
-    root.querySelectorAll("[data-action='save-home-alone-cameras']").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        const cameras = (this._data.homeAloneCameras || []).map(c => c.entity_id || c);
-        const result = await this._callWS('save_home_alone_cameras', { cameras });
-        if (result) {
-          this._toast('Home Alone cameras saved', 'success');
-        } else {
-          this._toast('Could not save cameras', 'error');
         }
       });
     });

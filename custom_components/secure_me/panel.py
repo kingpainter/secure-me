@@ -1,71 +1,129 @@
 # VERSION = "1.3.0"
-"""Panel registration for Secure Me."""
+"""Panel registration for Secure Me.
+
+Follows the Energy Hub pattern:
+- Static HTTP path registered only ONCE per HA session (_static_registered guard).
+  aiohttp cannot remove routes after registration, so double-registration on
+  config-entry reload must be prevented here.
+- sidebar_title and sidebar_icon are passed in from the caller so they can
+  be driven by config-entry options in a future Options Flow.
+"""
 from __future__ import annotations
 
 import os
 import logging
 
 from homeassistant.components import frontend, panel_custom
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    DEFAULT_SIDEBAR_TITLE,
+    DEFAULT_SIDEBAR_ICON,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 # Panel configuration
 VERSION = "1.3.0"
 PANEL_URL = f"/api/{DOMAIN}-panel"
-PANEL_ICON = "mdi:shield-lock"
 PANEL_NAME = "secure-me-panel"
-PANEL_TITLE = "Secure Me"
 PANEL_FOLDER = "frontend"
 PANEL_FILENAME = "secure-me-panel.js"
 CUSTOM_COMPONENTS = "custom_components"
-INTEGRATION_FOLDER = DOMAIN
+
+# Alarm card (custom Lovelace card bundled with the integration)
+CARD_URL = f"/api/{DOMAIN}-alarm-card"
+CARD_FILENAME = "secure-me-alarm-card.js"
 
 
-async def async_register_panel(hass: HomeAssistant) -> None:
-    """Register the Secure Me panel (Alarmo-style)."""
-    root_dir = os.path.join(hass.config.path(CUSTOM_COMPONENTS), INTEGRATION_FOLDER)
+async def async_register_panel(
+    hass: HomeAssistant,
+    sidebar_title: str = DEFAULT_SIDEBAR_TITLE,
+    sidebar_icon: str = DEFAULT_SIDEBAR_ICON,
+    require_admin: bool = False,
+) -> None:
+    """Register the Secure Me sidebar panel.
+
+    Serves the JS file as a static HTTP endpoint (once per HA session),
+    then registers the panel via panel_custom.
+    """
+    hass.data.setdefault(DOMAIN, {})
+
+    root_dir = hass.config.path(CUSTOM_COMPONENTS, DOMAIN)
     panel_dir = os.path.join(root_dir, PANEL_FOLDER)
-    view_url = os.path.join(panel_dir, PANEL_FILENAME)
+    panel_file = os.path.join(panel_dir, PANEL_FILENAME)
 
-    # Cache busting based on file modification time
+    card_file = os.path.join(panel_dir, CARD_FILENAME)
+
+    if not os.path.isfile(panel_file):
+        _LOGGER.error(
+            "Secure Me: panel JS not found at %s — "
+            "make sure %s exists inside custom_components/secure_me/frontend/",
+            panel_file,
+            PANEL_FILENAME,
+        )
+        return
+
+    # Cache busting via file mtime
     try:
-        cache_bust = int(os.path.getmtime(view_url))
+        cache_bust = int(os.path.getmtime(panel_file))
     except OSError:
-        _LOGGER.warning("Panel file not found: %s", view_url)
         cache_bust = 0
 
-    # Register static path — use compat import that works across HA versions
-    try:
-        from homeassistant.components.http import StaticPathConfig
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(PANEL_URL, view_url, cache_headers=False)]
+    # ── Register static HTTP paths (once per HA session) ─────────────────
+    # aiohttp routes cannot be removed, so this must only run once.
+    if not hass.data[DOMAIN].get("_static_registered", False):
+        paths = [StaticPathConfig(PANEL_URL, panel_file, cache_headers=False)]
+        # Also serve the alarm card JS if it exists
+        if os.path.isfile(card_file):
+            paths.append(StaticPathConfig(CARD_URL, card_file, cache_headers=False))
+            _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
+        else:
+            _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
+        await hass.http.async_register_static_paths(paths)
+        hass.data[DOMAIN]["_static_registered"] = True
+        _LOGGER.info(
+            "Secure Me: static path registered %s -> %s", PANEL_URL, panel_file
         )
-    except ImportError:
-        # Older HA versions use a different signature
-        hass.http.register_static_path(PANEL_URL, view_url, cache_headers=False)
+    else:
+        _LOGGER.debug(
+            "Secure Me: static path %s already registered, skipping", PANEL_URL
+        )
 
-    _LOGGER.info("Panel static path registered: %s", PANEL_URL)
-
-    # Register custom panel
+    # ── Register sidebar panel via panel_custom ────────────────────────────
     await panel_custom.async_register_panel(
         hass,
         webcomponent_name=PANEL_NAME,
         frontend_url_path=DOMAIN,
         module_url=f"{PANEL_URL}?v={VERSION}&m={cache_bust}",
-        sidebar_title=PANEL_TITLE,
-        sidebar_icon=PANEL_ICON,
-        require_admin=False,
+        sidebar_title=sidebar_title,
+        sidebar_icon=sidebar_icon,
+        require_admin=require_admin,
         config={},
-        config_panel_domain=DOMAIN,
     )
 
-    _LOGGER.info("Panel '%s' registered in sidebar at /%s", PANEL_TITLE, DOMAIN)
+    hass.data[DOMAIN]["_panel_registered"] = True
+    _LOGGER.info(
+        "Secure Me: panel '%s' (%s) registered at /%s",
+        sidebar_title,
+        sidebar_icon,
+        DOMAIN,
+    )
 
 
 def async_unregister_panel(hass: HomeAssistant) -> None:
-    """Unregister the Secure Me panel."""
-    frontend.async_remove_panel(hass, DOMAIN)
-    _LOGGER.debug("Panel removed from sidebar")
+    """Remove the Secure Me panel from the sidebar.
+
+    Only removes the sidebar entry — static HTTP path persists
+    (aiohttp limitation) and is guarded by _static_registered.
+    """
+    hass.data.setdefault(DOMAIN, {})
+
+    if hass.data[DOMAIN].get("_panel_registered", False):
+        frontend.async_remove_panel(hass, DOMAIN)
+        hass.data[DOMAIN]["_panel_registered"] = False
+        _LOGGER.debug("Secure Me: panel removed from sidebar")
+    else:
+        _LOGGER.debug("Secure Me: panel was not registered, skipping removal")
