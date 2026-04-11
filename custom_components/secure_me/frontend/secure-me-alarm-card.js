@@ -562,26 +562,33 @@ class SecureMeAlarmCard extends HTMLElement {
   async _callArm(action, code) {
     const entity = this._entity();
 
-    // All modes use standard HA alarm_control_panel services.
-    // arm_vacation   -> alarm_arm_custom_bypass (HA built-in)
-    // arm_home_alone -> alarm_arm_home_alone    (registered on our entity)
-    // No WS API calls needed -- avoids "endpoint not found" errors.
-    const serviceMap = {
-      "arm_away":       "alarm_arm_away",
-      "arm_home":       "alarm_arm_home",
-      "arm_night":      "alarm_arm_night",
-      "arm_vacation":   "alarm_arm_custom_bypass",
-      "arm_home_alone": "alarm_arm_home_alone",
-      "disarm":         "alarm_disarm",
+    // Standard HA services for common modes.
+    // Custom modes (vacation, home_alone) use Secure Me WS API
+    // so code validation goes through our bcrypt authenticate_user().
+    const haServiceMap = {
+      "arm_away":  "alarm_arm_away",
+      "arm_home":  "alarm_arm_home",
+      "arm_night": "alarm_arm_night",
+      "disarm":    "alarm_disarm",
     };
 
-    const service = serviceMap[action];
-    if (!service) return;
+    const smWSTypes = {
+      "arm_vacation":   "secure_me/arm_vacation",
+      "arm_home_alone": "secure_me/arm_home_alone",
+    };
 
     try {
-      const data = { entity_id: entity };
-      if (code) data.code = code;
-      await this._hass.callService("alarm_control_panel", service, data);
+      if (haServiceMap[action]) {
+        const data = { entity_id: entity };
+        if (code) data.code = code;
+        await this._hass.callService("alarm_control_panel", haServiceMap[action], data);
+      } else if (smWSTypes[action]) {
+        const ws = { type: smWSTypes[action] };
+        if (code) ws.code = code;
+        await this._hass.callWS(ws);
+      } else {
+        return;
+      }
       this._pinMode  = null;
       this._pinValue = "";
       this._pinError = "";
@@ -594,7 +601,7 @@ class SecureMeAlarmCard extends HTMLElement {
     this._update();
   }
 
-  // -- PIN logic --------------------------------------------------------
+    // -- PIN logic --------------------------------------------------------
   _handlePin(key) {
     if (key === "cancel") {
       this._pinMode  = null;
@@ -634,7 +641,7 @@ class SecureMeAlarmCard extends HTMLElement {
     try {
       // Route via Secure Me WebSocket -- handles media_player selection internally
       await this._hass.callWS({
-        type: "secure_me/test_tts_message",
+        type: "secure_me/test_tts",
         message: message,
       });
     } catch (err) {

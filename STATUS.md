@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-03-27 (v1.3.0 release)
+**Last updated:** 2026-04-11 (v1.3.0 bugfix session)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.2.0
+## Current Version: v1.3.0
 
 ### GitHub Actions
 | Workflow | Status |
@@ -14,8 +14,43 @@
 | HACS Validation | 7/8 (brands PR pending — expected) |
 | Hassfest | All passed |
 | Pytest Python 3.11 | All passed |
-| Pytest Python 3.12 | All passed (cancelled when 3.11 fails) |
+| Pytest Python 3.12 | All passed |
 | Version Consistency | Passed |
+
+---
+
+## Session 2026-04-11 — Bugfix pass
+
+### Backend fixes
+- [x] `alarm_control_panel`: `delay_countdown` -> `countdown` attr (card compat), `code_arm_required=True`, `code_format=None`, validate_code() på alle arm-metoder
+- [x] `websocket_api`: nye WS endpoints `arm_vacation`, `arm_home_alone`, `disarm` med bcrypt kode-validering
+- [x] `__init__`: fjernet ubrugte imports, VERSION til sw_version, safe panel import med test-env fallback
+- [x] `sensor`: `armed_home_alone` tilfojet til STATE_DISPLAY + STATE_ICONS, VERSION sw_version
+- [x] `binary_sensor`: VERSION sw_version (4 steder), SecureMePresence blink-fix
+- [x] `coordinator`: asyncio.get_event_loop() -> hass.async_create_task()
+- [x] `zones`: asyncio.ensure_future() -> hass.async_create_task() (2 steder)
+- [x] `notification_dispatcher`: store.async_load() void fix, announce_on_entity crash fix
+- [x] `modules/tts`: armed_home_alone i VALID_TRIGGERS, BCP-47 map udvidet
+- [x] `modules/lights`: attrs variabel + service_data guard
+- [x] `panel`: lovelace resources attr fix (getattr vs .get()), system_health async_register sync
+- [x] `system_health`: async_register -> sync funktion
+- [x] `manifest.json`: lovelace dependency tilfojet
+- [x] `config_flow`: version bump 1.2.0 -> 1.3.0
+
+### Frontend fixes
+- [x] `secure-me-alarm-card`: entity ID -> `secure_me_alarm_system_alarm`, blink-fix alle sektioner (dirty-flag), TTS render-fejl (index-baseret), kode-fejl besked, arm_vacation/home_alone via WS API
+- [x] `secure-me-alarm-card`: fjernet tts/speak fallback (krav media_player_entity_id)
+
+### Test fixes
+- [x] VERSION assertions 1.2.0 -> 1.3.0 (test_const, test_diagnostics, test_store, test_v1_2_0, test_init_)
+- [x] test_store: scheduled_tests tilfojet til expected keys
+- [x] test_v1_2_0: SECURE_ME_ARM_HOME_ALONE tilfojet til expected actions
+- [x] test_init_: panel import fix
+
+### Presence sensor (ny feature)
+- [x] `binary_sensor.secure_me_anyone_home` — native presence sensor drevet af tracker_entity paa brugerprofiler
+- [x] `coordinator.get_presence_status()` — laesser tracker_entity fra store users
+- [x] `const.EVENT_PRESENCE_CHANGED` tilfojet
 
 ---
 
