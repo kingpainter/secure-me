@@ -32,6 +32,7 @@ FAKE_PRESENCE_ON_DA = "Secure Me: Fake Presence aktiveret. Automatisk aktivering
 FAKE_PRESENCE_OFF_DA = "Secure Me: Fake Presence deaktiveret. Automatisk aktivering genoptaget."
 
 EVENT_FAKE_PRESENCE_CHANGED = f"{DOMAIN}_fake_presence_changed"
+EVENT_PRESENCE_CHANGED = f"{DOMAIN}_presence_changed"
 
 # Error messages — English
 ERROR_MODULE_FAILED_EN = "Secure Me: Module '{module}' failed during '{action}'. Check logs."

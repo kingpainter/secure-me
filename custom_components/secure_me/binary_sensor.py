@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     COORDINATOR,
     DOMAIN,
+    EVENT_PRESENCE_CHANGED,
     MODULE_CAMERA,
     MODULE_LOCK,
     MODULE_LIGHTS,
@@ -106,6 +107,9 @@ async def async_setup_entry(
     # Battery alert sensor
     entities.append(SecureMeBatteryAlert(coordinator, config_entry))
 
+    # Presence sensor (anyone home based on user tracker entities)
+    entities.append(SecureMePresence(coordinator, config_entry))
+
     async_add_entities(entities)
     _LOGGER.info("Created %d health monitoring binary sensors", len(entities))
 
@@ -195,6 +199,157 @@ class SecureMeSystemHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
+        self.async_write_ha_state()
+
+
+class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntity):
+    """Binary sensor representing whether anyone is home.
+
+    State is ON when at least one tracked user (via tracker_entity in their
+    user profile) is home, or when Fake Presence is active.
+    State is OFF when all tracked users are away AND Fake Presence is off.
+
+    This sensor is the authoritative presence source for Secure Me auto-arm.
+    It listens directly on each user's tracker entity so it updates immediately
+    when a person entity changes state.
+
+    entity_id: binary_sensor.secure_me_anyone_home
+    device_class: presence (on = home, off = away)
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Anyone Home"
+    _attr_device_class = BinarySensorDeviceClass.PRESENCE
+
+    def __init__(
+        self,
+        coordinator: SecureMeCoordinator,
+        config_entry: ConfigEntry,
+    ) -> None:
+        """Initialize presence sensor."""
+        super().__init__(coordinator)
+        self._config_entry = config_entry
+        self._attr_unique_id = f"{config_entry.entry_id}_anyone_home"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, config_entry.entry_id)},
+            "name": "Secure Me Alarm System",
+            "manufacturer": "Secure Me",
+            "model": "Alarm Manager",
+            "sw_version": "0.2.0",
+        }
+        # Subscriptions to tracker entity state changes
+        self._tracker_unsubs: list = []
+        self._last_anyone_home: bool | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to tracker entity state changes when added to HA."""
+        await super().async_added_to_hass()
+        self._subscribe_trackers()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Unsubscribe tracker listeners on removal."""
+        self._unsubscribe_trackers()
+
+    def _get_tracker_entities(self) -> list[str]:
+        """Collect all tracker_entity values from enabled user profiles."""
+        if not hasattr(self.coordinator, "store") or not self.coordinator.store:
+            return []
+        trackers = []
+        for user in self.coordinator.store.get_users().values():
+            if not user.get("enabled", True):
+                continue
+            tracker = user.get("tracker_entity", "")
+            if tracker and "." in tracker:
+                trackers.append(tracker)
+        return trackers
+
+    def _subscribe_trackers(self) -> None:
+        """Subscribe to state changes for all configured tracker entities.
+
+        Called on startup and whenever the store may have changed (e.g. after
+        a user profile is saved). Previous subscriptions are cancelled first.
+        """
+        self._unsubscribe_trackers()
+        trackers = self._get_tracker_entities()
+        if not trackers:
+            _LOGGER.debug("SecureMePresence: no tracker entities configured on users")
+            return
+
+        from homeassistant.helpers.event import async_track_state_change_event
+
+        @callback
+        def _tracker_state_changed(event) -> None:
+            """Fire when any tracked person entity changes state."""
+            self._update_and_fire()
+
+        unsub = async_track_state_change_event(
+            self.hass, trackers, _tracker_state_changed
+        )
+        self._tracker_unsubs.append(unsub)
+        _LOGGER.debug(
+            "SecureMePresence: subscribed to %d tracker entities: %s",
+            len(trackers), trackers,
+        )
+
+    def _unsubscribe_trackers(self) -> None:
+        """Cancel all tracker state-change subscriptions."""
+        for unsub in self._tracker_unsubs:
+            unsub()
+        self._tracker_unsubs.clear()
+
+    def _update_and_fire(self) -> None:
+        """Recompute presence and fire EVENT_PRESENCE_CHANGED if state changed."""
+        presence = self.coordinator.get_presence_status()
+        anyone_home = presence["anyone_home"]
+        self.async_write_ha_state()
+
+        if anyone_home != self._last_anyone_home:
+            self._last_anyone_home = anyone_home
+            self.hass.bus.async_fire(
+                EVENT_PRESENCE_CHANGED,
+                {
+                    "anyone_home": anyone_home,
+                    "people_home": presence["people_home"],
+                    "people_away": presence["people_away"],
+                    "fake_presence": presence["fake_presence"],
+                },
+            )
+            _LOGGER.info(
+                "Secure Me presence changed: anyone_home=%s home=%s away=%s",
+                anyone_home,
+                presence["people_home"],
+                presence["people_away"],
+            )
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if anyone is home (presence ON)."""
+        return self.coordinator.get_presence_status()["anyone_home"]
+
+    @property
+    def icon(self) -> str:
+        """Return icon based on presence state."""
+        return "mdi:home-account" if self.is_on else "mdi:home-outline"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return presence details."""
+        presence = self.coordinator.get_presence_status()
+        return {
+            "people_home": presence["people_home"] or "none",
+            "people_away": presence["people_away"] or "none",
+            "tracked_users": presence["tracked_users"],
+            "fake_presence": presence["fake_presence"],
+        }
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle coordinator update — also re-subscribe if user list changed."""
+        current_trackers = self._get_tracker_entities()
+        # Detect if the tracked set has changed (user added/removed/edited)
+        # by comparing count against number of active subscriptions.
+        if len(current_trackers) != len(self._tracker_unsubs) or not self._tracker_unsubs:
+            self._subscribe_trackers()
         self.async_write_ha_state()
 
 

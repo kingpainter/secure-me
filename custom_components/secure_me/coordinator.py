@@ -999,6 +999,56 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     entities.extend(val.values())
         return list({e for e in entities if e and isinstance(e, str) and "." in e})
 
+    # ── Presence ──────────────────────────────────────────────────────────────
+
+    def get_presence_status(self) -> dict[str, Any]:
+        """Return presence status derived from user tracker entities.
+
+        Reads tracker_entity from each enabled user profile in the store.
+        Returns a dict with:
+          - anyone_home: bool
+          - people_home: list of user names currently home
+          - people_away: list of user names currently away
+          - tracked_users: total number of users with a tracker configured
+          - fake_presence: bool (Fake Presence override active)
+        """
+        if not hasattr(self, "store") or not self.store:
+            return {
+                "anyone_home": False,
+                "people_home": [],
+                "people_away": [],
+                "tracked_users": 0,
+                "fake_presence": False,
+            }
+
+        people_home: list[str] = []
+        people_away: list[str] = []
+
+        for user in self.store.get_users().values():
+            if not user.get("enabled", True):
+                continue
+            tracker = user.get("tracker_entity", "")
+            if not tracker:
+                continue
+            name = user.get("name", tracker)
+            state = self.hass.states.get(tracker)
+            if state and state.state == "home":
+                people_home.append(name)
+            else:
+                people_away.append(name)
+
+        fake = self.fake_presence
+        # Fake Presence counts as someone being home for auto-arm purposes
+        anyone_home = bool(people_home) or fake
+
+        return {
+            "anyone_home": anyone_home,
+            "people_home": people_home,
+            "people_away": people_away,
+            "tracked_users": len(people_home) + len(people_away),
+            "fake_presence": fake,
+        }
+
     # ── Shutdown ─────────────────────────────────────────────────────────────
 
     async def async_shutdown(self) -> None:
