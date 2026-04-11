@@ -94,7 +94,26 @@
     },
     "alarm_control_panel": {
       "alarm": {
-        "name": "Alarm"
+        "name": "Alarm",
+        "state": {
+          "armed_home_alone": "Tilkoblet Hjemme Alene"
+        }
+      }
+    }
+  },
+  "services": {
+    "arm_home_alone": {
+      "name": "Tilkob Hjemme Alene",
+      "description": "Tilkobler alarmen i Hjemme Alene-tilstand. Kameraer aktiveres, doersensorer sender beskednotifikationer, bevaegelsessensorer er kun visuelle.",
+      "fields": {
+        "code": {
+          "name": "Kode",
+          "description": "Alarm PIN-kode (hvis kraevet)"
+        },
+        "skip_delay": {
+          "name": "Spring Forsinkelse Over",
+          "description": "Tilkob med det samme uden udgangsforsinkelse"
+        }
       }
     }
   }

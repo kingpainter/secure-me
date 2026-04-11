@@ -56,6 +56,8 @@ from .const import (
     EVENT_ACTION_ARM_HOME,
     EVENT_ACTION_ARM_NIGHT,
     EVENT_ACTION_ARM_VACATION,
+    EVENT_ACTION_ARM_HOME_ALONE,
+    STATE_ALARM_ARMED_HOME_ALONE,
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -347,6 +349,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         elif action == EVENT_ACTION_ARM_VACATION:
             loop.create_task(self.async_arm_vacation())
 
+        elif action == EVENT_ACTION_ARM_HOME_ALONE:
+            loop.create_task(self.async_arm_home_alone())
+
     async def _arm_by_state(
         self, state: str, skip_delay: bool = False, force: bool = False
     ) -> bool:
@@ -359,6 +364,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return await self.async_arm_night(skip_delay=skip_delay)
         if state == STATE_ALARM_ARMED_VACATION:
             return await self.async_arm_vacation(skip_delay=skip_delay)
+        if state == STATE_ALARM_ARMED_HOME_ALONE:
+            return await self.async_arm_home_alone(skip_delay=skip_delay)
         return False
 
     # ── arm_on_close callback (v1.2.0) ──────────────────────────────────────
@@ -395,15 +402,17 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             STATE_ALARM_ARMED_HOME,
             STATE_ALARM_ARMED_NIGHT,
             STATE_ALARM_ARMED_VACATION,
+            STATE_ALARM_ARMED_HOME_ALONE,
         ):
             self._last_arm_mode = new_state
             if len(self.zone_manager._unsubscribe_callbacks) == 0:
                 # Derive short mode string from state constant
                 _mode_map = {
-                    STATE_ALARM_ARMED_AWAY:     "away",
-                    STATE_ALARM_ARMED_HOME:     "home",
-                    STATE_ALARM_ARMED_NIGHT:    "night",
-                    STATE_ALARM_ARMED_VACATION: "vacation",
+                    STATE_ALARM_ARMED_AWAY:       "away",
+                    STATE_ALARM_ARMED_HOME:       "home",
+                    STATE_ALARM_ARMED_NIGHT:      "night",
+                    STATE_ALARM_ARMED_VACATION:   "vacation",
+                    STATE_ALARM_ARMED_HOME_ALONE: "home_alone",
                 }
                 self.zone_manager.start_monitoring(
                     arm_mode=_mode_map.get(new_state, "away")
@@ -686,6 +695,32 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
         return success
 
+    async def async_arm_home_alone(
+        self, code: str | None = None, skip_delay: bool = False, force: bool = False
+    ) -> bool:
+        """Arm in home alone mode (cameras on, motion visual-only, door sensors notify)."""
+        _LOGGER.info("Arming alarm (home_alone, skip_delay=%s, force=%s)", skip_delay, force)
+        if not force:
+            all_sensors = [
+                s for z in self.zone_manager.zones.values()
+                if z.enabled and z.is_active_for_mode("home_alone")
+                for s in z.sensors
+            ]
+            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+                _LOGGER.warning(
+                    "Cannot arm home_alone — open sensors: %s", self.zone_manager.get_all_open_sensors()
+                )
+                return False
+        success = await self.state_machine.arm_home_alone(skip_delay)
+        if success:
+            self._armed_by = self.identify_user(code)
+            self._armed_by_id = self.identify_user_id(code)
+            # Activate cameras on arm — same as away mode
+            await self._execute_modules_arm_away()
+        await self.async_request_refresh()
+        return success
+
     async def async_disarm(self, code: str | None = None) -> bool:
         """Disarm the alarm."""
         _LOGGER.info("Disarming alarm")
@@ -884,6 +919,17 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         # v1.2.0: Push sensor configs and groups into zone manager
         sensor_configs = store.get_sensors()
+        self.zone_manager.load_sensor_configs(sensor_configs)
+
+        # v1.4.0: Merge Home Alone per-sensor config (stored on zone level)
+        # into sensor_configs so get_home_alone_sensor_config() can look it up.
+        for zone_cfg in store.get_zones().values():
+            ha_cfg = zone_cfg.get("home_alone_sensor_config", {})
+            for eid, ha_fields in ha_cfg.items():
+                if eid not in sensor_configs:
+                    sensor_configs[eid] = {}
+                sensor_configs[eid].update(ha_fields)
+        # Re-load merged configs into zone manager
         self.zone_manager.load_sensor_configs(sensor_configs)
 
         sensor_groups = store.get_sensor_groups()

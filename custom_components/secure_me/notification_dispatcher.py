@@ -42,6 +42,14 @@ from .const import (
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_TRIGGERED,
+    CONF_HOME_ALONE_CAMERA,
+    CONF_HOME_ALONE_SPEAKER,
+    CONF_HOME_ALONE_ACTION_1,
+    CONF_HOME_ALONE_ACTION_2,
+    HOME_ALONE_DEFAULT_ACTION_1,
+    HOME_ALONE_DEFAULT_ACTION_2,
+    EVENT_HOME_ALONE_ACTION_1,
+    EVENT_HOME_ALONE_ACTION_2,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -293,6 +301,99 @@ def _discover_safety_sensors(hass: HomeAssistant) -> dict[str, list[str]]:
         if dc in found:
             found[dc].append(state.entity_id)
     return found
+
+
+async def dispatch_home_alone_door_trigger(
+    hass: HomeAssistant,
+    entity_id: str,
+    sensor_name: str,
+    sensor_cfg: dict[str, Any],
+) -> None:
+    """Dispatch a Home Alone door-open notification.
+
+    Sends a push notification to all enabled users with:
+      - A camera snapshot attachment (if home_alone_camera is configured)
+      - Two configurable action buttons
+      - A TTS announcement on the configured speaker (if home_alone_tts_speaker is set)
+
+    Args:
+        entity_id:   The door sensor entity_id that triggered.
+        sensor_name: Human-readable name of the sensor.
+        sensor_cfg:  Result of ZoneManager.get_home_alone_sensor_config(entity_id).
+    """
+    store = _get_store(hass)
+    if store is None:
+        return
+
+    data = await store.async_load() or {}
+    users: dict[str, dict] = data.get("users", {})
+
+    camera_entity = sensor_cfg.get(CONF_HOME_ALONE_CAMERA)
+    speaker_entity = sensor_cfg.get(CONF_HOME_ALONE_SPEAKER)
+    action_1_text = sensor_cfg.get(CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1)
+    action_2_text = sensor_cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2)
+
+    title = "Home Alone Alert"
+    message = f"{sensor_name} was opened."
+
+    # Build push action buttons
+    actions = [
+        {"action": EVENT_HOME_ALONE_ACTION_1, "title": action_1_text},
+        {"action": EVENT_HOME_ALONE_ACTION_2, "title": action_2_text},
+    ]
+
+    # Build push data payload — include camera snapshot if configured
+    push_data: dict[str, Any] = {"actions": actions}
+    if camera_entity:
+        push_data["entity_id"] = camera_entity
+        push_data["image"] = f"/api/camera_proxy/{camera_entity}"
+
+    # Send push to all enabled users
+    for user in users.values():
+        if not user.get("enabled", True):
+            continue
+        notify_service = user.get("notify_service")
+        if not notify_service:
+            continue
+        try:
+            svc_domain, svc_name = notify_service.split(".", 1)
+        except ValueError:
+            continue
+        try:
+            await hass.services.async_call(
+                svc_domain, svc_name,
+                {"title": title, "message": message, "data": push_data},
+                blocking=False,
+            )
+            _LOGGER.debug(
+                "Home Alone push sent to %s for sensor %s",
+                notify_service, entity_id,
+            )
+        except Exception as err:
+            _LOGGER.error(
+                "Home Alone push failed for %s: %s", notify_service, err
+            )
+
+    # TTS announcement on configured speaker
+    if speaker_entity:
+        try:
+            tts_module = _get_tts_module(hass)
+            if tts_module:
+                await tts_module.announce_on_entity(message, speaker_entity)
+            else:
+                # Fallback: call tts.speak service directly
+                await hass.services.async_call(
+                    "tts", "speak",
+                    {
+                        "media_player_entity_id": speaker_entity,
+                        "message": message,
+                    },
+                    blocking=False,
+                )
+        except Exception as err:
+            _LOGGER.error(
+                "Home Alone TTS failed for speaker %s: %s", speaker_entity, err
+            )
 
 
 class NotificationDispatcher:

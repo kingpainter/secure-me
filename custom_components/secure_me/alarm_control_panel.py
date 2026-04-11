@@ -21,6 +21,7 @@ from .const import (
     STATE_ALARM_ARMED_HOME,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMED_HOME_ALONE,
     STATE_ALARM_DISARMED,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
@@ -56,7 +57,7 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
         | AlarmControlPanelEntityFeature.ARM_NIGHT
-        | AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS
+        | AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS  # used for vacation
         | AlarmControlPanelEntityFeature.TRIGGER
     )
 
@@ -144,9 +145,14 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
         await self.coordinator.async_arm_night(code)
 
     async def async_alarm_arm_custom_bypass(self, code: str | None = None) -> None:
-        """Send arm vacation command."""
+        """Send arm vacation command (mapped to ARM_CUSTOM_BYPASS feature)."""
         _LOGGER.info("Alarm panel: Arm vacation requested")
         await self.coordinator.async_arm_vacation(code)
+
+    async def async_alarm_arm_home_alone(self, code: str | None = None) -> None:
+        """Send arm home alone command."""
+        _LOGGER.info("Alarm panel: Arm home alone requested")
+        await self.coordinator.async_arm_home_alone(code)
 
     async def async_alarm_trigger(self, code: str | None = None) -> None:
         """Send trigger command."""

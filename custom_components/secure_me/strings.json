@@ -94,7 +94,26 @@
     },
     "alarm_control_panel": {
       "alarm": {
-        "name": "Alarm"
+        "name": "Alarm",
+        "state": {
+          "armed_home_alone": "Armed Home Alone"
+        }
+      }
+    }
+  },
+  "services": {
+    "arm_home_alone": {
+      "name": "Arm Home Alone",
+      "description": "Arms the alarm in Home Alone mode. Cameras activate, door sensors send action notifications, motion sensors are visual-only.",
+      "fields": {
+        "code": {
+          "name": "Code",
+          "description": "Alarm PIN code (if required)"
+        },
+        "skip_delay": {
+          "name": "Skip Delay",
+          "description": "Arm immediately without the exit delay"
+        }
       }
     }
   }

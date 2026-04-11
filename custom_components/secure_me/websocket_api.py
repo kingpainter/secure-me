@@ -307,6 +307,16 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
             arm_modes=zone_cfg.get("arm_modes", ["away"]),
         )
 
+    # v1.4.0: Re-merge Home Alone per-sensor config into zone manager sensor_configs
+    sensor_configs = store.get_sensors()
+    for zone_cfg in store.get_zones().values():
+        ha_cfg = zone_cfg.get("home_alone_sensor_config", {})
+        for eid, ha_fields in ha_cfg.items():
+            if eid not in sensor_configs:
+                sensor_configs[eid] = {}
+            sensor_configs[eid].update(ha_fields)
+    zm.load_sensor_configs(sensor_configs)
+
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/delete_zone",

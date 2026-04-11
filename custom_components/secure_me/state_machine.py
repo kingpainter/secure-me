@@ -14,6 +14,7 @@ from .const import (
     STATE_ALARM_ARMED_HOME,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMED_HOME_ALONE,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
     ZONE_TYPE_ENTRY,
@@ -29,6 +30,7 @@ _ARMED_STATES = frozenset({
     STATE_ALARM_ARMED_HOME,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMED_HOME_ALONE,
 })
 
 
@@ -269,6 +271,22 @@ class AlarmStateMachine:
                 await self._set_state(STATE_ALARM_ARMING)
                 self._countdown_task = asyncio.create_task(
                     self._countdown_timer(STATE_ALARM_ARMED_VACATION, self._exit_delay)
+                )
+            return True
+
+    async def arm_home_alone(self, skip_delay: bool = False) -> bool:
+        """Arm in home alone mode (children supervised, cameras on, motion visual-only)."""
+        async with self._transition_lock:
+            if self.is_armed:
+                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
+                return False
+            await self._cancel_countdown()
+            if skip_delay or self._exit_delay == 0:
+                await self._set_state(STATE_ALARM_ARMED_HOME_ALONE)
+            else:
+                await self._set_state(STATE_ALARM_ARMING)
+                self._countdown_task = asyncio.create_task(
+                    self._countdown_timer(STATE_ALARM_ARMED_HOME_ALONE, self._exit_delay)
                 )
             return True
 

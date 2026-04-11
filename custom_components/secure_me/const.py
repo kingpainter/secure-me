@@ -84,6 +84,7 @@ STATE_ALARM_ARMED_AWAY = "armed_away"
 STATE_ALARM_ARMED_HOME = "armed_home"
 STATE_ALARM_ARMED_NIGHT = "armed_night"
 STATE_ALARM_ARMED_VACATION = "armed_vacation"
+STATE_ALARM_ARMED_HOME_ALONE = "armed_home_alone"
 STATE_ALARM_PENDING = "pending"
 STATE_ALARM_TRIGGERED = "triggered"
 
@@ -107,7 +108,8 @@ EVENT_ACTION_DISARM      = "SECURE_ME_DISARM"
 EVENT_ACTION_ARM_AWAY    = "SECURE_ME_ARM_AWAY"
 EVENT_ACTION_ARM_HOME    = "SECURE_ME_ARM_HOME"
 EVENT_ACTION_ARM_NIGHT   = "SECURE_ME_ARM_NIGHT"
-EVENT_ACTION_ARM_VACATION = "SECURE_ME_ARM_VACATION"
+EVENT_ACTION_ARM_VACATION  = "SECURE_ME_ARM_VACATION"
+EVENT_ACTION_ARM_HOME_ALONE = "SECURE_ME_ARM_HOME_ALONE"
 
 PUSH_EVENT_ACTIONS = [
     EVENT_ACTION_FORCE_ARM,
@@ -117,16 +119,18 @@ PUSH_EVENT_ACTIONS = [
     EVENT_ACTION_ARM_HOME,
     EVENT_ACTION_ARM_NIGHT,
     EVENT_ACTION_ARM_VACATION,
+    EVENT_ACTION_ARM_HOME_ALONE,
 ]
 
 # Services
-SERVICE_ARM_AWAY = "arm_away"
-SERVICE_ARM_HOME = "arm_home"
-SERVICE_ARM_NIGHT = "arm_night"
-SERVICE_ARM_VACATION = "arm_vacation"
-SERVICE_DISARM = "disarm"
-SERVICE_TRIGGER = "trigger"
-SERVICE_RUN_TEST = "run_test"
+SERVICE_ARM_AWAY       = "arm_away"
+SERVICE_ARM_HOME       = "arm_home"
+SERVICE_ARM_NIGHT      = "arm_night"
+SERVICE_ARM_VACATION   = "arm_vacation"
+SERVICE_ARM_HOME_ALONE = "arm_home_alone"
+SERVICE_DISARM         = "disarm"
+SERVICE_TRIGGER        = "trigger"
+SERVICE_RUN_TEST       = "run_test"
 
 # Attributes
 ATTR_CODE = "code"
@@ -212,3 +216,18 @@ ATTR_SENSOR_GROUP_EVENT_COUNT = "event_count"  # how many sensors must trigger
 ATTR_SENSOR_ENTRY_DELAY = "entry_delay"     # per-sensor override (seconds, None = use zone default)
 ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"     # bypass open sensor at arm time
 ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"   # auto-arm when sensor closes
+
+# ── Home Alone mode constants ─────────────────────────────────────────────────
+# Per-sensor config fields used when a zone is active in home_alone arm mode.
+CONF_HOME_ALONE_CAMERA   = "home_alone_camera"        # entity_id of camera to snapshot on trigger
+CONF_HOME_ALONE_SPEAKER  = "home_alone_tts_speaker"   # entity_id of TTS media_player for this sensor
+CONF_HOME_ALONE_ACTION_1 = "home_alone_action_1"      # text for push action button 1
+CONF_HOME_ALONE_ACTION_2 = "home_alone_action_2"      # text for push action button 2
+
+# Default action button texts (editable per sensor in UI)
+HOME_ALONE_DEFAULT_ACTION_1 = "Where are you going?"
+HOME_ALONE_DEFAULT_ACTION_2 = "Please close the door."
+
+# Push action event identifiers for Home Alone action buttons
+EVENT_HOME_ALONE_ACTION_1 = "SECURE_ME_HOME_ALONE_ACTION_1"
+EVENT_HOME_ALONE_ACTION_2 = "SECURE_ME_HOME_ALONE_ACTION_2"

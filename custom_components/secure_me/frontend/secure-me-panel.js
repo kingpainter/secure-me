@@ -360,10 +360,11 @@ class SecureMePanel extends HTMLElement {
     const state = this._alarmState || "disarmed";
     const cd = this._armingCountdown;
     let cls = "disarmed", label = "Disarmed";
-    if      (state === "armed_away")     { cls = "armed";    label = "Armed Away"; }
-    else if (state === "armed_home")     { cls = "armed";    label = "Armed Home"; }
-    else if (state === "armed_night")    { cls = "armed";    label = "Armed Night"; }
-    else if (state === "armed_vacation") { cls = "armed";    label = "Armed Vacation"; }
+    if      (state === "armed_away")       { cls = "armed";    label = "Armed Away"; }
+    else if (state === "armed_home")       { cls = "armed";    label = "Armed Home"; }
+    else if (state === "armed_night")      { cls = "armed";    label = "Armed Night"; }
+    else if (state === "armed_vacation")   { cls = "armed";    label = "Armed Vacation"; }
+    else if (state === "armed_home_alone") { cls = "armed";    label = "Home Alone"; }
     else if (state === "arming")         { cls = "arming";   label = cd > 0 ? `Arming ${cd}s` : "Arming"; }
     else if (state === "pending")        { cls = "pending";  label = cd > 0 ? `Entry ${cd}s` : "Pending"; }
     else if (state === "triggered")      { cls = "triggered";label = "Triggered"; }
@@ -977,7 +978,7 @@ class SecureMePanel extends HTMLElement {
     const zones = this._data.zones || {};
     const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
     const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
-    const modeColors = { away: "var(--sm-danger)", home: "var(--sm-accent)", night: "var(--sm-blue)", vacation: "var(--sm-purple)" };
+    const modeColors = { away: "var(--sm-danger)", home: "var(--sm-accent)", night: "var(--sm-blue)", vacation: "var(--sm-purple)", home_alone: "var(--sm-green)" };
 
     return `
       <div class="section-header">
@@ -1031,12 +1032,13 @@ class SecureMePanel extends HTMLElement {
     const temp = this._tempConfig || {};
     const isEdit = !!temp._zoneId;
     const armModes = temp.arm_modes || ['away'];
-    const modeColors = { away: 'var(--sm-danger)', home: 'var(--sm-accent)', night: 'var(--sm-blue)', vacation: 'var(--sm-purple)' };
+    const modeColors = { away: 'var(--sm-danger)', home: 'var(--sm-accent)', night: 'var(--sm-blue)', vacation: 'var(--sm-purple)', home_alone: 'var(--sm-green)' };
     const modeDesc = {
       away: 'All sensors active',
       home: 'Perimeter only, no interior',
       night: 'Perimeter + selected interior',
       vacation: 'Like Away with extra alerts',
+      home_alone: 'Kids home alone — cameras on, doors notify',
     };
 
     return '<div class="config-dialog-overlay">' +
@@ -1065,7 +1067,7 @@ class SecureMePanel extends HTMLElement {
         '<div class="form-group">' +
           '<label class="form-label">Active in Arm Modes</label>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
-            ['away', 'home', 'night', 'vacation'].map(m => {
+            ['away', 'home', 'night', 'vacation', 'home_alone'].map(m => {
               const checked = armModes.includes(m);
               const c = modeColors[m];
               return '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;' +
@@ -1073,7 +1075,7 @@ class SecureMePanel extends HTMLElement {
                 'border:1px solid ' + (checked ? c + '66' : 'var(--sm-border)') + ';font-size:12px">' +
                 '<input type="checkbox" class="zone-mode-cb" value="' + m + '"' + (checked ? ' checked' : '') + '>' +
                 '<div>' +
-                  '<div style="font-weight:600;color:' + (checked ? c : 'var(--sm-text)') + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</div>' +
+                  '<div style="font-weight:600;color:' + (checked ? c : 'var(--sm-text)') + '">' + (m === 'home_alone' ? 'Home Alone' : m.charAt(0).toUpperCase() + m.slice(1)) + '</div>' +
                   '<div style="font-size:10px;color:var(--sm-text-tertiary)">' + modeDesc[m] + '</div>' +
                 '</div>' +
               '</label>';
@@ -1096,6 +1098,62 @@ class SecureMePanel extends HTMLElement {
           ) +
         '</div>' +
 
+        // Home Alone per-sensor config — only shown when home_alone mode is selected
+        (armModes.includes('home_alone') && (temp.sensors || []).length > 0 ? (
+          '<div class="form-group" style="border-top:1px solid var(--sm-border);padding-top:16px;margin-top:4px">' +
+            '<label class="form-label" style="color:var(--sm-green)">' +
+              icon('user') + ' Home Alone — Per-Sensor Config' +
+            '</label>' +
+            '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:10px">' +
+              'Configure camera snapshot and TTS speaker for each door sensor when Home Alone mode is active.' +
+            '</div>' +
+            (temp.sensors || []).map(eid => {
+              const s = (this._data.sensors || []).find(x => x.entity_id === eid);
+              const sName = s ? s.name : eid;
+              const sType = s ? s.sensor_type : '';
+              const haCfg = (temp.home_alone_sensor_config || {})[eid] || {};
+              const availCams = this._availableEntities.camera || [];
+              const availSpeakers = this._availableEntities.media_player || [];
+              return '<div style="padding:12px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:8px">' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">' +
+                  '<span class="badge ' + sType + '" style="font-size:10px">' + sType + '</span>' +
+                  '<span style="font-size:13px;font-weight:600">' + sName + '</span>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
+                  '<div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Camera (snapshot)</div>' +
+                    '<select class="form-select ha-sensor-cam" data-sensor-eid="' + eid + '" style="font-size:12px">' +
+                      '<option value="">-- None --</option>' +
+                      availCams.map(c => '<option value="' + c.entity_id + '"' + (haCfg.home_alone_camera === c.entity_id ? ' selected' : '') + '>' + (c.name || c.entity_id) + '</option>').join('') +
+                    '</select>' +
+                  '</div>' +
+                  '<div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">TTS Speaker</div>' +
+                    '<select class="form-select ha-sensor-speaker" data-sensor-eid="' + eid + '" style="font-size:12px">' +
+                      '<option value="">-- None --</option>' +
+                      availSpeakers.map(sp => '<option value="' + sp.entity_id + '"' + (haCfg.home_alone_tts_speaker === sp.entity_id ? ' selected' : '') + '>' + (sp.name || sp.entity_id) + '</option>').join('') +
+                    '</select>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+                  '<div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Action 1 text</div>' +
+                    '<input type="text" class="form-input ha-sensor-action1" data-sensor-eid="' + eid + '"' +
+                      ' style="font-size:12px" placeholder="Where are you going?"' +
+                      ' value="' + (haCfg.home_alone_action_1 || '') + '">' +
+                  '</div>' +
+                  '<div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Action 2 text</div>' +
+                    '<input type="text" class="form-input ha-sensor-action2" data-sensor-eid="' + eid + '"' +
+                      ' style="font-size:12px" placeholder="Please close the door."' +
+                      ' value="' + (haCfg.home_alone_action_2 || '') + '">' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>'
+        ) : '') +
+
         '<div class="dialog-footer">' +
           '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
           '<button class="btn-dialog save" data-action="save-zone">Save Zone</button>' +
@@ -1116,12 +1174,40 @@ class SecureMePanel extends HTMLElement {
 
     const temp = this._tempConfig || {};
     const zoneId = temp._zoneId || ('zone_' + Date.now());
+
+    // Collect Home Alone per-sensor config from dialog inputs (only if home_alone mode is active)
+    const homeAloneSensorConfig = {};
+    if (armModes.includes('home_alone')) {
+      const root2 = this.shadowRoot;
+      root2.querySelectorAll('.ha-sensor-cam').forEach(el => {
+        const eid = el.dataset.sensorEid;
+        if (!homeAloneSensorConfig[eid]) homeAloneSensorConfig[eid] = {};
+        homeAloneSensorConfig[eid].home_alone_camera = el.value || null;
+      });
+      root2.querySelectorAll('.ha-sensor-speaker').forEach(el => {
+        const eid = el.dataset.sensorEid;
+        if (!homeAloneSensorConfig[eid]) homeAloneSensorConfig[eid] = {};
+        homeAloneSensorConfig[eid].home_alone_tts_speaker = el.value || null;
+      });
+      root2.querySelectorAll('.ha-sensor-action1').forEach(el => {
+        const eid = el.dataset.sensorEid;
+        if (!homeAloneSensorConfig[eid]) homeAloneSensorConfig[eid] = {};
+        homeAloneSensorConfig[eid].home_alone_action_1 = el.value.trim() || null;
+      });
+      root2.querySelectorAll('.ha-sensor-action2').forEach(el => {
+        const eid = el.dataset.sensorEid;
+        if (!homeAloneSensorConfig[eid]) homeAloneSensorConfig[eid] = {};
+        homeAloneSensorConfig[eid].home_alone_action_2 = el.value.trim() || null;
+      });
+    }
+
     const config = {
       name,
       type,
       enabled: temp.enabled !== false,
       arm_modes: armModes,
       sensors,
+      home_alone_sensor_config: homeAloneSensorConfig,
     };
 
     const result = await this._callWS('save_zone', { zone_id: zoneId, config });
@@ -1146,8 +1232,12 @@ class SecureMePanel extends HTMLElement {
       arm_modes: z.arm_modes || z.modes || ['away'],
       sensors: z.sensors || [],
       enabled: z.enabled !== false,
+      home_alone_sensor_config: z.home_alone_sensor_config || {},
     };
     this._showDialog = 'zone';
+    // Pre-load cameras and media_players for Home Alone config dropdowns
+    if (!this._availableEntities.camera) this._loadEntitiesByDomain('camera');
+    if (!this._availableEntities.media_player) this._loadEntitiesByDomain('media_player');
     this._render();
   }
 
@@ -4063,10 +4153,11 @@ class SecureMePanel extends HTMLElement {
     const vol = this._tempConfig?.volume ?? 50;
 
     const TRIGGERS = [
-      { value: 'armed_away',     label: 'Armed Away' },
-      { value: 'armed_home',     label: 'Armed Home' },
-      { value: 'armed_night',    label: 'Armed Night' },
-      { value: 'armed_vacation', label: 'Armed Vacation' },
+      { value: 'armed_away',       label: 'Armed Away' },
+      { value: 'armed_home',       label: 'Armed Home' },
+      { value: 'armed_night',      label: 'Armed Night' },
+      { value: 'armed_vacation',   label: 'Armed Vacation' },
+      { value: 'armed_home_alone', label: 'Home Alone' },
       { value: 'disarmed',       label: 'Disarmed' },
       { value: 'triggered',      label: 'Triggered' },
       { value: 'arming',         label: 'Arming (exit delay)' },
@@ -4572,8 +4663,11 @@ class SecureMePanel extends HTMLElement {
     // Zone actions
     root.querySelectorAll("[data-action='add-zone']").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._tempConfig = { type: 'entry', arm_modes: ['away'], sensors: [] };
+        this._tempConfig = { type: 'entry', arm_modes: ['away'], sensors: [], home_alone_sensor_config: {} };
         this._showDialog = 'zone';
+        // Pre-load cameras and media_players for Home Alone config dropdowns
+        if (!this._availableEntities.camera) this._loadEntitiesByDomain('camera');
+        if (!this._availableEntities.media_player) this._loadEntitiesByDomain('media_player');
         this._render();
       });
     });

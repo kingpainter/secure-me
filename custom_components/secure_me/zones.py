@@ -24,7 +24,7 @@ _OPEN_STATES = frozenset({"on", "open", "detected", "unlocked"})
 
 
 # All valid arm modes
-ALL_ARM_MODES = frozenset({"away", "home", "night", "vacation"})
+ALL_ARM_MODES = frozenset({"away", "home", "night", "vacation", "home_alone"})
 
 # Default arm_modes if not specified (away only — safe default)
 DEFAULT_ARM_MODES = ["away"]
@@ -190,7 +190,7 @@ class ZoneManager:
     # ── Sensor configs ──────────────────────────────────────────────────────
 
     def load_sensor_configs(self, configs: dict[str, dict[str, Any]]) -> None:
-        """Load per-sensor configs (entry_delay, auto_bypass, arm_on_close)."""
+        """Load per-sensor configs (entry_delay, auto_bypass, arm_on_close, home_alone fields)."""
         self._sensor_configs = configs
         _LOGGER.debug("Loaded %d sensor configs", len(configs))
 
@@ -204,6 +204,31 @@ class ZoneManager:
             except (TypeError, ValueError):
                 pass
         return zone_default
+
+    def get_home_alone_sensor_config(self, entity_id: str) -> dict[str, Any]:
+        """Return Home Alone specific config for a sensor.
+
+        Returns a dict with keys:
+          home_alone_camera   — entity_id of camera to snapshot (str | None)
+          home_alone_tts_speaker — entity_id of TTS media_player (str | None)
+          home_alone_action_1 — text for push action button 1 (str)
+          home_alone_action_2 — text for push action button 2 (str)
+        """
+        from .const import (
+            CONF_HOME_ALONE_CAMERA,
+            CONF_HOME_ALONE_SPEAKER,
+            CONF_HOME_ALONE_ACTION_1,
+            CONF_HOME_ALONE_ACTION_2,
+            HOME_ALONE_DEFAULT_ACTION_1,
+            HOME_ALONE_DEFAULT_ACTION_2,
+        )
+        cfg = self._sensor_configs.get(entity_id, {})
+        return {
+            CONF_HOME_ALONE_CAMERA:  cfg.get(CONF_HOME_ALONE_CAMERA),
+            CONF_HOME_ALONE_SPEAKER: cfg.get(CONF_HOME_ALONE_SPEAKER),
+            CONF_HOME_ALONE_ACTION_1: cfg.get(CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1),
+            CONF_HOME_ALONE_ACTION_2: cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2),
+        }
 
     def get_auto_bypass_sensors(self, zone_sensors: list[str]) -> list[str]:
         """Return sensors that are currently open AND have auto_bypass=True.
@@ -444,6 +469,43 @@ class ZoneManager:
             changed, zone = self.update_sensor_state(entity_id, new_state)
             if not changed or not zone or not zone.is_triggered:
                 return
+
+            # ── Home Alone mode: special sensor behaviour ─────────────────
+            # Motion sensors: visual-only, no alarm trigger.
+            # Door/contact sensors: dispatch action notification, no alarm trigger.
+            if self._active_arm_mode == "home_alone":
+                ha_state = self.hass.states.get(entity_id)
+                device_class = (
+                    ha_state.attributes.get("device_class", "") if ha_state else ""
+                )
+                sensor_name = (
+                    ha_state.attributes.get("friendly_name", entity_id) if ha_state else entity_id
+                )
+
+                if device_class == "motion":
+                    # Motion is visual-only in Home Alone mode — no trigger
+                    _LOGGER.debug(
+                        "Home Alone: motion sensor %s activated (visual only, no trigger)",
+                        entity_id,
+                    )
+                    return
+
+                # Door/contact sensor — dispatch action notification
+                if device_class in ("door", "window", "opening"):
+                    sensor_cfg = self.get_home_alone_sensor_config(entity_id)
+                    import asyncio as _asyncio
+                    from .notification_dispatcher import dispatch_home_alone_door_trigger
+                    _asyncio.ensure_future(
+                        dispatch_home_alone_door_trigger(
+                            self.hass, entity_id, sensor_name, sensor_cfg
+                        )
+                    )
+                    _LOGGER.info(
+                        "Home Alone: door sensor %s opened — notification dispatched",
+                        entity_id,
+                    )
+                    return  # No alarm trigger in home_alone mode
+            # ── End Home Alone special handling ───────────────────────────
 
             # Sensor group anti-masking check
             group = self._get_group_for_sensor(entity_id)
