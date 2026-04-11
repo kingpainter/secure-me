@@ -220,11 +220,31 @@ class TTSModule(AlarmModule):
                 target={"entity_id": self.tts_entity},
             )
 
-            # Wait for playback to finish before restoring volume.
-            # Danish speech rate ~= 13 chars/sec. Add 2s buffer for
-            # Alexa processing delay + end-of-sentence pause.
-            wait_seconds = max(4, len(message) / 13 + 2)
-            await asyncio.sleep(wait_seconds)
+            # Wait for playback to finish by monitoring media_player state.
+            # Poll until all players return to idle/paused/standby, or timeout.
+            # This is more reliable than a fixed sleep since cloud TTS latency varies.
+            timeout = max(15, len(message) / 13 + 6)
+            poll_interval = 0.5
+            elapsed = 0.0
+
+            # Brief initial delay to let Alexa start playing
+            await asyncio.sleep(1.5)
+
+            while elapsed < timeout:
+                all_done = all(
+                    (
+                        self.hass.states.get(p) is not None
+                        and self.hass.states.get(p).state in ("idle", "paused", "standby", "off")
+                    )
+                    for p in self.media_players
+                )
+                if all_done:
+                    break
+                await asyncio.sleep(poll_interval)
+                elapsed += poll_interval
+
+            # Small trailing buffer so volume restore doesn't cut last syllable
+            await asyncio.sleep(0.3)
 
             # Restore original volumen
             for player, vol in original_volumes.items():
