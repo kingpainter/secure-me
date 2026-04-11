@@ -34,8 +34,12 @@ PANEL_FILENAME = "secure-me-panel.js"
 CUSTOM_COMPONENTS = "custom_components"
 
 # Alarm card (custom Lovelace card bundled with the integration)
-CARD_URL = f"/api/{DOMAIN}-alarm-card"
+CARD_URL      = f"/api/{DOMAIN}-alarm-card"
 CARD_FILENAME = "secure-me-alarm-card.js"
+
+# Info card (persons, weather, alarm status, lock)
+INFO_CARD_URL      = f"/api/{DOMAIN}-info-card"
+INFO_CARD_FILENAME = "secure-me-info-card.js"
 
 
 async def async_register_panel(
@@ -55,7 +59,8 @@ async def async_register_panel(
     panel_dir = os.path.join(root_dir, PANEL_FOLDER)
     panel_file = os.path.join(panel_dir, PANEL_FILENAME)
 
-    card_file = os.path.join(panel_dir, CARD_FILENAME)
+    card_file      = os.path.join(panel_dir, CARD_FILENAME)
+    info_card_file = os.path.join(panel_dir, INFO_CARD_FILENAME)
 
     if not os.path.isfile(panel_file):
         _LOGGER.error(
@@ -76,32 +81,36 @@ async def async_register_panel(
     # aiohttp routes cannot be removed, so this must only run once.
     if not hass.data[DOMAIN].get("_static_registered", False):
         paths = [StaticPathConfig(PANEL_URL, panel_file, cache_headers=False)]
-        # Also serve the alarm card JS if it exists
+        # Alarm control card
         if os.path.isfile(card_file):
             paths.append(StaticPathConfig(CARD_URL, card_file, cache_headers=False))
             _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
         else:
             _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
+        # Info card
+        if os.path.isfile(info_card_file):
+            paths.append(StaticPathConfig(INFO_CARD_URL, info_card_file, cache_headers=False))
+            _LOGGER.info("Secure Me: info card registered at %s", INFO_CARD_URL)
+        else:
+            _LOGGER.debug("Secure Me: info card JS not found at %s, skipping", info_card_file)
         await hass.http.async_register_static_paths(paths)
         hass.data[DOMAIN]["_static_registered"] = True
         _LOGGER.info(
             "Secure Me: static path registered %s -> %s", PANEL_URL, panel_file
         )
 
-        # Register alarm card as a Lovelace extra module so HA loads it
-        # automatically — no manual resource entry required in Lovelace config.
-        if os.path.isfile(card_file):
-            try:
-                card_version_url = f"{CARD_URL}?v={VERSION}"
-                frontend.async_register_extra_module_url(hass, card_version_url)
-                _LOGGER.info(
-                    "Secure Me: alarm card registered as Lovelace module at %s",
-                    card_version_url,
-                )
-            except Exception as err:
-                _LOGGER.warning(
-                    "Secure Me: could not register alarm card as Lovelace module: %s", err
-                )
+        # Register both cards as Lovelace extra modules
+        for url, fpath, label in [
+            (CARD_URL,      card_file,      "alarm card"),
+            (INFO_CARD_URL, info_card_file, "info card"),
+        ]:
+            if os.path.isfile(fpath):
+                try:
+                    versioned = f"{url}?v={VERSION}"
+                    frontend.async_register_extra_module_url(hass, versioned)
+                    _LOGGER.info("Secure Me: %s registered as Lovelace module at %s", label, versioned)
+                except Exception as err:
+                    _LOGGER.warning("Secure Me: could not register %s as Lovelace module: %s", label, err)
     else:
         _LOGGER.debug(
             "Secure Me: static path %s already registered, skipping", PANEL_URL

@@ -1,23 +1,66 @@
-// info-alarm-card.js
-// Standalone Lovelace card: personer + vejr + alarm + laas
-// Usage:
-//   type: custom:info-alarm-card
+// secure-me-alarm-card.js
+// Secure Me - Alarm control card: arm/disarm, Home Alone, TTS quick messages
+// type: custom:secure-me-alarm-card
+// VERSION = "1.3.0"
+//
+// Config:
+//   entity:          alarm_control_panel.secure_me   (optional)
+//   show_home_alone: true                            (show Home Alone arm button)
+//   show_tts:        true                            (show TTS quick messages)
+//   require_code:    true                            (PIN required for arm + disarm)
+//   tts_messages:                                    (list of {label, message})
+//     - label: Mad er klar
+//       message: Hej, maden er klar.
 
-function _iac_esc(s) {
+function _smEsc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
-class InfoAlarmCard extends HTMLElement {
-  static getStubConfig() { return {}; }
+// SVG icons (no emoji, no raw non-ASCII)
+const SMI = {
+  shield:  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  lock:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+  home:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+  moon:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+  plane:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.28h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9A16 16 0 0 0 15 16.09l1.08-1.08a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22.92 17z"/></svg>',
+  users:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  unlock:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>',
+  speaker: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+  close:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  key:     '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>',
+};
+
+class SecureMeAlarmCard extends HTMLElement {
+  static getStubConfig() {
+    return {
+      entity: "alarm_control_panel.secure_me",
+      show_home_alone: true,
+      show_tts: true,
+      require_code: true,
+      tts_messages: [
+        { label: "Mad er klar",   message: "Hej, maden er klar." },
+        { label: "Ring til mig",  message: "Hej, ring venligst til mig nu. Hilsen Far" },
+        { label: "Game pause",    message: "Det er pause tid. Ikke mere gaming" },
+      ],
+    };
+  }
 
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._hass = null;
+    this._hass    = null;
+    this._config  = {};
     this._shellBuilt = false;
+    this._pinMode    = null;  // 'arm-away' | 'arm-home' | ... | 'disarm' | null
+    this._pinValue   = "";
+    this._pinError   = "";
+    this._ttsOpen    = false;
+    this._ttsSending = null;  // label of in-progress TTS send
   }
 
-  setConfig() {}
+  setConfig(config) {
+    this._config = config || {};
+  }
 
   set hass(h) {
     this._hass = h;
@@ -29,272 +72,551 @@ class InfoAlarmCard extends HTMLElement {
     }
   }
 
-  _state(e)    { return this._hass?.states?.[e]?.state ?? "unknown"; }
-  _attr(e, a)  { return this._hass?.states?.[e]?.attributes?.[a]; }
-  _picture(e)  { return this._attr(e, "entity_picture"); }
+  _entity()       { return this._config.entity || "alarm_control_panel.secure_me"; }
+  _requireCode()  { return this._config.require_code !== false; }
+  _showHA()       { return this._config.show_home_alone !== false; }
+  _showTTS()      { return this._config.show_tts !== false; }
+  _ttsMessages()  { return this._config.tts_messages || []; }
+  _state()        { return this._hass?.states?.[this._entity()]?.state ?? "unknown"; }
+  _attr(a)        { return this._hass?.states?.[this._entity()]?.attributes?.[a]; }
 
-  // ------------------------------------------------------------
+  // -- Shell (built once) --------------------------------------------------
   _buildShell() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display:block; }
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+        :host {
+          display: block;
+          --bg:      var(--primary-background-color,   #0f1923);
+          --bg2:     var(--secondary-background-color, #1a2535);
+          --bg3:     #243044;
+          --text:    var(--primary-text-color,   #e2e8f0);
+          --sub:     var(--secondary-text-color, #94a3b8);
+          --div:     var(--divider-color, rgba(148,163,184,0.12));
+          --accent:  #ef4444;
+          --green:   #10b981;
+          --orange:  #f59e0b;
+          --red:     #ef4444;
+          --purple:  #8b5cf6;
+          --indigo:  #6366f1;
+          font-family: 'DM Sans', var(--paper-font-body1_-_font-family, sans-serif);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         .card {
-          --bg:   var(--card-background-color, #1a2535);
-          --bg2:  var(--secondary-background-color, #243044);
-          --text: var(--primary-text-color, #e2e8f0);
-          --sub:  var(--secondary-text-color, #94a3b8);
-          --div:  var(--divider-color, rgba(148,163,184,0.12));
-          font-family: var(--paper-font-body1_-_font-family, sans-serif);
-          background: var(--bg);
-          border-radius: 18px;
-          padding: 14px 16px;
-          color: var(--text);
-          box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,.15));
-          border-left: 5px solid #10b981;
-          background-image: linear-gradient(135deg, #10b98112 0%, transparent 50%);
-        }
-        .back-btn {
-          display: inline-flex; align-items: center; gap: 6px;
-          background: var(--bg2); border-radius: 18px;
-          padding: 6px 14px; margin-bottom: 12px;
-          font-size: 12px; font-weight: 600; color: var(--sub);
-          cursor: pointer; transition: opacity .15s;
-          border: none; outline: none;
-        }
-        .back-btn:active { opacity: .6; }
-        .card-title {
-          font-size: 13px; font-weight: 700; color: var(--sub);
-          text-transform: uppercase; letter-spacing: .8px;
-          margin-bottom: 12px;
-        }
-        .row {
-          display: flex; align-items: center; gap: 12px;
           background: var(--bg2);
-          border-radius: 12px;
-          border-left: 4px solid #10b981;
-          padding: 10px 12px;
-          margin-bottom: 8px;
-          cursor: pointer;
-          transition: opacity .15s;
+          border-radius: 18px;
+          border: 1px solid var(--div);
+          padding: 16px;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 12px rgba(0,0,0,.2));
+          overflow: hidden;
         }
-        .row:active { opacity: .7; }
-        .row.no-action { cursor: default; }
-        .row:last-child { margin-bottom: 0; }
-        .avatar {
-          width: 40px; height: 40px; border-radius: 50%;
-          object-fit: cover; flex-shrink: 0;
+
+        /* Status hero */
+        .status-hero {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          border-radius: 14px;
+          margin-bottom: 14px;
+          transition: background .3s, border-color .3s;
+          border: 1px solid var(--div);
         }
-        .avatar-icon {
+        .status-icon {
+          width: 48px; height: 48px;
+          border-radius: 14px;
           display: flex; align-items: center; justify-content: center;
-          background: var(--bg); font-size: 20px;
-          width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+          flex-shrink: 0;
+          transition: background .3s;
         }
-        .row-info { flex: 1; min-width: 0; }
-        .row-title { font-size: 14px; font-weight: 700; line-height: 1.2; }
-        .row-sub   { font-size: 11px; margin-top: 2px; }
-        .row-right { text-align: right; flex-shrink: 0; }
-        .row-dot   { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        @keyframes blink { 0%,100%{opacity:1}50%{opacity:.4} }
-        .divider {
-          height: 1px; background: var(--div);
-          margin: 10px 0;
+        .status-info { flex: 1; }
+        .status-label {
+          font-size: 11px; font-weight: 700;
+          text-transform: uppercase; letter-spacing: .08em;
+          color: var(--sub);
         }
+        .status-state {
+          font-size: 20px; font-weight: 700;
+          color: var(--text);
+          line-height: 1.2;
+        }
+        .status-sub {
+          font-size: 11px; color: var(--sub);
+          margin-top: 2px;
+        }
+
+        /* Section label */
+        .section-label {
+          font-size: 10px; font-weight: 700;
+          color: var(--sub);
+          text-transform: uppercase; letter-spacing: .08em;
+          margin: 0 0 8px 2px;
+        }
+
+        /* Arm buttons grid */
+        .arm-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .arm-grid.with-ha { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+        @media (max-width: 480px) {
+          .arm-grid         { grid-template-columns: 1fr 1fr; }
+          .arm-grid.with-ha { grid-template-columns: 1fr 1fr; }
+        }
+        .arm-btn {
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 5px;
+          padding: 12px 8px 10px;
+          border-radius: 12px;
+          border: 1px solid var(--div);
+          background: var(--bg3);
+          cursor: pointer;
+          transition: background .15s, border-color .15s, opacity .15s;
+          color: var(--sub);
+          font-size: 11px; font-weight: 600;
+          text-align: center;
+          user-select: none;
+        }
+        .arm-btn:active { opacity: .7; }
+        .arm-btn:hover  { border-color: rgba(148,163,184,.3); color: var(--text); }
+        .arm-btn.active {
+          border-color: currentColor;
+        }
+        .arm-btn .btn-icon {
+          width: 32px; height: 32px;
+          border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Disarm button */
+        .disarm-btn {
+          width: 100%;
+          padding: 12px;
+          border-radius: 12px;
+          border: 1px solid rgba(239,68,68,.35);
+          background: rgba(239,68,68,.08);
+          color: #ef4444;
+          font-size: 13px; font-weight: 700;
+          cursor: pointer;
+          transition: background .15s, opacity .15s;
+          margin-top: 10px;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          user-select: none;
+        }
+        .disarm-btn:active { opacity: .7; }
+        .disarm-btn:hover  { background: rgba(239,68,68,.14); }
+
+        /* Divider */
+        .divider { height: 1px; background: var(--div); margin: 14px 0; }
+
+        /* PIN pad */
+        .pin-overlay {
+          background: var(--bg2);
+          border-radius: 14px;
+          border: 1px solid var(--div);
+          padding: 16px;
+          margin-bottom: 14px;
+        }
+        .pin-title {
+          font-size: 13px; font-weight: 600; color: var(--text);
+          margin-bottom: 12px; text-align: center;
+        }
+        .pin-display {
+          display: flex; justify-content: center; gap: 10px;
+          margin-bottom: 14px;
+        }
+        .pin-dot {
+          width: 14px; height: 14px;
+          border-radius: 50%;
+          border: 2px solid var(--sub);
+          background: transparent;
+          transition: background .15s, border-color .15s;
+        }
+        .pin-dot.filled { background: var(--accent); border-color: var(--accent); }
+        .pin-error {
+          text-align: center; font-size: 12px;
+          color: var(--red); margin-bottom: 10px; min-height: 18px;
+        }
+        .pin-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 8px;
+        }
+        .pin-key {
+          padding: 14px 8px;
+          border-radius: 10px;
+          background: var(--bg3);
+          border: 1px solid var(--div);
+          font-size: 18px; font-weight: 600;
+          color: var(--text);
+          cursor: pointer;
+          text-align: center;
+          user-select: none;
+          transition: background .1s, opacity .1s;
+        }
+        .pin-key:active { opacity: .6; }
+        .pin-key.del { font-size: 14px; color: var(--sub); }
+        .pin-key.ok  {
+          background: var(--accent);
+          border-color: var(--accent);
+          color: #fff;
+        }
+        .pin-cancel {
+          width: 100%; margin-top: 8px;
+          padding: 10px;
+          border-radius: 10px;
+          border: 1px solid var(--div);
+          background: transparent;
+          color: var(--sub);
+          font-size: 13px; cursor: pointer;
+          transition: background .15s;
+        }
+        .pin-cancel:hover { background: var(--bg3); }
+
+        /* TTS section */
+        .tts-btn {
+          width: 100%;
+          padding: 11px 14px;
+          border-radius: 12px;
+          border: 1px solid var(--div);
+          background: var(--bg3);
+          color: var(--sub);
+          font-size: 13px; font-weight: 600;
+          cursor: pointer;
+          display: flex; align-items: center; justify-content: space-between;
+          transition: background .15s;
+          user-select: none;
+          margin-bottom: 14px;
+        }
+        .tts-btn:hover { background: rgba(255,255,255,.05); }
+        .tts-btn svg   { color: var(--sub); }
+
+        .tts-list { margin-bottom: 4px; }
+        .tts-msg-btn {
+          width: 100%;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid var(--div);
+          background: var(--bg3);
+          color: var(--text);
+          font-size: 13px; font-weight: 500;
+          cursor: pointer;
+          margin-bottom: 6px;
+          transition: background .15s, opacity .15s;
+          user-select: none;
+        }
+        .tts-msg-btn:last-child { margin-bottom: 0; }
+        .tts-msg-btn:hover   { background: rgba(255,255,255,.05); }
+        .tts-msg-btn:active  { opacity: .7; }
+        .tts-msg-btn.sending { opacity: .5; pointer-events: none; }
+        .tts-msg-icon { color: #14b8a6; flex-shrink: 0; }
+
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
       </style>
-      <ha-card>
-        <div class="card">
-          <button class="back-btn" id="back-btn">\u2190 Tilbage</button>
-          <div class="card-title">Info</div>
-          <div id="person-flemming"></div>
-          <div id="person-sebastian"></div>
-          <div class="divider"></div>
-          <div id="weather-row"></div>
-          <div class="divider"></div>
-          <div id="alarm-row"></div>
-          <div id="lock-row"></div>
-        </div>
-      </ha-card>`;
+      <div class="card">
+        <div id="status-section"></div>
+        <div id="pin-section"></div>
+        <div id="arm-section"></div>
+        <div id="tts-section"></div>
+      </div>`;
 
-    // Listeners bound once on static elements
-    this.shadowRoot.getElementById("back-btn").addEventListener("click", () => {
-      history.back();
-    });
-
-    // Event delegation on the card - handles alarm and lock clicks
+    // Event delegation - all interaction through data-sm attributes
     this.shadowRoot.querySelector(".card").addEventListener("click", (e) => {
-      const row = e.target.closest("[data-action]");
-      if (!row) return;
-      const action = row.dataset.action;
-      if (action === "alarm") this._moreInfo("alarm_control_panel.secure_me");
-      if (action === "lock")  this._moreInfo("lock.frontdoor");
+      this._handleClick(e);
     });
 
-    // Render initial content
     this._update();
   }
 
-  // ------------------------------------------------------------
+  // -- Update (called on every hass change) --------------------------------
   _update() {
     const root = this.shadowRoot;
-    if (!root) return;
+    if (!root || !this._hass) return;
 
-    const pf = root.getElementById("person-flemming");
-    const ps = root.getElementById("person-sebastian");
-    const wr = root.getElementById("weather-row");
-    const ar = root.getElementById("alarm-row");
-    const lr = root.getElementById("lock-row");
+    const ss = root.getElementById("status-section");
+    const ps = root.getElementById("pin-section");
+    const as = root.getElementById("arm-section");
+    const ts = root.getElementById("tts-section");
 
-    if (pf) pf.innerHTML = this._personRow("person.flemming", "Flemming");
-    if (ps) ps.innerHTML = this._personRow("person.sebastian", "Sebastian");
-    if (wr) wr.innerHTML = this._weatherRow();
-    if (ar) ar.innerHTML = this._alarmRow();
-    if (lr) lr.innerHTML = this._lockRow();
+    if (ss) ss.innerHTML = this._renderStatus();
+    if (ps) ps.innerHTML = this._pinMode ? this._renderPin() : "";
+    if (as) as.innerHTML = !this._pinMode ? this._renderArmButtons() : "";
+    if (ts) ts.innerHTML = (!this._pinMode && this._showTTS()) ? this._renderTTS() : "";
   }
 
-  // ------------------------------------------------------------
-  _personRow(entity, name) {
-    const state  = this._state(entity);
-    const home   = state === "home";
-    const color  = home ? "#10b981" : "#ef4444";
-    const label  = home ? "Hjemme" : _iac_esc(state === "unknown" ? "Ukendt" : state);
-    const pic    = this._picture(entity);
-    const avatar = pic
-      ? `<img src="${pic}" class="avatar">`
-      : `<div class="avatar avatar-icon">\uD83D\uDC64</div>`;
-    return `
-      <div class="row no-action" style="border-left-color:${color};background-image:linear-gradient(90deg,${color}0e 0%,transparent 40%);">
-        ${avatar}
-        <div class="row-info">
-          <div class="row-title">${_iac_esc(name)}</div>
-          <div class="row-sub" style="color:${color}">${label}</div>
-        </div>
-        <div class="row-dot" style="background:${color}"></div>
-      </div>`;
-  }
+  // -- Renders -------------------------------------------------------------
+  _renderStatus() {
+    const state = this._state();
+    const armedBy = this._attr("changed_by") || "";
+    const countdown = this._attr("countdown") || 0;
 
-  _weatherRow() {
-    const e     = "weather.hjem";
-    const state = this._state(e);
-    const temp  = this._attr(e, "temperature");
-    const hum   = this._attr(e, "humidity");
-    const color = "#0ea5e9";
-    const icons = {
-      "sunny":"\u2600\uFE0F","clear-night":"\uD83C\uDF19","partlycloudy":"\u26C5",
-      "cloudy":"\u2601\uFE0F","rainy":"\uD83C\uDF27\uFE0F","snowy":"\u2744\uFE0F",
-      "lightning":"\u26A1","windy":"\uD83C\uDF2C\uFE0F","fog":"\uD83C\uDF2B\uFE0F",
-      "hail":"\uD83C\uDF27\uFE0F","pouring":"\uD83C\uDF27\uFE0F"
+    const CFG = {
+      disarmed:         { color: "#10b981", bg: "rgba(16,185,129,.10)", label: "Deaktiveret" },
+      armed_away:       { color: "#ef4444", bg: "rgba(239,68,68,.12)",  label: "Aktiveret - Vaek" },
+      armed_home:       { color: "#f59e0b", bg: "rgba(245,158,11,.12)", label: "Aktiveret - Hjemme" },
+      armed_night:      { color: "#6366f1", bg: "rgba(99,102,241,.12)", label: "Aktiveret - Nat" },
+      armed_vacation:   { color: "#8b5cf6", bg: "rgba(139,92,246,.12)", label: "Aktiveret - Ferie" },
+      armed_home_alone: { color: "#10b981", bg: "rgba(16,185,129,.12)", label: "Hjemme Alene" },
+      arming:           { color: "#f59e0b", bg: "rgba(245,158,11,.12)", label: `Aktiverer... ${countdown > 0 ? countdown + "s" : ""}` },
+      pending:          { color: "#f59e0b", bg: "rgba(245,158,11,.18)", label: `Indgang... ${countdown > 0 ? countdown + "s" : ""}` },
+      triggered:        { color: "#ef4444", bg: "rgba(239,68,68,.20)",  label: "ALARM UDLOEST!" },
     };
-    const icon    = icons[state] || "\uD83C\uDF24\uFE0F";
-    const tempStr = temp != null ? `${parseFloat(temp).toFixed(1)}\u00a0\u00b0C` : "\u2013";
-    const humStr  = hum  != null ? `${Math.round(hum)}\u00a0%` : "";
+    const cfg = CFG[state] || { color: "#64748b", bg: "var(--bg3)", label: _smEsc(state) };
+    const pulse = ["arming","pending","triggered"].includes(state)
+      ? "animation:pulse 1s infinite;" : "";
+
     return `
-      <div class="row no-action" style="border-left-color:${color};background-image:linear-gradient(90deg,${color}0e 0%,transparent 40%);">
-        <div class="avatar-icon" style="font-size:26px">${icon}</div>
-        <div class="row-info">
-          <div class="row-title">${_iac_esc(this._attr(e,"friendly_name") || "Vejr")}</div>
-          <div class="row-sub" style="color:var(--sub)">${_iac_esc(state)}</div>
+      <div class="status-hero" style="background:${cfg.bg};border-color:${cfg.color}44">
+        <div class="status-icon" style="background:${cfg.color}22;${pulse};color:${cfg.color}">
+          ${SMI.shield}
         </div>
-        <div class="row-right">
-          <div class="row-title" style="color:${color}">${tempStr}</div>
-          ${humStr ? `<div class="row-sub">\uD83D\uDCA7 ${humStr}</div>` : ""}
+        <div class="status-info">
+          <div class="status-label">Alarm status</div>
+          <div class="status-state" style="color:${cfg.color}">${cfg.label}</div>
+          ${armedBy ? `<div class="status-sub">Af ${_smEsc(armedBy)}</div>` : ""}
         </div>
       </div>`;
   }
 
-  _alarmRow() {
-    const e     = "alarm_control_panel.secure_me";
-    const state = this._state(e);
+  _renderArmButtons() {
+    const state = this._state();
+    const isArmed = ["armed_away","armed_home","armed_night",
+                     "armed_vacation","armed_home_alone"].includes(state);
+    const showHA = this._showHA();
 
-    // Colors per state
-    const color =
-      state === "armed_away"       ? "#ef4444"
-    : state === "armed_home"       ? "#f59e0b"
-    : state === "armed_night"      ? "#6366f1"
-    : state === "armed_vacation"   ? "#8b5cf6"
-    : state === "armed_home_alone" ? "#10b981"
-    : state === "arming"           ? "#f59e0b"
-    : state === "pending"          ? "#f59e0b"
-    : state === "triggered"        ? "#ef4444"
-    :                                "#10b981";  // disarmed
+    const MODES = [
+      { key: "arm_away",       state: "armed_away",       label: "Vaek",      color: "#ef4444", icon: SMI.plane },
+      { key: "arm_home",       state: "armed_home",       label: "Hjemme",    color: "#f59e0b", icon: SMI.home  },
+      { key: "arm_night",      state: "armed_night",      label: "Nat",       color: "#6366f1", icon: SMI.moon  },
+      { key: "arm_vacation",   state: "armed_vacation",   label: "Ferie",     color: "#8b5cf6", icon: SMI.plane },
+      ...(showHA ? [{ key: "arm_home_alone", state: "armed_home_alone", label: "Alene", color: "#10b981", icon: SMI.users }] : []),
+    ];
 
-    // Danish labels
-    const label =
-      state === "armed_away"       ? "Aktiveret - v\u00e6k"
-    : state === "armed_home"       ? "Aktiveret - hjemme"
-    : state === "armed_night"      ? "Aktiveret - nat"
-    : state === "armed_vacation"   ? "Aktiveret - ferie"
-    : state === "armed_home_alone" ? "Hjemme alene"
-    : state === "arming"           ? "Aktiverer..."
-    : state === "pending"          ? "Indgang registreret"
-    : state === "triggered"        ? "ALARM!"
-    : state === "disarmed"         ? "Deaktiveret"
-    :                                _iac_esc(state);
+    const cols = showHA ? "with-ha" : "";
 
-    // Icons (unicode escapes only - no raw emoji)
-    const icon =
-      state === "armed_away"       ? "\uD83D\uDEA8"
-    : state === "armed_home"       ? "\uD83D\uDD14"
-    : state === "armed_night"      ? "\uD83C\uDF19"
-    : state === "armed_vacation"   ? "\uD83C\uDFD6\uFE0F"
-    : state === "armed_home_alone" ? "\uD83D\uDC66"
-    : state === "triggered"        ? "\uD83D\uDEA8"
-    :                                "\uD83D\uDEE1\uFE0F";
+    const buttons = MODES.map(m => {
+      const active = state === m.state;
+      return `
+        <button class="arm-btn ${active ? "active" : ""}" data-sm-arm="${m.key}"
+                style="${active ? `color:${m.color}` : ""}" title="${m.label} mode">
+          <div class="btn-icon" style="background:${m.color}${active ? "33" : "18"};color:${m.color}">
+            ${m.icon}
+          </div>
+          ${m.label}
+        </button>`;
+    }).join("");
 
-    const pulse =
-      state === "armed_away"  ? "animation:blink 1.5s infinite;"
-    : state === "triggered"   ? "animation:blink 0.8s infinite;"
-    : state === "arming"      ? "animation:blink 1s infinite;"
-    : state === "pending"     ? "animation:blink 1s infinite;"
-    :                           "";
+    const disarmBtn = isArmed ? `
+      <button class="disarm-btn" data-sm-arm="disarm">
+        ${SMI.unlock} Deaktiver alarm
+      </button>` : "";
 
     return `
-      <div class="row" data-action="alarm" style="border-left-color:${color};background-image:linear-gradient(90deg,${color}0e 0%,transparent 40%);">
-        <div class="avatar-icon" style="font-size:24px;${pulse}">${icon}</div>
-        <div class="row-info">
-          <div class="row-title">Alarm</div>
-          <div class="row-sub" style="color:${color}">${label}</div>
+      <div class="section-label">Tilkoblings-modes</div>
+      <div class="arm-grid ${cols}">${buttons}</div>
+      ${disarmBtn}`;
+  }
+
+  _renderPin() {
+    const action = this._pinMode || "";
+    const title = action === "disarm"
+      ? "Indtast kode for at deaktivere"
+      : "Indtast kode for at tilkoble";
+    const len = this._pinValue.length;
+    const dots = [0,1,2,3].map(i =>
+      `<div class="pin-dot ${i < len ? "filled" : ""}"></div>`
+    ).join("");
+
+    return `
+      <div class="pin-overlay">
+        <div class="pin-title">${SMI.key} ${title}</div>
+        <div class="pin-display">${dots}</div>
+        <div class="pin-error">${_smEsc(this._pinError)}</div>
+        <div class="pin-grid">
+          ${[1,2,3,4,5,6,7,8,9].map(n =>
+            `<button class="pin-key" data-sm-pin="${n}">${n}</button>`
+          ).join("")}
+          <button class="pin-key del" data-sm-pin="del">&#9003;</button>
+          <button class="pin-key" data-sm-pin="0">0</button>
+          <button class="pin-key ok" data-sm-pin="ok">OK</button>
         </div>
-        <div class="row-dot" style="background:${color}"></div>
+        <button class="pin-cancel" data-sm-pin="cancel">Annuller</button>
       </div>`;
   }
 
-  _lockRow() {
-    const e      = "lock.frontdoor";
-    const state  = this._state(e);
-    const locked = state === "locked";
-    const color  = locked ? "#10b981" : "#ef4444";
-    const label  = locked ? "L\u00e5st" : "Ul\u00e5st";
-    const icon   = locked ? "\uD83D\uDD12" : "\uD83D\uDD13";
-    const pulse  = locked ? "" : "animation:blink 2s infinite;";
+  _renderTTS() {
+    const msgs = this._ttsMessages();
+    if (!msgs.length) return "";
+    const open = this._ttsOpen;
+
+    const msgButtons = open ? msgs.map(m => `
+      <button class="tts-msg-btn ${this._ttsSending === m.label ? "sending" : ""}"
+              data-sm-tts="${_smEsc(m.label)}"
+              data-sm-tts-msg="${_smEsc(m.message)}">
+        <span>${_smEsc(m.label)}</span>
+        <span class="tts-msg-icon">${SMI.speaker}</span>
+      </button>`).join("") : "";
+
     return `
-      <div class="row" data-action="lock" style="border-left-color:${color};background-image:linear-gradient(90deg,${color}0e 0%,transparent 40%);">
-        <div class="avatar-icon" style="font-size:24px;${pulse}">${icon}</div>
-        <div class="row-info">
-          <div class="row-title">Ford\u00f8r</div>
-          <div class="row-sub" style="color:${color}">${label}</div>
-        </div>
-        <div class="row-dot" style="background:${color}"></div>
-      </div>`;
+      <div class="divider"></div>
+      <div class="section-label">TTS hurtigbeskeder</div>
+      <button class="tts-btn" data-sm-tts-toggle="1">
+        <span style="display:flex;align-items:center;gap:8px;color:var(--text)">
+          ${SMI.speaker} Hurtigbeskeder
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2">
+          ${open
+            ? '<polyline points="18 15 12 9 6 15"/>'
+            : '<polyline points="6 9 12 15 18 9"/>'}
+        </svg>
+      </button>
+      ${open ? `<div class="tts-list">${msgButtons}</div>` : ""}`;
   }
 
-  _moreInfo(entity) {
-    this.dispatchEvent(new CustomEvent("hass-more-info", {
-      composed: true, bubbles: true, detail: { entityId: entity }
-    }));
+  // -- Click handler --------------------------------------------------------
+  _handleClick(e) {
+    // TTS toggle
+    const toggle = e.target.closest("[data-sm-tts-toggle]");
+    if (toggle) {
+      this._ttsOpen = !this._ttsOpen;
+      this._update();
+      return;
+    }
+
+    // TTS message send
+    const ttsBtn = e.target.closest("[data-sm-tts]");
+    if (ttsBtn && ttsBtn.dataset.smTtsMsg !== undefined) {
+      this._sendTTS(ttsBtn.dataset.smTts, ttsBtn.dataset.smTtsMsg);
+      return;
+    }
+
+    // PIN key
+    const pinKey = e.target.closest("[data-sm-pin]");
+    if (pinKey) {
+      this._handlePin(pinKey.dataset.smPin);
+      return;
+    }
+
+    // Arm/disarm button
+    const armBtn = e.target.closest("[data-sm-arm]");
+    if (armBtn) {
+      this._handleArm(armBtn.dataset.smArm);
+      return;
+    }
   }
 
-  getCardSize() { return 5; }
+  // -- Arm logic ---------------------------------------------------------
+  _handleArm(action) {
+    if (this._requireCode()) {
+      this._pinMode  = action;
+      this._pinValue = "";
+      this._pinError = "";
+      this._update();
+    } else {
+      this._callArm(action, null);
+    }
+  }
+
+  async _callArm(action, code) {
+    const entity = this._entity();
+    const domain  = "alarm_control_panel";
+    const data    = { entity_id: entity };
+    if (code) data.code = code;
+
+    const serviceMap = {
+      "arm_away":       "alarm_arm_away",
+      "arm_home":       "alarm_arm_home",
+      "arm_night":      "alarm_arm_night",
+      "arm_vacation":   "alarm_arm_custom_bypass",
+      "arm_home_alone": "alarm_arm_home_alone",
+      "disarm":         "alarm_disarm",
+    };
+    const service = serviceMap[action];
+    if (!service) return;
+
+    try {
+      await this._hass.callService(domain, service, data);
+      this._pinMode  = null;
+      this._pinValue = "";
+      this._pinError = "";
+    } catch (err) {
+      this._pinError = "Forkert kode eller fejl";
+    }
+    this._update();
+  }
+
+  // -- PIN logic --------------------------------------------------------
+  _handlePin(key) {
+    if (key === "cancel") {
+      this._pinMode  = null;
+      this._pinValue = "";
+      this._pinError = "";
+      this._update();
+      return;
+    }
+    if (key === "del") {
+      this._pinValue = this._pinValue.slice(0, -1);
+      this._pinError = "";
+      this._update();
+      return;
+    }
+    if (key === "ok") {
+      if (this._pinValue.length < 1) {
+        this._pinError = "Indtast kode";
+        this._update();
+        return;
+      }
+      this._callArm(this._pinMode, this._pinValue);
+      return;
+    }
+    if (this._pinValue.length < 8) {
+      this._pinValue += key;
+      this._pinError = "";
+      this._update();
+    }
+  }
+
+  // -- TTS logic --------------------------------------------------------
+  async _sendTTS(label, message) {
+    if (this._ttsSending) return;
+    this._ttsSending = label;
+    this._update();
+    try {
+      // Call Secure Me websocket TTS endpoint
+      await this._hass.callWS({
+        type: "secure_me/test_tts_message",
+        message: message,
+      });
+    } catch (err) {
+      // Fallback: try tts.speak via HA service if WS endpoint not available
+      try {
+        await this._hass.callService("tts", "speak", {
+          message: message,
+        });
+      } catch (_) {}
+    }
+    this._ttsSending = null;
+    this._update();
+  }
+
+  getCardSize() { return 4; }
 }
 
-if (!customElements.get("info-alarm-card")) {
-  customElements.define("info-alarm-card", InfoAlarmCard);
+if (!customElements.get("secure-me-alarm-card")) {
+  customElements.define("secure-me-alarm-card", SecureMeAlarmCard);
 }
-
 window.customCards = window.customCards || [];
-if (!window.customCards.find(c => c.type === "info-alarm-card")) {
+if (!window.customCards.find(c => c.type === "secure-me-alarm-card")) {
   window.customCards.push({
-    type: "info-alarm-card",
-    name: "Info & Alarm",
-    description: "Personer, vejr, alarm og laas i et kort",
+    type: "secure-me-alarm-card",
+    name: "Secure Me - Alarm Control",
+    description: "Tilkob/afkob alarm, Home Alone mode og TTS hurtigbeskeder.",
     preview: true,
   });
 }
