@@ -87,6 +87,21 @@ async def async_register_panel(
         _LOGGER.info(
             "Secure Me: static path registered %s -> %s", PANEL_URL, panel_file
         )
+
+        # Register alarm card as a Lovelace extra module so HA loads it
+        # automatically — no manual resource entry required in Lovelace config.
+        if os.path.isfile(card_file):
+            try:
+                card_version_url = f"{CARD_URL}?v={VERSION}"
+                frontend.async_register_extra_module_url(hass, card_version_url)
+                _LOGGER.info(
+                    "Secure Me: alarm card registered as Lovelace module at %s",
+                    card_version_url,
+                )
+            except Exception as err:
+                _LOGGER.warning(
+                    "Secure Me: could not register alarm card as Lovelace module: %s", err
+                )
     else:
         _LOGGER.debug(
             "Secure Me: static path %s already registered, skipping", PANEL_URL
