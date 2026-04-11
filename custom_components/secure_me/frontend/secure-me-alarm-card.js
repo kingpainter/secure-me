@@ -56,7 +56,12 @@ class SecureMeAlarmCard extends HTMLElement {
     this._pinError   = "";
     this._ttsOpen      = false;
     this._ttsSending   = null;   // label of in-progress TTS send
-    this._lastTTSState = null;   // cache key to skip redundant TTS re-renders
+    this._ttsError     = null;   // error message from last TTS attempt
+    // Render cache keys -- sections only re-render when these change
+    this._lastStatusState = null;
+    this._lastPinState    = null;
+    this._lastArmState    = null;
+    this._lastTTSState    = null;
   }
 
   setConfig(config) {
@@ -331,11 +336,14 @@ class SecureMeAlarmCard extends HTMLElement {
       this._handleClick(e);
     });
 
-    this._update();
+    this._update(true);
   }
 
-  // -- Update (called on every hass change) --------------------------------
-  _update(forceTTS = false) {
+  // -- Update --------------------------------------------------------------
+  // Each section only re-renders when its relevant state actually changes.
+  // This prevents innerHTML replacement from interrupting CSS hover/transition
+  // and causing visible blink on every hass tick (~1/sec).
+  _update(force = false) {
     const root = this.shadowRoot;
     if (!root || !this._hass) return;
 
@@ -344,15 +352,30 @@ class SecureMeAlarmCard extends HTMLElement {
     const as = root.getElementById("arm-section");
     const ts = root.getElementById("tts-section");
 
-    if (ss) ss.innerHTML = this._renderStatus();
-    if (ps) ps.innerHTML = this._pinMode ? this._renderPin() : "";
-    if (as) as.innerHTML = !this._pinMode ? this._renderArmButtons() : "";
+    // Status: re-render when alarm state or countdown changes
+    const statusState = `${this._state()}:${this._attr("countdown") ?? 0}`;
+    if (ss && (force || statusState !== this._lastStatusState)) {
+      this._lastStatusState = statusState;
+      ss.innerHTML = this._renderStatus();
+    }
 
-    // Only re-render TTS section when its state actually changes (open/closed,
-    // sending state) — not on every hass update. Prevents hover blink loop
-    // caused by innerHTML replacement resetting CSS hover state.
-    const ttsState = `${this._ttsOpen}:${this._ttsSending}`;
-    if (ts && (forceTTS || ttsState !== this._lastTTSState)) {
+    // PIN: re-render only when pin mode, value or error changes
+    const pinState = `${this._pinMode}:${this._pinValue}:${this._pinError}`;
+    if (ps && (force || pinState !== this._lastPinState)) {
+      this._lastPinState = pinState;
+      ps.innerHTML = this._pinMode ? this._renderPin() : "";
+    }
+
+    // Arm buttons: re-render only when alarm state or pin-mode changes
+    const armState = `${this._state()}:${!!this._pinMode}`;
+    if (as && (force || armState !== this._lastArmState)) {
+      this._lastArmState = armState;
+      as.innerHTML = !this._pinMode ? this._renderArmButtons() : "";
+    }
+
+    // TTS: re-render only when open/sending/error state changes
+    const ttsState = `${this._ttsOpen}:${this._ttsSending}:${this._ttsError}`;
+    if (ts && (force || ttsState !== this._lastTTSState)) {
       this._lastTTSState = ttsState;
       ts.innerHTML = (!this._pinMode && this._showTTS()) ? this._renderTTS() : "";
     }
@@ -486,7 +509,8 @@ class SecureMeAlarmCard extends HTMLElement {
             : '<polyline points="6 9 12 15 18 9"/>'}
         </svg>
       </button>
-      ${open ? `<div class="tts-list">${msgButtons}</div>` : ""}`;
+      ${open ? `<div class="tts-list">${msgButtons}</div>` : ""}
+      ${this._ttsError ? `<div style="font-size:11px;color:#ef4444;margin-top:6px;padding:0 2px">${_smEsc(this._ttsError)}</div>` : ""}`;
   }
 
   // -- Click handler --------------------------------------------------------
@@ -608,20 +632,18 @@ class SecureMeAlarmCard extends HTMLElement {
   async _sendTTS(label, message) {
     if (this._ttsSending) return;
     this._ttsSending = label;
+    this._ttsError = null;
     this._update(true);
     try {
-      // Call Secure Me websocket TTS endpoint
+      // Route via Secure Me WebSocket -- handles media_player selection internally
       await this._hass.callWS({
         type: "secure_me/test_tts_message",
         message: message,
       });
     } catch (err) {
-      // Fallback: try tts.speak via HA service if WS endpoint not available
-      try {
-        await this._hass.callService("tts", "speak", {
-          message: message,
-        });
-      } catch (_) {}
+      // Do NOT fall through to tts/speak -- it requires media_player_entity_id
+      // which the card does not have. Show a UI error instead.
+      this._ttsError = "TTS fejlede. Tjek at Secure Me er aktiv og HA er restartet.";
     }
     this._ttsSending = null;
     this._update(true);
