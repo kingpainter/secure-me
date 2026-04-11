@@ -20,6 +20,7 @@ from .const import (
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
+from . import panel
 
 if TYPE_CHECKING:
     pass  # No TYPE_CHECKING imports currently needed
@@ -89,12 +90,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["_websocket_registered"] = True
         _LOGGER.debug("WebSocket API registered")
 
-    # Register frontend panel (global, once) — lazy import avoids HA HTTP
-    # import errors in test environments.
+    # Register frontend panel (global, once)
     if not hass.data[DOMAIN].get("_panel_registered", False):
         try:
-            from . import panel as _panel
-            await _panel.async_register_panel(hass)
+            await panel.async_register_panel(hass)
             hass.data[DOMAIN]["_panel_registered"] = True
         except Exception as err:
             _LOGGER.error("Panel registration failed: %s", err)
@@ -139,8 +138,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )]
         if not remaining:
             try:
-                from . import panel as _panel
-                _panel.async_unregister_panel(hass)
+                panel.async_unregister_panel(hass)
             except Exception:
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False

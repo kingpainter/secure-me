@@ -1,5 +1,5 @@
 """Tests for Secure Me integration initialization."""
-# VERSION = "1.2.0"
+# VERSION = "1.3.0"
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock

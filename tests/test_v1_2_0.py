@@ -8,7 +8,7 @@ Covers:
 - Push notification action constants (const.py)
 - Coordinator: force-arm bypass open sensors (coordinator.py)
 """
-# VERSION = "1.2.0"
+# VERSION = "1.3.0"
 
 import pytest
 import time
@@ -593,6 +593,7 @@ class TestPushNotificationConstants:
             "SECURE_ME_ARM_HOME",
             "SECURE_ME_ARM_NIGHT",
             "SECURE_ME_ARM_VACATION",
+            "SECURE_ME_ARM_HOME_ALONE",
         }
         assert set(PUSH_EVENT_ACTIONS) == expected
 
