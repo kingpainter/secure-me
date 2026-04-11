@@ -562,38 +562,30 @@ class SecureMeAlarmCard extends HTMLElement {
   async _callArm(action, code) {
     const entity = this._entity();
 
-    // Standard HA alarm services for common modes
-    const haServiceMap = {
-      "arm_away":  "alarm_arm_away",
-      "arm_home":  "alarm_arm_home",
-      "arm_night": "alarm_arm_night",
-      "disarm":    "alarm_disarm",
+    // All modes use standard HA alarm_control_panel services.
+    // arm_vacation   -> alarm_arm_custom_bypass (HA built-in)
+    // arm_home_alone -> alarm_arm_home_alone    (registered on our entity)
+    // No WS API calls needed -- avoids "endpoint not found" errors.
+    const serviceMap = {
+      "arm_away":       "alarm_arm_away",
+      "arm_home":       "alarm_arm_home",
+      "arm_night":      "alarm_arm_night",
+      "arm_vacation":   "alarm_arm_custom_bypass",
+      "arm_home_alone": "alarm_arm_home_alone",
+      "disarm":         "alarm_disarm",
     };
 
-    // Secure Me custom modes go via WebSocket API
-    const smWSMap = {
-      "arm_vacation":   "arm_vacation",
-      "arm_home_alone": "arm_home_alone",
-    };
+    const service = serviceMap[action];
+    if (!service) return;
 
     try {
-      if (haServiceMap[action]) {
-        const data = { entity_id: entity };
-        if (code) data.code = code;
-        await this._hass.callService("alarm_control_panel", haServiceMap[action], data);
-      } else if (smWSMap[action]) {
-        const ws = { type: `secure_me/${smWSMap[action]}` };
-        if (code) ws.code = code;
-        await this._hass.callWS(ws);
-      } else {
-        return;
-      }
+      const data = { entity_id: entity };
+      if (code) data.code = code;
+      await this._hass.callService("alarm_control_panel", service, data);
       this._pinMode  = null;
       this._pinValue = "";
       this._pinError = "";
     } catch (err) {
-      // If the alarm entity doesn't exist yet (HA not restarted), the service
-      // call will fail with a generic error. Show a clearer message.
       const entityMissing = this._state() === "unknown";
       this._pinError = entityMissing
         ? "Alarm ikke fundet. Genstart HA."

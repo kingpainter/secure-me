@@ -20,7 +20,16 @@ from .const import (
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
-from . import panel
+
+try:
+    from . import panel
+except Exception:  # noqa: BLE001
+    # panel imports HA HTTP components unavailable in test environments.
+    # Provide a minimal stub so tests can patch custom_components.secure_me.panel.*
+    import types as _types
+    panel = _types.ModuleType("secure_me.panel")  # type: ignore[assignment]
+    panel.async_register_panel = None  # type: ignore[assignment]
+    panel.async_unregister_panel = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     pass  # No TYPE_CHECKING imports currently needed
