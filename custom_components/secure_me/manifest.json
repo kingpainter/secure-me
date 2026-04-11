@@ -3,7 +3,7 @@
   "name": "Secure Me",
   "codeowners": ["@kingpainter"],
   "config_flow": true,
-  "dependencies": ["frontend", "http", "websocket_api", "panel_custom"],
+  "dependencies": ["frontend", "http", "lovelace", "websocket_api", "panel_custom"],
   "documentation": "https://github.com/kingpainter/secure-me",
   "integration_type": "hub",
   "iot_class": "local_polling",
