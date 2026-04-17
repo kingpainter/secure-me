@@ -2,8 +2,29 @@
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 1.1.0
-**Last Updated:** 2026-03-16
+**Version:** 1.4.0
+**Last Updated:** 2026-04-12
+
+---
+
+## What's New in v1.4.0 — Unified TTS/Notification Engine
+
+### Speaker Profiles
+- Define named speaker profiles once (entity, volume, TTS service)
+- All TTS output references profiles — single source of truth
+- Per-speaker volume and TTS service (e.g. cloud_say on one, piper on another)
+
+### Multi-Speaker Engine
+- Parallel playback across speakers via `asyncio.gather()`
+- Per-speaker queue — sequential messages on same speaker, never overlapping
+- Per-message speaker targeting — custom messages pick specific profiles
+- Per-notification speaker targeting — TTS notifications route to specific speakers
+
+### Home Alone Quick Messages
+- Alarm card quick-message buttons load dynamically from panel
+- Create notifications with trigger `home_alone_action` in Actions tab
+- Buttons appear automatically — no Lovelace YAML configuration needed
+- Each button targets specific speakers
 
 ---
 

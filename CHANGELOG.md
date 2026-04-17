@@ -1,3 +1,59 @@
+## [1.4.0] - 2026-04-12
+
+### Unified TTS/Notification Engine
+
+#### New: Speaker Profiles
+- **Speaker profiles** defined once in Modules > TTS, referenced everywhere
+- Per-profile: `entity_id`, `name`, `volume`, `tts_service`, `tts_entity`
+- Replaces flat media_player list + global volume/service settings
+- Legacy flat config still works as fallback if no profiles defined
+
+#### New: Multi-speaker engine
+- **Parallel playback** across speakers via `asyncio.gather()`
+- **Queued per speaker** via `SpeakerQueue` — sequential on same speaker, never overlapping
+- **Per-message speaker selection** — custom messages target specific profiles
+- **Per-notification speaker selection** — TTS channel picks specific speakers
+
+#### New: Home Alone quick messages
+- Alarm card quick-message buttons now load dynamically from panel
+- Create notifications with trigger `home_alone_action` in Actions tab
+- Buttons automatically appear in alarm card — no Lovelace YAML needed
+- Each message can target specific speakers
+
+#### New: WS endpoints
+- `secure_me/get_speaker_profiles` — list profiles with live state
+- `secure_me/save_speaker_profiles` — save + hot-reload TTS module
+- `secure_me/get_home_alone_messages` — alarm card quick messages
+- `secure_me/test_tts` — now accepts `speaker_ids` parameter
+- `secure_me/arm_vacation`, `secure_me/arm_home_alone`, `secure_me/disarm`
+
+#### Notification dispatcher
+- `tts_speakers` field on notifications — routes TTS to specific speakers
+- `speaker_ids` parameter through entire TTS callchain
+- Smoke/moisture alerts respect per-notification speaker routing
+
+#### Store (v2 schema)
+- New `speaker_profiles` key in default data
+- `get_speaker_profiles()` / `async_save_speaker_profiles()` CRUD
+
+#### Frontend
+- TTS dialog redesigned: Speaker Profiles section with per-profile volume + service
+- Custom messages: speaker checkboxes per message
+- Notification dialog: speaker checkboxes when TTS channel selected
+- `home_alone_action` trigger added to notification dialog
+- Alarm card: dynamic TTS buttons from `get_home_alone_messages`
+
+#### Bug fixes (from v1.3.0 audit)
+- `alarm_control_panel`: `code_arm_required=True`, `code_format=None`, validate at arm
+- `notification_dispatcher`: `store.async_load()` void fix, crash fix
+- `modules/tts`: `armed_home_alone` in VALID_TRIGGERS, BCP-47 map extended
+- `coordinator`: `asyncio.get_event_loop()` -> `hass.async_create_task()`
+- `zones`: `asyncio.ensure_future()` -> `hass.async_create_task()`
+- Alarm card: correct entity ID, WS routing for arm_home_alone/vacation
+- Alarm card: TTS endpoint `test_tts_message` -> `test_tts`
+
+---
+
 ## [1.3.0] - 2026-03-27
 
 ### UI/UX Polish Release

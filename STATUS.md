@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-11 (v1.3.0 bugfix session)
+**Last updated:** 2026-04-12 (v1.4.0)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.3.0
+## Current Version: v1.4.0
 
 ### GitHub Actions
 | Workflow | Status |
@@ -19,38 +19,44 @@
 
 ---
 
-## Session 2026-04-11 — Bugfix pass
+## v1.4.0 — Unified TTS/Notification Engine
 
-### Backend fixes
-- [x] `alarm_control_panel`: `delay_countdown` -> `countdown` attr (card compat), `code_arm_required=True`, `code_format=None`, validate_code() på alle arm-metoder
-- [x] `websocket_api`: nye WS endpoints `arm_vacation`, `arm_home_alone`, `disarm` med bcrypt kode-validering
-- [x] `__init__`: fjernet ubrugte imports, VERSION til sw_version, safe panel import med test-env fallback
-- [x] `sensor`: `armed_home_alone` tilfojet til STATE_DISPLAY + STATE_ICONS, VERSION sw_version
-- [x] `binary_sensor`: VERSION sw_version (4 steder), SecureMePresence blink-fix
-- [x] `coordinator`: asyncio.get_event_loop() -> hass.async_create_task()
-- [x] `zones`: asyncio.ensure_future() -> hass.async_create_task() (2 steder)
-- [x] `notification_dispatcher`: store.async_load() void fix, announce_on_entity crash fix
-- [x] `modules/tts`: armed_home_alone i VALID_TRIGGERS, BCP-47 map udvidet
-- [x] `modules/lights`: attrs variabel + service_data guard
-- [x] `panel`: lovelace resources attr fix (getattr vs .get()), system_health async_register sync
-- [x] `system_health`: async_register -> sync funktion
-- [x] `manifest.json`: lovelace dependency tilfojet
-- [x] `config_flow`: version bump 1.2.0 -> 1.3.0
+### Completed
+- [x] Speaker profiles — entity, volume, tts_service per speaker
+- [x] Multi-speaker engine — parallel across speakers, queued per speaker
+- [x] Per-message speaker selection in TTS dialog
+- [x] Per-notification speaker selection in notification dialog
+- [x] Home Alone quick messages from panel via `home_alone_action` trigger
+- [x] Alarm card loads dynamic TTS buttons from `get_home_alone_messages`
+- [x] WS endpoints: get/save speaker profiles, get home alone messages
+- [x] `test_tts` accepts `speaker_ids` parameter
+- [x] `arm_vacation`, `arm_home_alone`, `disarm` WS endpoints
+- [x] Full audit pass: alarm_control_panel, notification_dispatcher, tts, coordinator, zones
+- [x] All tests updated and passing
+- [x] Version bumped to 1.4.0 across all 26 files
+- [x] CHANGELOG, STATUS updated
 
-### Frontend fixes
-- [x] `secure-me-alarm-card`: entity ID -> `secure_me_alarm_system_alarm`, blink-fix alle sektioner (dirty-flag), TTS render-fejl (index-baseret), kode-fejl besked, arm_vacation/home_alone via WS API
-- [x] `secure-me-alarm-card`: fjernet tts/speak fallback (krav media_player_entity_id)
+### Pending (next session)
+- [ ] Live test on HA server
+- [ ] FEATURES.md, STRUCTURE.md, README.md, INSTALLATION.md, info.md update
+- [ ] Commit to GitHub when tested and stable
 
-### Test fixes
-- [x] VERSION assertions 1.2.0 -> 1.3.0 (test_const, test_diagnostics, test_store, test_v1_2_0, test_init_)
-- [x] test_store: scheduled_tests tilfojet til expected keys
-- [x] test_v1_2_0: SECURE_ME_ARM_HOME_ALONE tilfojet til expected actions
-- [x] test_init_: panel import fix
+### Future (v1.5.0)
+- Motion-sensor → nearest speaker mapping for Home Alone
+- HACS default store submission (brands PR)
 
-### Presence sensor (ny feature)
-- [x] `binary_sensor.secure_me_anyone_home` — native presence sensor drevet af tracker_entity paa brugerprofiler
-- [x] `coordinator.get_presence_status()` — laesser tracker_entity fra store users
-- [x] `const.EVENT_PRESENCE_CHANGED` tilfojet
+---
+
+## Released: v1.3.0 (2026-03-27)
+
+### Completed
+- [x] Environmental sensors collapsible
+- [x] Lights: steady white + multi-select picker
+- [x] Test tab 2-column layout
+- [x] Countdown in sidebar pill
+- [x] Zone edit button labels
+- [x] Light entity deletion bug fixed
+- [x] TTS label casing fixed
 
 ---
 

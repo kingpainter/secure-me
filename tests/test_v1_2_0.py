@@ -643,3 +643,67 @@ class TestDefaultDataV2:
         assert set(defaults["modules"].keys()) == {
             "camera", "lock", "lights", "climate", "siren", "tts"
         }
+
+    def test_speaker_profiles_empty_by_default(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        defaults = store._default_data()
+        assert "speaker_profiles" in defaults
+        assert defaults["speaker_profiles"] == []
+
+
+# -- Speaker profiles (v1.4.0) -----------------------------------------------
+
+class TestSpeakerProfiles:
+    """Tests for speaker profile CRUD in SecureMeStore."""
+
+    def test_get_speaker_profiles_returns_list(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        assert isinstance(store.get_speaker_profiles(), list)
+
+    @pytest.mark.asyncio
+    async def test_save_and_get_speaker_profiles(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        profiles = [
+            {
+                "entity_id": "media_player.stue",
+                "name": "Stue",
+                "volume": 0.6,
+                "tts_service": "tts.cloud_say",
+                "tts_entity": "tts.home_assistant_cloud",
+            },
+            {
+                "entity_id": "media_player.kontor",
+                "name": "Kontor",
+                "volume": 0.4,
+                "tts_service": "tts.cloud_say",
+                "tts_entity": "tts.home_assistant_cloud",
+            },
+        ]
+        await store.async_save_speaker_profiles(profiles)
+        result = store.get_speaker_profiles()
+        assert len(result) == 2
+        assert result[0]["name"] == "Stue"
+        assert result[1]["volume"] == 0.4
+
+    @pytest.mark.asyncio
+    async def test_save_speaker_profiles_overwrites(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        await store.async_save_speaker_profiles([
+            {"entity_id": "media_player.a", "name": "A", "volume": 0.5,
+             "tts_service": "tts.cloud_say", "tts_entity": "tts.home_assistant_cloud"}
+        ])
+        await store.async_save_speaker_profiles([])
+        assert store.get_speaker_profiles() == []

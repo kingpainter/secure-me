@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.3.0"
+# VERSION = "1.4.0"
 
 import asyncio
 import logging
@@ -731,29 +731,38 @@ async def ws_test_notification(
             connection.send_result(msg["id"], {"success": False, "error": str(err)})
         return
 
-    # --- All other triggers: send only to admin users ---
+    # --- All other triggers: route via configured channels ---
     try:
         title = f"TEST: {notif.get('name', 'Secure Me Test')}"
         context_map = {
             "state": "test", "armed_by": "Test", "disarmed_by": "Test",
             "triggered_by": "Test", "sensor_list": "Test sensor", "count": "1",
         }
-        from .notification_dispatcher import _build_message, _send_push
+        from .notification_dispatcher import _build_message, _send_push, _get_tts_module
         message = _build_message(notif.get("message", "Test notification from Secure Me"), context_map)
+        channels = notif.get("channels", ["push"])
+        if isinstance(channels, str):
+            channels = [channels]
 
-        # Route to admin users only
-        admin_services = [
-            u.get("notify_service")
-            for u in store.get_users().values()
-            if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
-        ]
+        if "push" in channels:
+            # Route to admin users only, fallback to notification service
+            admin_services = [
+                u.get("notify_service")
+                for u in store.get_users().values()
+                if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
+            ]
+            if not admin_services:
+                admin_services = [notif.get("service", "notify.notify")]
+            for svc in admin_services:
+                await _send_push(hass, svc, title, message)
 
-        # Fallback: use notification's own service if no admins configured
-        if not admin_services:
-            admin_services = [notif.get("service", "notify.notify")]
-
-        for svc in admin_services:
-            await _send_push(hass, svc, title, message)
+        if "tts" in channels and message:
+            speaker_ids = notif.get("tts_speakers") or None
+            tts = _get_tts_module(hass)
+            if tts:
+                await tts.announce_system(message, urgent=False, speaker_ids=speaker_ids)
+            else:
+                _LOGGER.warning("TTS test: TTS module not enabled or not configured")
 
         connection.send_result(msg["id"], {"success": True})
     except Exception as err:
@@ -1055,6 +1064,9 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
             normalized["volume"] = float(config["volume"]) / 100.0
         if config.get("messages"):
             normalized["messages"] = config["messages"]
+        # v1.4.0: speaker profiles passed through as-is
+        normalized["speaker_profiles"] = config.get("speaker_profiles", [])
+        normalized["custom_messages"] = config.get("custom_messages", [])
 
     elif module_id == "siren":
         # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)

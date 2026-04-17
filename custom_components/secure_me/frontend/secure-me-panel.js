@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 1.3.0
+ * VERSION: 1.4.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 
 // === Styles ===
 const panelStyles = `
@@ -274,6 +274,7 @@ const ICONS = {
   warn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   fail: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
   circle: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
 };
 
@@ -1885,7 +1886,7 @@ class SecureMePanel extends HTMLElement {
           const systemNotifs = Object.entries(notifications).filter(([,n]) => SYSTEM_TRIGGERS.includes(n.trigger));
           const customNotifs = Object.entries(notifications).filter(([,n]) => !SYSTEM_TRIGGERS.includes(n.trigger));
 
-          const notifCard = ([id, n]) => `
+          const notifCardInner = (id, n, buttons) => `
             <div class="sm-card" style="padding:12px 14px;display:flex;align-items:center;gap:8px">
               <div style="flex:1;min-width:0">
                 <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name || 'Notification'}</div>
@@ -1895,12 +1896,16 @@ class SecureMePanel extends HTMLElement {
                   <span class="badge entry" style="font-size:10px;padding:1px 5px">${n.trigger || ''}</span>
                 </div>
               </div>
-              <div style="display:flex;gap:3px;flex-shrink:0">
-                <button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>
-                <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:3px 7px">${icon('edit')}</button>
-                <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete" style="padding:3px 7px">${icon('trash')}</button>
-              </div>
+              <div style="display:flex;gap:3px;flex-shrink:0">${buttons}</div>
             </div>`;
+
+          const systemNotifCard = ([id, n]) => notifCardInner(id, n,
+            `<button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>`);
+
+          const customNotifCard = ([id, n]) => notifCardInner(id, n,
+            `<button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>
+             <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:3px 7px">${icon('edit')}</button>
+             <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete" style="padding:3px 7px">${icon('trash')}</button>`);
 
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -1910,7 +1915,7 @@ class SecureMePanel extends HTMLElement {
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
-            ${systemNotifs.map(notifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No system notifications yet.</div>'}
+            ${systemNotifs.map(systemNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No system notifications yet.</div>'}
           </div>
 
           <div style="border-top:1px solid var(--sm-border);margin:16px 0 12px"></div>
@@ -1922,7 +1927,7 @@ class SecureMePanel extends HTMLElement {
             <button class="sm-btn primary sm" data-action="add-notification">${icon('plus')} Add</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-            ${customNotifs.map(notifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No custom notifications. Click Add to create one.</div>'}
+            ${customNotifs.map(customNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No custom notifications. Click Add to create one.</div>'}
           </div>`;
         })() + `
       ` : `
@@ -3884,7 +3889,7 @@ class SecureMePanel extends HTMLElement {
     if (!this._tempConfig.name) { this._toast('Enter a notification name.', 'warning'); return; }
     if (!this._tempConfig.channels?.length) { this._toast('Select at least one channel.', 'warning'); return; }
 
-    const notifId = this._tempConfig._editId || null;
+    const notifId = this._tempConfig._editId || Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
     const config = {
       name: this._tempConfig.name,
       trigger: this._tempConfig.trigger,
@@ -3903,6 +3908,17 @@ class SecureMePanel extends HTMLElement {
       this._toast('Notification saved!', 'success');
     } else {
       this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+    }
+  }
+
+  async _deleteNotification(notifId) {
+    if (!notifId) return;
+    const result = await this._callWS('delete_notification', { notification_id: notifId });
+    if (result && result.success !== false) {
+      await this._loadData();
+      this._toast('Notification deleted.', 'success');
+    } else {
+      this._toast('Could not delete notification.', 'error');
     }
   }
 
@@ -4471,6 +4487,48 @@ class SecureMePanel extends HTMLElement {
       );
     });
 
+    // Notification dialog
+    on("[data-action='save-notification-dialog']", "click", () => this._saveNotificationDialog());
+
+    const chPush = dlg.querySelector('#notif-ch-push');
+    const chTTS  = dlg.querySelector('#notif-ch-tts');
+    const svcGroup = dlg.querySelector('#notif-service-group');
+    if (chPush) {
+      chPush.addEventListener('change', () => {
+        const channels = [];
+        if (chPush.checked) channels.push('push');
+        if (chTTS && chTTS.checked) channels.push('tts');
+        if (this._tempConfig) this._tempConfig.channels = channels;
+        if (svcGroup) svcGroup.style.display = chPush.checked ? '' : 'none';
+      });
+    }
+    if (chTTS) {
+      chTTS.addEventListener('change', () => {
+        const channels = [];
+        if (chPush && chPush.checked) channels.push('push');
+        if (chTTS.checked) channels.push('tts');
+        if (this._tempConfig) this._tempConfig.channels = channels;
+        const spSection = dlg.querySelector('#notif-tts-speakers');
+        if (spSection) spSection.style.display = chTTS.checked ? '' : 'none';
+      });
+    }
+    dlg.querySelectorAll('.notif-tts-sp').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const allCbs = [...dlg.querySelectorAll('.notif-tts-sp')];
+        const checked = allCbs.filter(c => c.checked).map(c => c.dataset.spEid);
+        if (this._tempConfig) {
+          this._tempConfig.tts_speakers = checked.length === allCbs.length ? [] : checked;
+        }
+      });
+    });
+    ['notif-name','notif-trigger','notif-service','notif-message'].forEach(id => {
+      const el = dlg.querySelector('#' + id);
+      if (!el) return;
+      const field = id.replace('notif-', '');
+      el.addEventListener('input',  () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
+      el.addEventListener('change', () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
+    });
+
     // Scheduled test dialog
     on("[data-action='save-sched-test']", "click", () => this._saveSchedTest());
 
@@ -4615,6 +4673,10 @@ class SecureMePanel extends HTMLElement {
     // Notification/automation toggles
     root.querySelectorAll("[data-edit-notif]").forEach(btn => {
       btn.addEventListener("click", () => this._openNotificationDialog(btn.dataset.editNotif));
+    });
+
+    root.querySelectorAll("[data-delete-notif]").forEach(btn => {
+      btn.addEventListener("click", () => this._deleteNotification(btn.dataset.deleteNotif));
     });
 
     // Test buttons
@@ -4877,59 +4939,6 @@ class SecureMePanel extends HTMLElement {
         }
       });
     });
-    // === Dialog Event Listeners ===
-
-    // Notification dialog save
-    root.querySelectorAll("[data-action='save-notification-dialog']").forEach(b => {
-      b.addEventListener('click', () => this._saveNotificationDialog());
-    });
-
-    // Notification dialog channels toggle — show/hide service dropdown
-    const chPush = root.querySelector('#notif-ch-push');
-    const chTTS  = root.querySelector('#notif-ch-tts');
-    const svcGroup = root.querySelector('#notif-service-group');
-    if (chPush) {
-      chPush.addEventListener('change', () => {
-        const channels = [];
-        if (chPush.checked) channels.push('push');
-        if (chTTS && chTTS.checked) channels.push('tts');
-        if (this._tempConfig) this._tempConfig.channels = channels;
-        if (svcGroup) svcGroup.style.display = chPush.checked ? '' : 'none';
-      });
-    }
-    if (chTTS) {
-      chTTS.addEventListener('change', () => {
-        const channels = [];
-        if (chPush && chPush.checked) channels.push('push');
-        if (chTTS.checked) channels.push('tts');
-        if (this._tempConfig) this._tempConfig.channels = channels;
-        // Show/hide speaker section
-        const spSection = root.querySelector('#notif-tts-speakers');
-        if (spSection) spSection.style.display = chTTS.checked ? '' : 'none';
-      });
-    }
-
-    // Notification TTS speaker checkboxes
-    root.querySelectorAll('.notif-tts-sp').forEach(cb => {
-      cb.addEventListener('change', () => {
-        const allCbs = [...root.querySelectorAll('.notif-tts-sp')];
-        const checked = allCbs.filter(c => c.checked).map(c => c.dataset.spEid);
-        // If all checked, store empty array (= all speakers)
-        if (this._tempConfig) {
-          this._tempConfig.tts_speakers = checked.length === allCbs.length ? [] : checked;
-        }
-      });
-    });
-
-    // Notification dialog field sync
-    ['notif-name','notif-trigger','notif-service','notif-message'].forEach(id => {
-      const el = root.querySelector('#' + id);
-      if (!el) return;
-      const field = id.replace('notif-', '');
-      el.addEventListener('input',  () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
-      el.addEventListener('change', () => { if (this._tempConfig) this._tempConfig[field] = el.value; });
-    });
-
     // Open camera config dialog
     const cameraConfigButtons = root.querySelectorAll("[data-action='open-camera-config']");
     cameraConfigButtons.forEach(btn => {

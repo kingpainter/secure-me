@@ -2,8 +2,8 @@
 
 Complete technical documentation of the Secure Me integration architecture and file organization.
 
-**Version:** 0.9.0
-**Last Updated:** 2026-02-21
+**Version:** 1.4.0
+**Last Updated:** 2026-04-12
 
 ---
 
