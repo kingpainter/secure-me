@@ -24,6 +24,9 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_hide_sensor)
     websocket_api.async_register_command(hass, ws_unmark_environmental)
     # Arm / disarm commands (used by alarm card for custom modes)
+    websocket_api.async_register_command(hass, ws_arm_away)
+    websocket_api.async_register_command(hass, ws_arm_home)
+    websocket_api.async_register_command(hass, ws_arm_night)
     websocket_api.async_register_command(hass, ws_arm_vacation)
     websocket_api.async_register_command(hass, ws_arm_home_alone)
     websocket_api.async_register_command(hass, ws_disarm)
@@ -1841,6 +1844,79 @@ async def ws_unmark_environmental(
 #
 # ARM / DISARM (used by secure-me-alarm-card for custom modes)
 #
+
+#
+# ARM / DISARM via WebSocket (used by alarm card)
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/arm_away",
+    vol.Optional("code"): str,
+})
+@websocket_api.async_response
+async def ws_arm_away(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Arm in away mode via WebSocket."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        return
+    code = msg.get("code")
+    if not coordinator.validate_code(code):
+        connection.send_error(msg["id"], "invalid_code", "Invalid code")
+        return
+    success = await coordinator.async_arm_away(code=code)
+    connection.send_result(msg["id"], {"success": success})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/arm_home",
+    vol.Optional("code"): str,
+})
+@websocket_api.async_response
+async def ws_arm_home(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Arm in home mode via WebSocket."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        return
+    code = msg.get("code")
+    if not coordinator.validate_code(code):
+        connection.send_error(msg["id"], "invalid_code", "Invalid code")
+        return
+    success = await coordinator.async_arm_home(code=code)
+    connection.send_result(msg["id"], {"success": success})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/arm_night",
+    vol.Optional("code"): str,
+})
+@websocket_api.async_response
+async def ws_arm_night(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Arm in night mode via WebSocket."""
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        return
+    code = msg.get("code")
+    if not coordinator.validate_code(code):
+        connection.send_error(msg["id"], "invalid_code", "Invalid code")
+        return
+    success = await coordinator.async_arm_night(code=code)
+    connection.send_result(msg["id"], {"success": success})
+
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/arm_vacation",
