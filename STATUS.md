@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-12 (v1.4.0)
+**Last updated:** 2026-04-18 (v1.4.x unreleased)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.4.0
+## Current Version: v1.4.0 (live) / v1.4.x (unreleased patches)
 
 ### GitHub Actions
 | Workflow | Status |
@@ -19,31 +19,27 @@
 
 ---
 
-## v1.4.0 — Unified TTS/Notification Engine
+## v1.4.x — Unreleased Patches (2026-04-18)
 
 ### Completed
-- [x] Speaker profiles — entity, volume, tts_service per speaker
-- [x] Multi-speaker engine — parallel across speakers, queued per speaker
-- [x] Per-message speaker selection in TTS dialog
-- [x] Per-notification speaker selection in notification dialog
-- [x] Home Alone quick messages from panel via `home_alone_action` trigger
-- [x] Alarm card loads dynamic TTS buttons from `get_home_alone_messages`
-- [x] WS endpoints: get/save speaker profiles, get home alone messages
-- [x] `test_tts` accepts `speaker_ids` parameter
-- [x] `arm_vacation`, `arm_home_alone`, `disarm` WS endpoints
-- [x] Full audit pass: alarm_control_panel, notification_dispatcher, tts, coordinator, zones
-- [x] All tests updated and passing
-- [x] Version bumped to 1.4.0 across all 26 files
-- [x] CHANGELOG, STATUS updated
+- [x] Presence-based auto-arm: `PresenceMonitor` klasse, 15-min countdown, laas + arm, push-notifikation
+- [x] State-restore ved HA-genstart: `RestoreEntity`, `async_get_last_state()`, `restore_state()` i state_machine, zone-monitorering genstartes
+- [x] Tablet-kort v1.2.0: arm via `_ws()` for alle tilstande, live countdown ticker, 4 prikker, forecast layout fix
+- [x] CHANGELOG, STATUS, FEATURES, README, info.md, INSTALLATION.md opdateret
 
-### Pending (next session)
-- [ ] Live test on HA server
-- [ ] FEATURES.md, STRUCTURE.md, README.md, INSTALLATION.md, info.md update
-- [ ] Commit to GitHub when tested and stable
+### Pending
+- [ ] Live test af presence-based auto-arm paa HA-server
+- [ ] Live test af state-restore ved genstart
+- [ ] Commit til GitHub naar testet og stabilt
 
 ### Future (v1.5.0)
 - Motion-sensor → nearest speaker mapping for Home Alone
 - HACS default store submission (brands PR)
+- MQTT support
+
+---
+
+## v1.4.0 — Unified TTS/Notification Engine (2026-04-12)
 
 ---
 

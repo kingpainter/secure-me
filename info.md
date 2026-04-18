@@ -1,8 +1,8 @@
 # Secure Me — Professional Home Alarm Manager
 
-A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, unified TTS/notification engine with multi-speaker support, real-time health monitoring, and a modern configuration panel.
+A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, unified TTS/notification engine with multi-speaker support, real-time health monitoring, presence-based auto-arm, and a modern configuration panel.
 
-**Version:** 1.4.0
+**Version:** 1.4.x
 
 ---
 
@@ -57,6 +57,8 @@ Secure Me turns Home Assistant into a full-featured alarm system. You configure 
 - bcrypt PIN hashing — codes never stored plaintext
 - Mobile push actions — arm/disarm from Companion app
 - Live countdown in sidebar during arming/pending
+- **Presence-based auto-arm** — arms 15 min after all residents leave, locks doors and notifies
+- **State restore on HA restart** — alarm stays armed across restarts, zone monitoring resumes
 
 ---
 

@@ -232,3 +232,11 @@ HOME_ALONE_DEFAULT_ACTION_2 = "Please close the door."
 # Push action event identifiers for Home Alone action buttons
 EVENT_HOME_ALONE_ACTION_1 = "SECURE_ME_HOME_ALONE_ACTION_1"
 EVENT_HOME_ALONE_ACTION_2 = "SECURE_ME_HOME_ALONE_ACTION_2"
+
+# ── Auto-arm (presence-based) ─────────────────────────────────────────────────
+# Seconds all tracked users must be away before auto-arm triggers
+AUTO_ARM_AWAY_DELAY = 900  # 15 minutes
+
+# Push notification message sent after auto-arm executes
+AUTO_ARM_PUSH_TITLE = "Secure Me: Auto-armed"
+AUTO_ARM_PUSH_MESSAGE = "All residents left home. Alarm, locks and cameras have been secured automatically."

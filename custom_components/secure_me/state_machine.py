@@ -351,6 +351,31 @@ class AlarmStateMachine:
         await self._set_state(STATE_ALARM_DISARMED)
         return True
 
+    def restore_state(self, state: str) -> None:
+        """Restore state directly after HA restart — no callbacks, no delays.
+
+        Called once during setup before any listeners are attached.
+        Only restores stable armed/disarmed states. Transient states
+        (arming, pending, triggered) are intentionally reset to disarmed
+        because the countdown context is lost across restarts.
+        """
+        restorable = {
+            STATE_ALARM_DISARMED,
+            STATE_ALARM_ARMED_AWAY,
+            STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_NIGHT,
+            STATE_ALARM_ARMED_VACATION,
+            STATE_ALARM_ARMED_HOME_ALONE,
+        }
+        if state not in restorable:
+            _LOGGER.warning(
+                "State '%s' is not restorable (transient) — defaulting to disarmed", state
+            )
+            self._current_state = STATE_ALARM_DISARMED
+        else:
+            self._current_state = state
+            _LOGGER.info("State machine restored to '%s'", state)
+
     def cleanup(self) -> None:
         """Cleanup state machine — cancel tasks synchronously on shutdown."""
         if self._countdown_task and not self._countdown_task.done():

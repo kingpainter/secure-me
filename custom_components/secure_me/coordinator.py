@@ -58,6 +58,10 @@ from .const import (
     EVENT_ACTION_ARM_VACATION,
     EVENT_ACTION_ARM_HOME_ALONE,
     STATE_ALARM_ARMED_HOME_ALONE,
+    # v1.4.0: presence-based auto-arm
+    AUTO_ARM_AWAY_DELAY,
+    AUTO_ARM_PUSH_TITLE,
+    AUTO_ARM_PUSH_MESSAGE,
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -126,6 +130,187 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
     return normalized
 
 
+class PresenceMonitor:
+    """Monitor person trackers and auto-arm when all residents leave home.
+
+    Flow:
+      1. Loaded at coordinator startup via async_setup() after store is ready.
+      2. Listens for state_changed events on all user tracker_entity entries.
+      3. When ALL tracked users are away: starts a countdown (AUTO_ARM_AWAY_DELAY).
+      4. If someone returns before the countdown expires: timer is cancelled.
+      5. On countdown expiry, if alarm is still disarmed:
+           - Lock module: lock all configured locks.
+           - Alarm: arm_away (respects Fake Presence block).
+           - Camera module activates automatically as part of arm_away.
+           - Push notification sent to all users.
+    """
+
+    def __init__(self, hass: HomeAssistant, coordinator: "SecureMeCoordinator") -> None:
+        self.hass = hass
+        self._coordinator = coordinator
+        self._unsubs: list = []
+        self._away_timer: asyncio.Task | None = None
+        self._tracker_entities: set[str] = set()
+
+    def async_setup(self) -> None:
+        """Discover tracker entities from user profiles and start listening."""
+        store = getattr(self._coordinator, "store", None)
+        if not store:
+            _LOGGER.warning("PresenceMonitor: store not ready at setup")
+            return
+
+        for user in store.get_users().values():
+            if not user.get("enabled", True):
+                continue
+            tracker = user.get("tracker_entity", "")
+            if tracker:
+                self._tracker_entities.add(tracker)
+
+        if not self._tracker_entities:
+            _LOGGER.info("PresenceMonitor: No tracker entities configured — auto-arm disabled")
+            return
+
+        _LOGGER.info(
+            "PresenceMonitor: Watching %d tracker(s): %s",
+            len(self._tracker_entities),
+            ", ".join(sorted(self._tracker_entities)),
+        )
+
+        from homeassistant.helpers.event import async_track_state_change_event
+        unsub = async_track_state_change_event(
+            self.hass,
+            list(self._tracker_entities),
+            self._on_tracker_state_changed,
+        )
+        self._unsubs.append(unsub)
+
+    def async_teardown(self) -> None:
+        """Unsubscribe listeners and cancel pending timer."""
+        for unsub in self._unsubs:
+            try:
+                unsub()
+            except Exception:
+                pass
+        self._unsubs.clear()
+        self._cancel_timer()
+
+    # ── Internal helpers ─────────────────────────────────────────────────────
+
+    def _all_away(self) -> bool:
+        """Return True if every tracked person is currently not_home."""
+        if not self._tracker_entities:
+            return False
+        for entity_id in self._tracker_entities:
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                continue
+            if state.state in ("home", "unavailable", "unknown"):
+                return False
+        return True
+
+    def _cancel_timer(self) -> None:
+        if self._away_timer and not self._away_timer.done():
+            self._away_timer.cancel()
+        self._away_timer = None
+
+    @callback
+    def _on_tracker_state_changed(self, event) -> None:
+        """React to person tracker state changes."""
+        entity_id = event.data.get("entity_id")
+        new_state = event.data.get("new_state")
+        if new_state is None:
+            return
+
+        new_val = new_state.state
+        _LOGGER.debug("PresenceMonitor: %s -> %s", entity_id, new_val)
+
+        if new_val == "home":
+            # Someone returned — cancel countdown
+            if self._away_timer:
+                _LOGGER.info(
+                    "PresenceMonitor: %s returned home — auto-arm timer cancelled", entity_id
+                )
+                self._cancel_timer()
+            return
+
+        # Person left — check if everyone is now away
+        if self._all_away() and self._away_timer is None:
+            _LOGGER.info(
+                "PresenceMonitor: All residents away — starting %ds auto-arm countdown",
+                AUTO_ARM_AWAY_DELAY,
+            )
+            self._away_timer = asyncio.ensure_future(
+                self._auto_arm_countdown()
+            )
+
+    async def _auto_arm_countdown(self) -> None:
+        """Wait AUTO_ARM_AWAY_DELAY seconds then execute auto-arm sequence."""
+        try:
+            await asyncio.sleep(AUTO_ARM_AWAY_DELAY)
+        except asyncio.CancelledError:
+            _LOGGER.info("PresenceMonitor: Auto-arm countdown cancelled")
+            return
+        finally:
+            self._away_timer = None
+
+        # Double-check: re-verify everyone is still away
+        if not self._all_away():
+            _LOGGER.info("PresenceMonitor: Someone returned during countdown — aborting")
+            return
+
+        # Only act if alarm is currently disarmed
+        if self._coordinator.state_machine.is_armed or self._coordinator.state_machine.is_arming:
+            _LOGGER.info("PresenceMonitor: Alarm already armed — no action needed")
+            return
+
+        _LOGGER.info("PresenceMonitor: Auto-arm sequence starting")
+        await self._execute_auto_arm()
+
+    async def _execute_auto_arm(self) -> None:
+        """Lock locks, arm alarm, then notify all users."""
+        from .notification_dispatcher import send_auto_arm_notification
+
+        actions_taken: list[str] = []
+
+        # 1. Lock all configured locks
+        lock_module = self._coordinator.modules.get("lock")
+        if lock_module and lock_module.enabled:
+            lock_entities = getattr(lock_module, "locks", [])
+            for lock_entity in lock_entities:
+                state = self.hass.states.get(lock_entity)
+                if state and state.state == "unlocked":
+                    try:
+                        await self.hass.services.async_call(
+                            "lock", "lock",
+                            {"entity_id": lock_entity},
+                            blocking=False,
+                        )
+                        actions_taken.append(f"Lock locked: {lock_entity}")
+                        _LOGGER.info("PresenceMonitor: Locked %s", lock_entity)
+                    except Exception as err:
+                        _LOGGER.error("PresenceMonitor: Failed to lock %s: %s", lock_entity, err)
+
+        # 2. Arm alarm in away mode (auto=True respects Fake Presence block)
+        arm_success = await self._coordinator.async_arm_away(auto=True)
+        if arm_success:
+            actions_taken.append("Alarm armed (away) — cameras activated")
+            _LOGGER.info("PresenceMonitor: Alarm armed successfully")
+        else:
+            _LOGGER.warning(
+                "PresenceMonitor: arm_away returned False "
+                "(Fake Presence active or sensors open)"
+            )
+            actions_taken.append("Alarm arm skipped (Fake Presence active or open sensors)")
+
+        # 3. Notify all users
+        await send_auto_arm_notification(
+            self.hass,
+            AUTO_ARM_PUSH_TITLE,
+            AUTO_ARM_PUSH_MESSAGE,
+            actions_taken,
+        )
+
+
 class SecureMeCoordinator(DataUpdateCoordinator):
     """Secure Me coordinator with state machine and zone management."""
 
@@ -191,6 +376,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._last_health_event_time: float = 0.0
         self._health_event_interval: float = 5.0
         self._last_countdown: int = -1
+
+        # v1.4.0: Presence-based auto-arm monitor (started after store is loaded)
+        self._presence_monitor: PresenceMonitor | None = None
 
     # ── Scheduled test runner ────────────────────────────────────────────────
 
@@ -575,6 +763,49 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     return uid
         return None
 
+    async def async_restore_state(self, state: str, armed_by: str | None = None) -> None:
+        """Restore alarm state after HA restart.
+
+        Called from alarm_control_panel.async_added_to_hass() with the
+        last known state from HA's entity registry.
+
+        - Sets state_machine state directly (no callbacks, no delays).
+        - Restarts zone monitoring if the restored state is armed.
+        - Does NOT fire EVENT_ALARM_ARMED — this is a silent restore.
+        """
+        _LOGGER.info(
+            "Coordinator restoring alarm state: '%s' (armed_by=%s)", state, armed_by
+        )
+        self.state_machine.restore_state(state)
+
+        if armed_by:
+            self._armed_by = armed_by
+
+        # Remember last arm mode for push FORCE_ARM
+        if state in (
+            STATE_ALARM_ARMED_AWAY, STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_NIGHT, STATE_ALARM_ARMED_VACATION,
+            STATE_ALARM_ARMED_HOME_ALONE,
+        ):
+            self._last_arm_mode = state
+
+        # Restart zone monitoring if armed (so sensors are watched immediately)
+        if self.state_machine.is_armed:
+            _mode_map = {
+                STATE_ALARM_ARMED_AWAY:       "away",
+                STATE_ALARM_ARMED_HOME:       "home",
+                STATE_ALARM_ARMED_NIGHT:      "night",
+                STATE_ALARM_ARMED_VACATION:   "vacation",
+                STATE_ALARM_ARMED_HOME_ALONE: "home_alone",
+            }
+            arm_mode = _mode_map.get(state, "away")
+            self.zone_manager.start_monitoring(arm_mode=arm_mode)
+            _LOGGER.info(
+                "Zone monitoring restarted after restore (mode=%s)", arm_mode
+            )
+
+        await self.async_request_refresh()
+
     # ── Arm / Disarm / Trigger ───────────────────────────────────────────────
 
     async def async_arm_away(
@@ -943,6 +1174,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self.zone_manager.load_sensor_groups(sensor_groups)
             _LOGGER.info("Loaded %d sensor groups from store", len(sensor_groups))
 
+        # v1.4.0: Start presence monitor now that user tracker_entity fields are available
+        if self._presence_monitor is None:
+            self._presence_monitor = PresenceMonitor(self.hass, self)
+            self._presence_monitor.async_setup()
+
     # ── Health ───────────────────────────────────────────────────────────────
 
     def get_health_score(self) -> int:
@@ -1068,6 +1304,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Unregister scheduled test timer
         if hasattr(self, "_scheduled_test_unsub") and self._scheduled_test_unsub:
             self._scheduled_test_unsub()
+
+        # v1.4.0: Teardown presence monitor
+        if self._presence_monitor is not None:
+            self._presence_monitor.async_teardown()
+            self._presence_monitor = None
 
         if hasattr(self, "modules"):
             for mid, module in self.modules.items():

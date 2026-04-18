@@ -2,8 +2,28 @@
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 1.4.0
-**Last Updated:** 2026-04-12
+**Version:** 1.4.x
+**Last Updated:** 2026-04-18
+
+---
+
+## What's New in v1.4.x — Patches (2026-04-18)
+
+### Presence-based Auto-arm
+- `PresenceMonitor` overvager `tracker_entity` fra alle aktiverede bruger-profiler
+- Naar alle trackere er `not_home` startes en 15-minutters countdown
+- Naar countdown udloeber laases laase, alarmen armes (away), kameraer aktiveres
+- Timer annulleres automatisk hvis nogen vender hjem
+- Respekterer Fake Presence-blokeringen
+- Push-notifikation med handlingsliste sendes til alle brugere
+- Konfigurerbart via konstant `AUTO_ARM_AWAY_DELAY` (standard 900 sekunder)
+
+### State-restore ved HA-genstart
+- Alarm-tilstand persisteres nu paa tvaers af HA-genstarter
+- `alarm_control_panel` arver fra `RestoreEntity` og laenser `async_get_last_state()`
+- State_machine settes direkte uden callbacks ved restore — ingen falsk disarm-haendelse
+- Zone-monitorering genstartes straks i korrekt arm-mode
+- Transiente states (`arming`, `pending`, `triggered`) resettes til `disarmed` ved restart
 
 ---
 
@@ -932,6 +952,6 @@ Validated by dedicated script and CI on every commit.
 
 ---
 
-**Version:** 1.1.0
-**Status:** Production Release
-**Last Updated:** 2026-03-16
+**Version:** 1.4.x
+**Status:** Production + Unreleased Patches
+**Last Updated:** 2026-04-18

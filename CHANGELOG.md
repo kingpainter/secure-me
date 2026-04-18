@@ -1,4 +1,33 @@
-## [1.4.0] - 2026-04-12
+## [Unreleased — v1.4.x] - 2026-04-18
+
+### Presence-based Auto-arm
+- **`PresenceMonitor` klasse** i `coordinator.py` — overvager `tracker_entity` fra alle bruger-profiler
+- Naar alle trackere er `not_home` startes en 15-minutters countdown (`AUTO_ARM_AWAY_DELAY = 900`)
+- Naar countdown udloeber: laas alle konfigurerede laase, kaeld `arm_away(auto=True)`
+- `auto=True` respekterer Fake Presence-blokeringen (eksisterende logik)
+- Timer annulleres straks hvis nogen vender hjem inden countdown udloeber
+- Push-notifikation sendes til alle brugere med `notify_service` EFTER handling med liste over hvad systemet gjorde
+- `PresenceMonitor` starter i `async_load_store_config()` — dvs. efter store er indlaedt og `tracker_entity`-felterne er tilgaengelige
+- Nedlukning via `async_teardown()` i `async_shutdown()`
+- Nye konstanter: `AUTO_ARM_AWAY_DELAY`, `AUTO_ARM_PUSH_TITLE`, `AUTO_ARM_PUSH_MESSAGE`
+- Ny funktion `send_auto_arm_notification()` i `notification_dispatcher.py`
+
+### State-restore ved HA-genstart (kritisk fix)
+- **Problem:** Alarmen disarmede sig selv ved HA-genstart fordi `AlarmStateMachine` altid startede i `disarmed` — ingen state persistence
+- **Loesning:** `alarm_control_panel.py` arver nu fra `RestoreEntity` og kalder `async_get_last_state()` i `async_added_to_hass()`
+- `coordinator.async_restore_state(state, armed_by)` satter state_machine direkte uden callbacks eller delays — stille restore
+- `state_machine.restore_state(state)` satter `_current_state` direkte (ingen events, ingen timers)
+- Zone-monitorering genstartes straks i korrekt arm-mode hvis restored state er armed
+- Transiente states (`arming`, `pending`, `triggered`) resettes bevidst til `disarmed` ved restore — countdown-kontekst er tabt
+- `EVENT_ALARM_ARMED` fyres IKKE ved restore — er en stille genoprettelse
+
+### Tablet-kort fixes (`secure_me_alarm_tab_card.js` → v1.2.0)
+- **Arm virkede ikke:** `home`, `away` og `night` kaldte HA's standard `alarm_control_panel` service i stedet for Secure Me's egne websocket-kommandoer. Alle 5 tilstande korer nu konsekvent via `_ws()`
+- **Countdown opdaterede ikke:** Ny `_manageCdTicker()` starter et `setInterval` paa 1 sekund under `arming`/`pending`, decrementerer `_countdown` lokalt og opdaterer label-teksten i realtid
+- **6 prikker → 4:** Reduceret til 4 prikker, max PIN-laengde sat til 4 cifre
+- **Forecast forsvandt:** Root-element manglede `height: 100%; min-height: 0`, `weather-side` havde fast `min-height: 300px` og `padding-bottom: 39px` der pressede forecast-raekken ud af viewport paa tabletten
+
+---
 
 ### Unified TTS/Notification Engine
 

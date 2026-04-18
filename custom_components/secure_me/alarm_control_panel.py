@@ -11,6 +11,7 @@ from homeassistant.components.alarm_control_panel import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -49,7 +50,7 @@ async def async_setup_entry(
     async_add_entities([SecureMeAlarmPanel(coordinator, config_entry)])
 
 
-class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPanelEntity):
+class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, AlarmControlPanelEntity):
     """Representation of a Secure Me alarm control panel."""
 
     _attr_has_entity_name = True
@@ -186,3 +187,29 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], AlarmControlPan
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         self.async_write_ha_state()
+
+    async def async_added_to_hass(self) -> None:
+        """Restore last known alarm state after HA restart.
+
+        Called by HA after the entity is added. We read the last persisted
+        state from HA's entity registry and feed it back into the coordinator
+        so the alarm stays armed across restarts.
+
+        Transient states (arming, pending, triggered) are intentionally
+        ignored and left as disarmed — the coordinator will log a warning.
+        """
+        await super().async_added_to_hass()
+
+        last = await self.async_get_last_state()
+        if last is None:
+            _LOGGER.debug("No previous state found — starting as disarmed")
+            return
+
+        restored_state = last.state
+        armed_by = last.attributes.get(ATTR_CHANGED_BY)
+
+        _LOGGER.info(
+            "Restoring alarm state from last known: '%s' (armed_by=%s)",
+            restored_state, armed_by,
+        )
+        await self.coordinator.async_restore_state(restored_state, armed_by)
