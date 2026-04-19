@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-19 (v1.4.x unreleased)
+**Last updated:** 2026-04-19 (v1.4.0 released)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.4.0 (live) / v1.4.x (unreleased patches)
+## Current Version: v1.4.0 (released 2026-04-19)
 
 ### GitHub Actions
 | Workflow | Status |
@@ -19,7 +19,7 @@
 
 ---
 
-## v1.4.x — Unreleased Patches (2026-04-19)
+## v1.4.0 — Released (2026-04-19)
 
 ### Completed
 - [x] Presence-based auto-arm: `PresenceMonitor` klasse, 15-min countdown, laas + arm, push-notifikation
@@ -32,12 +32,11 @@
 - [x] `PresenceMonitor.async_setup()` gjort idempotent - ingen duplicate listeners ved re-invocation
 - [x] PIN UX fix: fjernet auto-submit ved 4 cifre i `secure-me-alarm-card.js` og `secure_me_alarm_tab_card.js` - bruger skal nu trykke OK for at arme/disarme (forhindrer utilsigtet aktivering)
 
-### Pending
+### Post-release verification (skal testes live)
 - [ ] Live test af presence-based auto-arm paa HA-server
 - [ ] Live test af state-restore ved genstart
 - [ ] Live test af auto-arm hotfix (import asyncio + Fake Presence guards + tracker refresh)
 - [ ] Live test af PIN UX fix (OK-knap kraevet for arm/disarm)
-- [ ] Commit til GitHub naar testet og stabilt
 
 ### Future (v1.5.0)
 - Motion-sensor → nearest speaker mapping for Home Alone

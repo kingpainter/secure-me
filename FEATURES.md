@@ -2,21 +2,26 @@
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 1.4.x
-**Last Updated:** 2026-04-18
+**Version:** 1.4.0
+**Last Updated:** 2026-04-19
 
 ---
 
-## What's New in v1.4.x — Patches (2026-04-18)
+## What's New in v1.4.0 — Presence-based Auto-arm, State Restore, Unified TTS (2026-04-19)
 
 ### Presence-based Auto-arm
 - `PresenceMonitor` overvager `tracker_entity` fra alle aktiverede bruger-profiler
 - Naar alle trackere er `not_home` startes en 15-minutters countdown
 - Naar countdown udloeber laases laase, alarmen armes (away), kameraer aktiveres
 - Timer annulleres automatisk hvis nogen vender hjem
-- Respekterer Fake Presence-blokeringen
+- Respekterer Fake Presence-blokeringen fuldt ud: blokerer countdown-start, short-circuiter `_execute_auto_arm`, annullerer kaerende countdown ved toggle
 - Push-notifikation med handlingsliste sendes til alle brugere
+- Live tracker refresh: user-aendringer virker uden HA restart (via `async_refresh()` fra `ws_save_user` / `ws_delete_user`)
 - Konfigurerbart via konstant `AUTO_ARM_AWAY_DELAY` (standard 900 sekunder)
+
+### PIN UX
+- Alarm-kortene armerer/disarmerer ikke laengere automatisk ved 4 cifre - **OK-knap er nu paakraevet** for at forhindre utilsigtet aktivering
+- Gaelder `secure-me-alarm-card.js` og `secure_me_alarm_tab_card.js`
 
 ### State-restore ved HA-genstart
 - Alarm-tilstand persisteres nu paa tvaers af HA-genstarter
@@ -27,7 +32,7 @@ Complete feature documentation for the Secure Me Home Assistant alarm system int
 
 ---
 
-## What's New in v1.4.0 — Unified TTS/Notification Engine
+## v1.4.0 — Unified TTS/Notification Engine (included in this release)
 
 ### Speaker Profiles
 - Define named speaker profiles once (entity, volume, TTS service)
@@ -952,6 +957,6 @@ Validated by dedicated script and CI on every commit.
 
 ---
 
-**Version:** 1.4.x
-**Status:** Production + Unreleased Patches
-**Last Updated:** 2026-04-18
+**Version:** 1.4.0
+**Status:** Released
+**Last Updated:** 2026-04-19

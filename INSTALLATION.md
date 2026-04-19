@@ -1,6 +1,6 @@
 # Secure Me — Installation Guide
 
-**Version:** 1.4.x  
+**Version:** 1.4.0  
 **Requires:** Home Assistant 2025.1.1+
 
 ---
