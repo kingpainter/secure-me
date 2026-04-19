@@ -1,6 +1,6 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-18 (v1.4.x unreleased)
+**Last updated:** 2026-04-19 (v1.4.x unreleased)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
@@ -19,17 +19,24 @@
 
 ---
 
-## v1.4.x — Unreleased Patches (2026-04-18)
+## v1.4.x — Unreleased Patches (2026-04-19)
 
 ### Completed
 - [x] Presence-based auto-arm: `PresenceMonitor` klasse, 15-min countdown, laas + arm, push-notifikation
 - [x] State-restore ved HA-genstart: `RestoreEntity`, `async_get_last_state()`, `restore_state()` i state_machine, zone-monitorering genstartes
 - [x] Tablet-kort v1.2.0: arm via `_ws()` for alle tilstande, live countdown ticker, 4 prikker, forecast layout fix
 - [x] CHANGELOG, STATUS, FEATURES, README, info.md, INSTALLATION.md opdateret
+- [x] Auto-arm hotfix (2026-04-19): manglende `import asyncio` i coordinator.py - NameError ved tracker state change stoppede hele auto-arm flowet stille
+- [x] Fake Presence guards i auto-arm flow: blokerer countdown-start, short-circuit i `_execute_auto_arm`, annullerer pending countdown ved aktivering
+- [x] Live tracker refresh: `PresenceMonitor.async_refresh()` + kald fra `ws_save_user` / `ws_delete_user` - user tracker-aendringer virker uden HA restart
+- [x] `PresenceMonitor.async_setup()` gjort idempotent - ingen duplicate listeners ved re-invocation
+- [x] PIN UX fix: fjernet auto-submit ved 4 cifre i `secure-me-alarm-card.js` og `secure_me_alarm_tab_card.js` - bruger skal nu trykke OK for at arme/disarme (forhindrer utilsigtet aktivering)
 
 ### Pending
 - [ ] Live test af presence-based auto-arm paa HA-server
 - [ ] Live test af state-restore ved genstart
+- [ ] Live test af auto-arm hotfix (import asyncio + Fake Presence guards + tracker refresh)
+- [ ] Live test af PIN UX fix (OK-knap kraevet for arm/disarm)
 - [ ] Commit til GitHub naar testet og stabilt
 
 ### Future (v1.5.0)

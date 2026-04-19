@@ -661,8 +661,8 @@ class SecureMeAlarmCard extends HTMLElement {
     if (key === "back")   { this._pinValue = this._pinValue.slice(0,-1); this._pinError = ""; this._update(true); return; }
     if (key === "ok")     { if (this._pinValue.length >= 1) this._callArm(this._pinMode, this._pinValue); return; }
     if (this._pinValue.length < 8) {
+      // User must press OK to submit - no auto-submit on 4 digits to prevent accidental activation.
       this._pinValue += key; this._pinError = ""; this._update(true);
-      if (this._pinValue.length === 4) this._callArm(this._pinMode, this._pinValue);
     }
   }
 
