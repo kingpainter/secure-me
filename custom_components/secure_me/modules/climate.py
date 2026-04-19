@@ -1,5 +1,5 @@
 """Climate module for Secure Me alarm system."""
-# VERSION = "1.4.0"
+# VERSION = "1.4.1"
 
 import logging
 from typing import Any

@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.4.0"
+# VERSION = "1.4.1"
 
 import asyncio
 import logging
