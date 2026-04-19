@@ -1,4 +1,4 @@
-## [Unreleased — v1.4.x] - 2026-04-18
+## [1.4.0] - 2026-04-19
 
 ### Presence-based Auto-arm
 - **`PresenceMonitor` klasse** i `coordinator.py` — overvager `tracker_entity` fra alle bruger-profiler
@@ -11,6 +11,18 @@
 - Nedlukning via `async_teardown()` i `async_shutdown()`
 - Nye konstanter: `AUTO_ARM_AWAY_DELAY`, `AUTO_ARM_PUSH_TITLE`, `AUTO_ARM_PUSH_MESSAGE`
 - Ny funktion `send_auto_arm_notification()` i `notification_dispatcher.py`
+
+### Presence Monitor Hardening (2026-04-19)
+- **Kritisk fix:** manglende `import asyncio` i `coordinator.py` forhindrede hele auto-arm flowet - `asyncio.ensure_future()` kastede `NameError` der blev slugt af HA's event system, saa countdown aldrig startede
+- **Fake Presence guards:** auto-arm flow blokeres nu korrekt naar Fake Presence er aktiv - (1) countdown starter ikke, (2) `_execute_auto_arm()` short-circuiter oeverst i sekvensen (ingen laasning, ingen arm, ingen notifikation), (3) aktivering af Fake Presence annullerer kaerende countdown
+- **Live tracker refresh:** ny `PresenceMonitor.async_refresh()` metode + kald fra `ws_save_user` og `ws_delete_user` i `websocket_api.py` - aendringer af user tracker_entity virker nu uden HA restart
+- **Idempotent setup:** `PresenceMonitor.async_setup()` rydder tidligere subscriptions foer ny registrering - forhindrer duplicate listeners ved re-invocation
+
+### PIN UX Fix (2026-04-19)
+- **Problem:** alarm-kortene armerede/disarmede automatisk saa snart fjerde PIN-ciffer blev tastet - let at aktivere utilsigtet
+- **Loesning:** fjernet auto-submit i `secure-me-alarm-card.js` (fjernet `_callArm()` ved `length === 4`) og `secure_me_alarm_tab_card.js` (fjernet `setTimeout(_submit, 130)` ved `length === 4`)
+- Bruger skal nu trykke **OK** eksplicit for at aktivere/deaktivere alarmen
+- `info-alarm-card.js` krevede allerede OK og behoevede ingen aendring
 
 ### State-restore ved HA-genstart (kritisk fix)
 - **Problem:** Alarmen disarmede sig selv ved HA-genstart fordi `AlarmStateMachine` altid startede i `disarmed` — ingen state persistence
