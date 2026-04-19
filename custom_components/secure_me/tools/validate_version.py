@@ -78,6 +78,15 @@ FILES = [
             (r'const VERSION = "[\d.]+"', 'const VERSION = "VERSION"'),
         ],
     },
+    {
+        "path": ROOT / "frontend" / "secure-me-alarm-card.js",
+        "check": [
+            (r'^// VERSION = "([\d.]+)"', "alarm-card version comment"),
+        ],
+        "fix": [
+            (r'^// VERSION = "[\d.]+"', '// VERSION = "VERSION"'),
+        ],
+    },
 ]
 
 # All .py files in secure_me/ and secure_me/modules/ get version comment check

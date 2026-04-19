@@ -136,7 +136,7 @@ class PresenceMonitor:
 
     Flow:
       1. Loaded at coordinator startup via async_setup() after store is ready.
-      2. Listens for state_changed events on all user tracker_entity entries.
+      2. Listens for state_changed events on all user person_entity entries.
       3. When ALL tracked users are away: starts a countdown (AUTO_ARM_AWAY_DELAY).
       4. If someone returns before the countdown expires: timer is cancelled.
       5. On countdown expiry, if alarm is still disarmed:
@@ -144,6 +144,12 @@ class PresenceMonitor:
            - Alarm: arm_away (respects Fake Presence block).
            - Camera module activates automatically as part of arm_away.
            - Push notification sent to all users.
+
+    Note on field name: the store persists the person entity under two possible
+    keys depending on when the user profile was created. `person_entity` is the
+    canonical name used by the frontend (secure-me-panel.js); `tracker_entity`
+    existed as a design name in early drafts. We read both for compatibility -
+    `person_entity` takes precedence.
     """
 
     def __init__(self, hass: HomeAssistant, coordinator: "SecureMeCoordinator") -> None:
@@ -177,7 +183,9 @@ class PresenceMonitor:
         for user in store.get_users().values():
             if not user.get("enabled", True):
                 continue
-            tracker = user.get("tracker_entity", "")
+            # Read `person_entity` first (canonical name used by frontend) and fall
+            # back to `tracker_entity` for any legacy profiles that might exist.
+            tracker = user.get("person_entity") or user.get("tracker_entity", "")
             if tracker:
                 self._tracker_entities.add(tracker)
 
@@ -202,7 +210,7 @@ class PresenceMonitor:
     def async_refresh(self) -> None:
         """Rebuild tracker subscriptions after user profile changes.
 
-        Call this from user save/delete handlers so tracker_entity edits
+        Call this from user save/delete handlers so person_entity edits
         take effect without requiring a Home Assistant restart. Any pending
         auto-arm countdown is cancelled since the tracked set may have
         changed semantically.
@@ -1236,7 +1244,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self.zone_manager.load_sensor_groups(sensor_groups)
             _LOGGER.info("Loaded %d sensor groups from store", len(sensor_groups))
 
-        # v1.4.0: Start presence monitor now that user tracker_entity fields are available
+        # v1.4.0: Start presence monitor now that user person_entity fields are available
         if self._presence_monitor is None:
             self._presence_monitor = PresenceMonitor(self.hass, self)
             self._presence_monitor.async_setup()
@@ -1308,7 +1316,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     def get_presence_status(self) -> dict[str, Any]:
         """Return presence status derived from user tracker entities.
 
-        Reads tracker_entity from each enabled user profile in the store.
+        Reads `person_entity` (canonical) or `tracker_entity` (legacy fallback)
+        from each enabled user profile in the store.
         Returns a dict with:
           - anyone_home: bool
           - people_home: list of user names currently home
@@ -1331,7 +1340,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         for user in self.store.get_users().values():
             if not user.get("enabled", True):
                 continue
-            tracker = user.get("tracker_entity", "")
+            # Read `person_entity` first (canonical name used by frontend) and fall
+            # back to `tracker_entity` for any legacy profiles that might exist.
+            tracker = user.get("person_entity") or user.get("tracker_entity", "")
             if not tracker:
                 continue
             name = user.get("name", tracker)

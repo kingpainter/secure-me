@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-19 (v1.4.0 released)
+**Last updated:** 2026-04-19 (v1.4.1 hotfix)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.4.0 (released 2026-04-19)
+## Current Version: v1.4.1 (hotfix 2026-04-19)
 
 ### GitHub Actions
 | Workflow | Status |
@@ -16,6 +16,18 @@
 | Pytest Python 3.11 | All passed |
 | Pytest Python 3.12 | All passed |
 | Version Consistency | Passed |
+
+---
+
+## v1.4.1 — Hotfix (2026-04-19)
+
+### Fixed
+- [x] **Presence auto-arm read wrong field name:** `PresenceMonitor` + `get_presence_status()` now read `person_entity` (canonical) with `tracker_entity` fallback. Had caused `tracked_users: 0` and non-functional auto-arm since v1.1.0.
+
+### Post-hotfix verification (skal testes live)
+- [ ] Efter HA restart: verify `binary_sensor.secure_me_alarm_system_anyone_home` viser korrekte `people_home` / `people_away` / `tracked_users`
+- [ ] Live test af auto-arm flow (nu forventet at virke faktisk end-to-end)
+- [ ] Live test af Fake Presence guard når tracker-data faktisk flyder
 
 ---
 

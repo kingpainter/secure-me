@@ -1,3 +1,13 @@
+## [1.4.1] - 2026-04-19
+
+### Fix: Presence auto-arm read wrong field name (critical)
+- **Problem:** `PresenceMonitor` read user profiles using `tracker_entity` field, but the frontend has always saved the person entity under `person_entity`. Result: `tracked_users: 0` and auto-arm completely non-functional since v1.1.0, even though the Users-tab UI showed trackers correctly linked.
+- **Symptom:** `binary_sensor.secure_me_alarm_system_anyone_home` reported `people_home: none`, `people_away: none`, `tracked_users: 0` despite `person.*` entities being `home`/`not_home`.
+- **Loesning:** `coordinator.py` now reads `user.get("person_entity") or user.get("tracker_entity", "")` in both `PresenceMonitor.async_setup()` and `get_presence_status()`. `person_entity` takes precedence (canonical name), `tracker_entity` kept as fallback for any hypothetical legacy profiles. No migration required - existing data already uses `person_entity`.
+- After update: **restart Home Assistant** (no need to edit user profiles - data was always correctly stored under `person_entity`).
+
+---
+
 ## [1.4.0] - 2026-04-19
 
 ### Presence-based Auto-arm
