@@ -397,10 +397,17 @@ async def ws_save_user(
     # Generate user_id if new
     user_id = msg["user_id"] or str(uuid.uuid4())[:8]
     # store.async_save_user handles bcrypt hashing automatically
-    # Do NOT pass code_hashed=True from frontend — let store manage it
+    # Do NOT pass code_hashed=True from frontend - let store manage it
     config = dict(msg["config"])
     config.pop("code_hashed", None)  # strip any frontend-supplied flag
     await store.async_save_user(user_id, config)
+
+    # Refresh presence monitor so tracker_entity edits take effect without
+    # requiring a Home Assistant restart.
+    coordinator = _get_coordinator(hass)
+    if coordinator is not None and getattr(coordinator, "_presence_monitor", None) is not None:
+        coordinator._presence_monitor.async_refresh()
+
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
 
@@ -421,6 +428,14 @@ async def ws_delete_user(
         return
 
     success = await store.async_delete_user(msg["user_id"])
+
+    # Refresh presence monitor so removed users' trackers are unsubscribed
+    # without requiring a Home Assistant restart.
+    if success:
+        coordinator = _get_coordinator(hass)
+        if coordinator is not None and getattr(coordinator, "_presence_monitor", None) is not None:
+            coordinator._presence_monitor.async_refresh()
+
     connection.send_result(msg["id"], {"success": success})
 
 

@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
 # VERSION = "1.4.0"
 
+import asyncio
 import logging
 import time
 from datetime import timedelta
@@ -153,7 +154,21 @@ class PresenceMonitor:
         self._tracker_entities: set[str] = set()
 
     def async_setup(self) -> None:
-        """Discover tracker entities from user profiles and start listening."""
+        """Discover tracker entities from user profiles and start listening.
+
+        Safe to call multiple times: existing listeners and tracker set are
+        cleared first so this doubles as a refresh path for async_refresh().
+        """
+        # Clear previous subscriptions so re-invocation does not register
+        # duplicate listeners for the same entities.
+        for unsub in self._unsubs:
+            try:
+                unsub()
+            except Exception:
+                pass
+        self._unsubs.clear()
+        self._tracker_entities.clear()
+
         store = getattr(self._coordinator, "store", None)
         if not store:
             _LOGGER.warning("PresenceMonitor: store not ready at setup")
@@ -167,7 +182,7 @@ class PresenceMonitor:
                 self._tracker_entities.add(tracker)
 
         if not self._tracker_entities:
-            _LOGGER.info("PresenceMonitor: No tracker entities configured — auto-arm disabled")
+            _LOGGER.info("PresenceMonitor: No tracker entities configured - auto-arm disabled")
             return
 
         _LOGGER.info(
@@ -183,6 +198,17 @@ class PresenceMonitor:
             self._on_tracker_state_changed,
         )
         self._unsubs.append(unsub)
+
+    def async_refresh(self) -> None:
+        """Rebuild tracker subscriptions after user profile changes.
+
+        Call this from user save/delete handlers so tracker_entity edits
+        take effect without requiring a Home Assistant restart. Any pending
+        auto-arm countdown is cancelled since the tracked set may have
+        changed semantically.
+        """
+        self._cancel_timer()
+        self.async_setup()
 
     def async_teardown(self) -> None:
         """Unsubscribe listeners and cancel pending timer."""
@@ -233,10 +259,20 @@ class PresenceMonitor:
                 self._cancel_timer()
             return
 
-        # Person left — check if everyone is now away
+        # Person left - check if everyone is now away
         if self._all_away() and self._away_timer is None:
+            # Fake Presence blocks the entire auto-arm flow (locks + arm).
+            # User preference (option C): when Fake Presence is on, nothing
+            # auto-runs regardless of tracker state - e.g. user doing laundry
+            # while running errands.
+            if self._coordinator.fake_presence:
+                _LOGGER.info(
+                    "PresenceMonitor: All residents away but Fake Presence active - auto-arm suppressed"
+                )
+                return
+
             _LOGGER.info(
-                "PresenceMonitor: All residents away — starting %ds auto-arm countdown",
+                "PresenceMonitor: All residents away - starting %ds auto-arm countdown",
                 AUTO_ARM_AWAY_DELAY,
             )
             self._away_timer = asyncio.ensure_future(
@@ -267,8 +303,21 @@ class PresenceMonitor:
         await self._execute_auto_arm()
 
     async def _execute_auto_arm(self) -> None:
-        """Lock locks, arm alarm, then notify all users."""
+        """Lock locks, arm alarm, then notify all users.
+
+        Fake Presence is re-checked at the top: if it was enabled during the
+        countdown window (or raced with this expiry), the entire sequence is
+        skipped - no locking, no arming, no notification.
+        """
         from .notification_dispatcher import send_auto_arm_notification
+
+        # Fake Presence short-circuit: skip locks AND arm. Matches user pref
+        # (option C): nothing auto-runs while Fake Presence is active.
+        if self._coordinator.fake_presence:
+            _LOGGER.info(
+                "PresenceMonitor: _execute_auto_arm aborted - Fake Presence active"
+            )
+            return
 
         actions_taken: list[str] = []
 
@@ -982,11 +1031,24 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return success
 
     async def async_set_fake_presence(self, active: bool) -> None:
-        """Set fake presence and fire notification + event."""
+        """Set fake presence and fire notification + event.
+
+        When Fake Presence is enabled, any pending auto-arm countdown is
+        cancelled so the user's laundry-while-out scenario does not cause
+        locks to engage or the alarm to arm after the countdown expires.
+        """
         if not hasattr(self, "store") or not self.store:
-            _LOGGER.warning("Cannot set fake presence — store not loaded yet")
+            _LOGGER.warning("Cannot set fake presence - store not loaded yet")
             return
         await self.store.async_set_fake_presence(active)
+
+        # Cancel any pending auto-arm countdown when Fake Presence activates.
+        # This guards against the race where all trackers went away first,
+        # the countdown started, and Fake Presence is toggled on before the
+        # countdown expires.
+        if active and self._presence_monitor is not None:
+            self._presence_monitor._cancel_timer()
+
         msg = FAKE_PRESENCE_ON_EN if active else FAKE_PRESENCE_OFF_EN
         try:
             from homeassistant.components.persistent_notification import (
