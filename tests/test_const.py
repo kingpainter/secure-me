@@ -44,7 +44,16 @@ class TestConstants:
             assert part.isdigit()
 
     def test_version_is_current(self):
-        assert VERSION == "1.4.1"
+        """VERSION constant must match manifest.json (single source of truth)."""
+        import json
+        from pathlib import Path
+        manifest_path = Path(__file__).parent.parent / "custom_components" / "secure_me" / "manifest.json"
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        assert VERSION == manifest["version"], (
+            f"VERSION constant ({VERSION}) does not match manifest.json "
+            f"({manifest['version']}). Bump both or run validate_version.py --fix."
+        )
 
     def test_platforms_not_empty(self):
         assert len(PLATFORMS) > 0

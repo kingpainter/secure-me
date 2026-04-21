@@ -31,4 +31,13 @@ class TestDiagnosticsVersion:
     """Test diagnostics includes version info."""
 
     def test_version_matches_const(self):
-        assert VERSION == "1.4.1"
+        """VERSION constant must match manifest.json (single source of truth)."""
+        import json
+        from pathlib import Path
+        manifest_path = Path(__file__).parent.parent / "custom_components" / "secure_me" / "manifest.json"
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+        assert VERSION == manifest["version"], (
+            f"VERSION constant ({VERSION}) does not match manifest.json "
+            f"({manifest['version']}). Bump both or run validate_version.py --fix."
+        )
