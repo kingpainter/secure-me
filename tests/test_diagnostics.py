@@ -1,5 +1,5 @@
 """Tests for Secure Me diagnostics."""
-# VERSION = "1.4.0"
+# VERSION = "1.4.1"
 
 import pytest
 
@@ -31,4 +31,4 @@ class TestDiagnosticsVersion:
     """Test diagnostics includes version info."""
 
     def test_version_matches_const(self):
-        assert VERSION == "1.4.0"
+        assert VERSION == "1.4.1"
