@@ -1,5 +1,5 @@
 """Secure Me alarm system modules."""
-# VERSION = "1.4.1"
+# VERSION = "1.4.2"
 
 from .base import AlarmModule
 from .camera import CameraModule

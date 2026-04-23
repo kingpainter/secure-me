@@ -27,7 +27,7 @@ User notification settings (on each user object):
   tts_quiet_start: int|None  — hour (0-23) start of TTS quiet period
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
-# VERSION = "1.4.1"
+# VERSION = "1.4.2"
 
 from __future__ import annotations
 
@@ -385,24 +385,23 @@ async def dispatch_home_alone_door_trigger(
         try:
             tts_module = _get_tts_module(hass)
             if tts_module:
-                # announce_system() plays via all configured media_players.
-                # For Home Alone, we want a specific speaker -- call tts.speak directly.
-                await hass.services.async_call(
-                    "tts", "speak",
-                    {
-                        "media_player_entity_id": speaker_entity,
-                        "message": message,
-                    },
-                    blocking=False,
+                # v1.4.2: Use the TTS module's speaker profile system instead of
+                # calling tts.speak directly. The previous code passed
+                # media_player_entity_id but no target entity for the TTS engine
+                # itself, which tts.speak rejects with "must contain at least one
+                # of entity_id, device_id, area_id, floor_id, label_id".
+                # announce_system() resolves the configured tts_service +
+                # tts_entity via speaker profiles and routes to the requested
+                # media_player.
+                await tts_module.announce_system(
+                    message,
+                    urgent=False,
+                    speaker_ids=[speaker_entity],
                 )
             else:
-                await hass.services.async_call(
-                    "tts", "speak",
-                    {
-                        "media_player_entity_id": speaker_entity,
-                        "message": message,
-                    },
-                    blocking=False,
+                _LOGGER.debug(
+                    "Home Alone TTS skipped for %s -- TTS module not enabled",
+                    speaker_entity,
                 )
         except Exception as err:
             _LOGGER.error(

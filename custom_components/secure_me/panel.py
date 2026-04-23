@@ -1,4 +1,4 @@
-# VERSION = "1.4.1"
+# VERSION = "1.4.2"
 """Panel registration for Secure Me.
 
 Follows the Energy Hub pattern:
@@ -26,7 +26,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 # Panel configuration
-VERSION = "1.4.1"
+VERSION = "1.4.2"
 PANEL_URL = f"/api/{DOMAIN}-panel"
 PANEL_NAME = "secure-me-panel"
 PANEL_FOLDER = "frontend"

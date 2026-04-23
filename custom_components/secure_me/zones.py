@@ -1,5 +1,5 @@
 """Zone management for Secure Me."""
-# VERSION = "1.4.1"
+# VERSION = "1.4.2"
 
 import asyncio
 import logging
@@ -368,28 +368,17 @@ class ZoneManager:
             return changed, zone if changed else None
 
         # EDGE CASE: unavailable/unknown
+        # v1.4.2: Zigbee/WiFi sensors routinely flap to 'unavailable' for a few
+        # seconds (battery radio, mesh restarts, router reboots). Logging these
+        # as WARNING + firing a persistent notification every time drowns real
+        # issues in noise. Degrade to DEBUG and drop the notification. Sensors
+        # that are permanently dead will show up as 'unavailable' in the HA UI
+        # and via the diagnostics sensor -- no need for per-event alerts here.
         if state.state in ("unavailable", "unknown"):
-            _LOGGER.warning(
-                "Sensor %s is %s while monitoring active — treating as closed",
+            _LOGGER.debug(
+                "Sensor %s is %s while monitoring active -- treating as closed",
                 entity_id, state.state,
             )
-            try:
-                from homeassistant.components.persistent_notification import (
-                    async_create as pn_create,
-                )
-                pn_create(
-                    self.hass,
-                    message=(
-                        f"Sensor '{entity_id}' in zone '{zone.zone_id}' is {state.state}. "
-                        f"Please check the device connection."
-                    ),
-                    title="Secure Me - Sensor Unavailable",
-                    notification_id=(
-                        f"{NOTIFY_ID_MODULE_ERROR}_unavail_{entity_id.replace('.', '_')}"
-                    ),
-                )
-            except Exception:
-                pass
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
 
@@ -528,7 +517,12 @@ class ZoneManager:
                 )
                 return
             self._last_trigger_time[entity_id] = now
-            trigger_callback(zone)
+            # v1.4.2: trigger_callback is async (SecureMeCoordinator._zone_triggered).
+            # Schedule as task so it actually runs -- calling it directly just
+            # creates an unawaited coroutine and logs a RuntimeWarning.
+            result = trigger_callback(zone)
+            if asyncio.iscoroutine(result):
+                self.hass.async_create_task(result)
 
         unsub = async_track_state_change_event(
             self.hass,

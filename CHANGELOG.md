@@ -1,3 +1,20 @@
+## [1.4.2] - 2026-04-23
+
+### Fix: Zone trigger callback was never awaited (kritisk)
+- **Problem:** I `zones.py:531` blev `trigger_callback(zone)` kaldt synkront i state-change callback'et, men `SecureMeCoordinator._zone_triggered` er en coroutine. Resultat: `RuntimeWarning: coroutine '_zone_triggered' was never awaited` — alarmens trigger-flow kørte aldrig når en zone gik triggered.
+- **Symptom:** 43 `RuntimeWarning` i loggen over 17 timer. Zoner kunne ikke udløse alarm.
+- **Løsning:** Detektér coroutine-resultat via `asyncio.iscoroutine()` og schedul via `hass.async_create_task()` — konsistent med hvordan `arm_on_close_callback` allerede blev håndteret samme sted.
+
+### Fix: Home Alone TTS speak fejlede med manglende target
+- **Problem:** `dispatch_home_alone_door_trigger` i `notification_dispatcher.py` kaldte `tts.speak` direkte med `media_player_entity_id` men uden target entity for selve TTS-engine'en. HA-servicen fejlede med "must contain at least one of entity_id, device_id, area_id, floor_id, label_id".
+- **Løsning:** Brug TTS-modulets `announce_system(message, speaker_ids=[speaker_entity])` som korrekt router via speaker profiles og respekterer konfigureret `tts_service` + `tts_entity`. Fjerner også død if/else-kode hvor begge grene gjorde det samme.
+
+### Fix: Unavailable sensor log spam
+- **Problem:** Zigbee/WiFi-sensorer flapper rutinemæssigt til `unavailable` i få sekunder (batteri-radio, mesh-restarts, router-reboots). Hver flap gav en WARNING i loggen og en persistent notification — 15 occurrences på 17 timer fra 5 forskellige sensorer druknede reelle advarsler i støj.
+- **Løsning:** `zones.py:update_sensor_state` degraderer nu `unavailable`/`unknown` til DEBUG log og fjerner persistent notification. Permanent døde sensorer vises stadig tydeligt i HA UI og via diagnostics-sensor. `None`-state (sensor fjernet fra HA) bevarer fortsat WARNING + notification fordi det er en fundamentalt anden situation.
+
+---
+
 ## [1.4.1] - 2026-04-19
 
 ### Fix: Presence auto-arm read wrong field name (critical)
