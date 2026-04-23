@@ -5,20 +5,23 @@ import logging
 from typing import Any
 
 from homeassistant.components import system_health
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN, COORDINATOR
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@callback
 def async_register(
     hass: HomeAssistant, register: system_health.SystemHealthRegistration
 ) -> None:
     """Register system health callbacks.
 
-    Must be a plain (non-async) function — HA's system_health platform
-    calls this synchronously via platform.async_register().
+    v1.4.2: Must be decorated with @callback. Without it, HA's platform
+    loader inspects the 'async_' prefix and treats the function as a
+    coroutine, triggering 'RuntimeWarning: coroutine async_register was
+    never awaited' at startup.
     """
     register.async_register_info(system_health_info)
 
