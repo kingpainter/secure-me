@@ -2,7 +2,7 @@
 
 A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, unified TTS/notification engine with multi-speaker support, real-time health monitoring, presence-based auto-arm, and a modern configuration panel.
 
-**Version:** 1.4.0
+**Version:** 1.4.2
 
 ---
 

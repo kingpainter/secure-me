@@ -2,8 +2,18 @@
 
 Complete feature documentation for the Secure Me Home Assistant alarm system integration.
 
-**Version:** 1.4.0
-**Last Updated:** 2026-04-19
+**Version:** 1.4.2
+**Last Updated:** 2026-04-23
+
+---
+
+## What's New in v1.4.2 — Bug fixes (2026-04-23)
+
+Three production bug fixes. No new features — see [CHANGELOG.md](CHANGELOG.md) for full technical details.
+
+- **Zone trigger callback never awaited (critical):** Async coroutine was called synchronously in sensor state-change callback. Alarm trigger flow silently failed for every zone trigger. Now properly scheduled via `hass.async_create_task()`.
+- **Home Alone TTS speak failed with missing target:** `tts.speak` was called without a TTS engine target entity. Now routes through the TTS module's speaker profile system via `announce_system()`.
+- **Unavailable sensor log spam:** Zigbee/WiFi sensor flapping produced WARNING + persistent notification per flap. Degraded to DEBUG-level logging; persistent notifications removed for transient flapping. Permanently removed sensors (`None` state) still warn as before.
 
 ---
 
@@ -957,6 +967,6 @@ Validated by dedicated script and CI on every commit.
 
 ---
 
-**Version:** 1.4.0
+**Version:** 1.4.2
 **Status:** Released
-**Last Updated:** 2026-04-19
+**Last Updated:** 2026-04-23

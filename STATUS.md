@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-19 (v1.4.1 hotfix)
+**Last updated:** 2026-04-23 (v1.4.2 bug fix release)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.4.1 (hotfix 2026-04-19)
+## Current Version: v1.4.2 (bug fixes 2026-04-23)
 
 ### GitHub Actions
 | Workflow | Status |
@@ -16,6 +16,21 @@
 | Pytest Python 3.11 | All passed |
 | Pytest Python 3.12 | All passed |
 | Version Consistency | Passed |
+
+---
+
+## v1.4.2 — Bug fixes (2026-04-23)
+
+### Fixed
+- [x] **Zone trigger callback aldrig awaited (kritisk):** `zones.py:531` kaldte `trigger_callback(zone)` synkront, men `SecureMeCoordinator._zone_triggered` er en coroutine. 43 `RuntimeWarning` på 17 timer; alarmens trigger-flow kørte aldrig. Fixet med `asyncio.iscoroutine()` + `hass.async_create_task()`.
+- [x] **Home Alone TTS fejlede med manglende target entity:** `dispatch_home_alone_door_trigger` kaldte `tts.speak` med `media_player_entity_id` men uden TTS-engine target. Erstattet med `tts_module.announce_system(speaker_ids=[...])` der router via speaker profiles. Fjernet også død duplicate if/else-kode.
+- [x] **Unavailable sensor log spam:** Zigbee/WiFi-sensorer flapper rutinemæssigt til `unavailable` i få sekunder. Hver flap producerede WARNING + persistent notification — 15 occurrences/17h druknede reelle advarsler. Degraderet til DEBUG uden notification. `None`-state (sensor helt fjernet) bevarer WARNING + notification.
+
+### Post-release verification (skal testes live)
+- [ ] Efter HA restart: bekræft at `RuntimeWarning: coroutine '_zone_triggered' was never awaited` er helt væk fra loggen
+- [ ] Live test af Home Alone door-sensor → TTS-annoncering på konfigureret speaker
+- [ ] Bekræft at `Sensor ... is unavailable while monitoring active` WARNINGs er væk fra loggen (nu DEBUG)
+- [ ] Bekræft at zone-triggers faktisk udløser alarmen end-to-end
 
 ---
 
