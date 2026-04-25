@@ -1,5 +1,10 @@
 ## [1.4.2] - 2026-04-23
 
+### Fix: HA standard alarm dialog rejected arming with PIN required
+- **Problem:** `alarm_control_panel.code_format` returned `None`, hvilket fik HA's indbyggede alarm-dialog (Developer Tools, standard Lovelace alarm-card, mobile app default UI) til at vise mode-knapper uden PIN-felt. Når brugeren klikkede på en mode fejlede armingen stille med fejlbesked: "Arming requires a code but none was given for alarm_control_panel.secure_me_alarm_system_alarm."
+- **Symptom:** Brugeren kunne kun arme via Secure Me's eget panel/Lovelace-kort. HA's standard UI var ubrugelig.
+- **Løsning:** Returner `CodeFormat.NUMBER` fra `code_format`-property. HA viser nu et numerisk PIN-felt i standard-dialogen før mode-knapperne. Bcrypt-validering i `coordinator.validate_code()` er uændret — HA tjekker kun at input matcher det numeriske format, Secure Me validerer selve PIN-værdien internt som hidtil.
+
 ### Fix: Zone trigger callback was never awaited (kritisk)
 - **Problem:** I `zones.py:531` blev `trigger_callback(zone)` kaldt synkront i state-change callback'et, men `SecureMeCoordinator._zone_triggered` er en coroutine. Resultat: `RuntimeWarning: coroutine '_zone_triggered' was never awaited` — alarmens trigger-flow kørte aldrig når en zone gik triggered.
 - **Symptom:** 43 `RuntimeWarning` i loggen over 17 timer. Zoner kunne ikke udløse alarm.

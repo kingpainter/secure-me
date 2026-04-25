@@ -87,6 +87,15 @@ FILES = [
             (r'^// VERSION = "[\d.]+"', '// VERSION = "VERSION"'),
         ],
     },
+    {
+        "path": ROOT / "services.yaml",
+        "check": [
+            (r'^# VERSION = "([\d.]+)"', "services.yaml version comment"),
+        ],
+        "fix": [
+            (r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"'),
+        ],
+    },
 ]
 
 # All .py files in secure_me/ and secure_me/modules/ get version comment check
