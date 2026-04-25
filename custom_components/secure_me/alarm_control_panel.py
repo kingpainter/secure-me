@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
+    CodeFormat,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -97,13 +98,15 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         return True
 
     @property
-    def code_format(self) -> str | None:
-        """Return the regex for code format or None to skip HA validation.
+    def code_format(self) -> CodeFormat | None:
+        """Return the format of the code.
 
-        We return None so HA does not validate the format itself.
-        Secure Me validates internally via authenticate_user() + bcrypt.
+        Returning NUMBER makes HA's standard alarm dialog show a numeric
+        PIN entry field. Secure Me still validates the actual PIN value
+        internally via authenticate_user() + bcrypt — HA only checks that
+        the input matches the format (digits only).
         """
-        return None
+        return CodeFormat.NUMBER
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
