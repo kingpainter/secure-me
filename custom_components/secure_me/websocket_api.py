@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import asyncio
 import logging
@@ -30,6 +30,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_arm_vacation)
     websocket_api.async_register_command(hass, ws_arm_home_alone)
     websocket_api.async_register_command(hass, ws_disarm)
+    websocket_api.async_register_command(hass, ws_skip_delay)  # v1.4.3
     # Speaker profiles (v1.4.0)
     websocket_api.async_register_command(hass, ws_get_speaker_profiles)
     websocket_api.async_register_command(hass, ws_save_speaker_profiles)
@@ -347,6 +348,17 @@ async def ws_delete_zone(
         return
 
     success = await store.async_delete_zone(msg["zone_id"])
+
+    # v1.4.3 fix: Sync coordinator's zone_manager so the deleted zone
+    # disappears from runtime state immediately. Previously the zone
+    # stayed alive in zone_manager._zones until HA restart, and could
+    # still be triggered by sensor events.
+    if success:
+        coordinator = _get_coordinator(hass)
+        if coordinator and hasattr(coordinator, "zone_manager"):
+            _reload_zones_into_coordinator(coordinator, store)
+            _LOGGER.info("Zone %s deleted and zone manager reloaded", msg["zone_id"])
+
     connection.send_result(msg["id"], {"success": success})
 
 
@@ -1996,6 +2008,28 @@ async def ws_disarm(
         return
     code = msg.get("code")
     success = await coordinator.async_disarm(code=code)
+    connection.send_result(msg["id"], {"success": success})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/skip_delay",
+})
+@websocket_api.async_response
+async def ws_skip_delay(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Skip active exit/entry countdown via WebSocket (v1.4.3).
+
+    Returns success=True if a countdown was skipped, False if there was
+    no active countdown to skip.
+    """
+    coordinator = _get_coordinator(hass)
+    if not coordinator:
+        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        return
+    success = await coordinator.async_skip_delay()
     connection.send_result(msg["id"], {"success": success})
 
 

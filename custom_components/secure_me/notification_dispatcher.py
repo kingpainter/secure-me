@@ -27,7 +27,7 @@ User notification settings (on each user object):
   tts_quiet_start: int|None  — hour (0-23) start of TTS quiet period
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 from __future__ import annotations
 
@@ -62,6 +62,20 @@ CHANNEL_TTS  = "tts"
 
 def _get_store(hass: HomeAssistant):
     return hass.data.get(DOMAIN, {}).get("store")
+
+
+def _get_coordinator(hass: HomeAssistant):
+    """Return the active coordinator instance, or None if not yet ready.
+
+    v1.4.3: Used by alarm event handlers to enrich notification template
+    context with current state (open_sensors, bypassed_sensors, mode).
+    Single-entry assumption: returns the first coordinator found.
+    """
+    domain_data = hass.data.get(DOMAIN, {})
+    for key, value in domain_data.items():
+        if isinstance(value, dict) and "coordinator" in value:
+            return value["coordinator"]
+    return None
 
 
 def _get_tts_module(hass: HomeAssistant):
@@ -469,9 +483,22 @@ class NotificationDispatcher:
 
     async def _on_triggered(self, event: Event) -> None:
         triggered_by = event.data.get("triggered_by") or "unknown"
+        # v1.4.3: Enrich context with sensor / mode info so notification
+        # templates can use {triggered_by}, {open_sensors}, {mode},
+        # {entity_id} placeholders.
+        coord = _get_coordinator(self.hass)
+        open_sensors = coord.open_sensors if coord else []
+        mode = coord.alarm_state if coord else "triggered"
         await _dispatch_for_trigger(
             self.hass, "triggered",
-            {"state": "triggered", "triggered_by": triggered_by},
+            {
+                "state": "triggered",
+                "triggered_by": triggered_by,
+                "open_sensors": ", ".join(open_sensors) if open_sensors else "none",
+                "open_sensors_count": str(len(open_sensors)),
+                "mode": mode,
+                "entity_id": triggered_by,
+            },
             title_override="ALERT: Secure Me Alarm Triggered",
             urgent=True,
             broadcast=True,
@@ -481,9 +508,18 @@ class NotificationDispatcher:
         armed_by     = event.data.get("armed_by") or "system"
         armed_by_id  = event.data.get("armed_by_id")
         mode         = event.data.get("mode", "armed")
+        # v1.4.3: Add bypassed_sensors / mode placeholders
+        coord = _get_coordinator(self.hass)
+        bypassed = coord.bypassed_sensors if coord else []
         await _dispatch_for_trigger(
             self.hass, "armed",
-            {"state": mode, "armed_by": armed_by},
+            {
+                "state": mode,
+                "armed_by": armed_by,
+                "mode": mode.replace("armed_", ""),
+                "bypassed_sensors": ", ".join(bypassed) if bypassed else "none",
+                "bypassed_count": str(len(bypassed)),
+            },
             acting_user_id=armed_by_id,
         )
 
@@ -492,7 +528,14 @@ class NotificationDispatcher:
         disarmed_by_id = event.data.get("disarmed_by_id")
         await _dispatch_for_trigger(
             self.hass, "disarmed",
-            {"state": "disarmed", "disarmed_by": disarmed_by, "armed_by": disarmed_by},
+            {
+                "state": "disarmed",
+                "disarmed_by": disarmed_by,
+                # Backwards compat: some user templates use {armed_by} for the
+                # last-acting user regardless of direction.
+                "armed_by": disarmed_by,
+                "mode": "disarmed",
+            },
             acting_user_id=disarmed_by_id,
         )
 

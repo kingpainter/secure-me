@@ -1,5 +1,5 @@
 """State machine for Secure Me alarm system."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import asyncio
 import logging
@@ -170,6 +170,51 @@ class AlarmStateMachine:
 
         self._countdown = 0
         self._target_state = None
+
+    async def skip_current_countdown(self) -> bool:
+        """Skip the active exit/entry countdown and finish immediately.
+
+        v1.4.3 (Alarmo-inspired): Power-user feature to bypass an in-progress
+        delay. Useful when you arm with 30s exit delay and then realise you
+        already locked the door so you want it armed NOW.
+
+        Returns True if a countdown was active and was skipped to its
+        target state. Returns False if no countdown was running.
+
+        Behaviour:
+        - During exit delay (state=arming): finish to target armed_* state.
+        - During entry delay (state=pending): trigger alarm immediately.
+        - In any other state: no-op.
+
+        The countdown task is cancelled and the target state is applied via
+        the same _set_state path as a natural countdown completion, so all
+        state-change callbacks fire normally.
+        """
+        async with self._transition_lock:
+            target = self._target_state
+            task = self._countdown_task
+            if not target or not task or task.done():
+                _LOGGER.debug("skip_delay called with no active countdown")
+                return False
+
+            _LOGGER.info(
+                "Skipping countdown (%ds remaining) -> %s",
+                self._countdown, target,
+            )
+            # Cancel timer task and await it so we don't race with its
+            # natural completion.
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            self._countdown_task = None
+            self._countdown = 0
+            self._target_state = None
+
+            # Apply the target state via the same path as natural completion.
+            await self._set_state(target)
+            return True
 
     async def _countdown_timer(self, target_state: str, duration: int) -> None:
         """Run countdown timer and transition to target state when done."""

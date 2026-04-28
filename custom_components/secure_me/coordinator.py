@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import asyncio
 import logging
@@ -42,6 +42,10 @@ from .const import (
     EVENT_MODULE_ENABLED,
     EVENT_MODULE_DISABLED,
     EVENT_MODULE_ERROR,
+    # v1.4.3: rich error events
+    EVENT_ALARM_ARM_FAILED,
+    EVENT_ALARM_INVALID_CODE,
+    EVENT_ALARM_COMMAND_REJECTED,
     CONF_FAKE_PRESENCE,
     NOTIFY_ID_FAKE_PRESENCE,
     FAKE_PRESENCE_ON_EN,
@@ -393,6 +397,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._triggered_by: str | None = None
         self._last_arm_mode: str | None = None  # v1.2.0: remembered for push force-arm
 
+        # v1.4.3: Bypassed sensors at last successful arm operation.
+        # Reset to [] on disarm. Exposed as alarm_control_panel attribute.
+        self._bypassed_sensors: list[str] = []
+
+        # v1.4.3: Timestamp of last trigger event (ISO format).
+        # Persists across HA restarts via RestoreEntity attribute restoration.
+        self._last_triggered: str | None = None
+
+        # v1.4.3: Track in-flight push action tasks so we can cancel them
+        # during shutdown instead of letting them die mid-arm/disarm.
+        # Set holds strong refs (asyncio docs warn that without strong refs
+        # tasks can be garbage-collected mid-execution).
+        self._push_tasks: set["asyncio.Task"] = set()
+
         self._code = config_entry.data.get(CONF_CODE, "")
         exit_delay = config_entry.data.get(CONF_EXIT_DELAY, 30)
         entry_delay = config_entry.data.get(CONF_ENTRY_DELAY, 30)
@@ -555,6 +573,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         Allows arm/disarm from HA Companion push notifications without opening the app.
         Action strings match the PUSH_EVENT_ACTIONS constants.
+
+        v1.4.3: Tracks created tasks in self._push_tasks so async_shutdown can
+        cancel them cleanly instead of leaving zombie coroutines on HA stop.
         """
         if not event.data:
             return
@@ -569,32 +590,35 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return
 
         _LOGGER.info("Received push action: %s", action)
+
+        # Build the coroutine for the requested action
         if action == EVENT_ACTION_DISARM:
-            self.hass.async_create_task(self.async_disarm())
-
+            coro = self.async_disarm()
         elif action == EVENT_ACTION_FORCE_ARM:
-            # Force-arm in last used mode (or away if unknown)
             mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
-            self.hass.async_create_task(self._arm_by_state(mode, skip_delay=True, force=True))
-
+            coro = self._arm_by_state(mode, skip_delay=True, force=True)
         elif action == EVENT_ACTION_RETRY_ARM:
             mode = self._last_arm_mode or STATE_ALARM_ARMED_AWAY
-            self.hass.async_create_task(self._arm_by_state(mode))
-
+            coro = self._arm_by_state(mode)
         elif action == EVENT_ACTION_ARM_AWAY:
-            self.hass.async_create_task(self.async_arm_away())
-
+            coro = self.async_arm_away()
         elif action == EVENT_ACTION_ARM_HOME:
-            self.hass.async_create_task(self.async_arm_home())
-
+            coro = self.async_arm_home()
         elif action == EVENT_ACTION_ARM_NIGHT:
-            self.hass.async_create_task(self.async_arm_night())
-
+            coro = self.async_arm_night()
         elif action == EVENT_ACTION_ARM_VACATION:
-            self.hass.async_create_task(self.async_arm_vacation())
-
+            coro = self.async_arm_vacation()
         elif action == EVENT_ACTION_ARM_HOME_ALONE:
-            self.hass.async_create_task(self.async_arm_home_alone())
+            coro = self.async_arm_home_alone()
+        else:
+            return
+
+        # v1.4.3: Track the task with strong reference + auto-cleanup.
+        # add_done_callback ensures we drop the ref once the task finishes
+        # so the set does not grow unbounded.
+        task = self.hass.async_create_task(coro)
+        self._push_tasks.add(task)
+        task.add_done_callback(self._push_tasks.discard)
 
     async def _arm_by_state(
         self, state: str, skip_delay: bool = False, force: bool = False
@@ -772,6 +796,24 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return self.zone_manager.get_all_open_sensors()
 
     @property
+    def bypassed_sensors(self) -> list[str]:
+        """Sensors that were auto-bypassed at the last arm operation.
+
+        Empty list when not currently armed or when no sensors were bypassed.
+        Reset on disarm.
+        """
+        return self._bypassed_sensors
+
+    @property
+    def last_triggered(self) -> str | None:
+        """ISO timestamp of when the alarm last entered triggered state.
+
+        Survives HA restart via RestoreEntity attribute restoration.
+        Returns None if alarm has never been triggered.
+        """
+        return self._last_triggered
+
+    @property
     def bypassed_zones(self) -> list[str]:
         return []
 
@@ -820,7 +862,13 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     return uid
         return None
 
-    async def async_restore_state(self, state: str, armed_by: str | None = None) -> None:
+    async def async_restore_state(
+        self,
+        state: str,
+        armed_by: str | None = None,
+        last_triggered: str | None = None,
+        bypassed_sensors: list[str] | None = None,
+    ) -> None:
         """Restore alarm state after HA restart.
 
         Called from alarm_control_panel.async_added_to_hass() with the
@@ -829,6 +877,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         - Sets state_machine state directly (no callbacks, no delays).
         - Restarts zone monitoring if the restored state is armed.
         - Does NOT fire EVENT_ALARM_ARMED — this is a silent restore.
+        - v1.4.3: Restores last_triggered and bypassed_sensors attributes.
         """
         _LOGGER.info(
             "Coordinator restoring alarm state: '%s' (armed_by=%s)", state, armed_by
@@ -837,6 +886,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         if armed_by:
             self._armed_by = armed_by
+
+        # v1.4.3: Restore observability attributes
+        if last_triggered:
+            self._last_triggered = last_triggered
+        if bypassed_sensors:
+            self._bypassed_sensors = list(bypassed_sensors)
 
         # Remember last arm mode for push FORCE_ARM
         if state in (
@@ -885,25 +940,40 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             _LOGGER.info("Auto arm blocked — Fake Presence active")
             return False
 
+        # Compute bypass list once so we can both pass it to the open-sensor
+        # check and store it for later attribute exposure.
+        all_sensors = [
+            s for z in self.zone_manager.zones.values()
+            if z.enabled and z.is_active_for_mode("away")
+            for s in z.sensors
+        ]
+        bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="away")
+
         if not force:
-            # Only check sensors in zones that are active for 'away' mode
-            all_sensors = [
-                s for z in self.zone_manager.zones.values()
-                if z.enabled and z.is_active_for_mode("away")
-                for s in z.sensors
-            ]
-            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
-                _LOGGER.warning(
-                    "Cannot arm — open sensors: %s", self.zone_manager.get_all_open_sensors()
-                )
+                open_list = self.zone_manager.get_all_open_sensors()
+                _LOGGER.warning("Cannot arm — open sensors: %s", open_list)
+                # v1.4.3: Fire failed_to_arm event so HA automations can react
+                self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
+                    "command": "arm_away",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                })
                 return False
 
         success = await self.state_machine.arm_away(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
             self._armed_by_id = self.identify_user_id(code)
+            # v1.4.3: Record bypass list (force=True will have empty bypassed)
+            self._bypassed_sensors = list(bypassed) if not force else []
             await self._execute_modules_arm_away()
+        else:
+            # v1.4.3: state machine refused (e.g. already armed)
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "arm_away",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
@@ -912,23 +982,34 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     ) -> bool:
         """Arm in home mode."""
         _LOGGER.info("Arming alarm (home, skip_delay=%s, force=%s)", skip_delay, force)
+        all_sensors = [
+            s for z in self.zone_manager.zones.values()
+            if z.enabled and z.is_active_for_mode("home")
+            for s in z.sensors
+        ]
+        bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="home")
+
         if not force:
-            all_sensors = [
-                s for z in self.zone_manager.zones.values()
-                if z.enabled and z.is_active_for_mode("home")
-                for s in z.sensors
-            ]
-            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
-                _LOGGER.warning(
-                    "Cannot arm home — open sensors: %s", self.zone_manager.get_all_open_sensors()
-                )
+                open_list = self.zone_manager.get_all_open_sensors()
+                _LOGGER.warning("Cannot arm home — open sensors: %s", open_list)
+                self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
+                    "command": "arm_home",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                })
                 return False
         success = await self.state_machine.arm_home(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
             self._armed_by_id = self.identify_user_id(code)
+            self._bypassed_sensors = list(bypassed) if not force else []
             await self._execute_modules_arm_home()
+        else:
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "arm_home",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
@@ -937,23 +1018,34 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     ) -> bool:
         """Arm in night mode."""
         _LOGGER.info("Arming alarm (night, skip_delay=%s, force=%s)", skip_delay, force)
+        all_sensors = [
+            s for z in self.zone_manager.zones.values()
+            if z.enabled and z.is_active_for_mode("night")
+            for s in z.sensors
+        ]
+        bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="night")
+
         if not force:
-            all_sensors = [
-                s for z in self.zone_manager.zones.values()
-                if z.enabled and z.is_active_for_mode("night")
-                for s in z.sensors
-            ]
-            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
-                _LOGGER.warning(
-                    "Cannot arm night — open sensors: %s", self.zone_manager.get_all_open_sensors()
-                )
+                open_list = self.zone_manager.get_all_open_sensors()
+                _LOGGER.warning("Cannot arm night — open sensors: %s", open_list)
+                self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
+                    "command": "arm_night",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                })
                 return False
         success = await self.state_machine.arm_night(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
             self._armed_by_id = self.identify_user_id(code)
+            self._bypassed_sensors = list(bypassed) if not force else []
             await self._execute_modules_arm_night()
+        else:
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "arm_night",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
@@ -962,23 +1054,34 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     ) -> bool:
         """Arm in vacation mode."""
         _LOGGER.info("Arming alarm (vacation, skip_delay=%s, force=%s)", skip_delay, force)
+        all_sensors = [
+            s for z in self.zone_manager.zones.values()
+            if z.enabled and z.is_active_for_mode("vacation")
+            for s in z.sensors
+        ]
+        bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="vacation")
+
         if not force:
-            all_sensors = [
-                s for z in self.zone_manager.zones.values()
-                if z.enabled and z.is_active_for_mode("vacation")
-                for s in z.sensors
-            ]
-            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
-                _LOGGER.warning(
-                    "Cannot arm vacation — open sensors: %s", self.zone_manager.get_all_open_sensors()
-                )
+                open_list = self.zone_manager.get_all_open_sensors()
+                _LOGGER.warning("Cannot arm vacation — open sensors: %s", open_list)
+                self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
+                    "command": "arm_vacation",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                })
                 return False
         success = await self.state_machine.arm_vacation(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
             self._armed_by_id = self.identify_user_id(code)
+            self._bypassed_sensors = list(bypassed) if not force else []
             await self._execute_modules_arm_away()
+        else:
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "arm_vacation",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
@@ -987,32 +1090,53 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     ) -> bool:
         """Arm in home alone mode (cameras on, motion visual-only, door sensors notify)."""
         _LOGGER.info("Arming alarm (home_alone, skip_delay=%s, force=%s)", skip_delay, force)
+        all_sensors = [
+            s for z in self.zone_manager.zones.values()
+            if z.enabled and z.is_active_for_mode("home_alone")
+            for s in z.sensors
+        ]
+        bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="home_alone")
+
         if not force:
-            all_sensors = [
-                s for z in self.zone_manager.zones.values()
-                if z.enabled and z.is_active_for_mode("home_alone")
-                for s in z.sensors
-            ]
-            bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors)
             if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
-                _LOGGER.warning(
-                    "Cannot arm home_alone — open sensors: %s", self.zone_manager.get_all_open_sensors()
-                )
+                open_list = self.zone_manager.get_all_open_sensors()
+                _LOGGER.warning("Cannot arm home_alone — open sensors: %s", open_list)
+                self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
+                    "command": "arm_home_alone",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                })
                 return False
         success = await self.state_machine.arm_home_alone(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
             self._armed_by_id = self.identify_user_id(code)
+            self._bypassed_sensors = list(bypassed) if not force else []
             # Activate cameras on arm — same as away mode
             await self._execute_modules_arm_away()
+        else:
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "arm_home_alone",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
     async def async_disarm(self, code: str | None = None) -> bool:
-        """Disarm the alarm."""
+        """Disarm the alarm.
+
+        v1.4.3: Fires EVENT_ALARM_INVALID_CODE on bad code and
+        EVENT_ALARM_COMMAND_REJECTED if the state machine refuses
+        (e.g. already disarmed). Defense in depth: alarm_control_panel
+        also fires EVENT_ALARM_INVALID_CODE before reaching this method,
+        but service-call paths bypass that layer entirely.
+        """
         _LOGGER.info("Disarming alarm")
         if not self.validate_code(code):
             _LOGGER.warning("Invalid code provided for disarm")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "disarm",
+            })
             return False
 
         if self.state_machine.is_pending:
@@ -1023,8 +1147,16 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if success:
             self._disarmed_by = self.identify_user(code)
             self._disarmed_by_id = self.identify_user_id(code)
+            # v1.4.3: Clear bypassed sensors on disarm
+            self._bypassed_sensors = []
             self.zone_manager.stop_monitoring()
             await self._execute_modules_disarm()
+        else:
+            # v1.4.3: state machine refused (e.g. already disarmed)
+            self.hass.bus.async_fire(EVENT_ALARM_COMMAND_REJECTED, {
+                "command": "disarm",
+                "current_state": self.state_machine.current_state,
+            })
         await self.async_request_refresh()
         return success
 
@@ -1034,8 +1166,28 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._triggered_by = source or "manual"
         success = await self.state_machine.trigger_alarm(self._triggered_by)
         if success:
+            # v1.4.3: Record ISO timestamp for last_triggered attribute
+            from datetime import datetime as _dt
+            self._last_triggered = _dt.now().isoformat(timespec="seconds")
             await self._execute_modules_trigger()
         await self.async_request_refresh()
+        return success
+
+    async def async_skip_delay(self) -> bool:
+        """Skip the active exit/entry delay countdown (Alarmo-inspired).
+
+        v1.4.3: Power-user feature. Returns True if a countdown was active
+        and was skipped to its target state. Returns False if no countdown
+        was running.
+
+        - During exit delay (state=arming) -> finish to target armed_* state
+        - During entry delay (state=pending) -> trigger alarm immediately
+        - Other states -> no-op, returns False
+        """
+        _LOGGER.info("Skip delay requested")
+        success = await self.state_machine.skip_current_countdown()
+        if success:
+            await self.async_request_refresh()
         return success
 
     async def async_set_fake_presence(self, active: bool) -> None:
@@ -1374,6 +1526,27 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if hasattr(self, "_push_unsub") and self._push_unsub:
             self._push_unsub()
 
+        # v1.4.3: Wait for in-flight push action tasks to finish (or cancel
+        # them if they take too long). Without this, HA can report
+        # "Task was destroyed but it is pending" warnings on restart when
+        # the user tapped a notification action seconds before shutdown.
+        if self._push_tasks:
+            pending = list(self._push_tasks)
+            _LOGGER.info("Waiting for %d in-flight push action(s)", len(pending))
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*pending, return_exceptions=True),
+                    timeout=2.0,
+                )
+            except asyncio.TimeoutError:
+                _LOGGER.warning(
+                    "Push action(s) did not finish in 2s, cancelling"
+                )
+                for task in pending:
+                    if not task.done():
+                        task.cancel()
+            self._push_tasks.clear()
+
         # Unregister scheduled test timer
         if hasattr(self, "_scheduled_test_unsub") and self._scheduled_test_unsub:
             self._scheduled_test_unsub()
@@ -1391,7 +1564,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     _LOGGER.error("Module %s cleanup failed: %s", mid, err)
         if hasattr(self, "zone_manager"):
             try:
-                self.zone_manager.stop_monitoring()
+                # v1.4.3: cleanup() also tears down the ready-modes listener
+                # that runs even while disarmed. stop_monitoring() alone
+                # leaves that listener leaked.
+                self.zone_manager.cleanup()
             except Exception as err:
                 _LOGGER.error("Zone manager cleanup failed: %s", err)
         if hasattr(self, "state_machine"):

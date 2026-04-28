@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import base64
 import concurrent.futures
@@ -108,6 +108,29 @@ class SecureMeStore:
             self._data = stored
         else:
             self._data = self._default_data()
+
+        # v1.4.3: Lazy backfill of per-sensor auto_bypass_modes.
+        # The migration func only runs on schema-version bumps, but this
+        # additive field was introduced mid-v2 so we backfill on every load.
+        # Idempotent: skips sensors that already have the key.
+        # Legacy auto_bypass=True maps to ["away"] only -- conservative
+        # default chosen in v1.4.3 design (do not silently expand bypass
+        # behaviour to home/night/vacation/home_alone without user consent).
+        backfilled = 0
+        for sensor_cfg in self._data.get("sensors", {}).values():
+            if "auto_bypass_modes" not in sensor_cfg:
+                if sensor_cfg.get("auto_bypass", False):
+                    sensor_cfg["auto_bypass_modes"] = ["away"]
+                else:
+                    sensor_cfg["auto_bypass_modes"] = []
+                backfilled += 1
+        if backfilled:
+            _LOGGER.info(
+                "Backfilled auto_bypass_modes on %d sensor(s) -- saving",
+                backfilled,
+            )
+            await self._store.async_save(self._data)
+
         _LOGGER.info(
             "Secure Me store loaded (%d sensors, %d zones, %d users, %d sensor_groups)",
             len(self._data.get("sensors", {})),
@@ -212,6 +235,7 @@ class SecureMeStore:
                 # v1.2.0 per-sensor fields
                 "entry_delay": configured.get("entry_delay", None),
                 "auto_bypass": configured.get("auto_bypass", False),
+                "auto_bypass_modes": configured.get("auto_bypass_modes", []),
                 "arm_on_close": configured.get("arm_on_close", False),
             })
 
@@ -230,6 +254,7 @@ class SecureMeStore:
                 "excluded": False,
                 "entry_delay": None,
                 "auto_bypass": False,
+                "auto_bypass_modes": [],
                 "arm_on_close": False,
             })
 
@@ -253,6 +278,7 @@ class SecureMeStore:
                 "auto_hidden": auto_hidden and not configured.get("enabled", False),
                 "entry_delay": None,
                 "auto_bypass": False,
+                "auto_bypass_modes": [],
                 "arm_on_close": False,
             })
         return sensors

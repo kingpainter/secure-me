@@ -1,5 +1,5 @@
 """Zone management for Secure Me."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import asyncio
 import logging
@@ -15,6 +15,7 @@ from .const import (
     ZONE_TYPE_INTERIOR,
     ZONE_TYPE_PERIMETER,
     NOTIFY_ID_MODULE_ERROR,
+    EVENT_READY_TO_ARM_MODES_CHANGED,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -28,6 +29,20 @@ ALL_ARM_MODES = frozenset({"away", "home", "night", "vacation", "home_alone"})
 
 # Default arm_modes if not specified (away only — safe default)
 DEFAULT_ARM_MODES = ["away"]
+
+# v1.4.3 Home Alone bugfix:
+# Motion-like device_classes that must be visual-only in home_alone mode.
+# The previous filter only matched device_class == "motion", which let
+# occupancy/presence/mmWave sensors fall through and trigger the alarm.
+# Empty/None device_class also defaults to visual-only in home_alone --
+# safer to over-suppress motion-style sensors than to false-trigger.
+_HOME_ALONE_MOTION_LIKE_CLASSES = frozenset({
+    "motion", "occupancy", "presence", "moving", "vibration", "sound",
+})
+
+# Door/window/opening device_classes that should dispatch a notification
+# (instead of triggering the alarm) in home_alone mode.
+_HOME_ALONE_DOOR_LIKE_CLASSES = frozenset({"door", "window", "opening", "garage_door"})
 
 
 class Zone:
@@ -172,6 +187,29 @@ class ZoneManager:
         self._last_trigger_time: dict[str, float] = {}
         self._debounce_interval: float = 0.5
 
+        # v1.4.3: Alarmo-style unavailable state memory.
+        # When a sensor goes 'unavailable'/'unknown' we remember its prior
+        # state. If it returns to that same prior state, we treat the
+        # transition as a no-op flap (no trigger, no zone state change).
+        # This prevents Zigbee/WiFi sensors that briefly drop offline from
+        # firing spurious triggers when they reconnect in their previous
+        # state -- e.g. a door that was open before going unavailable and
+        # comes back as open should not register as a fresh "door opened"
+        # event.
+        self._unavailable_state_mem: dict[str, str] = {}
+
+        # v1.4.3: Track which arm modes are currently "ready" (no open
+        # non-bypass sensors). Frontends subscribe to
+        # EVENT_READY_TO_ARM_MODES_CHANGED to enable/disable arm buttons
+        # in real time. Recomputed on every sensor state change.
+        self._ready_modes_cache: set[str] = set()
+
+        # v1.4.3 Home Alone bugfix: initialise the active arm mode so the
+        # _sensor_state_changed callback can rely on it being present even
+        # if start_monitoring() somehow has not run yet (e.g. an early
+        # state_changed event during HA restore).
+        self._active_arm_mode: str | None = None
+
         _LOGGER.info("Zone manager initialized")
 
     # ── Properties ─────────────────────────────────────────────────────────
@@ -193,6 +231,12 @@ class ZoneManager:
         """Load per-sensor configs (entry_delay, auto_bypass, arm_on_close, home_alone fields)."""
         self._sensor_configs = configs
         _LOGGER.debug("Loaded %d sensor configs", len(configs))
+
+        # v1.4.3: (Re)start the always-on ready-modes listener whenever
+        # sensor configs change. The listener watches all sensors that
+        # appear in any zone so we can update arm-button readiness in real
+        # time even when the alarm is disarmed and not actively monitoring.
+        self._setup_ready_modes_listener()
 
     def get_sensor_entry_delay(self, entity_id: str, zone_default: int) -> int:
         """Return per-sensor entry_delay if configured, else zone default."""
@@ -230,20 +274,52 @@ class ZoneManager:
             CONF_HOME_ALONE_ACTION_2: cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2),
         }
 
-    def get_auto_bypass_sensors(self, zone_sensors: list[str]) -> list[str]:
-        """Return sensors that are currently open AND have auto_bypass=True.
+    def get_auto_bypass_sensors(
+        self,
+        zone_sensors: list[str],
+        arm_mode: str | None = None,
+    ) -> list[str]:
+        """Return sensors that are currently open AND have auto_bypass for arm_mode.
 
         Called before arming to determine which sensors to silently bypass.
+
+        v1.4.3: per-mode bypass via `auto_bypass_modes` list.
+            - If arm_mode is given AND sensor has `auto_bypass_modes` list,
+              the sensor is bypassed only when arm_mode is in that list.
+            - If `auto_bypass_modes` is missing/empty, fall back to the legacy
+              global `auto_bypass` flag (treated as "all modes" only when the
+              caller passes arm_mode=None for backwards compatibility).
+            - When arm_mode is given and neither field opts in, no bypass.
         """
         bypassed = []
         for entity_id in zone_sensors:
             cfg = self._sensor_configs.get(entity_id, {})
-            if not cfg.get("auto_bypass", False):
+
+            # v1.4.3 path: per-mode list (preferred)
+            modes_list = cfg.get("auto_bypass_modes")
+            opted_in = False
+            if isinstance(modes_list, list) and modes_list:
+                if arm_mode is None:
+                    # No arm_mode context -> any opt-in counts. Defensive
+                    # path; current callers always pass arm_mode.
+                    opted_in = True
+                else:
+                    opted_in = arm_mode in modes_list
+            elif arm_mode is None and cfg.get("auto_bypass", False):
+                # Legacy global flag, only honoured when caller has not
+                # specified a mode (preserves pre-v1.4.3 behaviour).
+                opted_in = True
+
+            if not opted_in:
                 continue
+
             state = self.hass.states.get(entity_id)
             if state and state.state in _OPEN_STATES:
                 bypassed.append(entity_id)
-                _LOGGER.info("Auto-bypassing open sensor at arm time: %s", entity_id)
+                _LOGGER.info(
+                    "Auto-bypassing open sensor at arm time (mode=%s): %s",
+                    arm_mode or "<any>", entity_id,
+                )
         return bypassed
 
     # ── Sensor groups ───────────────────────────────────────────────────────
@@ -327,7 +403,135 @@ class ZoneManager:
                 open_sensors.extend(zone.open_sensors)
         return open_sensors
 
-    # ── State update ────────────────────────────────────────────────────────
+    # ── Ready-to-arm prediction (v1.4.3, Alarmo-inspired) ──────────────────
+
+    _ALL_ARM_MODES = ("away", "home", "night", "vacation", "home_alone")
+
+    def _compute_ready_modes(self) -> tuple[set[str], dict[str, list[str]]]:
+        """Determine which arm modes can currently be entered.
+
+        For each arm mode, simulate what async_arm_<mode> would see:
+        gather sensors from all enabled zones active for that mode,
+        subtract auto-bypass sensors, and check if anything is still open.
+
+        Returns (ready_modes, blocked_modes) where:
+        - ready_modes is the set of mode names that can arm cleanly
+        - blocked_modes maps blocked mode names to their open sensor list
+          (so frontends can show "Front door open" tooltips)
+        """
+        ready: set[str] = set()
+        blocked: dict[str, list[str]] = {}
+
+        for mode in self._ALL_ARM_MODES:
+            mode_sensors = [
+                s for z in self._zones.values()
+                if z.enabled and z.is_active_for_mode(mode)
+                for s in z.sensors
+            ]
+            if not mode_sensors:
+                # No sensors -> trivially ready
+                ready.add(mode)
+                continue
+
+            # v1.4.3: pass arm_mode so per-mode bypass list is respected
+            bypass_set = set(self.get_auto_bypass_sensors(mode_sensors, arm_mode=mode))
+            blocking = []
+            for sensor_id in mode_sensors:
+                if sensor_id in bypass_set:
+                    continue
+                state = self.hass.states.get(sensor_id)
+                if not state:
+                    continue
+                if state.state in ("unavailable", "unknown"):
+                    continue  # treated as closed in arm path
+                if state.state in _OPEN_STATES:
+                    blocking.append(sensor_id)
+
+            if blocking:
+                blocked[mode] = blocking
+            else:
+                ready.add(mode)
+
+        return ready, blocked
+
+    def _check_ready_modes_changed(self) -> None:
+        """Recompute ready modes; fire event if changed.
+
+        Called on every sensor state change. Cached previous result is
+        compared against the new result; event only fires on actual
+        change to avoid event spam.
+        """
+        try:
+            new_ready, new_blocked = self._compute_ready_modes()
+        except Exception as err:
+            # Defensive: never let ready-mode computation break the
+            # state-change handler. Log and continue.
+            _LOGGER.debug("ready_modes computation failed: %s", err)
+            return
+
+        if new_ready == self._ready_modes_cache:
+            return
+
+        added = sorted(new_ready - self._ready_modes_cache)
+        removed = sorted(self._ready_modes_cache - new_ready)
+        _LOGGER.debug(
+            "Ready modes changed: +%s -%s (now %s)",
+            added, removed, sorted(new_ready),
+        )
+        self._ready_modes_cache = new_ready
+
+        self.hass.bus.async_fire(EVENT_READY_TO_ARM_MODES_CHANGED, {
+            "ready_modes": sorted(new_ready),
+            "blocked_modes": new_blocked,
+        })
+
+    def _setup_ready_modes_listener(self) -> None:
+        """Subscribe to state changes for all sensors used in any zone.
+
+        Always-on listener (active even while alarm is disarmed) so the
+        ready-to-arm prediction can be kept fresh. Re-creates the
+        subscription each time sensor configs are loaded so we cover any
+        newly added sensors and drop removed ones.
+        """
+        # Tear down any previous ready-modes listener
+        unsub = getattr(self, "_ready_modes_unsub", None)
+        if unsub:
+            try:
+                unsub()
+            except Exception:
+                pass
+            self._ready_modes_unsub = None
+
+        # Build the watched set from all enabled-zone sensors
+        watched: set[str] = set()
+        for zone in self._zones.values():
+            if zone.enabled:
+                watched.update(zone.sensors)
+        if not watched:
+            return
+
+        from homeassistant.helpers.event import async_track_state_change_event
+
+        @callback
+        def _on_state_change(event):
+            self._check_ready_modes_changed()
+
+        self._ready_modes_unsub = async_track_state_change_event(
+            self.hass, list(watched), _on_state_change
+        )
+
+        # Compute baseline so the first real change can be diffed
+        try:
+            ready, _ = self._compute_ready_modes()
+            self._ready_modes_cache = ready
+        except Exception:
+            self._ready_modes_cache = set()
+
+        _LOGGER.debug(
+            "Ready-modes listener subscribed to %d sensors", len(watched)
+        )
+
+    # ── State update ────────────────────────────────────────────────────────────────────
 
     def update_sensor_state(
         self, entity_id: str, state: State
@@ -374,6 +578,11 @@ class ZoneManager:
         # issues in noise. Degrade to DEBUG and drop the notification. Sensors
         # that are permanently dead will show up as 'unavailable' in the HA UI
         # and via the diagnostics sensor -- no need for per-event alerts here.
+        #
+        # v1.4.3: Remember the prior state so we can detect "flap to
+        # unavailable and back to the same state" as a no-op rather than as a
+        # state change. The actual flap-detection happens in
+        # async_sensor_state_changed where we have access to old_state.
         if state.state in ("unavailable", "unknown"):
             _LOGGER.debug(
                 "Sensor %s is %s while monitoring active -- treating as closed",
@@ -441,6 +650,29 @@ class ZoneManager:
             new_state = event.data.get("new_state")
             old_state = event.data.get("old_state")
 
+            # v1.4.3: Alarmo-style flap detection.
+            # Track prior state when going to unavailable. When coming back,
+            # if we land on the same state we had before, it was just a
+            # connection blip -- skip the rest of the handler so we don't
+            # fire spurious triggers (e.g. a door that was already 'on'
+            # before the radio dropped should not register as a fresh open).
+            new_raw = new_state.state if new_state else None
+            old_raw = old_state.state if old_state else None
+
+            if new_raw in ("unavailable", "unknown") and old_raw not in ("unavailable", "unknown", None):
+                # Sensor is going offline -- remember where it was.
+                self._unavailable_state_mem[entity_id] = old_raw
+            elif entity_id in self._unavailable_state_mem and old_raw in ("unavailable", "unknown"):
+                # Sensor is coming back online -- check if it landed on its
+                # prior state. If so, swallow this transition entirely.
+                prior = self._unavailable_state_mem.pop(entity_id)
+                if prior == new_raw:
+                    _LOGGER.debug(
+                        "Sensor %s flapped %s -> %s -> %s, ignoring",
+                        entity_id, prior, old_raw, new_raw,
+                    )
+                    return
+
             # arm_on_close: sensor transitioned from open -> closed
             cfg = self._sensor_configs.get(entity_id, {})
             if cfg.get("arm_on_close", False) and old_state and new_state:
@@ -459,27 +691,32 @@ class ZoneManager:
                 return
 
             # ── Home Alone mode: special sensor behaviour ─────────────────
-            # Motion sensors: visual-only, no alarm trigger.
-            # Door/contact sensors: dispatch action notification, no alarm trigger.
+            # v1.4.3 bugfix: Home Alone mode is supervisory only -- it is
+            # designed for when a child or vulnerable person is alone at
+            # home with cameras live and motion visible, but the alarm
+            # must NOT trigger from interior motion. Previously only the
+            # exact device_class == "motion" was suppressed; occupancy,
+            # presence, mmWave and untyped sensors fell through to the
+            # normal trigger path and rang the alarm. Two changes:
+            #   1. Use a broader motion-like class set (occupancy, etc.)
+            #   2. Default-deny: anything that is NOT a known door/window
+            #      sensor is treated as visual-only. This is the safer
+            #      direction in this specific mode -- a missed-but-quiet
+            #      sensor is fine, a false alarm with a child home is not.
             if self._active_arm_mode == "home_alone":
                 ha_state = self.hass.states.get(entity_id)
                 device_class = (
-                    ha_state.attributes.get("device_class", "") if ha_state else ""
+                    (ha_state.attributes.get("device_class") or "").lower()
+                    if ha_state else ""
                 )
                 sensor_name = (
                     ha_state.attributes.get("friendly_name", entity_id) if ha_state else entity_id
                 )
 
-                if device_class == "motion":
-                    # Motion is visual-only in Home Alone mode — no trigger
-                    _LOGGER.debug(
-                        "Home Alone: motion sensor %s activated (visual only, no trigger)",
-                        entity_id,
-                    )
-                    return
-
-                # Door/contact sensor — dispatch action notification
-                if device_class in ("door", "window", "opening"):
+                # Door / window / opening: dispatch the action notification
+                # (camera snapshot + push action buttons + TTS) but do NOT
+                # trigger the alarm.
+                if device_class in _HOME_ALONE_DOOR_LIKE_CLASSES:
                     sensor_cfg = self.get_home_alone_sensor_config(entity_id)
                     from .notification_dispatcher import dispatch_home_alone_door_trigger
                     self.hass.async_create_task(
@@ -488,10 +725,28 @@ class ZoneManager:
                         )
                     )
                     _LOGGER.info(
-                        "Home Alone: door sensor %s opened — notification dispatched",
-                        entity_id,
+                        "Home Alone: door sensor %s (device_class=%s) opened -- notification dispatched, no alarm",
+                        entity_id, device_class or "<none>",
                     )
-                    return  # No alarm trigger in home_alone mode
+                    return
+
+                # Motion-like or untyped sensor: visual-only, no trigger.
+                # Logged at INFO so it is visible in the HA log when this
+                # filter actually fires -- DEBUG was too quiet to verify.
+                if device_class in _HOME_ALONE_MOTION_LIKE_CLASSES or not device_class:
+                    _LOGGER.info(
+                        "Home Alone: %s (device_class=%s) activated -- visual only, no alarm trigger",
+                        entity_id, device_class or "<none>",
+                    )
+                    return
+
+                # Any other device_class (e.g. smoke, gas, water_leak):
+                # do NOT suppress -- safety sensors must still trigger.
+                # Fall through to the normal trigger path below.
+                _LOGGER.info(
+                    "Home Alone: %s (device_class=%s) is not motion/door -- falling through to alarm trigger",
+                    entity_id, device_class,
+                )
             # ── End Home Alone special handling ───────────────────────────
 
             # Sensor group anti-masking check
@@ -537,6 +792,22 @@ class ZoneManager:
             unsub()
         self._unsubscribe_callbacks.clear()
         _LOGGER.info("Stopped monitoring sensors")
+
+    def cleanup(self) -> None:
+        """Full teardown including always-on listeners (v1.4.3).
+
+        Called from coordinator.async_shutdown(). stop_monitoring() only
+        cancels armed-state subscriptions; this also tears down the
+        ready-modes listener that runs even while disarmed.
+        """
+        self.stop_monitoring()
+        unsub = getattr(self, "_ready_modes_unsub", None)
+        if unsub:
+            try:
+                unsub()
+            except Exception:
+                pass
+            self._ready_modes_unsub = None
 
     def clear_all_triggers(self) -> None:
         for zone in self._zones.values():

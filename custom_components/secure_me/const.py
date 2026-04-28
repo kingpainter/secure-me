@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.4.2"
+VERSION = "1.4.3"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -99,6 +99,21 @@ EVENT_MODULE_ENABLED = f"{DOMAIN}_module_enabled"
 EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
 EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
 
+# v1.4.3 - Rich error events (Alarmo-inspired) so HA automations can react to
+# arm failures, invalid codes, and forbidden state transitions instead of
+# silently seeing a False return value.
+EVENT_ALARM_ARM_FAILED       = f"{DOMAIN}_arm_failed"        # open sensors blocked arming
+EVENT_ALARM_INVALID_CODE     = f"{DOMAIN}_invalid_code"      # wrong PIN entered
+EVENT_ALARM_COMMAND_REJECTED = f"{DOMAIN}_command_rejected"  # state machine refused (e.g. arm while triggered)
+
+# v1.4.3 - Predictive event (Alarmo-inspired): fired when the set of arm
+# modes that can currently be entered without bypass changes. Frontends can
+# subscribe to enable/disable arm buttons live as sensor states change
+# (e.g. "Away" disabled while front door is open, re-enabled when closed).
+# Payload: {"ready_modes": list[str], "blocked_modes": dict[str, list[str]]}
+# where blocked_modes maps mode -> list of open sensor entity_ids.
+EVENT_READY_TO_ARM_MODES_CHANGED = f"{DOMAIN}_ready_to_arm_modes_changed"
+
 # Mobile push notification action events (Alarmo-inspired)
 # These are fired by HA mobile_app when user taps action buttons in a push notification.
 PUSH_EVENT = "mobile_app_notification_action"
@@ -147,6 +162,10 @@ ATTR_MODULE_ENABLED = "module_enabled"
 ATTR_MODULE_STATE = "module_state"
 ATTR_MODULE_STATUS = "module_status"
 ATTR_MODULE_CONFIG = "module_config"
+
+# v1.4.3 - Attributes exposed on alarm_control_panel entity
+ATTR_BYPASSED_SENSORS = "bypassed_sensors"  # list of entity_ids auto-bypassed at arm
+ATTR_LAST_TRIGGERED   = "last_triggered"    # ISO timestamp of last trigger event
 
 # Update intervals
 SCAN_INTERVAL = 30  # seconds
@@ -215,7 +234,8 @@ ATTR_SENSOR_GROUP_EVENT_COUNT = "event_count"  # how many sensors must trigger
 
 # ── Sensor per-sensor config fields ──────────────────────────────────────────
 ATTR_SENSOR_ENTRY_DELAY = "entry_delay"     # per-sensor override (seconds, None = use zone default)
-ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"     # bypass open sensor at arm time
+ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"     # legacy v1.2.0 global flag, still read for backwards compat
+ATTR_SENSOR_AUTO_BYPASS_MODES = "auto_bypass_modes"  # v1.4.3: list of arm modes where this sensor auto-bypasses
 ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"   # auto-arm when sensor closes
 
 # ── Home Alone mode constants ─────────────────────────────────────────────────

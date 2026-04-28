@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 1.4.2
+ * VERSION: 1.4.3
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "1.4.2";
+const VERSION = "1.4.3";
 
 // === Styles ===
 const panelStyles = `
@@ -717,6 +717,101 @@ class SecureMePanel extends HTMLElement {
     }, 50);
   }
 
+  // === Toast notifications (v1.4.3) ===
+  // Show ephemeral status messages in the bottom-right toast container.
+  // Types: 'success', 'error', 'warning', 'info'. Default: 'info'.
+  _toast(message, type = "info") {
+    const root = this.shadowRoot;
+    if (!root) return;
+    const container = root.getElementById("shell-toast");
+    if (!container) return;
+
+    const el = document.createElement("div");
+    el.className = `sm-toast ${type}`;
+    el.textContent = message;
+    container.appendChild(el);
+
+    // Auto-dismiss after 4 seconds with fade-out animation
+    setTimeout(() => {
+      el.classList.add("fading");
+      setTimeout(() => el.remove(), 250);
+    }, 4000);
+  }
+
+  // === Confirm dialog (v1.4.3) ===
+  // Returns Promise<boolean>. Renders a styled overlay with OK/Cancel
+  // buttons; resolves true on OK, false on Cancel or backdrop click.
+  // Replaces window.confirm() which is blocking and unstyled.
+  _confirm(message, title = "Confirm") {
+    return new Promise((resolve) => {
+      const root = this.shadowRoot;
+      if (!root) { resolve(false); return; }
+
+      const overlay = document.createElement("div");
+      overlay.style.cssText =
+        "position:fixed;inset:0;background:rgba(0,0,0,0.6);" +
+        "z-index:25000;display:flex;align-items:center;justify-content:center;" +
+        "animation:fadeIn 0.15s ease;";
+
+      const dialog = document.createElement("div");
+      dialog.style.cssText =
+        "background:var(--sm-card-bg, #1f1f23);border:1px solid var(--sm-border, #333);" +
+        "border-radius:12px;padding:24px;max-width:420px;width:90%;" +
+        "box-shadow:0 10px 40px rgba(0,0,0,0.5);";
+
+      const titleEl = document.createElement("div");
+      titleEl.style.cssText =
+        "font-size:16px;font-weight:600;color:var(--sm-text);margin-bottom:8px;";
+      titleEl.textContent = title;
+
+      const msgEl = document.createElement("div");
+      msgEl.style.cssText =
+        "font-size:14px;color:var(--sm-text-dim, #aaa);margin-bottom:20px;line-height:1.5;";
+      msgEl.textContent = message;
+
+      const btnRow = document.createElement("div");
+      btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "sm-btn ghost";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.style.cssText = "padding:8px 16px;";
+
+      const okBtn = document.createElement("button");
+      okBtn.className = "sm-btn primary";
+      okBtn.textContent = "OK";
+      okBtn.style.cssText = "padding:8px 16px;";
+
+      const cleanup = (result) => {
+        overlay.remove();
+        resolve(result);
+      };
+
+      cancelBtn.addEventListener("click", () => cleanup(false));
+      okBtn.addEventListener("click", () => cleanup(true));
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) cleanup(false);
+      });
+      // ESC = cancel
+      const onKey = (e) => {
+        if (e.key === "Escape") {
+          document.removeEventListener("keydown", onKey);
+          cleanup(false);
+        } else if (e.key === "Enter") {
+          document.removeEventListener("keydown", onKey);
+          cleanup(true);
+        }
+      };
+      document.addEventListener("keydown", onKey);
+
+      btnRow.append(cancelBtn, okBtn);
+      dialog.append(titleEl, msgEl, btnRow);
+      overlay.appendChild(dialog);
+      root.appendChild(overlay);
+      okBtn.focus();
+    });
+  }
+
   // === Render — patches main-content only ===
   _render() {
     // Guard: shell must exist before we can patch it
@@ -1102,6 +1197,49 @@ class SecureMePanel extends HTMLElement {
           ) +
         '</div>' +
 
+        // v1.4.3: Per-sensor auto-bypass per arm mode.
+        // Bypass is a sensor property (stored globally on the sensor), but
+        // edited here in the zone dialog because that's where the user
+        // already manages mode-specific behaviour. The dropdown below shows
+        // every sensor currently assigned to this zone and lets you tick
+        // which arm modes silently bypass the sensor when it's open at arm
+        // time. Empty = sensor must be closed before that mode can arm.
+        ((temp.sensors || []).length > 0 ? (
+          '<div class="form-group" style="border-top:1px solid var(--sm-border);padding-top:16px;margin-top:4px">' +
+            '<label class="form-label">' + icon('shield') + ' Auto-Bypass per Sensor' + '</label>' +
+            '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:10px">' +
+              'For each sensor, tick the arm modes where it should silently bypass if open at arm time. Empty = blocks arming. (Saved on the sensor itself, shared across zones.)' +
+            '</div>' +
+            (temp.sensors || []).map(eid => {
+              const s = (this._data.sensors || []).find(x => x.entity_id === eid);
+              const sName = s ? s.name : eid;
+              const sType = s ? s.sensor_type : '';
+              const currentModes = (s && Array.isArray(s.auto_bypass_modes)) ? s.auto_bypass_modes : [];
+              const allModes = ['away', 'home', 'night', 'vacation', 'home_alone'];
+              const modeLabel = { away: 'Away', home: 'Home', night: 'Night', vacation: 'Vacation', home_alone: 'Home Alone' };
+              return '<div style="padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:6px">' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
+                  '<span class="badge ' + sType + '" style="font-size:10px">' + sType + '</span>' +
+                  '<span style="font-size:13px;font-weight:600">' + sName + '</span>' +
+                '</div>' +
+                '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px">' +
+                  allModes.map(m => {
+                    const checked = currentModes.includes(m);
+                    const c = modeColors[m];
+                    return '<label style="display:flex;align-items:center;justify-content:center;gap:4px;padding:6px 4px;border-radius:6px;cursor:pointer;font-size:11px;' +
+                      'background:' + (checked ? c + '18' : 'rgba(255,255,255,0.04)') + ';' +
+                      'border:1px solid ' + (checked ? c + '66' : 'var(--sm-border)') + ';' +
+                      'color:' + (checked ? c : 'var(--sm-text-secondary)') + '">' +
+                      '<input type="checkbox" class="sensor-bypass-cb" data-sensor-eid="' + eid + '" data-mode="' + m + '"' + (checked ? ' checked' : '') + ' style="margin:0">' +
+                      '<span>' + modeLabel[m] + '</span>' +
+                    '</label>';
+                  }).join('') +
+                '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>'
+        ) : '') +
+
         // Home Alone per-sensor config — only shown when home_alone mode is selected
         (armModes.includes('home_alone') && (temp.sensors || []).length > 0 ? (
           '<div class="form-group" style="border-top:1px solid var(--sm-border);padding-top:16px;margin-top:4px">' +
@@ -1216,6 +1354,46 @@ class SecureMePanel extends HTMLElement {
 
     const result = await this._callWS('save_zone', { zone_id: zoneId, config });
     if (result && result.success !== false) {
+      // v1.4.3: Persist per-sensor auto_bypass_modes via bulk save_sensors.
+      // Only sends sensors that were actually shown in this dialog (sensors
+      // currently assigned to the zone) -- merging with existing config so
+      // we don't accidentally clobber other sensors' settings.
+      try {
+        const root3 = this.shadowRoot;
+        const bypassByEid = {};
+        root3.querySelectorAll('.sensor-bypass-cb').forEach(cb => {
+          const eid = cb.dataset.sensorEid;
+          const mode = cb.dataset.mode;
+          if (!bypassByEid[eid]) bypassByEid[eid] = [];
+          if (cb.checked) bypassByEid[eid].push(mode);
+        });
+        if (Object.keys(bypassByEid).length > 0) {
+          // Build full sensors map: keep all existing fields, only override
+          // auto_bypass_modes for sensors that appeared in this dialog.
+          const allSensors = this._data.sensors || [];
+          const merged = {};
+          for (const s of allSensors) {
+            merged[s.entity_id] = {
+              enabled: !!s.enabled,
+              sensor_type: s.sensor_type,
+              entry_delay: s.entry_delay !== undefined ? s.entry_delay : null,
+              auto_bypass: !!s.auto_bypass,
+              auto_bypass_modes: Array.isArray(s.auto_bypass_modes) ? s.auto_bypass_modes : [],
+              arm_on_close: !!s.arm_on_close,
+            };
+            if (s.env_unmarked) merged[s.entity_id].env_unmarked = true;
+            if (s.is_environmental) merged[s.entity_id].is_environmental = true;
+          }
+          for (const [eid, modes] of Object.entries(bypassByEid)) {
+            if (!merged[eid]) merged[eid] = { enabled: true, sensor_type: 'contact' };
+            merged[eid].auto_bypass_modes = modes;
+          }
+          await this._callWS('save_sensors', { sensors: merged });
+        }
+      } catch (err) {
+        console.warn('[secure-me] Could not persist auto_bypass_modes:', err);
+      }
+
       this._showDialog = null;
       this._tempConfig = null;
       this._toast((temp._zoneId ? 'Zone updated.' : 'Zone created.'), 'success');

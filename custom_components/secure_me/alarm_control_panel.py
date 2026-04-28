@@ -1,5 +1,5 @@
 """Alarm Control Panel platform for Secure Me."""
-# VERSION = "1.4.2"
+# VERSION = "1.4.3"
 
 import logging
 from typing import Any
@@ -29,6 +29,9 @@ from .const import (
     STATE_ALARM_TRIGGERED,
     ATTR_CHANGED_BY,
     ATTR_CODE_ARM_REQUIRED,
+    ATTR_BYPASSED_SENSORS,
+    ATTR_LAST_TRIGGERED,
+    EVENT_ALARM_INVALID_CODE,
     VERSION,
 )
 from .coordinator import SecureMeCoordinator
@@ -56,11 +59,14 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
 
     _attr_has_entity_name = True
     _attr_name = "Alarm"
+    # v1.4.3: ARM_VACATION is now a first-class HA feature (HA Core 2024.11+).
+    # Previously we shoehorned vacation into ARM_CUSTOM_BYPASS which made the
+    # standard HA alarm dialog label the button "Custom" instead of "Vacation".
     _attr_supported_features = (
         AlarmControlPanelEntityFeature.ARM_HOME
         | AlarmControlPanelEntityFeature.ARM_AWAY
         | AlarmControlPanelEntityFeature.ARM_NIGHT
-        | AlarmControlPanelEntityFeature.ARM_CUSTOM_BYPASS  # used for vacation
+        | AlarmControlPanelEntityFeature.ARM_VACATION
         | AlarmControlPanelEntityFeature.TRIGGER
     )
 
@@ -111,41 +117,70 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return entity specific state attributes."""
-        attrs = {
+        attrs: dict[str, Any] = {
             ATTR_CHANGED_BY: self.coordinator.armed_by or self.coordinator.disarmed_by,
             ATTR_CODE_ARM_REQUIRED: self.code_arm_required,
         }
-        
+
         # Add countdown during arming/pending -- key must be 'countdown' to match
         # what the alarm card reads via this._attr("countdown").
         if self.coordinator.alarm_state in [STATE_ALARM_ARMING, STATE_ALARM_PENDING]:
             attrs["countdown"] = self.coordinator.delay_countdown
-        
+
         # Add triggered_by if triggered
         if self.coordinator.alarm_state == STATE_ALARM_TRIGGERED:
             attrs["triggered_by"] = self.coordinator.triggered_by
-        
+
         # Add open sensors if any
         if self.coordinator.open_sensors:
             attrs["open_sensors"] = self.coordinator.open_sensors
-        
+
+        # v1.4.3: Bypassed sensors at last arm operation (Alarmo-inspired).
+        # Visible to users / automations so they know which sensors were
+        # auto-bypassed (auto_bypass=True) or force-bypassed via FORCE_ARM.
+        bypassed = getattr(self.coordinator, "bypassed_sensors", None)
+        if bypassed:
+            attrs[ATTR_BYPASSED_SENSORS] = bypassed
+
+        # v1.4.3: Timestamp of last trigger event (Alarmo-inspired).
+        # Persists across HA restarts via RestoreEntity.
+        last_triggered = getattr(self.coordinator, "last_triggered", None)
+        if last_triggered:
+            attrs[ATTR_LAST_TRIGGERED] = last_triggered
+
         return attrs
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
-        """Send disarm command."""
+        """Send disarm command.
+
+        v1.4.3: Validate code in this layer (consistent with arm methods)
+        so we get unified rejection logging and can fire the
+        EVENT_ALARM_INVALID_CODE event for HA automations to react to.
+        Coordinator also re-validates as defense in depth.
+        """
         _LOGGER.info("Alarm panel: Disarm requested")
-        
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Disarm rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "disarm",
+                "entity_id": self.entity_id,
+            })
+            return
         success = await self.coordinator.async_disarm(code)
         if success:
             _LOGGER.info("Alarm successfully disarmed")
         else:
-            _LOGGER.warning("Alarm disarm failed (invalid code)")
+            _LOGGER.warning("Alarm disarm failed")
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
         _LOGGER.info("Alarm panel: Arm away requested")
         if not self.coordinator.validate_code(code):
-            _LOGGER.warning("Alarm panel: Arm away rejected — invalid code")
+            _LOGGER.warning("Alarm panel: Arm away rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "arm_away",
+                "entity_id": self.entity_id,
+            })
             return
         await self.coordinator.async_arm_away(code)
 
@@ -153,7 +188,11 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         """Send arm home command."""
         _LOGGER.info("Alarm panel: Arm home requested")
         if not self.coordinator.validate_code(code):
-            _LOGGER.warning("Alarm panel: Arm home rejected — invalid code")
+            _LOGGER.warning("Alarm panel: Arm home rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "arm_home",
+                "entity_id": self.entity_id,
+            })
             return
         await self.coordinator.async_arm_home(code)
 
@@ -161,15 +200,27 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         """Send arm night command."""
         _LOGGER.info("Alarm panel: Arm night requested")
         if not self.coordinator.validate_code(code):
-            _LOGGER.warning("Alarm panel: Arm night rejected — invalid code")
+            _LOGGER.warning("Alarm panel: Arm night rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "arm_night",
+                "entity_id": self.entity_id,
+            })
             return
         await self.coordinator.async_arm_night(code)
 
-    async def async_alarm_arm_custom_bypass(self, code: str | None = None) -> None:
-        """Send arm vacation command (mapped to ARM_CUSTOM_BYPASS feature)."""
+    async def async_alarm_arm_vacation(self, code: str | None = None) -> None:
+        """Send arm vacation command.
+
+        v1.4.3: First-class ARM_VACATION feature (HA Core 2024.11+).
+        Previously this was async_alarm_arm_custom_bypass.
+        """
         _LOGGER.info("Alarm panel: Arm vacation requested")
         if not self.coordinator.validate_code(code):
-            _LOGGER.warning("Alarm panel: Arm vacation rejected — invalid code")
+            _LOGGER.warning("Alarm panel: Arm vacation rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "arm_vacation",
+                "entity_id": self.entity_id,
+            })
             return
         await self.coordinator.async_arm_vacation(code)
 
@@ -177,7 +228,11 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         """Send arm home alone command."""
         _LOGGER.info("Alarm panel: Arm home alone requested")
         if not self.coordinator.validate_code(code):
-            _LOGGER.warning("Alarm panel: Arm home alone rejected — invalid code")
+            _LOGGER.warning("Alarm panel: Arm home alone rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "arm_home_alone",
+                "entity_id": self.entity_id,
+            })
             return
         await self.coordinator.async_arm_home_alone(code)
 
@@ -200,6 +255,9 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
 
         Transient states (arming, pending, triggered) are intentionally
         ignored and left as disarmed — the coordinator will log a warning.
+
+        v1.4.3: Also restores last_triggered timestamp and bypassed_sensors
+        list so the alarm panel attributes survive HA restart.
         """
         await super().async_added_to_hass()
 
@@ -210,9 +268,18 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
 
         restored_state = last.state
         armed_by = last.attributes.get(ATTR_CHANGED_BY)
+        last_triggered = last.attributes.get(ATTR_LAST_TRIGGERED)
+        bypassed_sensors = last.attributes.get(ATTR_BYPASSED_SENSORS)
 
         _LOGGER.info(
-            "Restoring alarm state from last known: '%s' (armed_by=%s)",
-            restored_state, armed_by,
+            "Restoring alarm state from last known: '%s' (armed_by=%s, "
+            "last_triggered=%s, bypassed=%d)",
+            restored_state, armed_by, last_triggered,
+            len(bypassed_sensors) if bypassed_sensors else 0,
         )
-        await self.coordinator.async_restore_state(restored_state, armed_by)
+        await self.coordinator.async_restore_state(
+            restored_state,
+            armed_by,
+            last_triggered=last_triggered,
+            bypassed_sensors=bypassed_sensors,
+        )
