@@ -1,3 +1,23 @@
+## [1.4.3] - 2026-04-28
+
+### Fix: Home Alone mode triggered alarm on motion sensors (kritisk)
+- **Problem:** Home Alone mode er designet som overvaagningstilstand, hvor kameraer er live og bevaegelse synlig, men alarmen maa IKKE udloeses paa motion. Det eksisterende filter i `zones.py` matchede kun `device_class == "motion"`. Sensorer med `device_class == "occupancy"`, `"presence"`, `"moving"` (mmWave / PIR-praesensensorer) eller tom/manglende `device_class` faldt igennem til normal trigger-path og udloeste alarmen, naar et barn var alene hjemme.
+- **Symptom:** Bevaegelse i stuen udloeste alarmen i Home Alone mode.
+- **Loesning:** Udvidet motion-filter i `zones.py` matcher nu `motion`, `occupancy`, `presence`, `moving`, `vibration`, `sound` og tom/manglende `device_class`. Default-deny i Home Alone — sensorer uden kendt klassifikation behandles som visual-only frem for at falde igennem til alarm. Sikkerhedssensorer (smoke, gas, water_leak) trigger fortsat. `_active_arm_mode` initialiseres nu i `__init__` for at undgaa AttributeError ved tidlige state-changes. Loglevel haevet til INFO for filter-events saa adfaerden kan verificeres i HA-loggen.
+
+### Feature: Per-arm-mode auto-bypass
+- **Baggrund:** Indtil nu var `auto_bypass` en global bool pr. sensor — enten bypass i alle modes eller ingen. Det betoed at fx et boernevaerelses-vindue der altid er aabent ikke kunne tillade arming af `home_alone` uden ogsaa at tillade det i `away`/`night`.
+- **Loesning:** Ny `auto_bypass_modes`-liste pr. sensor med eksplicit opt-in pr. arm mode (`away`, `home`, `night`, `vacation`, `home_alone`). Tom liste = ingen bypass (sikker default). Backend (`zones.py`, `coordinator.py`, `store.py`) opdateret til at respektere den nye liste; alle 5 arm-metoder sender nu `arm_mode` med ind i `get_auto_bypass_sensors()`.
+- **Migration:** Eksisterende `auto_bypass=True` mappes lazy til `auto_bypass_modes=["away"]` ved foerste store-load efter opdatering — konservativ default der bevarer hidtidig adfaerd uden at silently udvide bypass til andre modes. Backfill-event logges som `Backfilled auto_bypass_modes on N sensor(s) -- saving`.
+- **Frontend:** Zone-edit-dialogen har en ny "Auto-Bypass per Sensor"-sektion der viser hver tilknyttet sensor med 5 mode-checkboxes. Bypass-staten gemmes pr. sensor (delt paa tvaers af zoner) via `save_sensors`-WS-kald efter `save_zone`.
+
+### Filer aendret
+- Backend: `const.py`, `store.py`, `zones.py`, `coordinator.py`
+- Frontend: `frontend/secure-me-panel.js`
+- Version bump i alle 26 filer fra 1.4.2 til 1.4.3.
+
+---
+
 ## [1.4.2] - 2026-04-23
 
 ### Fix: HA standard alarm dialog rejected arming with PIN required
