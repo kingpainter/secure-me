@@ -253,6 +253,28 @@ HOME_ALONE_DEFAULT_ACTION_2 = "Please close the door."
 EVENT_HOME_ALONE_ACTION_1 = "SECURE_ME_HOME_ALONE_ACTION_1"
 EVENT_HOME_ALONE_ACTION_2 = "SECURE_ME_HOME_ALONE_ACTION_2"
 
+# ── Floorplan (Home Alone live-view) ────────────────────────────
+# v1.5.0: optional floorplan image with sensor markers, shown live in Home
+# Alone mode so users can see which rooms have motion. Image is stored on
+# disk under custom_components/secure_me/floorplan/ and exposed via the
+# panel's existing static-resource handler so the browser can fetch it.
+FLOORPLAN_DIR_NAME = "floorplan"           # subfolder of the integration
+FLOORPLAN_IMAGE_NAME = "floorplan.png"     # canonical filename (we always normalise to PNG)
+FLOORPLAN_URL_PATH = f"/api/{DOMAIN}-panel/floorplan/{FLOORPLAN_IMAGE_NAME}"
+FLOORPLAN_MAX_BYTES = 4 * 1024 * 1024      # 4 MB upload cap
+
+# Floorplan store keys
+ATTR_FLOORPLAN_IMAGE_URL = "image_url"     # public URL the frontend uses
+ATTR_FLOORPLAN_WIDTH = "width"             # original image pixel width
+ATTR_FLOORPLAN_HEIGHT = "height"           # original image pixel height
+ATTR_FLOORPLAN_MARKERS = "markers"         # dict[entity_id, marker_config]
+
+# Marker config keys (per sensor)
+ATTR_MARKER_X_PCT = "x_pct"                # horizontal position as percent (0-100)
+ATTR_MARKER_Y_PCT = "y_pct"                # vertical position as percent (0-100)
+ATTR_MARKER_LABEL = "label"                # null = use entity friendly_name
+ATTR_MARKER_KIND = "kind"                  # "motion" | "door" | "window" -- drives icon/colour
+
 # ── Auto-arm (presence-based) ─────────────────────────────────────────────────
 # Seconds all tracked users must be away before auto-arm triggers
 AUTO_ARM_AWAY_DELAY = 900  # 15 minutes
