@@ -333,7 +333,7 @@ class SecureMePanel extends HTMLElement {
     this._schedTemp   = null;    // temp config for scheduled test editing
     this._schedSaving    = false;   // prevents double-submit
     this._ttsTestRunning = false;  // prevents duplicate TTS test calls
-    this._speakerProfiles = [];    // v1.4.0: speaker profiles
+    this._speakerProfiles = [];    // v1.4.3: speaker profiles
     this._cameraSaving   = false;  // prevents duplicate camera saves
     this._lockSaving     = false;
     this._climateSaving  = false;
@@ -2180,7 +2180,7 @@ class SecureMePanel extends HTMLElement {
               Dedicated arm mode for when children are home alone
             </div>
           </div>
-          <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">v1.4.0</span>
+          <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">v1.4.3</span>
         </div>
         <div style="font-size:12px;color:var(--sm-text-secondary);line-height:1.6;padding:10px 12px;
                     background:rgba(0,0,0,0.2);border-radius:8px">
@@ -4049,7 +4049,7 @@ class SecureMePanel extends HTMLElement {
       channels: existing?.channels || ['push'],
       enabled: existing?.enabled !== false,
       actions: existing?.actions || [],
-      tts_speakers: existing?.tts_speakers || [],  // v1.4.0: [] = all speakers
+      tts_speakers: existing?.tts_speakers || [],  // v1.4.3: [] = all speakers
     };
     this._showDialog = 'notification';
     this._render();
@@ -4207,7 +4207,7 @@ class SecureMePanel extends HTMLElement {
       language: currentConfig.language || 'da',
       volume: currentConfig.volume !== undefined ? Math.round(currentConfig.volume * 100) : 50,
       custom_messages: (currentConfig.custom_messages || []).map(m => ({...m})),
-      // v1.4.0: speaker profiles
+      // v1.4.3: speaker profiles
       speaker_profiles: (this._speakerProfiles || []).map(p => ({...p})),
     };
 
@@ -4229,7 +4229,7 @@ class SecureMePanel extends HTMLElement {
     this._patchTTSDialog();
   }
 
-  // v1.4.0: Speaker profile methods
+  // v1.4.3: Speaker profile methods
   _addSpeakerProfile(entityId) {
     if (!entityId) return;
     const existing = (this._tempConfig.speaker_profiles || []).find(p => p.entity_id === entityId);
@@ -4639,7 +4639,7 @@ class SecureMePanel extends HTMLElement {
       const msg = this._tempConfig?.custom_messages?.find(m => m.id === id);
       if (msg) this._testTTSMessage(msg.message || '');
     });
-    // v1.4.0: Speaker profile listeners
+    // v1.4.3: Speaker profile listeners
     const spAddSelect = dlg.querySelector('#sp-add-select');
     if (spAddSelect) {
       spAddSelect.addEventListener('change', (e) => {
