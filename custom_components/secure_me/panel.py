@@ -21,6 +21,9 @@ from .const import (
     DOMAIN,
     DEFAULT_SIDEBAR_TITLE,
     DEFAULT_SIDEBAR_ICON,
+    FLOORPLAN_DIR_NAME,
+    FLOORPLAN_IMAGE_NAME,
+    FLOORPLAN_URL_PATH,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -82,6 +85,29 @@ async def async_register_panel(
             _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
         else:
             _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
+
+        # v1.5.0: Floorplan image (Home Alone live-view).
+        # Always register the URL even if the file does not yet exist --
+        # the user may upload it later via the panel UI. aiohttp serves a
+        # 404 cleanly if the file is missing, which the frontend treats as
+        # "no floorplan configured".
+        floorplan_dir = os.path.join(root_dir, FLOORPLAN_DIR_NAME)
+        floorplan_file = os.path.join(floorplan_dir, FLOORPLAN_IMAGE_NAME)
+        try:
+            os.makedirs(floorplan_dir, exist_ok=True)
+        except OSError as err:
+            _LOGGER.warning(
+                "Secure Me: could not create floorplan directory %s (%s)",
+                floorplan_dir, err,
+            )
+        paths.append(
+            StaticPathConfig(FLOORPLAN_URL_PATH, floorplan_file, cache_headers=False)
+        )
+        _LOGGER.info(
+            "Secure Me: floorplan static path %s -> %s",
+            FLOORPLAN_URL_PATH, floorplan_file,
+        )
+
         await hass.http.async_register_static_paths(paths)
         hass.data[DOMAIN]["_static_registered"] = True
         _LOGGER.info(

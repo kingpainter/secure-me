@@ -16,6 +16,10 @@ from .const import (
     DOMAIN,
     STORAGE_VERSION_MAJOR,
     STORAGE_VERSION_MINOR,
+    ATTR_FLOORPLAN_IMAGE_URL,
+    ATTR_FLOORPLAN_WIDTH,
+    ATTR_FLOORPLAN_HEIGHT,
+    ATTR_FLOORPLAN_MARKERS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,6 +113,17 @@ class SecureMeStore:
         else:
             self._data = self._default_data()
 
+        # v1.5.0: Lazy backfill of floorplan key for stores written before
+        # the feature existed. Pure additive -- no schema-version bump needed.
+        if "floorplan" not in self._data:
+            self._data["floorplan"] = {
+                ATTR_FLOORPLAN_IMAGE_URL: None,
+                ATTR_FLOORPLAN_WIDTH: 0,
+                ATTR_FLOORPLAN_HEIGHT: 0,
+                ATTR_FLOORPLAN_MARKERS: {},
+            }
+            _LOGGER.info("Backfilled empty floorplan key on existing store")
+
         # v1.4.3: Lazy backfill of per-sensor auto_bypass_modes.
         # The migration func only runs on schema-version bumps, but this
         # additive field was introduced mid-v2 so we backfill on every load.
@@ -168,6 +183,14 @@ class SecureMeStore:
             "speaker_profiles": [],
             "fake_presence": False,
             "home_alone_cameras": [],
+            # v1.5.0 floorplan (Home Alone live-view).
+            # Empty by default -- frontend treats image_url=None as "no floorplan configured".
+            "floorplan": {
+                ATTR_FLOORPLAN_IMAGE_URL: None,
+                ATTR_FLOORPLAN_WIDTH: 0,
+                ATTR_FLOORPLAN_HEIGHT: 0,
+                ATTR_FLOORPLAN_MARKERS: {},
+            },
         }
 
     # ─── bcrypt helpers ───────────────────────────────────────────────────────
@@ -563,4 +586,65 @@ class SecureMeStore:
     async def async_save_home_alone_cameras(self, cameras: list[str]) -> None:
         """Save Home Alone Monitor camera entity IDs."""
         self._data["home_alone_cameras"] = cameras
+        await self.async_save()
+
+    # ─── Floorplan (v1.5.0) ───────────────────────────────────────────
+    # The image itself is stored on disk under custom_components/secure_me/
+    # floorplan/floorplan.png and exposed via panel.py's static-resource
+    # handler. The store only holds image metadata + per-sensor markers.
+
+    def _empty_floorplan(self) -> dict[str, Any]:
+        """Return an empty floorplan structure."""
+        return {
+            ATTR_FLOORPLAN_IMAGE_URL: None,
+            ATTR_FLOORPLAN_WIDTH: 0,
+            ATTR_FLOORPLAN_HEIGHT: 0,
+            ATTR_FLOORPLAN_MARKERS: {},
+        }
+
+    def get_floorplan(self) -> dict[str, Any]:
+        """Get full floorplan config (image url + dimensions + markers)."""
+        fp = self._data.get("floorplan")
+        if not fp:
+            return self._empty_floorplan()
+        # Ensure all keys are present even if a partial dict was persisted.
+        return {
+            ATTR_FLOORPLAN_IMAGE_URL: fp.get(ATTR_FLOORPLAN_IMAGE_URL),
+            ATTR_FLOORPLAN_WIDTH: fp.get(ATTR_FLOORPLAN_WIDTH, 0),
+            ATTR_FLOORPLAN_HEIGHT: fp.get(ATTR_FLOORPLAN_HEIGHT, 0),
+            ATTR_FLOORPLAN_MARKERS: fp.get(ATTR_FLOORPLAN_MARKERS, {}),
+        }
+
+    async def async_save_floorplan_image(
+        self, image_url: str, width: int, height: int
+    ) -> None:
+        """Save floorplan image metadata (url + dimensions).
+
+        Markers are preserved -- only the image fields are overwritten.
+        Use this after writing the image bytes to disk in websocket_api.
+        """
+        fp = self._data.setdefault("floorplan", self._empty_floorplan())
+        fp[ATTR_FLOORPLAN_IMAGE_URL] = image_url
+        fp[ATTR_FLOORPLAN_WIDTH] = int(width)
+        fp[ATTR_FLOORPLAN_HEIGHT] = int(height)
+        fp.setdefault(ATTR_FLOORPLAN_MARKERS, {})
+        await self.async_save()
+
+    async def async_save_floorplan_markers(
+        self, markers: dict[str, dict[str, Any]]
+    ) -> None:
+        """Replace the full markers dict (entity_id -> marker_config).
+
+        Image metadata is preserved.
+        """
+        fp = self._data.setdefault("floorplan", self._empty_floorplan())
+        fp[ATTR_FLOORPLAN_MARKERS] = markers or {}
+        await self.async_save()
+
+    async def async_delete_floorplan(self) -> None:
+        """Reset floorplan to empty (image url cleared, markers cleared).
+
+        Caller is responsible for unlinking the image file on disk.
+        """
+        self._data["floorplan"] = self._empty_floorplan()
         await self.async_save()

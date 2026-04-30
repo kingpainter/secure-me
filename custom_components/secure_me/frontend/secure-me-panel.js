@@ -276,6 +276,13 @@ const ICONS = {
   close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
   edit: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
   circle: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
+  // v1.5.0 floorplan icons
+  map: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>',
+  upload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  move: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>',
+  door: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v16"/><line x1="3" y1="21" x2="21" y2="21"/><circle cx="15" cy="12" r="1"/></svg>',
+  window: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="1"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
+  motion: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M9 11l3-1.5L15 11v5l-3 5"/><path d="M9 11l-3 5"/><path d="M15 14l3 1"/></svg>',
 };
 
 const icon = (name) => ICONS[name] || "";
@@ -286,6 +293,7 @@ const TABS = [
   { key: "zones", label: "Zones", icon: "zone" },
   { key: "users", label: "Users", icon: "user" },
   { key: "modules", label: "Modules", icon: "module" },
+  { key: "floorplan", label: "Floorplan", icon: "map" },
   { key: "automations", label: "Actions", icon: "bell" },
   { key: "testing", label: "Test", icon: "flask" },
   { key: "future", label: "Future", icon: "rocket" },
@@ -321,6 +329,8 @@ class SecureMePanel extends HTMLElement {
       notifications: {},
       automations: {},
       scheduledTests: {},
+      // v1.5.0 floorplan state -- updated by _loadFloorplan() once Floorplan tab is opened
+      floorplan: { image_url: null, width: 0, height: 0, markers: {} },
     };
     this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
@@ -348,6 +358,12 @@ class SecureMePanel extends HTMLElement {
     this._sensorsInactiveExpanded = false; // Collapsible: inactive sensors
 	this._healthUpdateUnsubscribe = null;
     this._lastHealthUpdate = null;
+    // v1.5.0 floorplan state machine
+    this._floorplanLoaded = false;        // true after first successful _loadFloorplan()
+    this._floorplanUploading = false;     // disables upload button during in-flight save
+    this._floorplanPendingPlace = null;   // entity_id awaiting click-to-place on canvas
+    this._floorplanDragEntity = null;     // entity_id currently being dragged
+    this._floorplanSelectedMarker = null; // entity_id of marker showing the action popup
   }
 
 
@@ -391,6 +407,33 @@ class SecureMePanel extends HTMLElement {
       this._updateStatusPills();
       // Also queue a render so countdown/armed_by etc. refresh
       this._queueRender();
+    }
+
+    // v1.5.0: Live floorplan refresh in Home Alone mode.
+    // Only re-render when (a) the Floorplan tab is open, (b) Home Alone is active,
+    // and (c) at least one marker's sensor state actually changed since last check.
+    // Without this gate every HA state update would trigger a full re-render.
+    if (
+      this._activeTab === "floorplan"
+      && this._alarmState === "armed_home_alone"
+      && this._floorplanLoaded
+      && this._data.floorplan?.image_url
+    ) {
+      const markers = this._data.floorplan?.markers || {};
+      const markerIds = Object.keys(markers);
+      if (markerIds.length > 0) {
+        const prev = this._lastMarkerStates || {};
+        const next = {};
+        let changed = false;
+        for (const eid of markerIds) {
+          const st = hass.states?.[eid];
+          const v = st ? st.state : null;
+          next[eid] = v;
+          if (prev[eid] !== v) changed = true;
+        }
+        this._lastMarkerStates = next;
+        if (changed) this._queueRender();
+      }
     }
   }
 
@@ -573,6 +616,11 @@ class SecureMePanel extends HTMLElement {
     }
     if (tab === "future" && !this._availableEntities.camera) {
       this._loadEntitiesByDomain('camera').then(() => this._render());
+    }
+    // v1.5.0: lazy-load floorplan on first visit
+    if (tab === "floorplan" && !this._floorplanLoaded && !this._floorplanLoading) {
+      this._floorplanLoading = true;
+      this._loadFloorplan().finally(() => { this._floorplanLoading = false; });
     }
     this._render();
   }
@@ -881,6 +929,7 @@ class SecureMePanel extends HTMLElement {
       case "zones": return this._renderZones();
       case "users": return this._renderUsers();
       case "modules": return this._renderModules();
+      case "floorplan": return this._renderFloorplan();
       case "automations": return this._renderAutomations();
       case "testing": return this._renderTesting();
       case "future": return this._renderFuture();
@@ -2039,6 +2088,534 @@ class SecureMePanel extends HTMLElement {
 }`
     };
     return examples[moduleKey] || "{}";
+  }
+
+
+  // ===
+  // TAB: FLOORPLAN (v1.5.0)
+  // ===
+  // Setup-UI for the Home Alone live-view floorplan.
+  //
+  // States:
+  //   1. Empty   -- no image uploaded -> show upload prompt
+  //   2. Image   -- image uploaded, no markers -> show image + "Add sensor" button
+  //   3. Markers -- image + markers -> drag/click markers, add more
+  //
+  // Marker positions are stored as percentages (0-100) so the floorplan
+  // scales correctly across screen sizes. The actual image lives at
+  // /api/secure_me-panel/floorplan/floorplan.png (registered in panel.py).
+
+  async _loadFloorplan() {
+    const fp = await this._callWS("get_floorplan");
+    if (fp) {
+      this._data.floorplan = {
+        image_url: fp.image_url || null,
+        width: fp.width || 0,
+        height: fp.height || 0,
+        markers: fp.markers || {},
+      };
+    }
+    this._floorplanLoaded = true;
+    this._render();
+  }
+
+  _placeableSensors() {
+    // All motion/door/window sensors that aren't already on the floorplan.
+    const placed = new Set(Object.keys(this._data.floorplan?.markers || {}));
+    return (this._data.sensors || []).filter(s => {
+      if (placed.has(s.entity_id)) return false;
+      if (s.is_environmental) return false;
+      const dc = s.device_class || "";
+      return ["motion", "occupancy", "vibration", "door", "window", "opening", "garage_door"].includes(dc);
+    });
+  }
+
+  _markerKindFor(entityId) {
+    const sensor = (this._data.sensors || []).find(s => s.entity_id === entityId);
+    if (!sensor) return "motion";
+    const dc = sensor.device_class || "";
+    if (["door", "opening", "garage_door"].includes(dc)) return "door";
+    if (dc === "window") return "window";
+    return "motion";
+  }
+
+  _markerColorFor(kind) {
+    if (kind === "door")   return "var(--sm-warning, #f59e0b)";
+    if (kind === "window") return "var(--sm-blue, #3b82f6)";
+    return "var(--sm-accent, #10b981)"; // motion -> accent green
+  }
+
+  _renderFloorplan() {
+    if (!this._floorplanLoaded) {
+      return `
+        <div class="section-header">
+          <h3 class="section-title">Floorplan</h3>
+        </div>
+        <div class="sm-card" style="padding:32px;text-align:center;color:var(--sm-text-secondary)">
+          Loading floorplan...
+        </div>
+      `;
+    }
+
+    const fp = this._data.floorplan || { image_url: null, markers: {} };
+    const hasImage = !!fp.image_url;
+    const markers = fp.markers || {};
+    const markerCount = Object.keys(markers).length;
+    const placeable = this._placeableSensors();
+    const pending = this._floorplanPendingPlace;
+
+    return `
+      <div class="section-header">
+        <h3 class="section-title">Floorplan</h3>
+        ${hasImage ? `<span class="badge accent">${markerCount} marker${markerCount === 1 ? "" : "s"}</span>` : ""}
+      </div>
+
+      <div class="sm-card" style="padding:16px;margin-bottom:16px">
+        <div style="font-size:13px;color:var(--sm-text-secondary);line-height:1.5">
+          Upload a PNG of your home and place sensor markers on it. The floorplan is shown
+          live in <strong>Home Alone</strong> mode so you can see which rooms have motion at a glance.
+        </div>
+      </div>
+
+      ${hasImage ? this._renderFloorplanCanvas(fp, placeable, pending) : this._renderFloorplanEmpty()}
+
+      ${pending ? `
+        <div class="sm-card" style="padding:14px 16px;margin-top:14px;
+             border-color:var(--sm-accent, #10b981);background:rgba(16,185,129,0.08);
+             display:flex;align-items:center;gap:12px">
+          <div style="color:var(--sm-accent)">${icon('move')}</div>
+          <div style="flex:1;font-size:13px">
+            Click on the floorplan to place
+            <strong>${this._sensorFriendlyName(pending)}</strong>
+          </div>
+          <button class="sm-btn ghost sm" data-floorplan-cancel-place>Cancel</button>
+        </div>
+      ` : ""}
+
+      <!-- Hidden file input for upload -->
+      <input type="file" id="floorplan-file-input" accept="image/png"
+             style="display:none" data-floorplan-file-input>
+    `;
+  }
+
+  _renderFloorplanEmpty() {
+    return `
+      <div class="sm-card" style="padding:48px 24px;text-align:center;
+           border:2px dashed var(--sm-border);background:rgba(255,255,255,0.02)">
+        <div style="color:var(--sm-text-tertiary);margin-bottom:16px">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+        </div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">No floorplan uploaded</div>
+        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:20px">
+          Upload a PNG image of your home (max 4 MB)
+        </div>
+        <button class="sm-btn primary" data-floorplan-upload
+                ${this._floorplanUploading ? "disabled" : ""}>
+          ${icon('upload')} ${this._floorplanUploading ? "Uploading..." : "Upload PNG"}
+        </button>
+      </div>
+    `;
+  }
+
+  _renderFloorplanCanvas(fp, placeable, pending) {
+    const markers = fp.markers || {};
+    const cacheBust = fp.image_url + (fp.image_url.includes("?") ? "&" : "?") + "v=" + (this._floorplanCacheBust || 0);
+    const aspectRatio = fp.width && fp.height ? (fp.height / fp.width) : 0.6;
+
+    return `
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        <div class="floorplan-canvas-wrap"
+             data-floorplan-canvas
+             style="position:relative;width:100%;
+                    padding-bottom:${(aspectRatio * 100).toFixed(2)}%;
+                    background:var(--sm-card-bg, #1c1c1e);
+                    cursor:${pending ? 'crosshair' : 'default'};
+                    user-select:none;-webkit-user-select:none;touch-action:none">
+          <img src="${cacheBust}" alt="Floorplan"
+               draggable="false"
+               style="position:absolute;inset:0;width:100%;height:100%;
+                      object-fit:contain;pointer-events:none;
+                      -webkit-user-drag:none">
+
+          ${Object.entries(markers).map(([eid, m]) => {
+            const kind = m.kind || this._markerKindFor(eid);
+            const color = this._markerColorFor(kind);
+            const isDragged = this._floorplanDragEntity === eid;
+            const isSelected = this._floorplanSelectedMarker === eid;
+            return `
+              <div class="floorplan-marker"
+                   data-floorplan-marker="${eid}"
+                   style="position:absolute;
+                          left:${m.x_pct}%;top:${m.y_pct}%;
+                          transform:translate(-50%,-50%);
+                          width:28px;height:28px;border-radius:50%;
+                          background:${color};
+                          border:2px solid rgba(255,255,255,0.95);
+                          box-shadow:0 2px 6px rgba(0,0,0,0.4)${isSelected ? ',0 0 0 4px rgba(255,255,255,0.25)' : ''};
+                          display:flex;align-items:center;justify-content:center;
+                          color:#fff;cursor:${pending ? 'crosshair' : 'grab'};
+                          opacity:${isDragged ? 0.6 : 1};
+                          z-index:${isDragged || isSelected ? 3 : 2};
+                          touch-action:none">
+                ${icon(kind)}
+              </div>
+              ${isSelected ? `
+                <div class="floorplan-marker-popup"
+                     style="position:absolute;
+                            left:${m.x_pct}%;top:${m.y_pct}%;
+                            transform:translate(-50%,calc(-100% - 22px));
+                            background:var(--sm-card-bg, #1c1c1e);
+                            border:1px solid var(--sm-border);
+                            border-radius:8px;padding:8px 10px;
+                            box-shadow:0 4px 12px rgba(0,0,0,0.4);
+                            z-index:4;min-width:180px;
+                            font-size:12px;white-space:nowrap">
+                  <div style="font-weight:600;margin-bottom:6px;
+                              overflow:hidden;text-overflow:ellipsis">
+                    ${this._sensorFriendlyName(eid)}
+                  </div>
+                  <div style="font-size:11px;color:var(--sm-text-tertiary);
+                              margin-bottom:8px;font-family:monospace;
+                              overflow:hidden;text-overflow:ellipsis">
+                    ${eid}
+                  </div>
+                  <div style="display:flex;gap:6px">
+                    <button class="sm-btn ghost sm" data-floorplan-marker-remove="${eid}"
+                            style="flex:1">
+                      ${icon('trash')} Remove
+                    </button>
+                    <button class="sm-btn ghost sm" data-floorplan-marker-close>
+                      ${icon('close')}
+                    </button>
+                  </div>
+                </div>
+              ` : ""}
+            `;
+          }).join("")}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        ${placeable.length > 0 ? `
+          <select id="floorplan-add-sensor" data-floorplan-add-sensor
+                  class="sm-select"
+                  style="flex:1;min-width:200px;padding:8px 12px;
+                         background:var(--sm-card-bg, #1c1c1e);
+                         border:1px solid var(--sm-border);
+                         border-radius:8px;color:var(--sm-text);font-size:13px">
+            <option value="">+ Add sensor to floorplan...</option>
+            ${placeable.map(s => {
+              const kindLabel = this._markerKindFor(s.entity_id);
+              return `<option value="${s.entity_id}">${s.name} (${kindLabel})</option>`;
+            }).join("")}
+          </select>
+        ` : `
+          <div style="flex:1;padding:8px 12px;color:var(--sm-text-tertiary);font-size:12px;font-style:italic">
+            All available sensors are placed on the floorplan.
+          </div>
+        `}
+        <button class="sm-btn ghost" data-floorplan-upload
+                ${this._floorplanUploading ? "disabled" : ""}>
+          ${icon('upload')} Replace image
+        </button>
+        <button class="sm-btn ghost" data-floorplan-delete
+                style="color:var(--sm-danger, #ef4444)">
+          ${icon('trash')} Delete
+        </button>
+      </div>
+    `;
+  }
+
+  _sensorFriendlyName(entityId) {
+    const sensor = (this._data.sensors || []).find(s => s.entity_id === entityId);
+    return sensor ? sensor.name : entityId;
+  }
+
+  // ─── Floorplan event handlers ─────────────────────────────────────────────
+
+  _attachFloorplanListeners() {
+    const root = this.shadowRoot;
+
+    // Upload button (both empty state and replace-image)
+    root.querySelectorAll("[data-floorplan-upload]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const fileInput = root.querySelector("[data-floorplan-file-input]");
+        if (fileInput) fileInput.click();
+      });
+    });
+
+    // File input change
+    const fileInput = root.querySelector("[data-floorplan-file-input]");
+    if (fileInput) {
+      fileInput.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) this._uploadFloorplanImage(file);
+        e.target.value = ""; // allow re-uploading the same file later
+      });
+    }
+
+    // Delete floorplan
+    root.querySelectorAll("[data-floorplan-delete]").forEach(btn => {
+      btn.addEventListener("click", () => this._deleteFloorplan());
+    });
+
+    // Sensor picker -> arm pending placement
+    root.querySelectorAll("[data-floorplan-add-sensor]").forEach(sel => {
+      sel.addEventListener("change", (e) => {
+        const eid = e.target.value;
+        if (!eid) return;
+        this._floorplanPendingPlace = eid;
+        this._floorplanSelectedMarker = null;
+        e.target.value = ""; // reset dropdown
+        this._render();
+      });
+    });
+
+    // Cancel pending placement
+    root.querySelectorAll("[data-floorplan-cancel-place]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        this._floorplanPendingPlace = null;
+        this._render();
+      });
+    });
+
+    // Marker popup actions
+    root.querySelectorAll("[data-floorplan-marker-remove]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const eid = btn.dataset.floorplanMarkerRemove;
+        this._removeFloorplanMarker(eid);
+      });
+    });
+    root.querySelectorAll("[data-floorplan-marker-close]").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this._floorplanSelectedMarker = null;
+        this._render();
+      });
+    });
+
+    // Canvas: click-to-place / click-to-deselect / drag markers
+    const canvas = root.querySelector("[data-floorplan-canvas]");
+    if (canvas) this._attachFloorplanCanvasEvents(canvas);
+  }
+
+  _attachFloorplanCanvasEvents(canvas) {
+    // Click on the canvas itself: place pending marker, OR deselect popup.
+    canvas.addEventListener("click", (e) => {
+      const markerEl = e.target.closest("[data-floorplan-marker]");
+
+      if (this._floorplanPendingPlace && !markerEl) {
+        // Click on empty area -> place pending marker
+        const rect = canvas.getBoundingClientRect();
+        const x_pct = ((e.clientX - rect.left) / rect.width) * 100;
+        const y_pct = ((e.clientY - rect.top) / rect.height) * 100;
+        this._addFloorplanMarker(this._floorplanPendingPlace, x_pct, y_pct);
+        return;
+      }
+
+      if (markerEl) {
+        // Toggle popup
+        const eid = markerEl.dataset.floorplanMarker;
+        this._floorplanSelectedMarker =
+          this._floorplanSelectedMarker === eid ? null : eid;
+        this._render();
+        return;
+      }
+
+      // Click on empty area without pending -> deselect any popup
+      if (this._floorplanSelectedMarker) {
+        this._floorplanSelectedMarker = null;
+        this._render();
+      }
+    });
+
+    // Pointer-based drag for markers (mouse + touch unified).
+    // We attach to the canvas (capture-phase) so drag continues even if the
+    // pointer briefly leaves the small marker hitbox.
+    let dragState = null;  // { eid, rect, pointerId }
+
+    canvas.addEventListener("pointerdown", (e) => {
+      // Don't initiate drag if user is in placement mode (click handles it)
+      if (this._floorplanPendingPlace) return;
+      const markerEl = e.target.closest("[data-floorplan-marker]");
+      if (!markerEl) return;
+
+      const eid = markerEl.dataset.floorplanMarker;
+      dragState = {
+        eid,
+        rect: canvas.getBoundingClientRect(),
+        pointerId: e.pointerId,
+        moved: false,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!dragState || e.pointerId !== dragState.pointerId) return;
+
+      // Threshold: only count as drag after 4px to avoid jittery clicks.
+      if (!dragState.moved) {
+        const dx = e.clientX - dragState.startX;
+        const dy = e.clientY - dragState.startY;
+        if (Math.hypot(dx, dy) < 4) return;
+        dragState.moved = true;
+        this._floorplanDragEntity = dragState.eid;
+        this._floorplanSelectedMarker = null;
+      }
+
+      // Live update marker position in DOM (without full re-render)
+      const rect = dragState.rect;
+      const x_pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y_pct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      const markerEl = canvas.querySelector(`[data-floorplan-marker="${dragState.eid}"]`);
+      if (markerEl) {
+        markerEl.style.left = x_pct + "%";
+        markerEl.style.top = y_pct + "%";
+      }
+      // Stash so pointerup can persist it
+      dragState.lastX = x_pct;
+      dragState.lastY = y_pct;
+    });
+
+    const finishDrag = (e) => {
+      if (!dragState || e.pointerId !== dragState.pointerId) return;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+      const wasDrag = dragState.moved;
+      const eid = dragState.eid;
+      const x_pct = dragState.lastX;
+      const y_pct = dragState.lastY;
+      dragState = null;
+
+      if (wasDrag && eid && x_pct != null && y_pct != null) {
+        this._floorplanDragEntity = null;
+        this._updateFloorplanMarkerPosition(eid, x_pct, y_pct);
+      }
+      // If !wasDrag, the click handler above takes care of toggling the popup.
+    };
+    canvas.addEventListener("pointerup", finishDrag);
+    canvas.addEventListener("pointercancel", finishDrag);
+  }
+
+  // ─── Floorplan WS actions ─────────────────────────────────────────────────
+
+  async _uploadFloorplanImage(file) {
+    if (this._floorplanUploading) return;
+
+    // 4 MB hard cap mirrors backend (FLOORPLAN_MAX_BYTES).
+    const MAX = 4 * 1024 * 1024;
+    if (file.size > MAX) {
+      this._toast(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB -- max is 4 MB.`, "error");
+      return;
+    }
+    if (file.type && file.type !== "image/png") {
+      this._toast("Only PNG images are supported. Convert your file first.", "error");
+      return;
+    }
+
+    this._floorplanUploading = true;
+    this._render();
+
+    try {
+      const base64 = await this._fileToBase64(file);
+      const result = await this._callWS("save_floorplan_image", { image_base64: base64 });
+      if (result && result.success) {
+        // Bust the <img> cache so the new image loads even though the URL is stable.
+        this._floorplanCacheBust = Date.now();
+        await this._loadFloorplan();
+        this._toast("Floorplan uploaded.", "success");
+      } else {
+        this._toast("Upload failed: " + (result?.error || "unknown error"), "error");
+      }
+    } catch (err) {
+      console.error("Floorplan upload error:", err);
+      this._toast("Upload failed: " + err.message, "error");
+    } finally {
+      this._floorplanUploading = false;
+      this._render();
+    }
+  }
+
+  _fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // FileReader returns "data:image/png;base64,XXXX" -- backend strips the prefix
+        // but stripping here keeps the WS payload smaller.
+        const result = reader.result || "";
+        const comma = result.indexOf(",");
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = () => reject(new Error("Could not read file"));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async _saveFloorplanMarkers() {
+    const markers = this._data.floorplan?.markers || {};
+    const result = await this._callWS("save_floorplan_markers", { markers });
+    if (!result || !result.success) {
+      this._toast("Could not save markers: " + (result?.error || "unknown error"), "error");
+      // Reload from server to discard the local change
+      await this._loadFloorplan();
+    }
+  }
+
+  async _addFloorplanMarker(entityId, x_pct, y_pct) {
+    if (!this._data.floorplan) {
+      this._data.floorplan = { image_url: null, width: 0, height: 0, markers: {} };
+    }
+    if (!this._data.floorplan.markers) this._data.floorplan.markers = {};
+
+    this._data.floorplan.markers[entityId] = {
+      x_pct: Math.max(0, Math.min(100, x_pct)),
+      y_pct: Math.max(0, Math.min(100, y_pct)),
+      label: null,
+      kind: this._markerKindFor(entityId),
+    };
+    this._floorplanPendingPlace = null;
+    this._render();
+    await this._saveFloorplanMarkers();
+  }
+
+  async _updateFloorplanMarkerPosition(entityId, x_pct, y_pct) {
+    const m = this._data.floorplan?.markers?.[entityId];
+    if (!m) return;
+    m.x_pct = Math.max(0, Math.min(100, x_pct));
+    m.y_pct = Math.max(0, Math.min(100, y_pct));
+    this._render();
+    await this._saveFloorplanMarkers();
+  }
+
+  async _removeFloorplanMarker(entityId) {
+    if (!this._data.floorplan?.markers) return;
+    delete this._data.floorplan.markers[entityId];
+    this._floorplanSelectedMarker = null;
+    this._render();
+    await this._saveFloorplanMarkers();
+  }
+
+  async _deleteFloorplan() {
+    const ok = window.confirm("Delete the floorplan image and all markers?");
+    if (!ok) return;
+    const result = await this._callWS("delete_floorplan");
+    if (result && result.success) {
+      this._data.floorplan = { image_url: null, width: 0, height: 0, markers: {} };
+      this._floorplanPendingPlace = null;
+      this._floorplanSelectedMarker = null;
+      this._floorplanDragEntity = null;
+      this._render();
+      this._toast("Floorplan deleted.", "success");
+    } else {
+      this._toast("Could not delete: " + (result?.error || "unknown error"), "error");
+    }
   }
 
 
@@ -4750,6 +5327,11 @@ class SecureMePanel extends HTMLElement {
 
   _attachTabListeners() {
     
+    // v1.5.0: Floorplan tab listeners (canvas, upload, drag, picker)
+    if (this._activeTab === "floorplan") {
+      this._attachFloorplanListeners();
+    }
+
     // Module expansion handlers
     this.shadowRoot.querySelectorAll("[data-module-expand]").forEach(header => {
       header.addEventListener("click", (e) => {
