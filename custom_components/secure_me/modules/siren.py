@@ -1,5 +1,5 @@
 """Siren module for Secure Me alarm system."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 import asyncio
 import logging

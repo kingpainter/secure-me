@@ -1,5 +1,5 @@
 """WebSocket API for Secure Me panel."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 import asyncio
 import base64
@@ -29,6 +29,11 @@ from .const import (
     ATTR_MARKER_Y_PCT,
     ATTR_MARKER_LABEL,
     ATTR_MARKER_KIND,
+    CONF_AUTO_ACTIONS,
+    FP_ACTIVE,
+    FP_BLOCK_ALARM,
+    FP_BLOCK_LOCKS,
+    FP_BLOCK_CAMERAS,
 )
 from .notification_dispatcher import async_setup_dispatcher
 
@@ -93,6 +98,11 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_set_fake_presence)
     websocket_api.async_register_command(hass, ws_get_home_alone_cameras)
     websocket_api.async_register_command(hass, ws_save_home_alone_cameras)
+    # Auto Actions v2 (v1.5.0)
+    websocket_api.async_register_command(hass, ws_get_auto_actions)
+    websocket_api.async_register_command(hass, ws_save_auto_actions)
+    websocket_api.async_register_command(hass, ws_get_fake_presence_v2)
+    websocket_api.async_register_command(hass, ws_save_fake_presence_v2)
     # Floorplan (v1.5.0)
     websocket_api.async_register_command(hass, ws_get_floorplan)
     websocket_api.async_register_command(hass, ws_save_floorplan_image)
@@ -2023,7 +2033,9 @@ async def ws_save_floorplan_image(
 
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/save_floorplan_markers",
-    vol.Required("markers"): dict,
+    vol.Optional("markers"): dict,
+    vol.Optional("rooms"): dict,
+    vol.Optional("openings"): list,
 })
 @websocket_api.async_response
 async def ws_save_floorplan_markers(
@@ -2031,23 +2043,43 @@ async def ws_save_floorplan_markers(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Replace the full markers dict for the floorplan.
+    """Replace the full floorplan data (rooms, openings, or legacy markers).
 
-    Frontend sends { entity_id: { x_pct, y_pct, label?, kind? }, ... }.
-    Invalid markers are silently dropped by _normalise_markers.
+    v1.6.0: frontend sends { rooms: { room_id: { name, color, points, sensors } } }.
+    v1.6.1: frontend also sends { openings: [ { type, label, points } ] }.
+    v1.5.0 legacy: frontend sent { markers: { entity_id: { x_pct, y_pct, ... } } }.
     """
     store = _get_store(hass)
     if not store:
         connection.send_error(msg["id"], "store_not_ready", "Store not initialised")
         return
 
-    cleaned = _normalise_markers(msg.get("markers"))
-    await store.async_save_floorplan_markers(cleaned)
-    _LOGGER.debug("Floorplan markers saved: %d markers", len(cleaned))
-    connection.send_result(msg["id"], {
-        "success": True,
-        ATTR_FLOORPLAN_MARKERS: cleaned,
-    })
+    if "rooms" in msg:
+        # v1.6.0+ room-based format
+        rooms = msg["rooms"]
+        if not isinstance(rooms, dict):
+            connection.send_error(msg["id"], "invalid_format", "rooms must be a dict")
+            return
+        openings = msg.get("openings")
+        if openings is not None and not isinstance(openings, list):
+            connection.send_error(msg["id"], "invalid_format", "openings must be a list")
+            return
+        await store.async_save_floorplan_rooms(rooms, openings)
+        _LOGGER.debug(
+            "Floorplan saved: %d rooms, %d openings",
+            len(rooms),
+            len(openings) if openings else 0,
+        )
+        connection.send_result(msg["id"], {"success": True, "rooms": rooms})
+    else:
+        # v1.5.0 legacy markers format
+        cleaned = _normalise_markers(msg.get("markers"))
+        await store.async_save_floorplan_markers(cleaned)
+        _LOGGER.debug("Floorplan markers saved: %d markers", len(cleaned))
+        connection.send_result(msg["id"], {
+            "success": True,
+            ATTR_FLOORPLAN_MARKERS: cleaned,
+        })
 
 
 @websocket_api.websocket_command({
@@ -2431,3 +2463,85 @@ async def ws_get_home_alone_messages(
         })
 
     connection.send_result(msg["id"], {"messages": messages})
+
+
+#
+# AUTO ACTIONS v2
+#
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_auto_actions",
+})
+@websocket_api.async_response
+async def ws_get_auto_actions(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get Auto Actions v2 configuration."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    connection.send_result(msg["id"], {"config": store.get_auto_actions()})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_auto_actions",
+    vol.Required("config"): dict,
+})
+@websocket_api.async_response
+async def ws_save_auto_actions(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save Auto Actions v2 configuration."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    await store.async_save_auto_actions(msg["config"])
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
+})
+@websocket_api.async_response
+async def ws_get_fake_presence_v2(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get Fake Presence v2 configuration dict."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    connection.send_result(msg["id"], {"config": store.get_fake_presence_v2()})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{DOMAIN}/save_fake_presence_v2",
+    vol.Required("config"): dict,
+})
+@websocket_api.async_response
+async def ws_save_fake_presence_v2(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Save Fake Presence v2 configuration dict."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+    await store.async_save_fake_presence_v2(msg["config"])
+
+    # Keep coordinator in sync via the proper async method
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        await coordinator.async_set_fake_presence(msg["config"].get("active", False))
+
+    connection.send_result(msg["id"], {"success": True, "config": store.get_fake_presence_v2()})

@@ -1,5 +1,5 @@
 """Tests for Secure Me constants."""
-# VERSION = "1.4.1"
+# VERSION = "1.5.0"
 
 import pytest
 
@@ -117,3 +117,32 @@ class TestConstants:
         assert CONF_HOME_ALONE_CAMERAS == "home_alone_cameras"
         assert NOTIFY_ID_FAKE_PRESENCE == "secure_me_fake_presence"
         assert EVENT_FAKE_PRESENCE_CHANGED.startswith(DOMAIN)
+
+    def test_auto_actions_v2_constants_defined(self):
+        from custom_components.secure_me.const import (
+            CONF_AUTO_ACTIONS,
+            AA_LOCK_ENABLED, AA_LOCK_DELAY,
+            AA_ALARM_ENABLED, AA_ALARM_DELAY,
+            AA_CAMERA_ENABLED, AA_CAMERA_DELAY,
+            AA_ARRIVAL_DELAY, AA_NOTIFY_ALL,
+            DEFAULT_AA_LOCK_DELAY, DEFAULT_AA_ALARM_DELAY,
+            DEFAULT_AA_CAMERA_DELAY, DEFAULT_AA_ARRIVAL_DELAY,
+            FP_ACTIVE, FP_BLOCK_ALARM, FP_BLOCK_LOCKS, FP_BLOCK_CAMERAS,
+            EVENT_HOME_EMPTY, EVENT_PERSON_HOME, EVENT_AUTO_ACTION_DONE,
+            NOTIFY_ID_AUTO_ACTIONS,
+        )
+        assert CONF_AUTO_ACTIONS == "auto_actions"
+        assert AA_LOCK_ENABLED == "auto_lock_enabled"
+        assert AA_ALARM_DELAY == "auto_alarm_delay"
+        assert DEFAULT_AA_LOCK_DELAY == 120
+        assert DEFAULT_AA_ALARM_DELAY == 300
+        assert DEFAULT_AA_CAMERA_DELAY == 0
+        assert DEFAULT_AA_ARRIVAL_DELAY == 60
+        assert FP_ACTIVE == "active"
+        assert FP_BLOCK_ALARM == "block_alarm"
+        assert FP_BLOCK_LOCKS == "block_locks"
+        assert FP_BLOCK_CAMERAS == "block_cameras"
+        assert EVENT_HOME_EMPTY.startswith(DOMAIN)
+        assert EVENT_PERSON_HOME.startswith(DOMAIN)
+        assert EVENT_AUTO_ACTION_DONE.startswith(DOMAIN)
+        assert NOTIFY_ID_AUTO_ACTIONS == "secure_me_auto_actions"

@@ -1,12 +1,12 @@
 # Secure Me — Project Status
 
-**Last updated:** 2026-04-23 (v1.4.2 bug fix release)
+**Last updated:** 2026-05-14 (v1.5.0 in progress — Auto Actions v2 + Floorplan)
 **Developer:** KingPainter
 **Repository:** https://github.com/kingpainter/secure-me
 
 ---
 
-## Current Version: v1.4.2 (bug fixes 2026-04-23)
+## Current Version: v1.4.3 (live) — v1.5.0 in progress
 
 ### GitHub Actions
 | Workflow | Status |
@@ -66,9 +66,43 @@
 - [ ] Live test af PIN UX fix (OK-knap kraevet for arm/disarm)
 
 ### Future (v1.5.0)
+- Floorplan: rum-tegning, sensor-tilknytning, dor/vindue-markering (IN PROGRESS)
 - Motion-sensor → nearest speaker mapping for Home Alone
 - HACS default store submission (brands PR)
 - MQTT support
+
+---
+
+## v1.5.0 — In Progress (2026-05-14)
+
+### Implementeret
+- [x] Floorplan-tab i panelet — upload PNG, tegn rum (rect + polygon)
+- [x] Sensor-tilknytning pr. rum — custom searchable dropdown (teleporteret flyout i shadow root)
+- [x] Dor/vindue-markering — nyt draw-tool `opening`, tegnes som linje, gemmes i `fp.openings[]`
+- [x] Opening inspector — klik paa markering: vaelg type (dor/vindue) + slet
+- [x] Backend: `store.py` + `websocket_api.py` opdateret til `openings`-feltet
+- [x] Live-view i Home Alone mode — rum gloer ved sensor-aktivitet
+- [x] **Auto Actions v2** — `AutoActionsManager` klasse (`auto_actions.py`), tre uafhaengige timers med individuelle delays
+- [x] **Fake Presence v2** — selektiv blokeringsprofil (block_alarm, block_locks, block_cameras)
+- [x] Arrival confirmation delay — forhindrer GPS-flicker i at resette igangvaerende timers
+- [x] Samlet notifikation naar alle Auto Actions er afsluttet (admin eller alle brugere)
+- [x] Special Features-tab i panelet — Auto Actions UI + Fake Presence v2 UI
+- [x] Store migration: `fake_presence: bool` → v2 dict (backward-compatible, lazy)
+- [x] 4 nye WS endpoints: `get/save_auto_actions`, `get/save_fake_presence_v2`
+- [x] CHANGELOG.md + README.md + STATUS.md opdateret
+
+### Sensor-dropdown arkitektur (vigtigt)
+- Flyout renderes som `<div id="sm-fp-sensor-flyout">` direkte i shadow root (`position:fixed`)
+- Farver er hardkodede (#1a1a2e bg, #e8e8f0 tekst) — CSS vars virker ikke paa fixed-position i shadow DOM
+- `showFlyout()` er no-op hvis listen allerede er synlig (forhindrer scroll-reset)
+- Lukkes KUN via `document pointerdown` udenfor input+flyout — aldrig fra `_render()` eller `set hass()`
+- `_fpActiveFlyout` reference paa `this` bruges til cleanup i `_fpUpdateInspector()`
+- `flyout._smCleanup()` fjerner document-listener naar flyout fjernes
+
+### Mangler inden v1.5.0 release
+- [ ] Grundig live-test: sensor-dropdown, opening-markering, Auto Actions end-to-end
+- [ ] Version bump fra v1.4.3 → v1.5.0 i alle 26+ filer (`tools/validate_version.py --fix`)
+- [ ] Commit + push via GitHub Desktop
 
 ---
 

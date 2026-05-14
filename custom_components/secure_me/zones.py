@@ -1,5 +1,5 @@
 """Zone management for Secure Me."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 import asyncio
 import logging
@@ -815,15 +815,24 @@ class ZoneManager:
         self.reset_sensor_groups()
         _LOGGER.info("Cleared all zone triggers")
 
-    def check_for_open_sensors(self, bypass_list: list[str] | None = None) -> bool:
+    def check_for_open_sensors(
+        self,
+        bypass_list: list[str] | None = None,
+        arm_mode: str | None = None,
+    ) -> bool:
         """Check if any sensors are currently open.
 
         Returns True if open (non-bypassed) sensors found.
         bypass_list: sensors to skip (auto_bypass candidates).
+        arm_mode: when given, only zones active for this mode are checked.
+                  Prevents sensors in away-only zones from blocking a
+                  home/night/home_alone arm attempt.
         """
         bypass = set(bypass_list or [])
         for zone in self._zones.values():
             if not zone.enabled:
+                continue
+            if arm_mode and not zone.is_active_for_mode(arm_mode):
                 continue
             for sensor in zone.sensors:
                 if sensor in bypass:

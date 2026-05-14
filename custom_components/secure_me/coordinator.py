@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 import asyncio
 import logging
@@ -71,6 +71,7 @@ from .const import (
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
 from .module_manager import ModuleManager
+from .auto_actions import AutoActionsManager
 from .modules import (
     CameraModule,
     ClimateModule,
@@ -454,6 +455,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         # v1.4.0: Presence-based auto-arm monitor (started after store is loaded)
         self._presence_monitor: PresenceMonitor | None = None
+        self._auto_actions_manager: AutoActionsManager | None = None
 
     # ── Scheduled test runner ────────────────────────────────────────────────
 
@@ -950,7 +952,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="away")
 
         if not force:
-            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed, arm_mode="away"):
                 open_list = self.zone_manager.get_all_open_sensors()
                 _LOGGER.warning("Cannot arm — open sensors: %s", open_list)
                 # v1.4.3: Fire failed_to_arm event so HA automations can react
@@ -990,7 +992,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="home")
 
         if not force:
-            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed, arm_mode="home"):
                 open_list = self.zone_manager.get_all_open_sensors()
                 _LOGGER.warning("Cannot arm home — open sensors: %s", open_list)
                 self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
@@ -1026,7 +1028,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="night")
 
         if not force:
-            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed, arm_mode="night"):
                 open_list = self.zone_manager.get_all_open_sensors()
                 _LOGGER.warning("Cannot arm night — open sensors: %s", open_list)
                 self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
@@ -1062,7 +1064,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="vacation")
 
         if not force:
-            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed, arm_mode="vacation"):
                 open_list = self.zone_manager.get_all_open_sensors()
                 _LOGGER.warning("Cannot arm vacation — open sensors: %s", open_list)
                 self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
@@ -1098,7 +1100,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         bypassed = self.zone_manager.get_auto_bypass_sensors(all_sensors, arm_mode="home_alone")
 
         if not force:
-            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed):
+            if self.zone_manager.check_for_open_sensors(bypass_list=bypassed, arm_mode="home_alone"):
                 open_list = self.zone_manager.get_all_open_sensors()
                 _LOGGER.warning("Cannot arm home_alone — open sensors: %s", open_list)
                 self.hass.bus.async_fire(EVENT_ALARM_ARM_FAILED, {
@@ -1401,6 +1403,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self._presence_monitor = PresenceMonitor(self.hass, self)
             self._presence_monitor.async_setup()
 
+        # v1.5.0: Start Auto Actions manager (person.* based, per-feature delays)
+        if not hasattr(self, "_auto_actions_manager") or self._auto_actions_manager is None:
+            self._auto_actions_manager = AutoActionsManager(self.hass, self, store)
+            self._auto_actions_manager.async_start()
+
     # ── Health ───────────────────────────────────────────────────────────────
 
     def get_health_score(self) -> int:
@@ -1555,6 +1562,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if self._presence_monitor is not None:
             self._presence_monitor.async_teardown()
             self._presence_monitor = None
+
+        # v1.5.0: Teardown Auto Actions manager
+        if self._auto_actions_manager is not None:
+            await self._auto_actions_manager.async_stop()
+            self._auto_actions_manager = None
 
         if hasattr(self, "modules"):
             for mid, module in self.modules.items():

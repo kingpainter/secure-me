@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 from homeassistant.const import Platform
 
@@ -7,22 +7,22 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.4.3"
+VERSION = "1.5.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
-# ── Error handling ──────────────────────────────────────────────────────────
-# Retry defaults (used by base module and coordinator)
-DEFAULT_RETRY_MAX = 3          # max attempts for service calls
-DEFAULT_RETRY_DELAY = 2.0      # seconds between retries (exponential base)
-DEFAULT_RETRY_BACKOFF = 2.0    # multiplier per retry (2s, 4s, 8s)
+# -- Error handling ----------------------------------------------------------
+DEFAULT_RETRY_MAX = 3
+DEFAULT_RETRY_DELAY = 2.0
+DEFAULT_RETRY_BACKOFF = 2.0
 
 # Notification IDs (persistent_notification)
 NOTIFY_ID_MODULE_ERROR = "secure_me_module_error"
 NOTIFY_ID_RECOVERY = "secure_me_recovery"
 NOTIFY_ID_FAKE_PRESENCE = "secure_me_fake_presence"
+NOTIFY_ID_AUTO_ACTIONS = "secure_me_auto_actions"
 
-# ── Fake Presence ────────────────────────────────────────────────────────────
+# -- Fake Presence (v1 legacy + v2 config keys) ------------------------------
 CONF_FAKE_PRESENCE = "fake_presence"
 CONF_HOME_ALONE_CAMERAS = "home_alone_cameras"
 
@@ -34,13 +34,19 @@ FAKE_PRESENCE_OFF_DA = "Secure Me: Fake Presence deaktiveret. Automatisk aktiver
 EVENT_FAKE_PRESENCE_CHANGED = f"{DOMAIN}_fake_presence_changed"
 EVENT_PRESENCE_CHANGED = f"{DOMAIN}_presence_changed"
 
-# Error messages — English
+# Fake Presence v2 config field names (stored under 'fake_presence' store key)
+FP_ACTIVE        = "active"
+FP_BLOCK_ALARM   = "block_alarm"
+FP_BLOCK_LOCKS   = "block_locks"
+FP_BLOCK_CAMERAS = "block_cameras"
+
+# -- Error messages - English ------------------------------------------------
 ERROR_MODULE_FAILED_EN = "Secure Me: Module '{module}' failed during '{action}'. Check logs."
 ERROR_ENTITY_UNAVAILABLE_EN = "Secure Me: Entity '{entity}' is unavailable. Check device connection."
 ERROR_RETRY_EXHAUSTED_EN = "Secure Me: Module '{module}' failed after {retries} retries for '{action}'."
 ERROR_RECOVERY_OK_EN = "Secure Me: Module '{module}' recovered successfully after retry."
 
-# Error messages — Danish
+# -- Error messages - Danish -------------------------------------------------
 ERROR_MODULE_FAILED_DA = "Secure Me: Modul '{module}' fejlede under '{action}'. Tjek loggen."
 ERROR_ENTITY_UNAVAILABLE_DA = "Secure Me: Enhed '{entity}' er ikke tilgaengelig. Tjek enhedens forbindelse."
 ERROR_RETRY_EXHAUSTED_DA = "Secure Me: Modul '{module}' fejlede efter {retries} forsoeg paa '{action}'."
@@ -99,32 +105,23 @@ EVENT_MODULE_ENABLED = f"{DOMAIN}_module_enabled"
 EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
 EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
 
-# v1.4.3 - Rich error events (Alarmo-inspired) so HA automations can react to
-# arm failures, invalid codes, and forbidden state transitions instead of
-# silently seeing a False return value.
-EVENT_ALARM_ARM_FAILED       = f"{DOMAIN}_arm_failed"        # open sensors blocked arming
-EVENT_ALARM_INVALID_CODE     = f"{DOMAIN}_invalid_code"      # wrong PIN entered
-EVENT_ALARM_COMMAND_REJECTED = f"{DOMAIN}_command_rejected"  # state machine refused (e.g. arm while triggered)
+# v1.4.3 rich error events
+EVENT_ALARM_ARM_FAILED       = f"{DOMAIN}_arm_failed"
+EVENT_ALARM_INVALID_CODE     = f"{DOMAIN}_invalid_code"
+EVENT_ALARM_COMMAND_REJECTED = f"{DOMAIN}_command_rejected"
 
-# v1.4.3 - Predictive event (Alarmo-inspired): fired when the set of arm
-# modes that can currently be entered without bypass changes. Frontends can
-# subscribe to enable/disable arm buttons live as sensor states change
-# (e.g. "Away" disabled while front door is open, re-enabled when closed).
-# Payload: {"ready_modes": list[str], "blocked_modes": dict[str, list[str]]}
-# where blocked_modes maps mode -> list of open sensor entity_ids.
 EVENT_READY_TO_ARM_MODES_CHANGED = f"{DOMAIN}_ready_to_arm_modes_changed"
 
-# Mobile push notification action events (Alarmo-inspired)
-# These are fired by HA mobile_app when user taps action buttons in a push notification.
+# Mobile push notification action events
 PUSH_EVENT = "mobile_app_notification_action"
 
-EVENT_ACTION_FORCE_ARM   = "SECURE_ME_FORCE_ARM"
-EVENT_ACTION_RETRY_ARM   = "SECURE_ME_RETRY_ARM"
-EVENT_ACTION_DISARM      = "SECURE_ME_DISARM"
-EVENT_ACTION_ARM_AWAY    = "SECURE_ME_ARM_AWAY"
-EVENT_ACTION_ARM_HOME    = "SECURE_ME_ARM_HOME"
-EVENT_ACTION_ARM_NIGHT   = "SECURE_ME_ARM_NIGHT"
-EVENT_ACTION_ARM_VACATION  = "SECURE_ME_ARM_VACATION"
+EVENT_ACTION_FORCE_ARM      = "SECURE_ME_FORCE_ARM"
+EVENT_ACTION_RETRY_ARM      = "SECURE_ME_RETRY_ARM"
+EVENT_ACTION_DISARM         = "SECURE_ME_DISARM"
+EVENT_ACTION_ARM_AWAY       = "SECURE_ME_ARM_AWAY"
+EVENT_ACTION_ARM_HOME       = "SECURE_ME_ARM_HOME"
+EVENT_ACTION_ARM_NIGHT      = "SECURE_ME_ARM_NIGHT"
+EVENT_ACTION_ARM_VACATION   = "SECURE_ME_ARM_VACATION"
 EVENT_ACTION_ARM_HOME_ALONE = "SECURE_ME_ARM_HOME_ALONE"
 
 PUSH_EVENT_ACTIONS = [
@@ -163,13 +160,12 @@ ATTR_MODULE_STATE = "module_state"
 ATTR_MODULE_STATUS = "module_status"
 ATTR_MODULE_CONFIG = "module_config"
 
-# v1.4.3 - Attributes exposed on alarm_control_panel entity
-ATTR_BYPASSED_SENSORS = "bypassed_sensors"  # list of entity_ids auto-bypassed at arm
-ATTR_LAST_TRIGGERED   = "last_triggered"    # ISO timestamp of last trigger event
+ATTR_BYPASSED_SENSORS = "bypassed_sensors"
+ATTR_LAST_TRIGGERED   = "last_triggered"
 
 # Update intervals
-SCAN_INTERVAL = 30  # seconds
-STATE_MACHINE_UPDATE_INTERVAL = 1  # Update every second for countdown
+SCAN_INTERVAL = 30
+STATE_MACHINE_UPDATE_INTERVAL = 1
 
 # Coordinator
 COORDINATOR = "coordinator"
@@ -214,71 +210,83 @@ LIGHT_MODE_ALARM = "alarm"
 LIGHT_MODE_BLINKING = "blinking"
 
 # TTS languages
-TTS_LANG_DA = "da"  # Danish
-TTS_LANG_EN = "en"  # English
+TTS_LANG_DA = "da"
+TTS_LANG_EN = "en"
 
-# ── Storage versioning ────────────────────────────────────────────────────────
-# Bump MAJOR when schema is incompatible (migration required).
-# Bump MINOR for additive changes (new optional fields).
+# Storage versioning
 STORAGE_VERSION_MAJOR = 2
-STORAGE_VERSION_MINOR = 0
+STORAGE_VERSION_MINOR = 1
 
-# ── Sensor group constants ────────────────────────────────────────────────────
-# Sensor groups allow anti-masking: only trigger alarm when N sensors activate
-# within a time window. Inspired by Alarmo's SensorGroupEntry.
+# Sensor group constants
 ATTR_SENSOR_GROUP_ID = "group_id"
 ATTR_SENSOR_GROUP_NAME = "name"
 ATTR_SENSOR_GROUP_ENTITIES = "entities"
-ATTR_SENSOR_GROUP_TIMEOUT = "timeout"       # seconds: window for event_count triggers
-ATTR_SENSOR_GROUP_EVENT_COUNT = "event_count"  # how many sensors must trigger
+ATTR_SENSOR_GROUP_TIMEOUT = "timeout"
+ATTR_SENSOR_GROUP_EVENT_COUNT = "event_count"
 
-# ── Sensor per-sensor config fields ──────────────────────────────────────────
-ATTR_SENSOR_ENTRY_DELAY = "entry_delay"     # per-sensor override (seconds, None = use zone default)
-ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"     # legacy v1.2.0 global flag, still read for backwards compat
-ATTR_SENSOR_AUTO_BYPASS_MODES = "auto_bypass_modes"  # v1.4.3: list of arm modes where this sensor auto-bypasses
-ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"   # auto-arm when sensor closes
+# Per-sensor config fields
+ATTR_SENSOR_ENTRY_DELAY = "entry_delay"
+ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"
+ATTR_SENSOR_AUTO_BYPASS_MODES = "auto_bypass_modes"
+ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"
 
-# ── Home Alone mode constants ─────────────────────────────────────────────────
-# Per-sensor config fields used when a zone is active in home_alone arm mode.
-CONF_HOME_ALONE_CAMERA   = "home_alone_camera"        # entity_id of camera to snapshot on trigger
-CONF_HOME_ALONE_SPEAKER  = "home_alone_tts_speaker"   # entity_id of TTS media_player for this sensor
-CONF_HOME_ALONE_ACTION_1 = "home_alone_action_1"      # text for push action button 1
-CONF_HOME_ALONE_ACTION_2 = "home_alone_action_2"      # text for push action button 2
+# Home Alone mode constants
+CONF_HOME_ALONE_CAMERA   = "home_alone_camera"
+CONF_HOME_ALONE_SPEAKER  = "home_alone_tts_speaker"
+CONF_HOME_ALONE_ACTION_1 = "home_alone_action_1"
+CONF_HOME_ALONE_ACTION_2 = "home_alone_action_2"
 
-# Default action button texts (editable per sensor in UI)
 HOME_ALONE_DEFAULT_ACTION_1 = "Where are you going?"
 HOME_ALONE_DEFAULT_ACTION_2 = "Please close the door."
 
-# Push action event identifiers for Home Alone action buttons
 EVENT_HOME_ALONE_ACTION_1 = "SECURE_ME_HOME_ALONE_ACTION_1"
 EVENT_HOME_ALONE_ACTION_2 = "SECURE_ME_HOME_ALONE_ACTION_2"
 
-# ── Floorplan (Home Alone live-view) ────────────────────────────
-# v1.5.0: optional floorplan image with sensor markers, shown live in Home
-# Alone mode so users can see which rooms have motion. Image is stored on
-# disk under custom_components/secure_me/floorplan/ and exposed via the
-# panel's existing static-resource handler so the browser can fetch it.
-FLOORPLAN_DIR_NAME = "floorplan"           # subfolder of the integration
-FLOORPLAN_IMAGE_NAME = "floorplan.png"     # canonical filename (we always normalise to PNG)
-FLOORPLAN_URL_PATH = f"/api/{DOMAIN}-panel/floorplan/{FLOORPLAN_IMAGE_NAME}"
-FLOORPLAN_MAX_BYTES = 4 * 1024 * 1024      # 4 MB upload cap
+# Floorplan (Home Alone live-view)
+FLOORPLAN_DIR_NAME   = "floorplan"
+FLOORPLAN_IMAGE_NAME = "floorplan.png"
+FLOORPLAN_URL_PATH   = f"/api/{DOMAIN}-panel/floorplan/{FLOORPLAN_IMAGE_NAME}"
+FLOORPLAN_MAX_BYTES  = 4 * 1024 * 1024
 
-# Floorplan store keys
-ATTR_FLOORPLAN_IMAGE_URL = "image_url"     # public URL the frontend uses
-ATTR_FLOORPLAN_WIDTH = "width"             # original image pixel width
-ATTR_FLOORPLAN_HEIGHT = "height"           # original image pixel height
-ATTR_FLOORPLAN_MARKERS = "markers"         # dict[entity_id, marker_config]
+ATTR_FLOORPLAN_IMAGE_URL = "image_url"
+ATTR_FLOORPLAN_WIDTH     = "width"
+ATTR_FLOORPLAN_HEIGHT    = "height"
+ATTR_FLOORPLAN_MARKERS   = "markers"
 
-# Marker config keys (per sensor)
-ATTR_MARKER_X_PCT = "x_pct"                # horizontal position as percent (0-100)
-ATTR_MARKER_Y_PCT = "y_pct"                # vertical position as percent (0-100)
-ATTR_MARKER_LABEL = "label"                # null = use entity friendly_name
-ATTR_MARKER_KIND = "kind"                  # "motion" | "door" | "window" -- drives icon/colour
+ATTR_MARKER_X_PCT = "x_pct"
+ATTR_MARKER_Y_PCT = "y_pct"
+ATTR_MARKER_LABEL = "label"
+ATTR_MARKER_KIND  = "kind"
 
-# ── Auto-arm (presence-based) ─────────────────────────────────────────────────
-# Seconds all tracked users must be away before auto-arm triggers
-AUTO_ARM_AWAY_DELAY = 900  # 15 minutes
-
-# Push notification message sent after auto-arm executes
-AUTO_ARM_PUSH_TITLE = "Secure Me: Auto-armed"
+# Auto-arm (presence-based) - kept for backwards-compat with coordinator.py
+AUTO_ARM_AWAY_DELAY   = 900
+AUTO_ARM_PUSH_TITLE   = "Secure Me: Auto-armed"
 AUTO_ARM_PUSH_MESSAGE = "All residents left home. Alarm, locks and cameras have been secured automatically."
+
+# Auto Actions v2
+# Presence-driven per-feature automatic actions with individual delays,
+# arrival confirmation, and Fake Presence v2 selective blocking.
+
+# HA events
+EVENT_HOME_EMPTY       = f"{DOMAIN}_home_empty"
+EVENT_PERSON_HOME      = f"{DOMAIN}_person_home"
+EVENT_AUTO_ACTION_DONE = f"{DOMAIN}_auto_action_done"
+
+# Store key
+CONF_AUTO_ACTIONS = "auto_actions"
+
+# Config field names
+AA_LOCK_ENABLED   = "auto_lock_enabled"
+AA_LOCK_DELAY     = "auto_lock_delay"
+AA_ALARM_ENABLED  = "auto_alarm_enabled"
+AA_ALARM_DELAY    = "auto_alarm_delay"
+AA_CAMERA_ENABLED = "auto_camera_enabled"
+AA_CAMERA_DELAY   = "auto_camera_delay"
+AA_ARRIVAL_DELAY  = "arrival_confirmation_delay"
+AA_NOTIFY_ALL     = "notify_all_users"
+
+# Defaults (seconds)
+DEFAULT_AA_LOCK_DELAY    = 120
+DEFAULT_AA_ALARM_DELAY   = 300
+DEFAULT_AA_CAMERA_DELAY  = 0
+DEFAULT_AA_ARRIVAL_DELAY = 60

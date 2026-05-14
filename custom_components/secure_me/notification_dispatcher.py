@@ -27,7 +27,7 @@ User notification settings (on each user object):
   tts_quiet_start: int|None  — hour (0-23) start of TTS quiet period
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 from __future__ import annotations
 

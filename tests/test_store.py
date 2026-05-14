@@ -1,5 +1,5 @@
 """Tests for Secure Me store."""
-# VERSION = "1.4.0"
+# VERSION = "1.5.0"
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -17,14 +17,56 @@ class TestStoreDefaults:
         expected_keys = {"sensors", "sensor_groups", "zones", "users", "modules",
                          "notifications", "automations", "scheduled_tests",
                          "speaker_profiles",
-                         "fake_presence", "home_alone_cameras"}
+                         "fake_presence", "home_alone_cameras",
+                         "auto_actions",
+                         "floorplan"}
         assert set(defaults.keys()) == expected_keys
 
-    def test_default_fake_presence_is_false(self):
+    def test_default_fake_presence_is_dict_v2(self):
+        """fake_presence is now a v2 dict, not a plain bool."""
         mock_hass = MagicMock()
         store = SecureMeStore(mock_hass)
         defaults = store._default_data()
-        assert defaults["fake_presence"] is False
+        fp = defaults["fake_presence"]
+        assert isinstance(fp, dict)
+        assert fp["active"] is False
+        assert "block_alarm" in fp
+        assert "block_locks" in fp
+        assert "block_cameras" in fp
+
+    def test_default_fake_presence_active_is_false(self):
+        """get_fake_presence() returns False when fake_presence.active is False."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        assert store.get_fake_presence() is False
+
+    def test_default_auto_actions_has_expected_keys(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        defaults = store._default_data()
+        aa = defaults["auto_actions"]
+        expected = {
+            "auto_lock_enabled", "auto_lock_delay",
+            "auto_alarm_enabled", "auto_alarm_delay",
+            "auto_camera_enabled", "auto_camera_delay",
+            "arrival_confirmation_delay", "notify_all_users",
+        }
+        assert set(aa.keys()) == expected
+
+    def test_default_auto_actions_defaults(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        defaults = store._default_data()
+        aa = defaults["auto_actions"]
+        assert aa["auto_lock_enabled"] is True
+        assert aa["auto_lock_delay"] == 120
+        assert aa["auto_alarm_enabled"] is True
+        assert aa["auto_alarm_delay"] == 300
+        assert aa["auto_camera_enabled"] is True
+        assert aa["auto_camera_delay"] == 0
+        assert aa["arrival_confirmation_delay"] == 60
+        assert aa["notify_all_users"] is False
 
     def test_default_home_alone_cameras_is_empty(self):
         mock_hass = MagicMock()
@@ -106,11 +148,51 @@ class TestStoreFakePresence:
         mock_hass = MagicMock()
         store = SecureMeStore(mock_hass)
         store._data = store._default_data()
-        store._data["fake_presence"] = True
+        # Set active via the v2 dict
+        store._data["fake_presence"]["active"] = True
         store._store = MagicMock()
         store._store.async_save = AsyncMock()
 
         await store.async_set_fake_presence(False)
+        assert store.get_fake_presence() is False
+
+    def test_get_fake_presence_v2_returns_dict(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        fp = store.get_fake_presence_v2()
+        assert isinstance(fp, dict)
+        assert "active" in fp
+        assert "block_alarm" in fp
+        assert "block_locks" in fp
+        assert "block_cameras" in fp
+
+    @pytest.mark.asyncio
+    async def test_save_fake_presence_v2(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        config = {"active": True, "block_alarm": False, "block_locks": True, "block_cameras": False}
+        await store.async_save_fake_presence_v2(config)
+        fp = store.get_fake_presence_v2()
+        assert fp["active"] is True
+        assert fp["block_locks"] is True
+        assert fp["block_alarm"] is False
+        # get_fake_presence() (v1 compat) should also reflect active state
+        assert store.get_fake_presence() is True
+
+    @pytest.mark.asyncio
+    async def test_legacy_bool_migration(self):
+        """If store has old bool fake_presence, get_fake_presence() still works."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._data["fake_presence"] = True  # legacy bool
+        assert store.get_fake_presence() is True
+        store._data["fake_presence"] = False
         assert store.get_fake_presence() is False
 
     def test_get_home_alone_cameras_default_empty(self):

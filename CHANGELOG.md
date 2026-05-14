@@ -1,3 +1,39 @@
+## [1.5.0] - unreleased (in progress)
+
+### Feature: Floorplan med rum-tegning, sensor-tilknytning og dor/vindue-markering
+
+#### Floorplan-tab
+- Upload PNG planlosning (maks 4 MB)
+- Tegn rum som rektangler eller polygoner direkte paa kortet
+- Rum faar navn, farve og sensor-tilknytning
+- Live-view i Home Alone mode: rum gloer naar tilknyttet sensor aktiveres
+
+#### Sensor-tilknytning (searchable dropdown)
+- Custom teleporteret flyout (`<div id="sm-fp-sensor-flyout">`) i shadow root
+- `position:fixed` med `getBoundingClientRect()` for korrekt placering uanset scroll
+- Hardkodede farver (CSS vars virker ikke paa fixed-position elementer i shadow DOM)
+- `showFlyout()` er no-op hvis listen er synlig (forhindrer scroll-reset ved focus-events)
+- Lukkes KUN via `document pointerdown` med `composedPath()` — aldrig fra `_render()` / `set hass()`
+- Soegning filtrerer listen live uden at resette scroll-position
+
+#### Dor/vindue-markering
+- Nyt draw-tool `opening` i toolbar — tegn en linje ved at traekke paa kortet
+- Openings gemmes i `fp.openings[]` (globalt paa floorplan, ikke pr. rum)
+- Visning: hvid linje = dor, gul linje = vindue
+- Klik paa markering aabner inspector: vaelg type (dor/vindue) eller slet
+- Valgt opening fremhaeves med hvid glow bag stregen
+
+#### Backend
+- `store.py`: `_empty_floorplan()` + `get_floorplan()` + `async_save_floorplan_rooms()` opdateret med `openings: []`
+- `websocket_api.py`: `ws_save_floorplan_markers` accepterer nu `vol.Optional("openings"): list` og sender til store
+
+#### Filer aendret
+- `frontend/secure-me-panel.js` (major)
+- `store.py`
+- `websocket_api.py`
+
+---
+
 ## [1.4.3] - 2026-04-28
 
 ### Fix: Home Alone mode triggered alarm on motion sensors (kritisk)

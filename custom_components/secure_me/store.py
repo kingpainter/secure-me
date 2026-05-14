@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.4.3"
+# VERSION = "1.5.0"
 
 import base64
 import concurrent.futures
@@ -20,6 +20,23 @@ from .const import (
     ATTR_FLOORPLAN_WIDTH,
     ATTR_FLOORPLAN_HEIGHT,
     ATTR_FLOORPLAN_MARKERS,
+    CONF_AUTO_ACTIONS,
+    AA_LOCK_ENABLED,
+    AA_LOCK_DELAY,
+    AA_ALARM_ENABLED,
+    AA_ALARM_DELAY,
+    AA_CAMERA_ENABLED,
+    AA_CAMERA_DELAY,
+    AA_ARRIVAL_DELAY,
+    AA_NOTIFY_ALL,
+    DEFAULT_AA_LOCK_DELAY,
+    DEFAULT_AA_ALARM_DELAY,
+    DEFAULT_AA_CAMERA_DELAY,
+    DEFAULT_AA_ARRIVAL_DELAY,
+    FP_ACTIVE,
+    FP_BLOCK_ALARM,
+    FP_BLOCK_LOCKS,
+    FP_BLOCK_CAMERAS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -146,6 +163,25 @@ class SecureMeStore:
             )
             await self._store.async_save(self._data)
 
+        # v1.5.0+: Lazy backfill of auto_actions key.
+        if CONF_AUTO_ACTIONS not in self._data:
+            self._data[CONF_AUTO_ACTIONS] = self._default_auto_actions()
+            _LOGGER.info("Backfilled auto_actions defaults on existing store")
+            await self._store.async_save(self._data)
+
+        # v1.5.0+: Lazy migration of fake_presence from plain bool to v2 dict.
+        fp = self._data.get("fake_presence")
+        if not isinstance(fp, dict):
+            # Preserve the old active state if it was True
+            was_active = bool(fp) if fp is not None else False
+            self._data["fake_presence"] = self._default_fake_presence_v2()
+            self._data["fake_presence"][FP_ACTIVE] = was_active
+            _LOGGER.info(
+                "Migrated fake_presence from bool (%s) to v2 dict",
+                was_active,
+            )
+            await self._store.async_save(self._data)
+
         _LOGGER.info(
             "Secure Me store loaded (%d sensors, %d zones, %d users, %d sensor_groups)",
             len(self._data.get("sensors", {})),
@@ -183,6 +219,7 @@ class SecureMeStore:
             "speaker_profiles": [],
             "fake_presence": False,
             "home_alone_cameras": [],
+            CONF_AUTO_ACTIONS: self._default_auto_actions(),
             # v1.5.0 floorplan (Home Alone live-view).
             # Empty by default -- frontend treats image_url=None as "no floorplan configured".
             "floorplan": {
@@ -194,6 +231,30 @@ class SecureMeStore:
         }
 
     # ─── bcrypt helpers ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _default_auto_actions() -> dict:
+        """Return default Auto Actions v2 configuration."""
+        return {
+            AA_LOCK_ENABLED:   True,
+            AA_LOCK_DELAY:     DEFAULT_AA_LOCK_DELAY,
+            AA_ALARM_ENABLED:  True,
+            AA_ALARM_DELAY:    DEFAULT_AA_ALARM_DELAY,
+            AA_CAMERA_ENABLED: True,
+            AA_CAMERA_DELAY:   DEFAULT_AA_CAMERA_DELAY,
+            AA_ARRIVAL_DELAY:  DEFAULT_AA_ARRIVAL_DELAY,
+            AA_NOTIFY_ALL:     False,
+        }
+
+    @staticmethod
+    def _default_fake_presence_v2() -> dict:
+        """Return default Fake Presence v2 configuration."""
+        return {
+            FP_ACTIVE:        False,
+            FP_BLOCK_ALARM:   True,
+            FP_BLOCK_LOCKS:   False,
+            FP_BLOCK_CAMERAS: False,
+        }
 
     @staticmethod
     def _hash_code(code: str) -> str:
@@ -600,19 +661,22 @@ class SecureMeStore:
             ATTR_FLOORPLAN_WIDTH: 0,
             ATTR_FLOORPLAN_HEIGHT: 0,
             ATTR_FLOORPLAN_MARKERS: {},
+            "rooms": {},
+            "openings": [],
         }
 
     def get_floorplan(self) -> dict[str, Any]:
-        """Get full floorplan config (image url + dimensions + markers)."""
+        """Get full floorplan config (image url + dimensions + rooms + legacy markers)."""
         fp = self._data.get("floorplan")
         if not fp:
             return self._empty_floorplan()
-        # Ensure all keys are present even if a partial dict was persisted.
         return {
             ATTR_FLOORPLAN_IMAGE_URL: fp.get(ATTR_FLOORPLAN_IMAGE_URL),
             ATTR_FLOORPLAN_WIDTH: fp.get(ATTR_FLOORPLAN_WIDTH, 0),
             ATTR_FLOORPLAN_HEIGHT: fp.get(ATTR_FLOORPLAN_HEIGHT, 0),
             ATTR_FLOORPLAN_MARKERS: fp.get(ATTR_FLOORPLAN_MARKERS, {}),
+            "rooms": fp.get("rooms", {}),
+            "openings": fp.get("openings", []),
         }
 
     async def async_save_floorplan_image(
@@ -620,31 +684,100 @@ class SecureMeStore:
     ) -> None:
         """Save floorplan image metadata (url + dimensions).
 
-        Markers are preserved -- only the image fields are overwritten.
-        Use this after writing the image bytes to disk in websocket_api.
+        Rooms and markers are preserved -- only the image fields are overwritten.
         """
         fp = self._data.setdefault("floorplan", self._empty_floorplan())
         fp[ATTR_FLOORPLAN_IMAGE_URL] = image_url
         fp[ATTR_FLOORPLAN_WIDTH] = int(width)
         fp[ATTR_FLOORPLAN_HEIGHT] = int(height)
         fp.setdefault(ATTR_FLOORPLAN_MARKERS, {})
+        fp.setdefault("rooms", {})
+        await self.async_save()
+
+    async def async_save_floorplan_rooms(
+        self,
+        rooms: dict[str, dict[str, Any]],
+        openings: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Replace the full rooms dict and openings list.
+
+        v1.6.0: rooms replace the old flat markers structure.
+        v1.6.1: openings (doors/windows) added as separate list.
+        Image metadata is preserved.
+        """
+        fp = self._data.setdefault("floorplan", self._empty_floorplan())
+        fp["rooms"] = rooms or {}
+        if openings is not None:
+            fp["openings"] = openings
+        else:
+            fp.setdefault("openings", [])
         await self.async_save()
 
     async def async_save_floorplan_markers(
         self, markers: dict[str, dict[str, Any]]
     ) -> None:
-        """Replace the full markers dict (entity_id -> marker_config).
+        """Replace the full markers dict (legacy v1.5.0 format).
 
-        Image metadata is preserved.
+        Image metadata and rooms are preserved.
         """
         fp = self._data.setdefault("floorplan", self._empty_floorplan())
         fp[ATTR_FLOORPLAN_MARKERS] = markers or {}
         await self.async_save()
 
     async def async_delete_floorplan(self) -> None:
-        """Reset floorplan to empty (image url cleared, markers cleared).
+        """Reset floorplan to empty (image url cleared, rooms + markers cleared).
 
         Caller is responsible for unlinking the image file on disk.
         """
         self._data["floorplan"] = self._empty_floorplan()
+        await self.async_save()
+
+    # Auto Actions v2
+
+    def get_auto_actions(self) -> dict:
+        """Get current Auto Actions configuration with defaults for missing keys."""
+        stored = self._data.get(CONF_AUTO_ACTIONS, {})
+        defaults = self._default_auto_actions()
+        return {**defaults, **stored}
+
+    async def async_save_auto_actions(self, config: dict) -> None:
+        """Save Auto Actions configuration."""
+        current = self._data.get(CONF_AUTO_ACTIONS, {})
+        current.update(config)
+        self._data[CONF_AUTO_ACTIONS] = current
+        await self.async_save()
+
+    # Fake Presence v2
+
+    def get_fake_presence_v2(self) -> dict:
+        """Get Fake Presence v2 config dict. Always returns a full dict."""
+        fp = self._data.get("fake_presence", {})
+        if not isinstance(fp, dict):
+            return self._default_fake_presence_v2()
+        defaults = self._default_fake_presence_v2()
+        return {**defaults, **fp}
+
+    def get_fake_presence(self) -> bool:
+        """Get whether Fake Presence is currently active (v1 compat)."""
+        fp = self._data.get("fake_presence", False)
+        if isinstance(fp, dict):
+            return fp.get(FP_ACTIVE, False)
+        return bool(fp)
+
+    async def async_set_fake_presence(self, active: bool) -> None:
+        """Set Fake Presence active state, preserving other v2 fields."""
+        fp = self._data.get("fake_presence", {})
+        if not isinstance(fp, dict):
+            fp = self._default_fake_presence_v2()
+        fp[FP_ACTIVE] = active
+        self._data["fake_presence"] = fp
+        await self.async_save()
+
+    async def async_save_fake_presence_v2(self, config: dict) -> None:
+        """Save full Fake Presence v2 config dict."""
+        fp = self._data.get("fake_presence", {})
+        if not isinstance(fp, dict):
+            fp = self._default_fake_presence_v2()
+        fp.update(config)
+        self._data["fake_presence"] = fp
         await self.async_save()

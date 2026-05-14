@@ -1,6 +1,6 @@
 // secure-me-alarm-card.js
 // Secure Me — Alarm control card
-// VERSION = "1.4.3"
+// VERSION = "1.5.0"
 
 function _smEsc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -45,18 +45,21 @@ class SecureMeAlarmCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._hass           = null;
-    this._config         = {};
-    this._shellBuilt     = false;
-    this._pinValue       = "";
-    this._pinMode        = null;
-    this._pinError       = "";
-    this._ttsSending     = null;
-    this._ttsError       = null;
-    this._dynamicMsgs    = null;
-    this._locks          = [];
-    this._localCountdown = null;
-    this._countdownTimer = null;
+    this._hass              = null;
+    this._config            = {};
+    this._shellBuilt        = false;
+    this._pinValue          = "";
+    this._pinMode           = null;
+    this._pinError          = "";
+    this._ttsSending        = null;
+    this._ttsError          = null;
+    this._dynamicMsgs       = null;
+    this._locks             = [];
+    this._localCountdown    = null;
+    this._countdownTimer    = null;
+    this._floorplan         = null;
+    this._floorplanLoaded   = false;
+    this._lastFpSensorStates = {};
   }
 
   setConfig(config) { this._config = config; }
@@ -69,6 +72,36 @@ class SecureMeAlarmCard extends HTMLElement {
       this._loadDynamic();
     } else {
       this._update();
+    }
+
+    // Live floorplan sensor tracking: repaint canvas when in Home Alone mode
+    // and any assigned sensor state has changed, without a full body rebuild.
+    if (
+      this._state() === "armed_home_alone" &&
+      this._floorplanLoaded &&
+      this._floorplan?.image_url
+    ) {
+      const allSensors = [];
+      for (const room of Object.values(this._floorplan.rooms || {})) {
+        (room.sensors || []).forEach(eid => allSensors.push(eid));
+      }
+      for (const op of (this._floorplan.openings || [])) {
+        if (op.entity_id) allSensors.push(op.entity_id);
+      }
+      if (allSensors.length > 0) {
+        const prev = this._lastFpSensorStates;
+        let changed = false;
+        const next = {};
+        for (const eid of allSensors) {
+          const v = h.states?.[eid]?.state || "off";
+          next[eid] = v;
+          if (prev[eid] !== v) changed = true;
+        }
+        if (changed) {
+          this._lastFpSensorStates = next;
+          this._repaintFloorplan();
+        }
+      }
     }
     const state = this._state();
     const cd = this._attr("countdown");
@@ -87,10 +120,22 @@ class SecureMeAlarmCard extends HTMLElement {
 
   async _loadDynamic() {
     try {
-      const [msgRes, modRes] = await Promise.all([
+      const [msgRes, modRes, fpRes] = await Promise.all([
         this._hass.callWS({ type: "secure_me/get_home_alone_messages" }),
         this._hass.callWS({ type: "secure_me/get_modules" }),
+        this._hass.callWS({ type: "secure_me/get_floorplan" }).catch(() => null),
       ]);
+      // Floorplan
+      if (fpRes) {
+        this._floorplan = {
+          image_url: fpRes.image_url || null,
+          width:     fpRes.width     || 0,
+          height:    fpRes.height    || 0,
+          rooms:     fpRes.rooms     || fpRes.markers || {},
+          openings:  fpRes.openings  || [],
+        };
+      }
+      this._floorplanLoaded = true;
       this._dynamicMsgs = msgRes?.messages ?? null;
       const lockMod = modRes?.modules?.lock;
       if (lockMod?.enabled && lockMod.locks?.length) {
@@ -403,6 +448,36 @@ class SecureMeAlarmCard extends HTMLElement {
         }
         .pin-cancel:hover { background: rgba(255,255,255,0.04); }
 
+        /* ── Floorplan ── */
+        .fp-card {
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.07);
+          background: rgba(0,0,0,0.35);
+        }
+        @keyframes fp-dot-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50%       { opacity: 0.6; transform: scale(1.4); }
+        }
+        .fp-dot-active {
+          animation: fp-dot-pulse 1.1s ease-in-out infinite;
+          transform-origin: center;
+        }
+        @keyframes fp-room-glow {
+          0%, 100% { opacity: 0.32; }
+          50%       { opacity: 0.48; }
+        }
+        .fp-room-active polygon {
+          animation: fp-room-glow 2s ease-in-out infinite;
+        }
+        @keyframes fp-opening-pulse {
+          0%, 100% { opacity: 0.9; }
+          50%       { opacity: 0.5; }
+        }
+        .fp-opening-active {
+          animation: fp-opening-pulse 1.2s ease-in-out infinite;
+        }
+
         /* ── Animations ── */
         @keyframes sm-pulse-ring {
           0%   { box-shadow: 0 0 0 0 var(--glow); }
@@ -482,12 +557,162 @@ class SecureMeAlarmCard extends HTMLElement {
     const msgs   = this._showTTS() ? this._ttsMessages() : [];
     const locks  = this._locks;
     const showHA = this._showHA();
+    const showFp = state === "armed_home_alone" && this._floorplanLoaded && this._floorplan?.image_url;
 
     return [
       armed ? this._renderDisarm() : this._renderArmGrid(state, showHA),
+      showFp        ? this._renderFloorplan()  : "",
       locks.length  ? this._renderLocks()      : "",
       msgs.length   ? this._renderTTS(msgs)    : "",
     ].join("");
+  }
+
+  // ── Floorplan live-view (Home Alone mode only) ────────────────────────────
+  // Mirrors panel _renderFloorplanCanvas() in liveMode=true, editMode=false.
+  // Rooms: invisible unless active (sensor = on). Openings: always visible.
+  // Uses img+SVG overlay with padding-bottom aspect-ratio, same as panel.
+
+  _fpRoomIsActive(room) {
+    return (room.sensors || []).some(eid => this._hass?.states?.[eid]?.state === "on");
+  }
+
+  _fpPointsToSvgPolygon(points, vw, vh) {
+    return points.map(([x, y]) => `${(x / 100 * vw).toFixed(1)},${(y / 100 * vh).toFixed(1)}`).join(" ");
+  }
+
+  _buildFloorplanSVGContent(fp, VW, VH) {
+    const rooms       = fp.rooms    || {};
+    const openings    = fp.openings || [];
+    const roomEntries = Object.entries(rooms);
+    const palette     = ["#7c3aed","#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
+
+    // Rooms: only render active ones (live mode behaviour)
+    const svgRooms = roomEntries.map(([, room], idx) => {
+      const pts = room.points || [];
+      if (pts.length < 3) return "";
+      const color    = room.color || palette[idx % palette.length];
+      const isActive = this._fpRoomIsActive(room);
+      const polyPts  = this._fpPointsToSvgPolygon(pts, VW, VH);
+      // Inactive rooms: opacity 0 (invisible), active: glow fill
+      const fillOp   = isActive ? 0.35 : 0;
+      const strokeOp = isActive ? 0.8  : 0;
+      const cls      = isActive ? "fp-room-active" : "";
+      return `<polygon points="${polyPts}"
+                 fill="${color}" fill-opacity="${fillOp}"
+                 stroke="${color}" stroke-opacity="${strokeOp}"
+                 stroke-width="1.5" stroke-linejoin="round"
+                 class="${cls}" style="pointer-events:none"/>`;
+    }).join("");
+
+    // Openings: only visible when sensor is open (state = "on").
+    // If no entity_id assigned, keep invisible (consistent with rooms behaviour).
+    const svgOpenings = openings.map(op => {
+      if (!op.points || op.points.length < 2) return "";
+      const eid    = op.entity_id || null;
+      const isOpen = eid ? this._hass?.states?.[eid]?.state === "on" : false;
+      if (!isOpen) return "";
+      const [x1, y1] = op.points[0];
+      const [x2, y2] = op.points[1];
+      const sx1 = (x1 / 100 * VW).toFixed(1), sy1 = (y1 / 100 * VH).toFixed(1);
+      const sx2 = (x2 / 100 * VW).toFixed(1), sy2 = (y2 / 100 * VH).toFixed(1);
+      const color = op.type === "window" ? "#fbbf24" : "#ef4444";
+      const cls   = "fp-opening-active";
+      return `<line x1="${sx1}" y1="${sy1}" x2="${sx2}" y2="${sy2}"
+                stroke="${color}" stroke-width="6" stroke-linecap="round" opacity="0.9"
+                class="${cls}" style="pointer-events:none"/>
+              <circle cx="${sx1}" cy="${sy1}" r="5" fill="${color}" opacity="0.85" style="pointer-events:none"/>
+              <circle cx="${sx2}" cy="${sy2}" r="5" fill="${color}" opacity="0.85" style="pointer-events:none"/>`;
+    }).join("");
+
+    return svgRooms + svgOpenings;
+  }
+
+  _buildFloorplanLabels(fp) {
+    // Active room labels as HTML divs (same as panel live mode)
+    const rooms       = fp.rooms || {};
+    const roomEntries = Object.entries(rooms);
+    const palette     = ["#7c3aed","#3b82f6","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#ec4899"];
+
+    return roomEntries.map(([, room], idx) => {
+      const pts = room.points || [];
+      if (pts.length < 3 || !this._fpRoomIsActive(room)) return "";
+      const cx    = pts.reduce((s, [x]) => s + x, 0) / pts.length;
+      const cy    = pts.reduce((s, [, y]) => s + y, 0) / pts.length;
+      const color = room.color || palette[idx % palette.length];
+      return `<div style="position:absolute;left:${cx}%;top:${cy}%;
+                          transform:translate(-50%,-50%);
+                          background:${color}cc;
+                          color:#fff;font-size:11px;font-weight:700;
+                          padding:3px 8px;border-radius:6px;
+                          white-space:nowrap;pointer-events:none">
+                ${_smEsc(room.name || "")}
+              </div>`;
+    }).join("");
+  }
+
+  _renderFloorplan() {
+    const fp  = this._floorplan;
+    const url = fp.image_url;
+    const aspectRatio = fp.width && fp.height ? (fp.height / fp.width) : 0.6;
+    const VW  = 1000;
+    const VH  = Math.round(VW * aspectRatio);
+
+    const svgContent = this._buildFloorplanSVGContent(fp, VW, VH);
+    const labels     = this._buildFloorplanLabels(fp);
+
+    return `<div>
+      <div class="sec-label">Floorplan — Live</div>
+      <div class="fp-card">
+        <div id="sm-fp-canvas" style="position:relative;width:100%;
+              padding-bottom:${(aspectRatio * 100).toFixed(2)}%;
+              background:#111;overflow:hidden;border-radius:10px">
+          <img src="${_smEsc(url)}" alt="Floorplan" draggable="false"
+               style="position:absolute;inset:0;width:100%;height:100%;
+                      object-fit:contain;pointer-events:none">
+          <svg viewBox="0 0 ${VW} ${VH}"
+               style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"
+               xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="sm-fp-glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            ${svgContent}
+          </svg>
+          <div style="position:absolute;inset:0;pointer-events:none">
+            ${labels}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Repaint only the floorplan overlay without a full body rebuild
+  _repaintFloorplan() {
+    const canvas = this.shadowRoot?.getElementById("sm-fp-canvas");
+    if (!canvas) {
+      this._update(true);
+      return;
+    }
+    const fp  = this._floorplan;
+    const VW  = 1000;
+    const VH  = Math.round(VW * (fp.width && fp.height ? (fp.height / fp.width) : 0.6));
+
+    const svgEl   = canvas.querySelector("svg");
+    const labelEl = canvas.querySelector("div");
+
+    if (svgEl) {
+      svgEl.innerHTML = `<defs>
+        <filter id="sm-fp-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>${this._buildFloorplanSVGContent(fp, VW, VH)}`;
+    }
+    if (labelEl) {
+      labelEl.innerHTML = this._buildFloorplanLabels(fp);
+    }
   }
 
   _renderDisarm() {
