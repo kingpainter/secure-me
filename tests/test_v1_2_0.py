@@ -196,7 +196,7 @@ class TestStorageVersioning:
         assert STORAGE_VERSION_MAJOR == 2
 
     def test_storage_version_minor_is_0(self):
-        assert STORAGE_VERSION_MINOR == 0
+        assert STORAGE_VERSION_MINOR == 1
 
     def test_default_data_has_sensor_groups(self):
         mock_hass = MagicMock()

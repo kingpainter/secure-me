@@ -217,7 +217,7 @@ class SecureMeStore:
             "automations": {},
             "scheduled_tests": {},
             "speaker_profiles": [],
-            "fake_presence": False,
+            "fake_presence": self._default_fake_presence_v2(),
             "home_alone_cameras": [],
             CONF_AUTO_ACTIONS: self._default_auto_actions(),
             # v1.5.0 floorplan (Home Alone live-view).
