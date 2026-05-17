@@ -1075,6 +1075,17 @@ class SecureMePanel extends HTMLElement {
           </button>
         </div>
         <div class="sm-list-row-eid">${s.entity_id}</div>
+        ${s.enabled ? `
+          <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+            <button class="sm-btn ghost sm ${s.allow_open ? 'active' : ''}"
+                    data-allow-open="${s.entity_id}"
+                    title="Allow Open: sensor ignoreres ved arming (permanent bypass)"
+                    style="padding:3px 8px;font-size:11px;${s.allow_open ? 'color:var(--sm-warning,#f59e0b);border-color:var(--sm-warning,#f59e0b)' : 'color:var(--sm-text-tertiary)'}">
+              ${icon("unlock")} Allow Open
+            </button>
+            ${s.allow_open ? `<span style="font-size:11px;color:var(--sm-warning,#f59e0b)">Altid bypassed ved arming</span>` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
 
@@ -6715,6 +6726,33 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='toggle-sensors-inactive']").forEach(btn => {
       btn.addEventListener("click", () => {
         this._sensorsInactiveExpanded = !this._sensorsInactiveExpanded;
+        this._render();
+      });
+    });
+
+    // Allow Open toggle
+    root.querySelectorAll("[data-allow-open]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const eid = btn.dataset.allowOpen;
+        const s = this._data.sensors.find(s => s.entity_id === eid);
+        if (!s) return;
+        s.allow_open = !s.allow_open;
+        // Gem alle aktiverede sensorer med allow_open state
+        const bulk = {};
+        for (const sensor of this._data.sensors) {
+          if (sensor.enabled) {
+            bulk[sensor.entity_id] = {
+              enabled: true,
+              sensor_type: sensor.sensor_type,
+              entry_delay: sensor.entry_delay !== undefined ? sensor.entry_delay : null,
+              auto_bypass: !!sensor.auto_bypass,
+              auto_bypass_modes: Array.isArray(sensor.auto_bypass_modes) ? sensor.auto_bypass_modes : [],
+              arm_on_close: !!sensor.arm_on_close,
+              allow_open: !!sensor.allow_open,
+            };
+          }
+        }
+        await this._callWS("save_sensors", { sensors: bulk });
         this._render();
       });
     });
