@@ -1934,16 +1934,52 @@ async def ws_get_floorplan(
     fp = store.get_floorplan()
 
     # Self-heal: if the store thinks an image exists but the file is gone
-    # (e.g. user manually deleted it), report image_url=None so the frontend
-    # falls back to the upload state.
+    # (e.g. after a HACS update or manual deletion), report image_url=None
+    # so the frontend falls back to the upload state.
+    # IMPORTANT: only clear the image metadata -- rooms, openings, and sensor
+    # assignments must survive a HACS update. Use async_clear_floorplan_image()
+    # rather than async_delete_floorplan() to preserve room configuration.
     if fp.get(ATTR_FLOORPLAN_IMAGE_URL):
         _, floorplan_file = _floorplan_paths(hass)
         if not await hass.async_add_executor_job(os.path.isfile, floorplan_file):
             _LOGGER.info(
-                "Floorplan image missing on disk (%s) -- clearing store",
+                "Floorplan image missing on disk (%s) -- attempting restore from backup",
                 floorplan_file,
             )
-            await store.async_delete_floorplan()
+            # Try to restore from base64 backup stored in the store.
+            # This recovers the PNG automatically after a HACS update.
+            restored = await store.async_restore_floorplan_image_from_backup(
+                FLOORPLAN_URL_PATH
+            )
+            if restored:
+                image_bytes, _w, _h = restored
+                floorplan_dir, _ = _floorplan_paths(hass)
+
+                def _write_restore() -> None:
+                    os.makedirs(floorplan_dir, exist_ok=True)
+                    tmp = floorplan_file + ".tmp"
+                    with open(tmp, "wb") as fh:
+                        fh.write(image_bytes)
+                    os.replace(tmp, floorplan_file)
+
+                try:
+                    await hass.async_add_executor_job(_write_restore)
+                    _LOGGER.info(
+                        "Floorplan auto-restored from backup -- %d bytes written to %s",
+                        len(image_bytes), floorplan_file,
+                    )
+                except OSError as err:
+                    _LOGGER.warning(
+                        "Floorplan restore write failed (%s) -- clearing image metadata only",
+                        err,
+                    )
+                    await store.async_clear_floorplan_image()
+            else:
+                _LOGGER.info(
+                    "No floorplan backup available -- clearing image metadata only"
+                    " (rooms and openings preserved)",
+                )
+                await store.async_clear_floorplan_image()
             fp = store.get_floorplan()
 
     connection.send_result(msg["id"], fp)
@@ -2017,7 +2053,7 @@ async def ws_save_floorplan_image(
         connection.send_error(msg["id"], "write_failed", f"Could not write image: {err}")
         return
 
-    await store.async_save_floorplan_image(FLOORPLAN_URL_PATH, width, height)
+    await store.async_save_floorplan_image(FLOORPLAN_URL_PATH, width, height, image_b64=raw_b64)
     _LOGGER.info(
         "Floorplan image saved (%dx%d, %d bytes) -> %s",
         width, height, len(image_bytes), floorplan_file,

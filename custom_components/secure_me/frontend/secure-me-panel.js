@@ -2655,18 +2655,23 @@ class SecureMePanel extends HTMLElement {
 
   _renderOpeningInspector(idx, op) {
     const color = op.type === "window" ? "#fbbf24" : "#e2e8f0";
-    // Available door/window sensors from the sensor list
-    const openingSensors = (this._data.sensors || []).filter(s => {
+    // Available door/window sensors from the sensor list.
+    // _data.sensors may be empty if load failed -- show a helpful message
+    // rather than a silently empty <select>.
+    const allSensors = this._data.sensors || [];
+    const openingSensors = allSensors.filter(s => {
       const dc = s.device_class || "";
       return ["door","window","opening","garage_door"].includes(dc);
     });
     const currentEid = op.entity_id || "";
+    const sensorsEmpty = allSensors.length === 0;
+    const noOpeningSensors = !sensorsEmpty && openingSensors.length === 0;
     const sensorOptions = [
       '<option value="">-- Ingen sensor --</option>',
       ...openingSensors.map(s =>
         `<option value="${s.entity_id}"${s.entity_id === currentEid ? " selected" : ""}>${s.name} (${s.entity_id})</option>`
       ),
-      // Keep current value even if not in list
+      // Keep current value even if not in list (e.g. sensor removed from HA)
       ...(!openingSensors.find(s => s.entity_id === currentEid) && currentEid
         ? [`<option value="${currentEid}" selected>${currentEid}</option>`]
         : []),
@@ -2697,6 +2702,20 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px;font-weight:600">
             Sensor (vises live ved aabning)
           </div>
+          ${sensorsEmpty ? `
+            <div style="font-size:12px;color:var(--sm-warning,#f59e0b);padding:8px 10px;
+                        background:rgba(245,158,11,0.1);border-radius:8px;margin-bottom:4px">
+              Sensorer ikke indlaedt endnu.
+              <button class="sm-btn ghost sm" data-fp-reload-sensors
+                      style="margin-left:8px;padding:2px 8px;font-size:11px">
+                Genindlaes
+              </button>
+            </div>
+          ` : noOpeningSensors ? `
+            <div style="font-size:12px;color:var(--sm-text-tertiary);padding:6px 0;font-style:italic">
+              Ingen dor/vindue-sensorer fundet i Home Assistant.
+            </div>
+          ` : ``}
           <select class="sm-input" style="width:100%;font-size:12px"
                   data-fp-opening-entity="${idx}">
             ${sensorOptions}
@@ -3116,6 +3135,17 @@ class SecureMePanel extends HTMLElement {
           this._render();
           this._fpSaveRooms();
         }
+      });
+    });
+
+    // Reload sensors button (shown when _data.sensors is empty)
+    root.querySelectorAll("[data-fp-reload-sensors]").forEach(btn => {
+      btn.addEventListener("click", async e => {
+        e.stopPropagation();
+        btn.disabled = true;
+        btn.textContent = "...";
+        await this._loadData();
+        this._render();
       });
     });
 

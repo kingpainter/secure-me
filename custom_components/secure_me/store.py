@@ -44,6 +44,11 @@ _LOGGER = logging.getLogger(__name__)
 STORAGE_KEY = f"{DOMAIN}.panel_config"
 SAVE_DELAY = 10  # seconds — delay-save to batch rapid changes
 
+# Max size for base64-encoded PNG backup stored in the store.
+# Mirrors FLOORPLAN_MAX_BYTES from websocket_api but expressed as bytes.
+# Stored as plain base64 string -- no data-url prefix.
+_FP_BACKUP_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+
 # bcrypt work factor — 10 rounds matches Alarmo (v1.2.0: truncate to 72 bytes)
 BCRYPT_ROUNDS = 10
 # Max parallel threads for bcrypt code checking
@@ -663,6 +668,7 @@ class SecureMeStore:
             ATTR_FLOORPLAN_MARKERS: {},
             "rooms": {},
             "openings": [],
+            "image_b64": None,  # PNG backup -- survives HACS updates
         }
 
     def get_floorplan(self) -> dict[str, Any]:
@@ -680,11 +686,14 @@ class SecureMeStore:
         }
 
     async def async_save_floorplan_image(
-        self, image_url: str, width: int, height: int
+        self, image_url: str, width: int, height: int, image_b64: str | None = None
     ) -> None:
-        """Save floorplan image metadata (url + dimensions).
+        """Save floorplan image metadata (url + dimensions + optional base64 backup).
 
         Rooms and markers are preserved -- only the image fields are overwritten.
+        image_b64: plain base64-encoded PNG (no data-url prefix). When provided
+        it is stored alongside the metadata so it can be restored after a HACS
+        update that deletes the PNG file on disk.
         """
         fp = self._data.setdefault("floorplan", self._empty_floorplan())
         fp[ATTR_FLOORPLAN_IMAGE_URL] = image_url
@@ -692,6 +701,16 @@ class SecureMeStore:
         fp[ATTR_FLOORPLAN_HEIGHT] = int(height)
         fp.setdefault(ATTR_FLOORPLAN_MARKERS, {})
         fp.setdefault("rooms", {})
+        if image_b64 is not None:
+            encoded_len = len(image_b64.encode("utf-8"))
+            if encoded_len <= _FP_BACKUP_MAX_BYTES:
+                fp["image_b64"] = image_b64
+            else:
+                _LOGGER.warning(
+                    "Floorplan base64 backup too large (%d bytes) -- skipping backup",
+                    encoded_len,
+                )
+                fp.setdefault("image_b64", None)
         await self.async_save()
 
     async def async_save_floorplan_rooms(
@@ -724,9 +743,73 @@ class SecureMeStore:
         fp[ATTR_FLOORPLAN_MARKERS] = markers or {}
         await self.async_save()
 
-    async def async_delete_floorplan(self) -> None:
-        """Reset floorplan to empty (image url cleared, rooms + markers cleared).
+    async def async_clear_floorplan_image(self) -> None:
+        """Clear only the image metadata (url + dimensions).
 
+        Rooms, openings, and markers are preserved. Use this when the PNG
+        file is missing on disk (e.g. after a HACS update) so room/sensor
+        configuration is not lost unnecessarily.
+        """
+        fp = self._data.setdefault("floorplan", self._empty_floorplan())
+        fp[ATTR_FLOORPLAN_IMAGE_URL] = None
+        fp[ATTR_FLOORPLAN_WIDTH] = 0
+        fp[ATTR_FLOORPLAN_HEIGHT] = 0
+        await self.async_save()
+
+    def get_floorplan_image_b64(self) -> str | None:
+        """Return the stored base64 PNG backup, or None if not available."""
+        return self._data.get("floorplan", {}).get("image_b64")
+
+    async def async_restore_floorplan_image_from_backup(
+        self, image_url: str
+    ) -> tuple[bytes, int, int] | None:
+        """Attempt to restore the PNG file from the base64 backup in the store.
+
+        Returns (image_bytes, width, height) on success, None if no backup exists.
+        Caller is responsible for writing image_bytes to disk.
+        """
+        import base64 as _base64
+        import struct as _struct
+
+        b64 = self.get_floorplan_image_b64()
+        if not b64:
+            return None
+        try:
+            image_bytes = _base64.b64decode(b64)
+        except Exception as err:
+            _LOGGER.warning("Floorplan backup decode failed: %s", err)
+            return None
+
+        # Re-read dimensions from the PNG IHDR chunk
+        if len(image_bytes) < 24:
+            return None
+        if image_bytes[12:16] != b"IHDR":
+            return None
+        try:
+            width, height = _struct.unpack(">II", image_bytes[16:24])
+        except _struct.error:
+            return None
+        if width == 0 or height == 0:
+            return None
+
+        # Update store metadata to reflect the restored image
+        fp = self._data.setdefault("floorplan", self._empty_floorplan())
+        fp[ATTR_FLOORPLAN_IMAGE_URL] = image_url
+        fp[ATTR_FLOORPLAN_WIDTH] = width
+        fp[ATTR_FLOORPLAN_HEIGHT] = height
+        await self.async_save()
+        _LOGGER.info(
+            "Floorplan restored from base64 backup (%dx%d, %d bytes)",
+            width, height, len(image_bytes),
+        )
+        return image_bytes, width, height
+
+    async def async_delete_floorplan(self) -> None:
+        """Reset floorplan to empty (image + rooms + markers + openings all cleared).
+
+        This is a full destructive reset. For cases where only the image is
+        missing (e.g. after HACS update), use async_clear_floorplan_image()
+        to preserve room/sensor configuration.
         Caller is responsible for unlinking the image file on disk.
         """
         self._data["floorplan"] = self._empty_floorplan()
