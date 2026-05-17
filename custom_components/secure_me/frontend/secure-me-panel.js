@@ -377,9 +377,6 @@ class SecureMePanel extends HTMLElement {
     this._floorplanDrawing = null;
     this._fpSaveDebounce = null;
     this._floorplanUploading = false;
-    // Undo stack: array of { rooms, openings } snapshots (max 20)
-    this._fpUndoStack = [];
-    this._fpKeyboardCleanup = null;
 
 
 
@@ -424,9 +421,8 @@ class SecureMePanel extends HTMLElement {
       this._alarmState = alarmEntity.state;
       this._alarmCountdown = parseInt(alarmEntity.attributes?.countdown || 0);
       this._updateStatusPills();
-      // Also queue a render so countdown/armed_by etc. refresh.
-      // Skip naar flyout er aaben -- render river inspector-DOM ned.
-      if (!this._fpFlyoutActive()) this._queueRender();
+      // Also queue a render so countdown/armed_by etc. refresh
+      this._queueRender();
     }
 
     // v1.5.0: Live floorplan refresh in Home Alone mode.
@@ -438,7 +434,6 @@ class SecureMePanel extends HTMLElement {
       && this._alarmState === "armed_home_alone"
       && this._floorplanLoaded
       && this._data.floorplan?.image_url
-      && !this._fpFlyoutActive()
     ) {
       // Collect all sensor entity_ids from rooms AND openings
       const allRoomSensors = [];
@@ -807,12 +802,6 @@ class SecureMePanel extends HTMLElement {
     }, 50);
   }
 
-  // Returnerer true naar sensor-flyout er synlig (bruger er i gang med at vaelge).
-  // Bruges til at forhindre at _render() river inspector-DOM ned under valg.
-  _fpFlyoutActive() {
-    return !!(this._fpActiveFlyout && this._fpActiveFlyout.style.display === "block");
-  }
-
   // === Toast notifications (v1.4.3) ===
   // Show ephemeral status messages in the bottom-right toast container.
   // Types: 'success', 'error', 'warning', 'info'. Default: 'info'.
@@ -922,11 +911,7 @@ class SecureMePanel extends HTMLElement {
     // Save scroll position
     const scrollTop = mainContent.scrollTop;
 
-    // Patch tab content.
-    // KRITISK: Hvis flyout er aaben (bruger vaelger sensor), maa vi IKKE rive
-    // DOM'en ned -- det fjerner searchInput og listener-konteksten for flyout.
-    // Vi springer rebuild over indtil flyout lukkes (max 100-150ms delay).
-    if (this._fpFlyoutActive()) return;
+    // Patch tab content
     mainContent.innerHTML = this._renderTab();
 
     // Update nav active classes (no DOM teardown)
@@ -2317,20 +2302,20 @@ class SecureMePanel extends HTMLElement {
         fillOpacity   = isSelected ? 0.28 : 0.14;
         strokeOpacity = 1;
       } else {
-        // View mode — svag stiplet kontur saa rummene er til at se
+        // View mode — completely invisible
         fillOpacity   = 0;
-        strokeOpacity = 0.2;
+        strokeOpacity = 0;
       }
 
-      // Room label: always visible in edit mode (full), dæmpet i view mode, hidden i live mode (HTML overlay tager over)
+      // Room label (only in edit mode)
       const cx = pts.reduce((s,[x])=>s+x,0)/pts.length;
       const cy = pts.reduce((s,[,y])=>s+y,0)/pts.length;
-      const label = !liveMode ? `
+      const label = editMode ? `
         <text x="${(cx/100*VW).toFixed(1)}" y="${(cy/100*VH).toFixed(1)}"
               text-anchor="middle" dominant-baseline="middle"
-              font-family="DM Sans,sans-serif" font-size="${editMode ? 28 : 22}" font-weight="600"
-              fill="${color}" opacity="${editMode ? (isSelected ? 1 : 0.7) : 0.45}"
-              pointer-events="none" style="user-select:none" data-fp-label="${rid}">
+              font-family="DM Sans,sans-serif" font-size="28" font-weight="600"
+              fill="${color}" opacity="${isSelected ? 1 : 0.7}"
+              pointer-events="none" style="user-select:none">
           ${room.name || "Rum"}
         </text>` : "";
 
@@ -2347,7 +2332,6 @@ class SecureMePanel extends HTMLElement {
                  fill="${color}" fill-opacity="${fillOpacity}"
                  stroke="${color}" stroke-opacity="${strokeOpacity}"
                  stroke-width="${isSelected ? 2.5 : 1.5}" stroke-linejoin="round"
-                 ${(!editMode && !liveMode) ? 'stroke-dasharray="6,4"' : ''}
                  class="fp-room ${cls}" data-fp-room="${rid}"
                  style="cursor:${editMode ? 'pointer' : 'default'};pointer-events:${editMode ? 'all' : 'none'}"/>
         ${label}
@@ -2378,18 +2362,6 @@ class SecureMePanel extends HTMLElement {
       }
       const isSelOp = editMode && this._floorplanSelectedOpening === oi;
 
-      // Retnings-bue: viser hvilken side en dor aabner mod.
-      // Vi tegner en SVG arc fra endepunkt til midtpunkt, bugtet 90 grader
-      // ud fra linjen — standard arkitektur-konvention for dor-swing.
-      const lineLenVW = Math.sqrt((parseFloat(sx2)-parseFloat(sx1))**2 + (parseFloat(sy2)-parseFloat(sy1))**2);
-      const arcR = (lineLenVW * 0.5).toFixed(1);
-      // sweep-flag 1 = med uret (standard for dor-bue)
-      const arcPath = op.type !== "window"
-        ? `<path d="M ${sx1} ${sy1} A ${arcR} ${arcR} 0 0 1 ${mx} ${my}"
-               fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3"
-               opacity="${isSelOp ? 0.9 : 0.45}" pointer-events="none"/>`
-        : "";
-
       return `
         ${isSelOp ? `
           <line x1="${sx1}" y1="${sy1}" x2="${sx2}" y2="${sy2}"
@@ -2400,7 +2372,6 @@ class SecureMePanel extends HTMLElement {
               stroke="${color}" stroke-width="${isSelOp ? 7 : 6}" stroke-linecap="round"
               opacity="0.9" pointer-events="${editMode ? 'all' : 'none'}"
               data-fp-opening="${oi}" style="cursor:${editMode ? 'pointer' : 'default'}"/>
-        ${arcPath}
         <circle cx="${sx1}" cy="${sy1}" r="5" fill="${color}" opacity="0.7" pointer-events="none"/>
         <circle cx="${sx2}" cy="${sy2}" r="5" fill="${color}" opacity="0.7" pointer-events="none"/>
         ${editMode ? `
@@ -2465,19 +2436,19 @@ class SecureMePanel extends HTMLElement {
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
         <div style="display:flex;gap:4px;background:var(--sm-bg3);padding:4px;border-radius:10px">
           <button class="sm-btn ${this._floorplanDrawTool==='rect'?'primary':'ghost'} sm"
-                  data-fp-tool="rect" title="Tegn rektangel [R]">
+                  data-fp-tool="rect" title="Tegn rektangel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <rect x="3" y="3" width="18" height="18" rx="2"/>
             </svg> Rektangel
           </button>
           <button class="sm-btn ${this._floorplanDrawTool==='polygon'?'primary':'ghost'} sm"
-                  data-fp-tool="polygon" title="Tegn polygon [P] (dobbeltklik afslutter)">
+                  data-fp-tool="polygon" title="Tegn polygon (dobbeltklik afslutter)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polygon points="12 2 22 20 2 20"/>
             </svg> Polygon
           </button>
           <button class="sm-btn ${this._floorplanDrawTool==='opening'?'primary':'ghost'} sm"
-                  data-fp-tool="opening" title="Marker dor eller vindue [O] (traek en linje)">
+                  data-fp-tool="opening" title="Marker dor eller vindue (traek en linje)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <rect x="2" y="10" width="20" height="4" rx="1"/>
               <line x1="9" y1="10" x2="9" y2="14"/>
@@ -2485,13 +2456,6 @@ class SecureMePanel extends HTMLElement {
             </svg> Dor/Vindue
           </button>
         </div>
-        ${this._fpUndoStack.length > 0 ? `
-          <button class="sm-btn ghost sm" data-fp-undo title="Fortryd [Ctrl+Z]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
-            </svg> Fortryd
-          </button>
-        ` : ""}
         ${this._floorplanSelectedRoom ? `
           <button class="sm-btn ghost sm" data-fp-delete-room style="color:var(--sm-danger)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2554,14 +2518,10 @@ class SecureMePanel extends HTMLElement {
            background:rgba(124,58,237,0.07);border-color:var(--sm-accent);
            font-size:13px;color:var(--sm-text-secondary)">
         <strong style="color:var(--sm-accent)">Tegnetips:</strong>
-        Vaelg et tegnevaerktoej og klik paa kortet for at tegne et rum.
-        Klik paa et eksisterende rum for at redigere det.
+        Vælg et tegneværktøj og klik på kortet for at tegne et rum.
+        Klik på et eksisterende rum for at redigere det.
         ${this._floorplanDrawTool === 'polygon' ? ' Dobbeltklik for at afslutte polygonen.' : ''}
-        ${this._floorplanDrawTool === 'opening' ? ' Traek en linje for at markere en dor eller et vindue.' : ''}
-        <br><span style="font-size:11px;color:var(--sm-text-tertiary)">
-          Genveje: R = Rektangel &nbsp;&bull;&nbsp; P = Polygon &nbsp;&bull;&nbsp; O = Dor/Vindue
-          &nbsp;&bull;&nbsp; Delete = Slet valgt &nbsp;&bull;&nbsp; Ctrl+Z = Fortryd &nbsp;&bull;&nbsp; Esc = Annuller/Afslut
-        </span>
+        ${this._floorplanDrawTool === 'opening' ? ' Traek en linje for at markere en dor eller et vindue. Klik paa markeringen for at slette den.' : ''}
       </div>
     ` : "";
 
@@ -2782,18 +2742,17 @@ class SecureMePanel extends HTMLElement {
     const searchInput = picker.querySelector("[data-fp-sensor-search]");
     if (!searchInput) return;
 
+    // Sensor-data er gemt som URL-encoded JSON paa picker-elementet
     let sensors = [];
     try {
       sensors = JSON.parse(decodeURIComponent(picker.dataset.fpSensorData || "[]"));
     } catch (_) { return; }
 
-    // ── Flyout element — direkte i shadow root (position:fixed) ──────────
+    // ── Teleporteret liste — renderes direkte i shadow root ───────────────
+    // Fjern eventuel tidligere liste (fra forrige inspector-build)
     const OLD_LIST_ID = "sm-fp-sensor-flyout";
     const existing = this.shadowRoot.getElementById(OLD_LIST_ID);
-    if (existing) {
-      if (existing._smCleanup) existing._smCleanup();
-      existing.remove();
-    }
+    if (existing) existing.remove();
 
     const flyout = document.createElement("div");
     flyout.id = OLD_LIST_ID;
@@ -2805,21 +2764,18 @@ class SecureMePanel extends HTMLElement {
       "border-radius:10px",
       "max-height:260px",
       "overflow-y:auto",
-      "overflow-x:hidden",
       "box-shadow:0 8px 32px rgba(0,0,0,0.9)",
       "display:none",
-      "min-width:260px",
+      "min-width:320px",
     ].join(";");
 
     flyout.innerHTML = sensors.map(s => `
       <div data-sm-eid="${s.eid}"
            style="padding:10px 14px;font-size:13px;cursor:pointer;
-                  display:flex;flex-direction:column;gap:2px;
-                  border-bottom:1px solid #2a2a4a">
-        <span style="color:#e8e8f0;font-weight:500;white-space:nowrap;
-                     overflow:hidden;text-overflow:ellipsis">${s.name}</span>
-        <span style="color:#8888aa;font-size:11px;font-family:monospace;
-                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.eid}</span>
+                  display:flex;flex-direction:column;gap:3px;
+                  border-bottom:1px solid #3a3a5a;background:#1a1a2e">
+        <span style="color:#e8e8f0;font-weight:500">${s.name}</span>
+        <span style="color:#8888aa;font-size:11px;font-family:monospace">${s.eid}</span>
       </div>
     `).join("");
 
@@ -2827,18 +2783,21 @@ class SecureMePanel extends HTMLElement {
 
     // ── Positionering ─────────────────────────────────────────────────────
     const positionFlyout = () => {
-      if (!searchInput.isConnected) return;
       const rect = searchInput.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom - 8;
-      const spaceAbove = rect.top - 8;
-      const flyH = Math.min(260, sensors.length * 60 + 8);
-      flyout.style.left  = rect.left + "px";
-      flyout.style.width = rect.width + "px";
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const flyH = Math.min(260, sensors.length * 58 + 8);
       if (spaceBelow >= flyH || spaceBelow >= spaceAbove) {
-        flyout.style.top    = (rect.bottom + 4) + "px";
+        // Aaben nedad
+        flyout.style.top  = (rect.bottom + 4) + "px";
+        flyout.style.left = rect.left + "px";
+        flyout.style.width = rect.width + "px";
         flyout.style.bottom = "auto";
       } else {
+        // Aaben opad
         flyout.style.bottom = (window.innerHeight - rect.top + 4) + "px";
+        flyout.style.left   = rect.left + "px";
+        flyout.style.width  = rect.width + "px";
         flyout.style.top    = "auto";
       }
     };
@@ -2847,29 +2806,44 @@ class SecureMePanel extends HTMLElement {
     const filterFlyout = (q) => {
       const lq = q.toLowerCase();
       flyout.querySelectorAll("[data-sm-eid]").forEach(opt => {
-        const match = opt.textContent.toLowerCase().includes(lq);
-        opt.style.display = match ? "" : "none";
+        opt.style.display = opt.textContent.toLowerCase().includes(lq) ? "" : "none";
       });
     };
 
     // ── Show / hide ───────────────────────────────────────────────────────
+    // Hvis der allerede er en aktiv flyout fra forrige inspector-build,
+    // og den er synlig, genpositionér den straks (searchInput er ny men
+    // flyout overlever _render).
+    const wasVisible = (this._fpActiveFlyout && this._fpActiveFlyout !== flyout
+                        && this._fpActiveFlyout.style.display !== "none");
+
     const showFlyout = () => {
+      // Kun positionér og filtrer hvis flyout ikke allerede er synlig.
+      // Hvis den er synlig: gør ingenting — undgaar scroll-reset ved
+      // fokus-events der sker under scroll.
+      if (flyout.style.display === "block") return;
       positionFlyout();
       flyout.style.display = "block";
       filterFlyout(searchInput.value);
     };
     const hideFlyout = () => {
       flyout.style.display = "none";
-      this._fpActiveFlyout = null;
     };
 
-    this._fpActiveFlyout = flyout;
+    // Genaaben flyout hvis den var synlig foer inspector rebuild
+    if (wasVisible) {
+      if (this._fpActiveFlyout) this._fpActiveFlyout.remove();
+      showFlyout();
+      searchInput.focus();
+    }
 
-    // ── Valg af option ────────────────────────────────────────────────────
-    // Bruger KUN pointerdown til valg — dette er det FØRSTE event der fyrer,
-    // foer browser kan sende blur paa searchInput.
-    // stopImmediatePropagation() forhindrer onDocPointer (nedenfor) i at lukke flyout.
-    const selectOption = (eid) => {
+    // ── Option-klik ───────────────────────────────────────────────────────
+    flyout.addEventListener("pointerdown", e => {
+      // preventDefault forhindrer blur paa searchInput
+      e.preventDefault();
+      const opt = e.target.closest("[data-sm-eid]");
+      if (!opt) return;
+      const eid = opt.dataset.smEid;
       if (!eid) return;
       const r = this._data.floorplan?.rooms?.[this._floorplanSelectedRoom];
       if (r) {
@@ -2882,66 +2856,58 @@ class SecureMePanel extends HTMLElement {
       searchInput.value = "";
       hideFlyout();
       this._fpUpdateInspector();
-    };
+    });
 
-    flyout.addEventListener("pointerdown", e => {
-      e.preventDefault();               // forhindrer blur paa searchInput
-      e.stopImmediatePropagation();     // blokkerer onDocPointer — flyout maa ikke lukkes
+    // Hover
+    flyout.addEventListener("mouseover", e => {
+      flyout._smMouseOver = true;
       const opt = e.target.closest("[data-sm-eid]");
-      if (opt?.dataset?.smEid) selectOption(opt.dataset.smEid);
-    }, { capture: true });              // capture:true saa vi korer FOER onDocPointer
-
-    // Touch-flow (iOS/Android)
-    flyout.addEventListener("touchend", e => {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      const touch = e.changedTouches[0];
-      const el = this.shadowRoot.elementFromPoint
-        ? this.shadowRoot.elementFromPoint(touch.clientX, touch.clientY)
-        : document.elementFromPoint(touch.clientX, touch.clientY);
-      const opt = el?.closest("[data-sm-eid]");
-      if (opt?.dataset?.smEid) selectOption(opt.dataset.smEid);
-    }, { capture: true });
-
-    // Highlight ved hover
-    flyout.addEventListener("pointermove", e => {
-      const opt = e.target.closest("[data-sm-eid]");
-      flyout.querySelectorAll("[data-sm-eid]").forEach(o => {
-        o.style.background = o === opt ? "#2a2a4a" : "";
-      });
+      flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
+      if (opt) opt.style.background = "#2a2a4a";
+    });
+    flyout.addEventListener("mouseout", () => {
+      flyout._smMouseOver = false;
     });
 
     // ── Input events ──────────────────────────────────────────────────────
     searchInput.addEventListener("focus", showFlyout);
-    searchInput.addEventListener("click", showFlyout);   // genaaben hvis lukket
     searchInput.addEventListener("input", e => {
-      showFlyout();
+      if (flyout.style.display !== "block") showFlyout();
       filterFlyout(e.target.value);
     });
+    searchInput.addEventListener("blur", () => {
+      // Lang forsinkelse: canvas-events og DOM-rebuilds maa ikke lukke flyout.
+      // Vi checker om musen er over flyout inden vi lukker.
+      setTimeout(() => {
+        if (flyout._smMouseOver) return;   // mus er stadig over listen
+        if (flyout.style.display === "none") return;  // allerede lukket
+        hideFlyout();
+      }, 300);
+    });
 
-    // ── Luk ved klik UDENFOR flyout og searchInput ────────────────────────
-    // Korer EFTER flyouts pointerdown handler (som bruger capture:true og
-    // stopImmediatePropagation saa denne aldrig ser klik paa flyout-options).
+    // ── Ryd op: fjern flyout naar den eksplicit lukkes eller inspector rebuildes.
+    // Vi bruger IKKE MutationObserver her — den ville fjerne flyout ved enhver
+    // _queueRender() (fx HA state-opdatering) og dermed lukke listen midt i brug.
+    // I stedet gemmer vi reference paa this saa _fpUpdateInspector kan rydde op.
+    this._fpActiveFlyout = flyout;
+
+    // Luk flyout ved klik udenfor — lyt paa document for at fange canvas-klik
     const onDocPointer = e => {
+      // e.composedPath() inkluderer shadow root elementer
       const path = e.composedPath ? e.composedPath() : [];
-      if (path.includes(flyout) || path.includes(searchInput)) return;
-      hideFlyout();
+      const insideFlyout = path.includes(flyout);
+      const insideInput  = path.includes(searchInput);
+      if (!insideFlyout && !insideInput) {
+        hideFlyout();
+      }
     };
-    document.addEventListener("pointerdown", onDocPointer);  // INGEN capture
-
-    // ── Panel-scroll: genpositionér naar panelet scroller ─────────────────
-    const panelScroll = this.shadowRoot.getElementById("shell-main");
-    const onPanelScroll = () => {
-      if (flyout.style.display === "block") positionFlyout();
-    };
-    if (panelScroll) panelScroll.addEventListener("scroll", onPanelScroll, { passive: true });
-
-    // ── Cleanup ───────────────────────────────────────────────────────────
+    document.addEventListener("pointerdown", onDocPointer, { capture: true });
+    // Gem cleanup-funktion paa flyout
     flyout._smCleanup = () => {
-      document.removeEventListener("pointerdown", onDocPointer);
-      if (panelScroll) panelScroll.removeEventListener("scroll", onPanelScroll);
+      document.removeEventListener("pointerdown", onDocPointer, { capture: true });
     };
   }
+
   _fpUpdateInspector() {
     // Fjern aktiv flyout foer inspector rebuildes saa den ikke flyder rundt
     if (this._fpActiveFlyout) {
@@ -3043,11 +3009,9 @@ class SecureMePanel extends HTMLElement {
     // Enter / exit edit mode
     root.querySelectorAll("[data-fp-enter-edit]").forEach(btn => {
       btn.addEventListener("click", () => {
-        this._fpUndoStack = [];  // clear undo history when entering edit mode
         this._floorplanEditMode    = true;
         this._floorplanSelectedRoom = null;
         this._floorplanDrawing      = null;
-        this._fpAttachKeyboard();
         this._render();
       });
     });
@@ -3056,7 +3020,6 @@ class SecureMePanel extends HTMLElement {
         this._floorplanEditMode    = false;
         this._floorplanSelectedRoom = null;
         this._floorplanDrawing      = null;
-        this._fpDetachKeyboard();
         this._render();
       });
     });
@@ -3083,7 +3046,6 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-fp-delete-room]").forEach(btn => {
       btn.addEventListener("click", () => {
         if (!this._floorplanSelectedRoom) return;
-        this._fpSnapshotForUndo();
         delete this._data.floorplan.rooms[this._floorplanSelectedRoom];
         this._floorplanSelectedRoom = null;
         this._render();
@@ -3168,20 +3130,11 @@ class SecureMePanel extends HTMLElement {
         const oi = parseInt(btn.dataset.fpOpeningDelete, 10);
         const fp = this._data.floorplan;
         if (!isNaN(oi) && fp?.openings) {
-          this._fpSnapshotForUndo();
           fp.openings.splice(oi, 1);
           this._floorplanSelectedOpening = null;
           this._render();
           this._fpSaveRooms();
         }
-      });
-    });
-
-    // Undo button
-    root.querySelectorAll("[data-fp-undo]").forEach(btn => {
-      btn.addEventListener("click", e => {
-        e.stopPropagation();
-        this._fpUndo();
       });
     });
 
@@ -3311,32 +3264,18 @@ class SecureMePanel extends HTMLElement {
       }
     });
 
-    // ── Preview + drawing finalise via pointer events (touch + mouse) ────────
-    // Pointer capture sikrer at pointermove/pointerup fanges selv naar
-    // fingeren/musen forlader canvas under traek.
-    let drawPointerId = null;
-
-    canvas.addEventListener("pointerdown", e => {
-      if (e.target.closest(".fp-handle")) return;
-      if (!this._floorplanDrawing) return;
-      if (this._floorplanDrawing.tool !== "opening" &&
-          this._floorplanDrawing.tool !== "rect") return;
-      drawPointerId = e.pointerId;
-      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
-    });
-
-    canvas.addEventListener("pointermove", e => {
+    // ── Rect: mousemove for live preview ──────────────────────────────────
+    canvas.addEventListener("mousemove", e => {
       if (!this._floorplanDrawing) return;
       const [x, y] = toSvgPct(e.clientX, e.clientY);
       this._floorplanDrawing.mouse = [x, y];
+      // Patch just the preview SVG without full render
       this._fpLivePreview(svg, x, y);
     });
 
-    canvas.addEventListener("pointerup", e => {
+    // ── Rect/Opening: mouseup to finalise ────────────────────────────────
+    canvas.addEventListener("mouseup", e => {
       if (!this._floorplanDrawing) return;
-      if (drawPointerId !== null && e.pointerId !== drawPointerId) return;
-      try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
-      drawPointerId = null;
       const [x, y] = toSvgPct(e.clientX, e.clientY);
 
       if (this._floorplanDrawing.tool === "opening") {
@@ -3344,6 +3283,7 @@ class SecureMePanel extends HTMLElement {
         const [x1, y1] = this._floorplanDrawing.points[0];
         const dist = Math.sqrt((x-x1)**2 + (y-y1)**2);
         if (dist < 1.5) {
+          // For short traek — ignorer
           this._floorplanDrawing = null;
           this._render();
           return;
@@ -3356,7 +3296,11 @@ class SecureMePanel extends HTMLElement {
       if (this._floorplanDrawing.points.length !== 1) return;
       const [x1, y1] = this._floorplanDrawing.points[0];
       const w = Math.abs(x - x1), h = Math.abs(y - y1);
-      if (w < 1 || h < 1) return;
+      if (w < 1 || h < 1) {
+        // Too small — treat as single click to start polygon point
+        return;
+      }
+      // Convert rect to 4-point polygon
       const x0 = Math.min(x, x1), y0 = Math.min(y, y1);
       const x2 = Math.max(x, x1), y2 = Math.max(y, y1);
       this._fpFinaliseRoom([
@@ -3377,128 +3321,9 @@ class SecureMePanel extends HTMLElement {
     });
   }
 
-  // ─── Undo support ──────────────────────────────────────────────────────────
-  // Single-level undo with a capped stack (max 20 states).
-  // Call _fpSnapshotForUndo() BEFORE any destructive change; _fpUndo() restores.
-
-  _fpSnapshotForUndo() {
-    const fp = this._data.floorplan;
-    if (!fp) return;
-    const snapshot = {
-      rooms:    JSON.parse(JSON.stringify(fp.rooms    || {})),
-      openings: JSON.parse(JSON.stringify(fp.openings || [])),
-    };
-    this._fpUndoStack.push(snapshot);
-    if (this._fpUndoStack.length > 20) this._fpUndoStack.shift();
-  }
-
-  _fpUndo() {
-    if (!this._fpUndoStack.length) {
-      this._toast("Ingen handlinger at fortryde", "info");
-      return;
-    }
-    const snapshot = this._fpUndoStack.pop();
-    if (!this._data.floorplan) return;
-    this._data.floorplan.rooms    = snapshot.rooms;
-    this._data.floorplan.openings = snapshot.openings;
-    this._floorplanSelectedRoom    = null;
-    this._floorplanSelectedOpening = null;
-    this._floorplanDrawing         = null;
-    this._render();
-    this._fpSaveRooms();
-    this._toast("Fortryd", "success");
-  }
-
-  // ─── Keyboard handler (active only in edit mode) ──────────────────────────
-  // Attached when entering edit mode, removed when leaving.
-
-  _fpAttachKeyboard() {
-    if (this._fpKeyboardCleanup) return; // already attached
-    const handler = e => {
-      // Never fire when user is typing in an input/textarea
-      const tag = (e.target?.tagName || "").toLowerCase();
-      if (["input","textarea","select"].includes(tag)) return;
-
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (this._floorplanDrawing) {
-          this._floorplanDrawing = null;
-          this._render();
-        } else if (this._floorplanSelectedRoom || this._floorplanSelectedOpening !== null) {
-          this._floorplanSelectedRoom    = null;
-          this._floorplanSelectedOpening = null;
-          this._render();
-        } else {
-          // Escape from edit mode entirely
-          this._floorplanEditMode    = false;
-          this._floorplanSelectedRoom = null;
-          this._floorplanDrawing      = null;
-          this._fpDetachKeyboard();
-          this._render();
-        }
-        return;
-      }
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (this._floorplanSelectedRoom) {
-          e.preventDefault();
-          this._fpSnapshotForUndo();
-          delete this._data.floorplan.rooms[this._floorplanSelectedRoom];
-          this._floorplanSelectedRoom = null;
-          this._render();
-          this._fpSaveRooms();
-          return;
-        }
-        if (this._floorplanSelectedOpening !== null) {
-          e.preventDefault();
-          this._fpSnapshotForUndo();
-          this._data.floorplan.openings.splice(this._floorplanSelectedOpening, 1);
-          this._floorplanSelectedOpening = null;
-          this._render();
-          this._fpSaveRooms();
-          return;
-        }
-      }
-
-      // Ctrl+Z / Cmd+Z — undo
-      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-        e.preventDefault();
-        this._fpUndo();
-        return;
-      }
-
-      // R = rect, P = polygon, O = opening tool switch
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.key === "r" || e.key === "R") {
-          this._floorplanDrawTool = "rect";
-          this._floorplanDrawing  = null;
-          this._render();
-        } else if (e.key === "p" || e.key === "P") {
-          this._floorplanDrawTool = "polygon";
-          this._floorplanDrawing  = null;
-          this._render();
-        } else if (e.key === "o" || e.key === "O") {
-          this._floorplanDrawTool = "opening";
-          this._floorplanDrawing  = null;
-          this._render();
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    this._fpKeyboardCleanup = () => document.removeEventListener("keydown", handler);
-  }
-
-  _fpDetachKeyboard() {
-    if (this._fpKeyboardCleanup) {
-      this._fpKeyboardCleanup();
-      this._fpKeyboardCleanup = null;
-    }
-  }
-
   _fpFinaliseRoom(points) {
     if (!this._data.floorplan) return;
     if (!this._data.floorplan.rooms) this._data.floorplan.rooms = {};
-    this._fpSnapshotForUndo();
     const rooms  = this._data.floorplan.rooms;
     const idx    = Object.keys(rooms).length;
     const rid    = this._fpNewRoomId();
@@ -3517,7 +3342,6 @@ class SecureMePanel extends HTMLElement {
   _fpFinaliseOpening(p1, p2) {
     if (!this._data.floorplan) return;
     if (!this._data.floorplan.openings) this._data.floorplan.openings = [];
-    this._fpSnapshotForUndo();
     this._data.floorplan.openings.push({
       type: "door",   // default — bruger kan skifte via inspector
       label: "Dor",
