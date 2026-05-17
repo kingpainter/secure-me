@@ -2782,17 +2782,18 @@ class SecureMePanel extends HTMLElement {
     const searchInput = picker.querySelector("[data-fp-sensor-search]");
     if (!searchInput) return;
 
-    // Sensor-data er gemt som URL-encoded JSON paa picker-elementet
     let sensors = [];
     try {
       sensors = JSON.parse(decodeURIComponent(picker.dataset.fpSensorData || "[]"));
     } catch (_) { return; }
 
-    // ── Teleporteret liste — renderes direkte i shadow root ───────────────
-    // Fjern eventuel tidligere liste (fra forrige inspector-build)
+    // ── Flyout element — direkte i shadow root (position:fixed) ──────────
     const OLD_LIST_ID = "sm-fp-sensor-flyout";
     const existing = this.shadowRoot.getElementById(OLD_LIST_ID);
-    if (existing) existing.remove();
+    if (existing) {
+      if (existing._smCleanup) existing._smCleanup();
+      existing.remove();
+    }
 
     const flyout = document.createElement("div");
     flyout.id = OLD_LIST_ID;
@@ -2804,18 +2805,21 @@ class SecureMePanel extends HTMLElement {
       "border-radius:10px",
       "max-height:260px",
       "overflow-y:auto",
+      "overflow-x:hidden",
       "box-shadow:0 8px 32px rgba(0,0,0,0.9)",
       "display:none",
-      "min-width:320px",
+      "min-width:260px",
     ].join(";");
 
     flyout.innerHTML = sensors.map(s => `
       <div data-sm-eid="${s.eid}"
            style="padding:10px 14px;font-size:13px;cursor:pointer;
-                  display:flex;flex-direction:column;gap:3px;
-                  border-bottom:1px solid #3a3a5a;background:#1a1a2e">
-        <span style="color:#e8e8f0;font-weight:500">${s.name}</span>
-        <span style="color:#8888aa;font-size:11px;font-family:monospace">${s.eid}</span>
+                  display:flex;flex-direction:column;gap:2px;
+                  border-bottom:1px solid #2a2a4a">
+        <span style="color:#e8e8f0;font-weight:500;white-space:nowrap;
+                     overflow:hidden;text-overflow:ellipsis">${s.name}</span>
+        <span style="color:#8888aa;font-size:11px;font-family:monospace;
+                     white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.eid}</span>
       </div>
     `).join("");
 
@@ -2823,21 +2827,18 @@ class SecureMePanel extends HTMLElement {
 
     // ── Positionering ─────────────────────────────────────────────────────
     const positionFlyout = () => {
+      if (!searchInput.isConnected) return;
       const rect = searchInput.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      const flyH = Math.min(260, sensors.length * 58 + 8);
+      const spaceBelow = window.innerHeight - rect.bottom - 8;
+      const spaceAbove = rect.top - 8;
+      const flyH = Math.min(260, sensors.length * 60 + 8);
+      flyout.style.left  = rect.left + "px";
+      flyout.style.width = rect.width + "px";
       if (spaceBelow >= flyH || spaceBelow >= spaceAbove) {
-        // Aaben nedad
-        flyout.style.top  = (rect.bottom + 4) + "px";
-        flyout.style.left = rect.left + "px";
-        flyout.style.width = rect.width + "px";
+        flyout.style.top    = (rect.bottom + 4) + "px";
         flyout.style.bottom = "auto";
       } else {
-        // Aaben opad
         flyout.style.bottom = (window.innerHeight - rect.top + 4) + "px";
-        flyout.style.left   = rect.left + "px";
-        flyout.style.width  = rect.width + "px";
         flyout.style.top    = "auto";
       }
     };
@@ -2846,42 +2847,28 @@ class SecureMePanel extends HTMLElement {
     const filterFlyout = (q) => {
       const lq = q.toLowerCase();
       flyout.querySelectorAll("[data-sm-eid]").forEach(opt => {
-        opt.style.display = opt.textContent.toLowerCase().includes(lq) ? "" : "none";
+        const match = opt.textContent.toLowerCase().includes(lq);
+        opt.style.display = match ? "" : "none";
       });
     };
 
     // ── Show / hide ───────────────────────────────────────────────────────
-    // Hvis der allerede er en aktiv flyout fra forrige inspector-build,
-    // og den er synlig, genpositionér den straks (searchInput er ny men
-    // flyout overlever _render).
-    const wasVisible = (this._fpActiveFlyout && this._fpActiveFlyout !== flyout
-                        && this._fpActiveFlyout.style.display !== "none");
-
     const showFlyout = () => {
-      // Kun positionér og filtrer hvis flyout ikke allerede er synlig.
-      // Hvis den er synlig: gør ingenting — undgaar scroll-reset ved
-      // fokus-events der sker under scroll.
-      if (flyout.style.display === "block") return;
       positionFlyout();
       flyout.style.display = "block";
       filterFlyout(searchInput.value);
     };
     const hideFlyout = () => {
       flyout.style.display = "none";
+      this._fpActiveFlyout = null;
     };
 
-    // Genaaben flyout hvis den var synlig foer inspector rebuild
-    if (wasVisible) {
-      if (this._fpActiveFlyout) this._fpActiveFlyout.remove();
-      showFlyout();
-      searchInput.focus();
-    }
+    this._fpActiveFlyout = flyout;
 
-    // ── Option-klik ───────────────────────────────────────────────────────
-    // VIGTIGT: Brug mousedown (ikke pointerdown/click) til at fange valg.
-    // mousedown med preventDefault() er det eneste der GARANTERET forhindrer
-    // blur paa searchInput paa tvaers af alle browsere (Chrome, Firefox, Safari).
-    // pointerdown preventDefault() forhindrer IKKE blur — de er separate event chains.
+    // ── Valg af option ────────────────────────────────────────────────────
+    // Bruger KUN pointerdown til valg — dette er det FØRSTE event der fyrer,
+    // foer browser kan sende blur paa searchInput.
+    // stopImmediatePropagation() forhindrer onDocPointer (nedenfor) i at lukke flyout.
     const selectOption = (eid) => {
       if (!eid) return;
       const r = this._data.floorplan?.rooms?.[this._floorplanSelectedRoom];
@@ -2897,88 +2884,64 @@ class SecureMePanel extends HTMLElement {
       this._fpUpdateInspector();
     };
 
-    // mousedown: preventDefault() forhindrer blur paa searchInput (mouse-flow)
-    flyout.addEventListener("mousedown", e => {
-      e.preventDefault();
+    flyout.addEventListener("pointerdown", e => {
+      e.preventDefault();               // forhindrer blur paa searchInput
+      e.stopImmediatePropagation();     // blokkerer onDocPointer — flyout maa ikke lukkes
       const opt = e.target.closest("[data-sm-eid]");
-      if (opt) selectOption(opt.dataset.smEid);
-    });
+      if (opt?.dataset?.smEid) selectOption(opt.dataset.smEid);
+    }, { capture: true });              // capture:true saa vi korer FOER onDocPointer
 
-    // touchend: haandter touch-flow (touch sender ikke mousedown paa flyout)
+    // Touch-flow (iOS/Android)
     flyout.addEventListener("touchend", e => {
-      e.preventDefault(); // forhindrer efterfoelgende mousedown/click
+      e.preventDefault();
+      e.stopImmediatePropagation();
       const touch = e.changedTouches[0];
-      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const el = this.shadowRoot.elementFromPoint
+        ? this.shadowRoot.elementFromPoint(touch.clientX, touch.clientY)
+        : document.elementFromPoint(touch.clientX, touch.clientY);
       const opt = el?.closest("[data-sm-eid]");
-      if (opt) selectOption(opt.dataset.smEid);
-    });
+      if (opt?.dataset?.smEid) selectOption(opt.dataset.smEid);
+    }, { capture: true });
 
-    // Hover: highlight ved pointermove (fungerer baade med mus og touch-hover)
+    // Highlight ved hover
     flyout.addEventListener("pointermove", e => {
       const opt = e.target.closest("[data-sm-eid]");
-      flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
-      if (opt) opt.style.background = "#2a2a4a";
-    });
-
-    // Scroll: repositioner flyout naar indholdet scroller
-    flyout.addEventListener("scroll", () => {
-      if (flyout.style.display === "block") positionFlyout();
+      flyout.querySelectorAll("[data-sm-eid]").forEach(o => {
+        o.style.background = o === opt ? "#2a2a4a" : "";
+      });
     });
 
     // ── Input events ──────────────────────────────────────────────────────
     searchInput.addEventListener("focus", showFlyout);
+    searchInput.addEventListener("click", showFlyout);   // genaaben hvis lukket
     searchInput.addEventListener("input", e => {
-      if (flyout.style.display !== "block") showFlyout();
+      showFlyout();
       filterFlyout(e.target.value);
     });
-    // blur: luk flyout kun naar focus forlader baade input OG flyout.
-    // onDocPointer (nedenfor) haandterer det meste — blur er backup for
-    // tab-navigation og programmatisk focus-skift.
-    searchInput.addEventListener("blur", () => {
-      // Kort delay saa mousedown paa option kan naae at kalde selectOption()
-      // foer vi beslutter om vi skal lukke.
-      setTimeout(() => {
-        // Tjek om focus er flyttet til noget inde i flyout (usandsynligt men muligt)
-        const activeEl = this.shadowRoot.activeElement || document.activeElement;
-        if (flyout.contains(activeEl)) return;
-        if (flyout.style.display === "none") return;
-        hideFlyout();
-      }, 100);
-    });
 
-    // ── Panel-scroll: genpositioner flyout naar parent-containeren scroller.
-    // Uden dette glider flyout-boksen bort fra inputfeltet naar brugeren
-    // scroller i panelet mens listen er aaben.
+    // ── Luk ved klik UDENFOR flyout og searchInput ────────────────────────
+    // Korer EFTER flyouts pointerdown handler (som bruger capture:true og
+    // stopImmediatePropagation saa denne aldrig ser klik paa flyout-options).
+    const onDocPointer = e => {
+      const path = e.composedPath ? e.composedPath() : [];
+      if (path.includes(flyout) || path.includes(searchInput)) return;
+      hideFlyout();
+    };
+    document.addEventListener("pointerdown", onDocPointer);  // INGEN capture
+
+    // ── Panel-scroll: genpositionér naar panelet scroller ─────────────────
     const panelScroll = this.shadowRoot.getElementById("shell-main");
     const onPanelScroll = () => {
       if (flyout.style.display === "block") positionFlyout();
     };
     if (panelScroll) panelScroll.addEventListener("scroll", onPanelScroll, { passive: true });
 
-    // ── Ryd op: fjern flyout naar den eksplicit lukkes eller inspector rebuildes.
-    // Vi bruger IKKE MutationObserver her — den ville fjerne flyout ved enhver
-    // _queueRender() (fx HA state-opdatering) og dermed lukke listen midt i brug.
-    // I stedet gemmer vi reference paa this saa _fpUpdateInspector kan rydde op.
-    this._fpActiveFlyout = flyout;
-
-    // Luk flyout ved klik udenfor — lyt paa document for at fange canvas-klik
-    const onDocPointer = e => {
-      // e.composedPath() inkluderer shadow root elementer
-      const path = e.composedPath ? e.composedPath() : [];
-      const insideFlyout = path.includes(flyout);
-      const insideInput  = path.includes(searchInput);
-      if (!insideFlyout && !insideInput) {
-        hideFlyout();
-      }
-    };
-    document.addEventListener("pointerdown", onDocPointer, { capture: true });
-    // Gem cleanup-funktion paa flyout — inkl. panel-scroll listener
+    // ── Cleanup ───────────────────────────────────────────────────────────
     flyout._smCleanup = () => {
-      document.removeEventListener("pointerdown", onDocPointer, { capture: true });
+      document.removeEventListener("pointerdown", onDocPointer);
       if (panelScroll) panelScroll.removeEventListener("scroll", onPanelScroll);
     };
   }
-
   _fpUpdateInspector() {
     // Fjern aktiv flyout foer inspector rebuildes saa den ikke flyder rundt
     if (this._fpActiveFlyout) {
