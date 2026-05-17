@@ -2866,12 +2866,11 @@ class SecureMePanel extends HTMLElement {
     }
 
     // ── Option-klik ───────────────────────────────────────────────────────
-    flyout.addEventListener("pointerdown", e => {
-      // preventDefault forhindrer blur paa searchInput
-      e.preventDefault();
-      const opt = e.target.closest("[data-sm-eid]");
-      if (!opt) return;
-      const eid = opt.dataset.smEid;
+    // VIGTIGT: Brug mousedown (ikke pointerdown/click) til at fange valg.
+    // mousedown med preventDefault() er det eneste der GARANTERET forhindrer
+    // blur paa searchInput paa tvaers af alle browsere (Chrome, Firefox, Safari).
+    // pointerdown preventDefault() forhindrer IKKE blur — de er separate event chains.
+    const selectOption = (eid) => {
       if (!eid) return;
       const r = this._data.floorplan?.rooms?.[this._floorplanSelectedRoom];
       if (r) {
@@ -2884,33 +2883,34 @@ class SecureMePanel extends HTMLElement {
       searchInput.value = "";
       hideFlyout();
       this._fpUpdateInspector();
+    };
+
+    // mousedown: preventDefault() forhindrer blur paa searchInput (mouse-flow)
+    flyout.addEventListener("mousedown", e => {
+      e.preventDefault();
+      const opt = e.target.closest("[data-sm-eid]");
+      if (opt) selectOption(opt.dataset.smEid);
     });
 
-    // Hover tracking via pointerenter/pointerleave (bobler IKKE op fra children)
-    // Dette er korrekt i modsætning til mouseover/mouseout der fyrer ved
-    // hvert child-element og giver falske mouseout-events under scroll.
-    flyout.addEventListener("pointerenter", e => {
-      flyout._smPointerInside = true;
-      // Highlight korrekt option under pointeren
-      const opt = e.target.closest("[data-sm-eid]");
-      flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
-      if (opt) opt.style.background = "#2a2a4a";
+    // touchend: haandter touch-flow (touch sender ikke mousedown paa flyout)
+    flyout.addEventListener("touchend", e => {
+      e.preventDefault(); // forhindrer efterfoelgende mousedown/click
+      const touch = e.changedTouches[0];
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const opt = el?.closest("[data-sm-eid]");
+      if (opt) selectOption(opt.dataset.smEid);
     });
-    flyout.addEventListener("pointerleave", () => {
-      flyout._smPointerInside = false;
-    });
-    // Opdater highlight naar pointer bevæger sig inden i flyout
+
+    // Hover: highlight ved pointermove (fungerer baade med mus og touch-hover)
     flyout.addEventListener("pointermove", e => {
       const opt = e.target.closest("[data-sm-eid]");
       flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
       if (opt) opt.style.background = "#2a2a4a";
     });
-    // Scroll inde i flyout: opdater position saa den ikke glider væk
-    // OG marker at vi er aktive saa blur ikke lukker listen.
+
+    // Scroll: repositioner flyout naar indholdet scroller
     flyout.addEventListener("scroll", () => {
-      flyout._smScrolling = true;
-      clearTimeout(flyout._smScrollTimer);
-      flyout._smScrollTimer = setTimeout(() => { flyout._smScrolling = false; }, 200);
+      if (flyout.style.display === "block") positionFlyout();
     });
 
     // ── Input events ──────────────────────────────────────────────────────
@@ -2919,18 +2919,19 @@ class SecureMePanel extends HTMLElement {
       if (flyout.style.display !== "block") showFlyout();
       filterFlyout(e.target.value);
     });
+    // blur: luk flyout kun naar focus forlader baade input OG flyout.
+    // onDocPointer (nedenfor) haandterer det meste — blur er backup for
+    // tab-navigation og programmatisk focus-skift.
     searchInput.addEventListener("blur", () => {
-      // Giv browseren tid til at afvikle eventuelle pointerdown/click events
-      // paa flyout-listen inden vi beslutter om vi skal lukke.
-      // Vi lukker IKKE hvis:
-      //   (a) pointer er stadig inde i flyout (_smPointerInside)
-      //   (b) der sker scroll i flyout (_smScrolling)
+      // Kort delay saa mousedown paa option kan naae at kalde selectOption()
+      // foer vi beslutter om vi skal lukke.
       setTimeout(() => {
-        if (flyout._smPointerInside) return;
-        if (flyout._smScrolling)     return;
+        // Tjek om focus er flyttet til noget inde i flyout (usandsynligt men muligt)
+        const activeEl = this.shadowRoot.activeElement || document.activeElement;
+        if (flyout.contains(activeEl)) return;
         if (flyout.style.display === "none") return;
         hideFlyout();
-      }, 150);
+      }, 100);
     });
 
     // ── Panel-scroll: genpositioner flyout naar parent-containeren scroller.
