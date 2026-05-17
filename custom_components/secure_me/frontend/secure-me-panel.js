@@ -2886,15 +2886,31 @@ class SecureMePanel extends HTMLElement {
       this._fpUpdateInspector();
     });
 
-    // Hover
-    flyout.addEventListener("mouseover", e => {
-      flyout._smMouseOver = true;
+    // Hover tracking via pointerenter/pointerleave (bobler IKKE op fra children)
+    // Dette er korrekt i modsætning til mouseover/mouseout der fyrer ved
+    // hvert child-element og giver falske mouseout-events under scroll.
+    flyout.addEventListener("pointerenter", e => {
+      flyout._smPointerInside = true;
+      // Highlight korrekt option under pointeren
       const opt = e.target.closest("[data-sm-eid]");
       flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
       if (opt) opt.style.background = "#2a2a4a";
     });
-    flyout.addEventListener("mouseout", () => {
-      flyout._smMouseOver = false;
+    flyout.addEventListener("pointerleave", () => {
+      flyout._smPointerInside = false;
+    });
+    // Opdater highlight naar pointer bevæger sig inden i flyout
+    flyout.addEventListener("pointermove", e => {
+      const opt = e.target.closest("[data-sm-eid]");
+      flyout.querySelectorAll("[data-sm-eid]").forEach(o => o.style.background = "");
+      if (opt) opt.style.background = "#2a2a4a";
+    });
+    // Scroll inde i flyout: opdater position saa den ikke glider væk
+    // OG marker at vi er aktive saa blur ikke lukker listen.
+    flyout.addEventListener("scroll", () => {
+      flyout._smScrolling = true;
+      clearTimeout(flyout._smScrollTimer);
+      flyout._smScrollTimer = setTimeout(() => { flyout._smScrolling = false; }, 200);
     });
 
     // ── Input events ──────────────────────────────────────────────────────
@@ -2904,14 +2920,27 @@ class SecureMePanel extends HTMLElement {
       filterFlyout(e.target.value);
     });
     searchInput.addEventListener("blur", () => {
-      // Lang forsinkelse: canvas-events og DOM-rebuilds maa ikke lukke flyout.
-      // Vi checker om musen er over flyout inden vi lukker.
+      // Giv browseren tid til at afvikle eventuelle pointerdown/click events
+      // paa flyout-listen inden vi beslutter om vi skal lukke.
+      // Vi lukker IKKE hvis:
+      //   (a) pointer er stadig inde i flyout (_smPointerInside)
+      //   (b) der sker scroll i flyout (_smScrolling)
       setTimeout(() => {
-        if (flyout._smMouseOver) return;   // mus er stadig over listen
-        if (flyout.style.display === "none") return;  // allerede lukket
+        if (flyout._smPointerInside) return;
+        if (flyout._smScrolling)     return;
+        if (flyout.style.display === "none") return;
         hideFlyout();
-      }, 300);
+      }, 150);
     });
+
+    // ── Panel-scroll: genpositioner flyout naar parent-containeren scroller.
+    // Uden dette glider flyout-boksen bort fra inputfeltet naar brugeren
+    // scroller i panelet mens listen er aaben.
+    const panelScroll = this.shadowRoot.getElementById("shell-main");
+    const onPanelScroll = () => {
+      if (flyout.style.display === "block") positionFlyout();
+    };
+    if (panelScroll) panelScroll.addEventListener("scroll", onPanelScroll, { passive: true });
 
     // ── Ryd op: fjern flyout naar den eksplicit lukkes eller inspector rebuildes.
     // Vi bruger IKKE MutationObserver her — den ville fjerne flyout ved enhver
@@ -2930,9 +2959,10 @@ class SecureMePanel extends HTMLElement {
       }
     };
     document.addEventListener("pointerdown", onDocPointer, { capture: true });
-    // Gem cleanup-funktion paa flyout
+    // Gem cleanup-funktion paa flyout — inkl. panel-scroll listener
     flyout._smCleanup = () => {
       document.removeEventListener("pointerdown", onDocPointer, { capture: true });
+      if (panelScroll) panelScroll.removeEventListener("scroll", onPanelScroll);
     };
   }
 
