@@ -424,8 +424,9 @@ class SecureMePanel extends HTMLElement {
       this._alarmState = alarmEntity.state;
       this._alarmCountdown = parseInt(alarmEntity.attributes?.countdown || 0);
       this._updateStatusPills();
-      // Also queue a render so countdown/armed_by etc. refresh
-      this._queueRender();
+      // Also queue a render so countdown/armed_by etc. refresh.
+      // Skip naar flyout er aaben -- render river inspector-DOM ned.
+      if (!this._fpFlyoutActive()) this._queueRender();
     }
 
     // v1.5.0: Live floorplan refresh in Home Alone mode.
@@ -437,6 +438,7 @@ class SecureMePanel extends HTMLElement {
       && this._alarmState === "armed_home_alone"
       && this._floorplanLoaded
       && this._data.floorplan?.image_url
+      && !this._fpFlyoutActive()
     ) {
       // Collect all sensor entity_ids from rooms AND openings
       const allRoomSensors = [];
@@ -805,6 +807,12 @@ class SecureMePanel extends HTMLElement {
     }, 50);
   }
 
+  // Returnerer true naar sensor-flyout er synlig (bruger er i gang med at vaelge).
+  // Bruges til at forhindre at _render() river inspector-DOM ned under valg.
+  _fpFlyoutActive() {
+    return !!(this._fpActiveFlyout && this._fpActiveFlyout.style.display === "block");
+  }
+
   // === Toast notifications (v1.4.3) ===
   // Show ephemeral status messages in the bottom-right toast container.
   // Types: 'success', 'error', 'warning', 'info'. Default: 'info'.
@@ -914,7 +922,11 @@ class SecureMePanel extends HTMLElement {
     // Save scroll position
     const scrollTop = mainContent.scrollTop;
 
-    // Patch tab content
+    // Patch tab content.
+    // KRITISK: Hvis flyout er aaben (bruger vaelger sensor), maa vi IKKE rive
+    // DOM'en ned -- det fjerner searchInput og listener-konteksten for flyout.
+    // Vi springer rebuild over indtil flyout lukkes (max 100-150ms delay).
+    if (this._fpFlyoutActive()) return;
     mainContent.innerHTML = this._renderTab();
 
     // Update nav active classes (no DOM teardown)
