@@ -2,25 +2,29 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.4.2-green)](https://github.com/kingpainter/secure-me/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, real-time health monitoring, and a modern configuration panel.
+A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, an interactive floorplan, real-time health monitoring, and a modern configuration panel.
 
 ---
 
 ## Features
 
 **Core Alarm System**
-- Four arming modes: Away, Home, Night, Vacation
+- Five arming modes: Away, Home, Night, Vacation, Home Alone
 - Configurable exit delay (arming countdown) and entry delay (entry countdown)
 - Auto-reset after trigger time — no permanent alarm state
-- Code-protected arming and disarming
+- bcrypt PIN hashing — user codes never stored in plaintext
 - State tracking: who armed, who disarmed, what triggered
+- State restore on HA restart — alarm stays armed, zone monitoring resumes immediately
 
 **Zone Management**
 - Multiple zone types: Entry, Instant, Interior, Perimeter
 - Each zone can contain multiple binary sensors
+- Per-sensor overrides: individual entry delay, auto-bypass per arm mode, arm-on-close
+- Allow Open flag: permanently bypass a sensor at all arm times (e.g. always-open window)
+- Sensor groups (anti-masking): require N sensors to activate within a time window
 - Sensor debouncing — prevents false alarms from flapping sensors
 - Graceful handling of unavailable/missing sensors
 
@@ -29,10 +33,32 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 |--------|----------|
 | Camera | POE port control, recording mode management |
 | Lock | Smart lock automation with retry logic |
-| Lights | Auto control, emergency flash patterns |
+| Lights | Auto control, emergency flash patterns, steady white mode |
 | Climate | Multi-zone heating/cooling management |
 | Siren | Alarm sounds with multiple patterns |
-| TTS | Voice notifications, supports cloud_say, google_say, piper, and custom services |
+| TTS | Voice notifications — supports cloud_say, google_say, piper, custom services, Alexa via script |
+
+**Floorplan (v1.5.0)**
+- Upload a PNG floor plan (up to 4 MB)
+- Draw rooms as rectangles or polygons directly on the map
+- Assign sensors to rooms — lights up when sensor activates in Home Alone mode
+- Mark doors and windows by dragging a line; assign door/window sensors for live indication
+- Full undo support (Ctrl+Z, up to 20 steps)
+- Keyboard shortcuts: Esc, Delete, R/P/O to switch tools
+- Touch support for tablets
+- Configuration survives HACS updates: PNG backed up in HA storage, auto-restored on startup
+
+**Presence-Based Auto-Arm**
+- Arms automatically 15 minutes after all residents leave (locks + alarm + cameras)
+- Arrival confirmation delay prevents GPS flicker from resetting timers
+- Respects Fake Presence toggle
+- Selective Fake Presence v2: block alarm, locks, or cameras independently
+
+**Auto Actions (v1.5.0)**
+- Three independent action timers with individual delays on alarm trigger
+- Actions: arm alarm, activate cameras, send notification
+- Configurable per action with delay slider
+- Arrival confirmation delay prevents GPS flicker
 
 **Monitoring**
 - System health score with per-module status
@@ -48,24 +74,17 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - 2-column test dashboard: Last Run | History and Sensor Status | Battery Overview
 
 **Configuration Panel**
-- Modern sidebar UI (Alarmo-style)
+- Modern sidebar UI (Alarmo-inspired)
 - Mobile-responsive with bottom navigation
-- Real-time WebSocket updates
-- Toast notifications — no browser popups
-- In-panel confirm dialogs
+- Real-time WebSocket updates — no page reloads
+- Toast notifications, in-panel confirm dialogs
 - Environmental sensors always-on section with forced notifications
-- Fake Presence toggle to block automatic arming
-- Home Alone Monitor camera configuration
-- Sensor hide/exclude for irrelevant device trackers
+- Sensor hide/exclude for irrelevant device trackers and auto-hidden entries
 - User to person tracker binding for presence automation
-- Sensor groups (anti-masking) — require N sensors within a time window to trigger
-- Per-sensor overrides: individual entry delay, auto-bypass, arm-on-close
-- bcrypt PIN hashing — user codes never stored plaintext
-- Mobile push actions — arm/disarm from Companion app notification buttons
-- Steady white lights — separate light list at 100% brightness on alarm (no flash)
+- Per-arm-mode auto-bypass per sensor: choose which modes a sensor bypasses in
+- Mobile push actions: arm/disarm/force-arm from Companion app notification buttons
 - Live arming/pending countdown in sidebar status pill
-- **Presence-based auto-arm** — arms automatically 15 minutes after all residents leave (locks + alarm + cameras), respects Fake Presence
-- **State restore on HA restart** — alarm stays armed after Home Assistant restart, zone monitoring resumes immediately
+- Searchable sensor dropdowns throughout
 
 ---
 
@@ -122,9 +141,86 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 | Interior | Triggers alarm immediately when armed away |
 | Perimeter | Triggers alarm immediately in all armed modes |
 
+### Per-Sensor Options
+
+| Option | Description |
+|--------|-------------|
+| Entry Delay Override | Override the zone's entry delay for this sensor |
+| Auto-Bypass Modes | Choose which arm modes bypass this sensor if open at arm time |
+| Allow Open | Permanently bypass this sensor in all arm modes (e.g. always-open window) |
+| Arm on Close | Automatically arm when this sensor closes (e.g. front door) |
+
 ### Module Configuration
 
-All modules are configured via the **Modules tab** in the panel. Each module can be enabled/disabled independently. Configuration changes take effect after restarting Home Assistant.
+All modules are configured via the **Modules tab** in the panel. Each module can be enabled/disabled independently. Configuration changes take effect immediately — no HA restart required.
+
+---
+
+## Floorplan Setup
+
+1. Go to the **Floorplan** tab in the Secure Me panel
+2. Click **Edit** and upload a PNG floor plan image
+3. Use the **Rectangle** or **Polygon** tool to draw rooms
+4. Click a room to name it and assign sensors
+5. Use the **Door/Window** tool to mark openings — drag a line across a wall
+6. Click an opening to assign a door or window sensor
+7. In **Home Alone** mode the floorplan goes live: rooms glow when their sensors activate
+
+**Keyboard shortcuts (edit mode):**
+- `R` — rectangle tool
+- `P` — polygon tool
+- `O` — door/window tool
+- `Delete` — delete selected room or opening
+- `Ctrl+Z` — undo last action
+- `Esc` — cancel drawing / deselect / exit edit mode
+
+---
+
+## Services
+
+| Service | Description |
+|---------|-------------|
+| `secure_me.arm_away` | Arm in away mode (all zones active) |
+| `secure_me.arm_home` | Arm in home mode (perimeter only) |
+| `secure_me.arm_night` | Arm in night mode (perimeter + entry) |
+| `secure_me.arm_vacation` | Arm in vacation mode (extended trigger) |
+| `secure_me.arm_home_alone` | Arm in Home Alone mode (cameras live, no motion trigger) |
+| `secure_me.disarm` | Disarm the alarm |
+| `secure_me.trigger` | Manually trigger alarm |
+| `secure_me.run_test` | Run a system test |
+| `secure_me.enable_module` | Enable a specific module |
+| `secure_me.disable_module` | Disable a specific module |
+
+All arm services accept optional `code` (string), `skip_delay` (boolean), and `force` (boolean — bypass open sensor check) parameters.
+
+---
+
+## Entities
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| `alarm_control_panel.secure_me` | Alarm Control Panel | Main alarm entity |
+| `binary_sensor.secure_me_anyone_home` | Binary Sensor | True when any tracked person is home |
+| `sensor.secure_me_lowest_battery` | Sensor | Lowest battery level across all devices |
+| `sensor.secure_me_battery_count` | Sensor | Total number of tracked battery devices |
+| `binary_sensor.secure_me_camera_health` | Binary Sensor | Camera module health |
+| `binary_sensor.secure_me_lock_health` | Binary Sensor | Lock module health |
+| `binary_sensor.secure_me_lights_health` | Binary Sensor | Lights module health |
+| `binary_sensor.secure_me_climate_health` | Binary Sensor | Climate module health |
+| `binary_sensor.secure_me_siren_health` | Binary Sensor | Siren module health |
+| `binary_sensor.secure_me_tts_health` | Binary Sensor | TTS module health |
+
+---
+
+## Events
+
+| Event | Data | Description |
+|-------|------|-------------|
+| `secure_me_alarm_armed` | `mode`, `armed_by` | Fired when alarm is armed |
+| `secure_me_alarm_disarmed` | `disarmed_by` | Fired when alarm is disarmed |
+| `secure_me_alarm_triggered` | `triggered_by` | Fired when alarm triggers |
+| `secure_me_arm_failed` | `command`, `open_sensors`, `bypassed_sensors` | Fired when arming fails due to open sensors |
+| `secure_me_module_error` | `module`, `action`, `error` | Fired when a module fails |
 
 ---
 
@@ -137,8 +233,8 @@ automation:
   alias: "Secure Me - Auto arm away"
   trigger:
     - platform: state
-      entity_id: group.family
-      to: "not_home"
+      entity_id: binary_sensor.secure_me_anyone_home
+      to: "off"
   condition:
     - condition: state
       entity_id: alarm_control_panel.secure_me
@@ -188,6 +284,17 @@ automation:
         skip_delay: true
 ```
 
+### Force arm even with open sensors
+
+```yaml
+automation:
+  alias: "Secure Me - Force arm away"
+  action:
+    - service: secure_me.arm_away
+      data:
+        force: true
+```
+
 ### Notify on trigger
 
 ```yaml
@@ -203,67 +310,6 @@ automation:
         title: "ALARM TRIGGERED"
         message: "Secure Me alarm has been triggered. Check your home."
 ```
-
-### Low battery alert
-
-```yaml
-automation:
-  alias: "Secure Me - Low battery warning"
-  trigger:
-    - platform: numeric_state
-      entity_id: sensor.secure_me_lowest_battery
-      below: 20
-  action:
-    - service: notify.mobile_app
-      data:
-        title: "Low Battery"
-        message: "A sensor battery is below 20%. Check Secure Me panel."
-```
-
----
-
-## Services
-
-| Service | Description |
-|---------|-------------|
-| `secure_me.arm_away` | Arm in away mode (all zones active) |
-| `secure_me.arm_home` | Arm in home mode (perimeter only) |
-| `secure_me.arm_night` | Arm in night mode (perimeter + entry) |
-| `secure_me.arm_vacation` | Arm in vacation mode (extended trigger) |
-| `secure_me.disarm` | Disarm the alarm |
-| `secure_me.trigger` | Manually trigger alarm |
-| `secure_me.run_test` | Run a system test |
-| `secure_me.enable_module` | Enable a specific module |
-| `secure_me.disable_module` | Disable a specific module |
-
-All arm services accept optional `code` (string) and `skip_delay` (boolean) parameters.
-
----
-
-## Entities
-
-| Entity | Type | Description |
-|--------|------|-------------|
-| `alarm_control_panel.secure_me` | Alarm Control Panel | Main alarm entity |
-| `sensor.secure_me_lowest_battery` | Sensor | Lowest battery level across all devices |
-| `sensor.secure_me_battery_count` | Sensor | Total number of tracked battery devices |
-| `binary_sensor.secure_me_camera_health` | Binary Sensor | Camera module health |
-| `binary_sensor.secure_me_lock_health` | Binary Sensor | Lock module health |
-| `binary_sensor.secure_me_lights_health` | Binary Sensor | Lights module health |
-| `binary_sensor.secure_me_climate_health` | Binary Sensor | Climate module health |
-| `binary_sensor.secure_me_siren_health` | Binary Sensor | Siren module health |
-| `binary_sensor.secure_me_tts_health` | Binary Sensor | TTS module health |
-
----
-
-## Events
-
-| Event | Data | Description |
-|-------|------|-------------|
-| `secure_me_alarm_armed` | `mode`, `armed_by` | Fired when alarm is armed |
-| `secure_me_alarm_disarmed` | `disarmed_by` | Fired when alarm is disarmed |
-| `secure_me_alarm_triggered` | `triggered_by` | Fired when alarm triggers |
-| `secure_me_module_error` | `module`, `action`, `error` | Fired when a module fails |
 
 ---
 
@@ -293,13 +339,19 @@ Go to **Developer Tools → Info → System Health** to see Secure Me health met
 ### Common Issues
 
 **Panel shows blank / not loading**
-Clear browser cache: Chrome/Edge `Ctrl+Shift+R`, Firefox `Ctrl+F5`
+Clear browser cache and force-reload: Chrome/Edge `Ctrl+Shift+R`, Firefox `Ctrl+F5`. After any update, a full browser reload is required for the new JS to take effect.
+
+**Floorplan lost after HACS update**
+From v1.5.0 the floor plan image is backed up in HA storage and restored automatically on the next startup. Room and sensor assignments always survive HACS updates. If the image is not restored, re-upload it — your rooms and sensor assignments will still be there.
 
 **Alarm arms but doesn't trigger**
-Check that sensors are configured in the Sensors tab and zones are set up in the Zones tab. Run a Full test from the Testing tab.
+Check that sensors are enabled in the Sensors tab and zones are configured in the Zones tab. Verify the zone's arm modes include the mode you are using. Run a Full test from the Testing tab.
+
+**Sensor blocks arming (open at arm time)**
+Either enable auto-bypass for the relevant arm mode on that sensor, or enable **Allow Open** to permanently bypass it. Both options are in the Sensors tab.
 
 **Module shows error health badge**
-Check the module's entities are available in HA. An entity marked `unavailable` in HA will show as an error in Secure Me.
+Check that the module's entities are available in HA. An entity marked `unavailable` will show as an error in Secure Me.
 
 **Exit/entry delay countdown not showing**
 The countdown updates every second. If it jumps (e.g. 30 → 25), this is by design — full entity refresh happens every 5 seconds for performance.
@@ -316,6 +368,6 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 MIT License — see [LICENSE](LICENSE) for details.
 
-**Developer:** KingPainter  
-**Version:** 1.4.2  
+**Developer:** KingPainter
+**Version:** 1.5.0
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)
