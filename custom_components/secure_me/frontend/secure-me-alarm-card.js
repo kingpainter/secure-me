@@ -29,6 +29,7 @@ const STATE_CFG = {
   armed_home_alone: { label: "Tilkoblet — Alene",  color: "#10b981", glow: "rgba(16,185,129,0.4)",   pulse: false },
   pending:          { label: "Afventer indgang",   color: "#f97316", glow: "rgba(249,115,22,0.45)",  pulse: true  },
   triggered:        { label: "ALARM UDLOST",       color: "#ef4444", glow: "rgba(239,68,68,0.6)",    pulse: true  },
+  armed_custom_bypass: { label: "Tilkoblet — Alene",  color: "#10b981", glow: "rgba(16,185,129,0.4)",   pulse: false },
   unknown:          { label: "Henter status...",   color: "#64748b", glow: "rgba(100,116,139,0.2)",  pulse: false },
 };
 
@@ -155,12 +156,35 @@ class SecureMeAlarmCard extends HTMLElement {
     }
   }
 
-  _entity()      { return this._config.entity || "alarm_control_panel.secure_me_alarm_system_alarm"; }
+  _entity() {
+    const cfgId = this._config.entity;
+    // If the configured entity exists in hass.states, use it.
+    if (cfgId && this._hass?.states?.[cfgId]) return cfgId;
+    // Fallback: auto-detect any alarm_control_panel entity that belongs to
+    // Secure Me (identified by the presence of the secure_me_mode attribute).
+    if (this._hass?.states) {
+      const found = Object.keys(this._hass.states).find(k =>
+        k.startsWith("alarm_control_panel.") &&
+        this._hass.states[k].attributes?.secure_me_mode !== undefined
+      );
+      if (found) return found;
+      // Last resort: any alarm_control_panel entity.
+      const any = Object.keys(this._hass.states).find(k => k.startsWith("alarm_control_panel."));
+      if (any) return any;
+    }
+    return cfgId || "alarm_control_panel.secure_me_alarm_system_alarm";
+  }
   _requireCode() { return this._config.require_code !== false; }
   _showHA()      { return this._config.show_home_alone !== false; }
   _showTTS()     { return this._config.show_tts !== false; }
   _ttsMessages() { return this._dynamicMsgs ?? this._config.tts_messages ?? []; }
-  _state()       { return this._hass?.states?.[this._entity()]?.state ?? "unknown"; }
+  _state() {
+    // Prefer secure_me_mode attribute (true Secure Me state string) over
+    // e.state (HA-canonical, which maps armed_home_alone -> armed_custom_bypass).
+    const e = this._hass?.states?.[this._entity()];
+    if (!e) return "unknown";
+    return e.attributes?.secure_me_mode || e.state || "unknown";
+  }
   _attr(a)       { return this._hass?.states?.[this._entity()]?.attributes?.[a]; }
 
   _buildShell() {

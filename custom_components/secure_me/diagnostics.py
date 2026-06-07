@@ -64,8 +64,11 @@ async def async_get_config_entry_diagnostics(
             "armed_by": coordinator.armed_by,
             "disarmed_by": coordinator.disarmed_by,
             "triggered_by": coordinator.triggered_by,
+            "last_triggered": getattr(coordinator, "_last_triggered", None),
+            "bypassed_sensors_count": len(getattr(coordinator, "_bypassed_sensors", [])),
             "open_sensors_count": len(coordinator.open_sensors),
             "bypassed_zones": coordinator.bypassed_zones,
+            "arm_history_count": len(getattr(coordinator, "_arm_history", [])),
         }
 
     # --- Module status ---
@@ -154,31 +157,23 @@ async def async_get_config_entry_diagnostics(
             else None,
         }
 
-    # --- Recent Test Results (NEW) ---
+    # --- Recent Test Results ---
+    # Bug fix: store is a SecureMeStore object, not a dict. Use store._data directly.
     test_results_info: dict[str, Any] = {}
     if store:
-        test_data = store.get("test_results", {})
-        if test_data:
-            last_result = test_data.get("last_result", {})
-            test_results_info = {
-                "last_test_status": last_result.get("status", "unknown"),
-                "last_test_time": last_result.get("timestamp", "never"),
-                "last_test_level": last_result.get("level", "unknown"),
-                "last_test_duration": last_result.get("duration", 0),
-                "test_history_available": len(store._data.get("test_history", [])),
-            }
-            
-            # Include last test details if available
-            if last_result:
-                test_results_info["last_test_details"] = {
-                    "passed_checks": last_result.get("passed_checks", 0),
-                    "total_checks": last_result.get("total_checks", 0),
-                    "failed_modules": last_result.get("failed_modules", []),
-                }
+        test_history = store._data.get("test_history", [])
+        last_result = test_history[0] if test_history else {}
+        test_results_info = {
+            "test_history_count": len(test_history),
+            "last_test_status": last_result.get("overall", "never"),
+            "last_test_time": last_result.get("timestamp", "never"),
+            "last_test_type": last_result.get("test_type", "unknown"),
+        }
 
-    # --- Entity Registry Info (NEW) ---
+    # --- Entity Registry Info ---
     entity_info: dict[str, Any] = {}
-    entity_registry = hass.helpers.entity_registry.async_get(hass)
+    from homeassistant.helpers import entity_registry as er
+    entity_registry = er.async_get(hass)
     entities = [
         e
         for e in entity_registry.entities.values()

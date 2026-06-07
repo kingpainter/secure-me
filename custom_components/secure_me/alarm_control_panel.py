@@ -89,9 +89,27 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         }
 
     @property
-    def state(self) -> str:
-        """Return the state of the device."""
-        return self.coordinator.alarm_state
+    def alarm_state(self):
+        """Return the current alarm state as an AlarmControlPanelState.
+
+        HA's AlarmControlPanelState does not include 'armed_home_alone'.
+        We map it to ARMED_CUSTOM_BYPASS so HA accepts the state and stores
+        it correctly in the entity registry. The true Secure Me mode is
+        always available via the 'secure_me_mode' state attribute.
+        """
+        from homeassistant.components.alarm_control_panel import AlarmControlPanelState
+        _MAP = {
+            "disarmed":         AlarmControlPanelState.DISARMED,
+            "arming":           AlarmControlPanelState.ARMING,
+            "armed_away":       AlarmControlPanelState.ARMED_AWAY,
+            "armed_home":       AlarmControlPanelState.ARMED_HOME,
+            "armed_night":      AlarmControlPanelState.ARMED_NIGHT,
+            "armed_vacation":   AlarmControlPanelState.ARMED_VACATION,
+            "armed_home_alone": AlarmControlPanelState.ARMED_CUSTOM_BYPASS,
+            "pending":          AlarmControlPanelState.PENDING,
+            "triggered":        AlarmControlPanelState.TRIGGERED,
+        }
+        return _MAP.get(self.coordinator.alarm_state, AlarmControlPanelState.DISARMED)
 
     @property
     def code_arm_required(self) -> bool:
@@ -147,6 +165,12 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         last_triggered = getattr(self.coordinator, "last_triggered", None)
         if last_triggered:
             attrs[ATTR_LAST_TRIGGERED] = last_triggered
+
+        # v1.5.0: Expose the raw Secure Me coordinator state as an attribute.
+        # HA's AlarmControlPanelState enum doesn't include 'armed_home_alone', so
+        # the entity state is mapped to 'armed_custom_bypass' by HA. The frontend
+        # panel reads this attribute to get the true Secure Me state.
+        attrs["secure_me_mode"] = self.coordinator.alarm_state
 
         return attrs
 
@@ -258,6 +282,12 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
 
         v1.4.3: Also restores last_triggered timestamp and bypassed_sensors
         list so the alarm panel attributes survive HA restart.
+
+        v1.5.0: Prefer the 'secure_me_mode' extra_state_attribute over
+        last.state as the authoritative source for the restored state.
+        HA maps 'armed_home_alone' to 'armed_custom_bypass' on the entity
+        state — using secure_me_mode avoids the need for a reverse-map and
+        is robust against any future HA enum changes.
         """
         await super().async_added_to_hass()
 
@@ -266,15 +296,23 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
             _LOGGER.debug("No previous state found — starting as disarmed")
             return
 
-        restored_state = last.state
+        # Prefer 'secure_me_mode' attribute (the true Secure Me state string)
+        # over last.state (the HA-canonical AlarmControlPanelState string).
+        # Fallback to last.state if the attribute is missing (upgrade path from
+        # older Secure Me versions that did not set this attribute).
+        secure_me_mode = last.attributes.get("secure_me_mode")
+        restored_state = secure_me_mode if secure_me_mode else last.state
+
         armed_by = last.attributes.get(ATTR_CHANGED_BY)
         last_triggered = last.attributes.get(ATTR_LAST_TRIGGERED)
         bypassed_sensors = last.attributes.get(ATTR_BYPASSED_SENSORS)
 
         _LOGGER.info(
-            "Restoring alarm state from last known: '%s' (armed_by=%s, "
+            "Restoring alarm state: '%s' (source=%s, armed_by=%s, "
             "last_triggered=%s, bypassed=%d)",
-            restored_state, armed_by, last_triggered,
+            restored_state,
+            "secure_me_mode attr" if secure_me_mode else "last.state fallback",
+            armed_by, last_triggered,
             len(bypassed_sensors) if bypassed_sensors else 0,
         )
         await self.coordinator.async_restore_state(

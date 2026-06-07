@@ -65,6 +65,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Sensor flyout drifting away from input field when panel is scrolled
 - `_render()` tearing down floorplan inspector DOM while sensor flyout was open, causing HA state updates (fired every second via `set hass()`) to interrupt sensor selection
 
+#### Architecture
+- `websocket_api.py` split into four focused sub-modules: `ws_sensors.py`, `ws_modules.py`, `ws_floorplan.py`, `ws_alarm.py`
+- New `ws_helpers.py` with shared `_get_store()` and `_get_coordinator()` helpers — eliminates four duplicate definitions
+- `websocket_api.py` reduced from 2600 lines to 172 lines (entry point + imports only)
+
+#### Alarm state
+- `alarm_control_panel.py`: `state` property replaced with `alarm_state` override returning `AlarmControlPanelState` enum values — `armed_home_alone` maps to `ARMED_CUSTOM_BYPASS` for HA compatibility
+- New `secure_me_mode` state attribute always exposes the true Secure Me coordinator state (e.g. `armed_home_alone`)
+- Frontend panel now reads `secure_me_mode` attribute instead of `.state` — fixes panel showing "Disarmed" when Home Alone was active
+
+#### Frontend stability
+- `set hass()` reads `secure_me_mode` attribute from alarm entity — panel pill now shows correct state for all arm modes
+- `_armingCountdown` also tracks open sensors and triggered-by sensor from entity attributes
+- Status pill in `triggered` state now shows the triggering sensor's friendly name (truncated to 22 chars) instead of the generic "Triggered" label
+- WS reconnect banner: subtle spinning indicator shown below topbar when WebSocket connection is lost; hides automatically on reconnect with 3s auto-retry of `_loadData()`
+- Skeleton loading state: shimmer cards shown on first panel load before data arrives
+- Module tab render cache: `_renderModules()` output cached by JSON fingerprint of modules + health data — skips re-render when data is unchanged, reducing DOM work on every `set hass()` call
+- Sensor pin markers in floorplan live view: `fp.markers` positions shown as SVG pins, coloured red (active, with pulse ring) or green (inactive), with friendly name label on active sensors
+- `&times;` entity reference replaces raw `✕` character in room inspector delete button
+
+#### Startup robustness
+- `async_setup_entry` retries `async_config_entry_first_refresh` up to 3 times with 2s delay before raising `ConfigEntryNotReady` — prevents integration failure on transient startup errors
+
+
 ---
 
 ## [1.4.3] - 2025-11-01

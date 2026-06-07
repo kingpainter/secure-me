@@ -1,6 +1,6 @@
 /**
  * Secure Me - Configuration Panel
- * VERSION: 1.4.3
+ * VERSION: 1.5.0
  *
  * Custom panel for Home Assistant using vanilla Custom Elements.
  * Uses HA CSS custom properties for theme compatibility.
@@ -59,6 +59,14 @@ const panelStyles = `
   .sm-header-pill.arming    { background: var(--sm-warning-dim); color: var(--sm-warning); }
   .sm-header-pill.triggered { background: var(--sm-danger-dim);  color: var(--sm-danger); animation: sm-pulse-red 1s ease-in-out infinite; }
   .sm-header-pill.pending   { background: var(--sm-warning-dim); color: var(--sm-warning); }
+  .sm-ws-banner { display:flex;align-items:center;gap:8px;padding:8px 16px;
+    background:var(--sm-warning-dim);color:var(--sm-warning);font-size:12px;font-weight:600;
+    border-bottom:1px solid rgba(245,158,11,0.2);animation:sm-fade-in 0.3s ease; }
+  .sm-ws-banner svg { flex-shrink:0;animation:sm-spin 1.2s linear infinite; }
+  @keyframes sm-spin { to { transform:rotate(360deg); } }
+  .sm-skeleton { background:linear-gradient(90deg,var(--sm-bg2) 25%,var(--sm-bg3) 50%,var(--sm-bg2) 75%);
+    background-size:200% 100%;animation:sm-shimmer 1.4s infinite;border-radius:8px; }
+  @keyframes sm-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
   .sm-tabs { display: flex; gap: 2px; flex-wrap: wrap; }
   .sm-tab { padding: 7px 14px; border-radius: 10px; border: none; background: transparent; color: var(--sm-text-secondary); cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
@@ -377,8 +385,16 @@ class SecureMePanel extends HTMLElement {
     this._floorplanDrawing = null;
     this._fpSaveDebounce = null;
     this._floorplanUploading = false;
+    this._wsConnected = true;  // tracks WS connection health for banner
     this._fpUndoStack = [];       // undo stack: max 20 snapshots
     this._fpKeyboardCleanup = null; // keyboard handler cleanup ref
+    // Tab render caches — invalidated on data save
+    this._sensorsRenderCache   = null;
+    this._sensorsRenderKey     = null;
+    this._zonesRenderCache     = null;
+    this._zonesRenderKey       = null;
+    this._automationsRenderCache = null;
+    this._automationsRenderKey   = null;
 
 
 
@@ -403,9 +419,30 @@ class SecureMePanel extends HTMLElement {
     else if (state === "armed_home_alone") { cls = "armed";    label = "Home Alone"; }
     else if (state === "arming")         { cls = "arming";   label = cd > 0 ? `Arming ${cd}s` : "Arming"; }
     else if (state === "pending")        { cls = "pending";  label = cd > 0 ? `Entry ${cd}s` : "Pending"; }
-    else if (state === "triggered")      { cls = "triggered";label = "Triggered"; }
+    else if (state === "triggered") {
+      cls = "triggered";
+      const tb = this._alarmTriggeredBy;
+      if (tb) {
+        const tbName = this._hass?.states?.[tb]?.attributes?.friendly_name || tb.split('.').pop().replace(/_/g,' ');
+        label = tbName.length > 22 ? tbName.slice(0,20) + '...' : tbName;
+      } else {
+        label = "Triggered";
+      }
+    }
     pill.className = "sm-header-pill " + cls;
     if (textEl) textEl.textContent = label;
+
+    // Open sensors badge — shown when disarmed and sensors are open
+    const badgeEl = this.shadowRoot?.getElementById("shell-open-badge");
+    if (badgeEl) {
+      const openCount = (this._alarmOpenSensors || []).length;
+      if (state === "disarmed" && openCount > 0) {
+        badgeEl.textContent = openCount + " open";
+        badgeEl.style.display = "inline-flex";
+      } else {
+        badgeEl.style.display = "none";
+      }
+    }
   }
   set hass(hass) {
     this._hass = hass;
@@ -416,16 +453,33 @@ class SecureMePanel extends HTMLElement {
 
     // Track alarm state directly from hass.states — fires immediately on state change
     // without waiting for the 5s health event interval.
+    // NOTE: HA's AlarmControlPanelState enum has no 'armed_home_alone' entry —
+    // the entity state is 'armed_custom_bypass' when Home Alone is active.
+    // The true Secure Me mode is always in the 'secure_me_mode' attribute.
     const alarmEntity = Object.values(hass.states || {}).find(
       s => s.entity_id.startsWith('alarm_control_panel.')
     );
-    if (alarmEntity && alarmEntity.state !== this._alarmState) {
-      this._alarmState = alarmEntity.state;
-      this._alarmCountdown = parseInt(alarmEntity.attributes?.countdown || 0);
-      this._updateStatusPills();
-      // Also queue a render so countdown/armed_by etc. refresh.
-      // Skip naar flyout er aaben -- render river inspector-DOM ned.
-      if (!this._fpFlyoutActive()) this._queueRender();
+    if (alarmEntity) {
+      // Resolve the true Secure Me state.
+      // Priority 1: secure_me_mode attribute (set by alarm_control_panel.py — always the coordinator truth)
+      // Priority 2: standard HA states (disarmed, arming, pending, triggered, armed_away/home/night/vacation)
+      // Ignored:    armed_custom_bypass — HA's internal mapping for armed_home_alone; must never
+      //             overwrite a valid state that was already set from the WS endpoint.
+      const smMode = alarmEntity.attributes?.secure_me_mode;
+      const haState = alarmEntity.state;
+      const resolvedMode = smMode
+        ? smMode
+        : (haState === "armed_custom_bypass" ? this._alarmState : haState);
+      if (resolvedMode !== this._alarmState) {
+        this._alarmState = resolvedMode;
+        this._alarmCountdown = parseInt(alarmEntity.attributes?.countdown || 0);
+        this._alarmTriggeredBy = alarmEntity.attributes?.triggered_by || null;
+        this._alarmOpenSensors = alarmEntity.attributes?.open_sensors || [];
+        this._updateStatusPills();
+        // Also queue a render so countdown/armed_by etc. refresh.
+        // Skip naar flyout er aaben -- render river inspector-DOM ned.
+        if (!this._fpFlyoutActive()) this._queueRender();
+      }
     }
 
     // v1.5.0: Live floorplan refresh in Home Alone mode.
@@ -523,6 +577,8 @@ class SecureMePanel extends HTMLElement {
             if (event.data.alarm_state && event.data.alarm_state !== this._alarmState) {
               this._alarmState = event.data.alarm_state;
               if (event.data.countdown != null) this._alarmCountdown = event.data.countdown;
+              if (event.data.triggered_by != null) this._alarmTriggeredBy = event.data.triggered_by;
+              if (event.data.open_sensors != null) this._alarmOpenSensors = event.data.open_sensors;
               this._updateStatusPills();
             }
           }
@@ -573,14 +629,36 @@ class SecureMePanel extends HTMLElement {
   async _callWS(type, data = {}) {
     if (!this._hass) return null;
     try {
-      return await this._hass.callWS({ type: `${DOMAIN}/${type}`, ...data });
+      const result = await this._hass.callWS({ type: `${DOMAIN}/${type}`, ...data });
+      // Connection succeeded — hide banner if it was visible
+      if (!this._wsConnected) {
+        this._wsConnected = true;
+        const banner = this.shadowRoot?.getElementById("shell-ws-banner");
+        if (banner) banner.style.display = "none";
+      }
+      return result;
     } catch (err) {
       console.error(`Secure Me WS error (${type}):`, err);
+      // Show reconnecting banner for connection-level errors (not app errors)
+      const isConnErr = err?.code === "connection_lost" || err?.message?.includes("Connection");
+      if (isConnErr && this._wsConnected) {
+        this._wsConnected = false;
+        const banner = this.shadowRoot?.getElementById("shell-ws-banner");
+        if (banner) banner.style.display = "flex";
+        // Auto-retry data load after 3s when connection is lost
+        setTimeout(() => {
+          if (!this._wsConnected) this._loadData();
+        }, 3000);
+      }
       return null;
     }
   }
 
   async _loadData() {
+    // Invalidate all tab render caches on data reload
+    this._sensorsRenderCache = null;
+    this._zonesRenderCache   = null;
+    this._automationsRenderCache = null;
     // Subscribe to health updates once — called from _loadData which only runs once
     this._subscribeToHealthUpdates();
     // PERF: Split into two phases.
@@ -605,7 +683,12 @@ class SecureMePanel extends HTMLElement {
     if (modules) this._data.modules = modules.modules || {};
     if (notifications) this._data.notifications = notifications.notifications || {};
     if (automations) this._data.automations = automations.automations || {};
-    if (state) { this._alarmState = state.state || "disarmed"; this._alarmCountdown = state.countdown || 0; }
+    if (state) {
+      this._alarmState       = state.state       || "disarmed";
+      this._alarmCountdown   = state.countdown   || 0;
+      this._alarmTriggeredBy = state.triggered_by || null;
+      this._alarmOpenSensors = state.open_sensors || [];
+    }
     if (fakePresence) {
       this._data.fakePresence = fakePresence.active || false;
       this._data.homeAloneCameras = fakePresence.home_alone_cameras || [];
@@ -688,6 +771,7 @@ class SecureMePanel extends HTMLElement {
     mod.enabled = !mod.enabled;
     if (mod.enabled) this._expandedModule = moduleId;
     await this._callWS("save_module", { module_id: moduleId, config: mod });
+    this._modulesRenderCache = null;  // invalidate cache after save
     this._render();
   }
 
@@ -753,6 +837,10 @@ class SecureMePanel extends HTMLElement {
             <span class="pill-dot"></span>
             <span id="shell-status-text">Disarmed</span>
           </div>
+          <div id="shell-open-badge" style="display:none;align-items:center;
+               padding:4px 10px;border-radius:16px;font-size:11px;font-weight:600;
+               background:var(--sm-warning-dim);color:var(--sm-warning);
+               border:1px solid rgba(245,158,11,0.25);white-space:nowrap"></div>
         </div>
         <div class="sm-tabs" id="shell-nav-tabs">
           ${TABS.map(t => `
@@ -764,6 +852,14 @@ class SecureMePanel extends HTMLElement {
             </button>
           `).join("")}
         </div>
+      </div>
+
+      <!-- WS RECONNECT BANNER — shown when connection is lost -->
+      <div id="shell-ws-banner" style="display:none" class="sm-ws-banner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        Reconnecting to Home Assistant...
       </div>
 
       <!-- MAIN CONTENT — patched by _render() -->
@@ -1035,6 +1131,19 @@ class SecureMePanel extends HTMLElement {
   }
 
   _renderTab() {
+    // Show skeleton cards on first load before data arrives
+    if (!this._data.sensors || !this._data.zones) {
+      return `
+        <div style="padding:0 0 16px">
+          <div class="section-header"><h3 class="section-title">Loading...</h3></div>
+          ${[1,2,3].map(() => `
+            <div class="sm-card" style="margin-bottom:10px;height:72px" class="sm-skeleton">
+              <div class="sm-skeleton" style="height:72px;border-radius:8px"></div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
     switch (this._activeTab) {
       case "sensors": return this._renderSensors();
       case "zones": return this._renderZones();
@@ -1053,6 +1162,8 @@ class SecureMePanel extends HTMLElement {
   // TAB: SENSORS
   // ===
   _renderSensors() {
+    const sCacheKey = JSON.stringify({ s: this._data.sensors, fp: this._data.fakePresenceActive });
+    if (this._sensorsRenderKey === sCacheKey && this._sensorsRenderCache) return this._sensorsRenderCache;
     const sensors = this._data.sensors || [];
     const envSensors    = sensors.filter(s => s.is_environmental && !s.env_unmarked);
     const normalSensors = sensors.filter(s => !s.is_environmental || s.env_unmarked);
@@ -1122,7 +1233,7 @@ class SecureMePanel extends HTMLElement {
 
     const fakePresenceActive = this._data.fakePresence || false;
 
-    return `
+    const __html = `
       <div class="section-header">
         <div>
           <h3 class="section-title">Available Sensors</h3>
@@ -1240,18 +1351,21 @@ class SecureMePanel extends HTMLElement {
         </div>
       </div>
     `;
+    this._sensorsRenderKey = sCacheKey; this._sensorsRenderCache = __html; return __html;
   }
 
   // ===
   // TAB: ZONES
   // ===
   _renderZones() {
+    const zCacheKey = JSON.stringify({ z: this._data.zones, s: this._data.sensors });
+    if (this._zonesRenderKey === zCacheKey && this._zonesRenderCache) return this._zonesRenderCache;
     const zones = this._data.zones || {};
     const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
     const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
     const modeColors = { away: "var(--sm-danger)", home: "var(--sm-accent)", night: "var(--sm-blue)", vacation: "var(--sm-purple)", home_alone: "var(--sm-green)" };
 
-    return `
+    const __zhtml = `
       <div class="section-header">
         <h3 class="section-title">Zones</h3>
         <button class="sm-btn primary sm" data-action="add-zone">
@@ -1296,6 +1410,7 @@ class SecureMePanel extends HTMLElement {
       </div>
 
     `;
+    this._zonesRenderKey = zCacheKey; this._zonesRenderCache = __zhtml; return __zhtml;
   }
 
   _renderZoneDialog() {
@@ -1525,6 +1640,7 @@ class SecureMePanel extends HTMLElement {
     };
 
     const result = await this._callWS('save_zone', { zone_id: zoneId, config });
+    this._zonesRenderCache = null;
     if (result && result.success !== false) {
       // v1.4.3: Persist per-sensor auto_bypass_modes via bulk save_sensors.
       // Only sends sensors that were actually shown in this dialog (sensors
@@ -1599,6 +1715,7 @@ class SecureMePanel extends HTMLElement {
     if (!await this._confirm('This zone and all its sensors will be removed.', 'Delete Zone?')) return;
     await this._callWS('delete_zone', { zone_id: zoneId });
     this._toast('Zone deleted', 'success');
+    this._zonesRenderCache = null;
     await this._loadData();
   }
 
@@ -1879,10 +1996,12 @@ class SecureMePanel extends HTMLElement {
   // TAB: MODULES
   // ===
   _renderModules() {
+    const cacheKey = JSON.stringify({ m: this._data.modules, h: this._data.health?.modules });
+    if (this._modulesRenderKey === cacheKey && this._modulesRenderCache) return this._modulesRenderCache;
     const modules = this._data.modules || {};
     const enabledCount = Object.values(modules).filter(m => m.enabled).length;
 
-    return `
+    const html = `
       <div class="section-header">
         <h3 class="section-title">Modules</h3>
         <span class="badge accent">${enabledCount} active</span>
@@ -1938,6 +2057,9 @@ class SecureMePanel extends HTMLElement {
         `;
       }).join("")}
     `;
+    this._modulesRenderKey   = cacheKey;
+    this._modulesRenderCache = html;
+    return html;
   }
 
   _renderModuleConfig(moduleKey) {
@@ -2246,6 +2368,7 @@ class SecureMePanel extends HTMLElement {
         height:    fp.height || 0,
         rooms:     fp.rooms  || fp.markers || {},  // backwards compat
         openings:  fp.openings || [],
+        markers:   fp.markers || {},  // sensor pin positions for live-view
       };
     }
     this._floorplanLoaded = true;
@@ -2478,6 +2601,53 @@ class SecureMePanel extends HTMLElement {
       `;
     }).join("");
 
+    // Build SVG sensor pins (live mode: show active/inactive; edit mode: show all)
+    const markerEntries = Object.entries(fp.markers || {});
+    const svgSensorPins = (liveMode && markerEntries.length > 0) ? markerEntries.map(([eid, m]) => {
+      const x = parseFloat(m.x_pct);
+      const y = parseFloat(m.y_pct);
+      if (isNaN(x) || isNaN(y)) return "";
+      const sx = (x / 100 * VW).toFixed(1);
+      const sy = (y / 100 * VH).toFixed(1);
+      const isActive = this._sensorIsActive(eid);
+      const kind  = m.kind || "motion";
+      // Color: active = danger red, inactive = muted green
+      const color = isActive ? "#ef4444" : "#10b981";
+      const dim   = isActive ? "rgba(239,68,68,0.18)" : "rgba(16,185,129,0.12)";
+      const r     = isActive ? 14 : 10;
+      const label = m.label || this._sensorFriendlyName(eid);
+
+      // Inner icon path per kind
+      let iconPath = "";
+      if (kind === "motion" || kind === "occupancy") {
+        iconPath = `<circle cx="${sx}" cy="${sy}" r="4" fill="${color}" opacity="0.9" pointer-events="none"/>`;
+      } else if (kind === "door") {
+        iconPath = `<rect x="${(parseFloat(sx)-3.5).toFixed(1)}" y="${(parseFloat(sy)-5).toFixed(1)}" width="7" height="10" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+      } else if (kind === "window") {
+        iconPath = `<rect x="${(parseFloat(sx)-5).toFixed(1)}" y="${(parseFloat(sy)-3).toFixed(1)}" width="10" height="6" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+      }
+
+      // Pulse ring for active sensors
+      const pulseRing = isActive ? `
+        <circle cx="${sx}" cy="${sy}" r="${r + 5}" fill="none"
+                stroke="${color}" stroke-width="1.5" opacity="0.4"
+                pointer-events="none">
+          <animate attributeName="r" values="${r}; ${r+10}; ${r}" dur="1.8s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.5; 0; 0.5" dur="1.8s" repeatCount="indefinite"/>
+        </circle>` : "";
+
+      return `
+        ${pulseRing}
+        <circle cx="${sx}" cy="${sy}" r="${r}" fill="${dim}" stroke="${color}"
+                stroke-width="1.5" pointer-events="none"/>
+        ${iconPath}
+        ${isActive ? `<text x="${sx}" y="${(parseFloat(sy) + r + 14).toFixed(1)}"
+              text-anchor="middle" font-family="DM Sans,sans-serif"
+              font-size="16" font-weight="600" fill="${color}" opacity="0.95"
+              pointer-events="none" style="user-select:none">${label}</text>` : ""}
+      `;
+    }).join("") : "";
+
     // In-progress drawing preview
     const drawing = this._floorplanDrawing;
     let previewSvg = "";
@@ -2650,6 +2820,7 @@ class SecureMePanel extends HTMLElement {
             </defs>
             ${svgRooms}
             ${svgOpenings}
+            ${svgSensorPins}
             ${previewSvg}
           </svg>
 
@@ -2728,7 +2899,7 @@ class SecureMePanel extends HTMLElement {
                   <span style="font-size:11px;color:var(--sm-text-tertiary);font-family:monospace;
                                overflow:hidden;text-overflow:ellipsis;max-width:140px">${eid}</span>
                   <button class="sm-btn ghost sm" data-fp-remove-sensor="${eid}"
-                          style="padding:2px 6px;color:var(--sm-danger);flex-shrink:0">✕</button>
+                          style="padding:2px 6px;color:var(--sm-danger);flex-shrink:0">&times;</button>
                 </div>
               `;
             }).join("")}
@@ -3575,11 +3746,15 @@ class SecureMePanel extends HTMLElement {
   // TAB: AUTOMATIONS & NOTIFICATIONS
   // ===
   _renderAutomations() {
+    const aCacheKey = JSON.stringify({
+      n: this._data.notifications, a: this._data.automations, sec: this._autoSection
+    });
+    if (this._automationsRenderKey === aCacheKey && this._automationsRenderCache) return this._automationsRenderCache;
     const section = this._autoSection;
     const notifications = this._data.notifications || {};
     const automations = this._data.automations || {};
 
-    return `
+    const __ahtml = `
       <div class="segment-control">
         <button class="segment-btn ${section === "notifications" ? "active" : ""}"
                 data-auto-section="notifications">Notifications</button>
@@ -3679,6 +3854,9 @@ class SecureMePanel extends HTMLElement {
         </div>
       `}
     `;
+    this._automationsRenderKey   = aCacheKey;
+    this._automationsRenderCache = __ahtml;
+    return __ahtml;
   }
 
   // ===
@@ -3991,11 +4169,48 @@ class SecureMePanel extends HTMLElement {
         <span class="badge ${colorName === "warning" ? "entry" : "actions"}">${badgeText}</span>
       </div>
     `;
+    this._automationsRenderKey = aCacheKey; this._automationsRenderCache = __ahtml; return __ahtml;
   }
 
   // ===
   // TAB: TESTING
   // ===
+  _renderArmHistory(events) {
+    if (!events || events.length === 0) return "";
+    const STATE_LABELS = {
+      disarmed: "Disarmed", armed_away: "Armed Away", armed_home: "Armed Home",
+      armed_night: "Armed Night", armed_vacation: "Armed Vacation",
+      armed_home_alone: "Home Alone", triggered: "Triggered",
+      arming: "Arming", pending: "Pending",
+    };
+    return `
+      <div class="section-header" style="margin-top:16px">
+        <h3 class="section-title">Recent Events</h3>
+      </div>
+      <div class="sm-card" style="padding:0;overflow:hidden">
+        ${events.map((ev, i) => {
+          const ts = new Date((ev.ts || 0) * 1000);
+          const timeStr = ts.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})
+            + " " + ts.toLocaleDateString([], {day:"2-digit",month:"2-digit"});
+          const stateLabel = STATE_LABELS[ev.state] || ev.state;
+          const stateColor = ev.state === "triggered" ? "var(--sm-danger)"
+            : ev.state === "disarmed" ? "var(--sm-text-secondary)"
+            : "var(--sm-accent)";
+          return `<div style="display:flex;align-items:center;justify-content:space-between;
+                      padding:10px 16px;${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;
+                           background:${stateColor}"></span>
+              <span style="font-size:13px;font-weight:600;color:${stateColor}">${stateLabel}</span>
+              ${ev.by ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">by ${ev.by}</span>` : ""}
+            </div>
+            <span style="font-size:11px;color:var(--sm-text-tertiary)">${timeStr}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    `;
+  }
+
   _renderTesting() {
     const health  = this._data.health || {};
     const results = this._data.testResults || [];
@@ -4007,6 +4222,15 @@ class SecureMePanel extends HTMLElement {
 
     const scoreColor = score >= 90 ? "var(--sm-accent)" :
                        score >= 70 ? "var(--sm-warning)" : "var(--sm-danger)";
+
+    // Weighted: modules with problems dominate the label over raw score
+    const problemModules = Object.entries(modules)
+      .filter(([,m]) => m.enabled && m.status !== "ok")
+      .map(([id]) => id);
+    const weightedLabel = problemModules.length > 0
+      ? `${problemModules.length} module${problemModules.length > 1 ? "s" : ""} with issues`
+      : score >= 90 ? "All Systems Healthy"
+      : score >= 70 ? "Minor Issues Detected" : "Critical Issues Found";
 
     // Test level definitions shown as descriptions on hover/below button
     const TEST_LEVELS = [
@@ -4057,13 +4281,15 @@ class SecureMePanel extends HTMLElement {
             </div>
             <div>
               <div style="font-size:15px;font-weight:600">
-                ${score >= 90 ? "All Systems Healthy" :
-                  score >= 70 ? "Minor Issues Detected" : "Critical Issues Found"}
+                ${weightedLabel}
               </div>
               <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
                 ${health.available_entities || 0}/${health.total_entities || 0} entities available
                 &middot; ${health.low_battery_count || 0} low batteries
               </div>
+              ${health.armed_by ? `<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:3px">Armed by: ${health.armed_by}</div>` : ""}
+              ${health.triggered_by ? `<div style="font-size:11px;color:var(--sm-danger);margin-top:3px">Last triggered by: ${this._hass?.states?.[health.triggered_by]?.attributes?.friendly_name || health.triggered_by}</div>` : ""}
+              ${(health.open_sensors || []).length > 0 ? `<div style="font-size:11px;color:var(--sm-warning);margin-top:3px">Open: ${(health.open_sensors||[]).map(e=>this._hass?.states?.[e]?.attributes?.friendly_name||e.split(".").pop().replace(/_/g," ")).join(", ")}</div>` : ""}
             </div>
           </div>
 
@@ -4091,6 +4317,9 @@ class SecureMePanel extends HTMLElement {
           </div>
         </div>
       </div>
+
+      <!-- ── Arm History ─────────────────────────────────────────── -->
+      ${this._renderArmHistory(health.arm_history || [])}
 
       <!-- ── Run Tests ─────────────────────────────────────────────── -->
       <div class="section-header" style="margin-top:20px">
@@ -5840,6 +6069,7 @@ class SecureMePanel extends HTMLElement {
     };
 
     const result = await this._callWS('save_notification', { notification_id: notifId, config });
+    this._automationsRenderCache = null;
     if (result && result.success !== false) {
       this._showDialog = null;
       this._tempConfig = null;
@@ -5853,6 +6083,7 @@ class SecureMePanel extends HTMLElement {
   async _deleteNotification(notifId) {
     if (!notifId) return;
     const result = await this._callWS('delete_notification', { notification_id: notifId });
+    this._automationsRenderCache = null;
     if (result && result.success !== false) {
       await this._loadData();
       this._toast('Notification deleted.', 'success');

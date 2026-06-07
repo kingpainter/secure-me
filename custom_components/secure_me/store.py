@@ -389,12 +389,12 @@ class SecureMeStore:
     async def async_save_sensor(self, entity_id: str, config: dict[str, Any]) -> None:
         """Save sensor configuration."""
         self._data.setdefault("sensors", {})[entity_id] = config
-        await self.async_save()
+        self._schedule_save()
 
     async def async_save_sensors_bulk(self, sensors: dict[str, Any]) -> None:
         """Save multiple sensor configurations at once."""
         self._data["sensors"] = sensors
-        await self.async_save()
+        self._schedule_save()
 
     # ─── Sensor Groups (anti-masking) ────────────────────────────────────────
 
@@ -426,14 +426,14 @@ class SecureMeStore:
             "timeout": int(config.get("timeout", 0)),
             "event_count": int(config.get("event_count", 2)),
         }
-        await self.async_save()
+        self._schedule_save()
         return group_id
 
     async def async_delete_sensor_group(self, group_id: str) -> bool:
         """Delete a sensor group."""
         if group_id in self._data.get("sensor_groups", {}):
             del self._data["sensor_groups"][group_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -446,13 +446,13 @@ class SecureMeStore:
     async def async_save_zone(self, zone_id: str, config: dict[str, Any]) -> None:
         """Save zone configuration."""
         self._data.setdefault("zones", {})[zone_id] = config
-        await self.async_save()
+        self._schedule_save()
 
     async def async_delete_zone(self, zone_id: str) -> bool:
         """Delete a zone."""
         if zone_id in self._data.get("zones", {}):
             del self._data["zones"][zone_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -520,7 +520,7 @@ class SecureMeStore:
         """Delete a user."""
         if user_id in self._data.get("users", {}):
             del self._data["users"][user_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -542,7 +542,7 @@ class SecureMeStore:
     async def async_save_module(self, module_id: str, config: dict[str, Any]) -> None:
         """Save module configuration."""
         self._data.setdefault("modules", self._default_data()["modules"])[module_id] = config
-        await self.async_save()
+        self._schedule_save()
 
     def get_available_entities(self, domain: str) -> list[dict[str, Any]]:
         """Get available entities for a domain."""
@@ -564,7 +564,7 @@ class SecureMeStore:
     async def async_save_speaker_profiles(self, profiles: list[dict[str, Any]]) -> None:
         """Save the full speaker profile list."""
         self._data["speaker_profiles"] = profiles
-        await self.async_save()
+        self._schedule_save()
 
     # -- Notifications -------------------------------------------------------
 
@@ -575,13 +575,13 @@ class SecureMeStore:
     async def async_save_notification(self, notif_id: str, config: dict[str, Any]) -> None:
         """Save notification configuration."""
         self._data.setdefault("notifications", {})[notif_id] = config
-        await self.async_save()
+        self._schedule_save()
 
     async def async_delete_notification(self, notif_id: str) -> bool:
         """Delete a notification."""
         if notif_id in self._data.get("notifications", {}):
             del self._data["notifications"][notif_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -594,13 +594,13 @@ class SecureMeStore:
     async def async_save_automation(self, auto_id: str, config: dict[str, Any]) -> None:
         """Save automation configuration."""
         self._data.setdefault("automations", {})[auto_id] = config
-        await self.async_save()
+        self._schedule_save()
 
     async def async_delete_automation(self, auto_id: str) -> bool:
         """Delete an automation."""
         if auto_id in self._data.get("automations", {}):
             del self._data["automations"][auto_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -615,14 +615,14 @@ class SecureMeStore:
         if not test_id:
             test_id = "sched_" + str(uuid.uuid4())[:8]
         self._data.setdefault("scheduled_tests", {})[test_id] = config
-        await self.async_save()
+        self._schedule_save()
         return test_id
 
     async def async_delete_scheduled_test(self, test_id: str) -> bool:
         """Delete a scheduled test."""
         if test_id in self._data.get("scheduled_tests", {}):
             del self._data["scheduled_tests"][test_id]
-            await self.async_save()
+            self._schedule_save()
             return True
         return False
 
@@ -634,7 +634,7 @@ class SecureMeStore:
         if sched:
             sched["last_run"] = last_run
             sched["last_result"] = last_result
-            await self.async_save()
+            self._schedule_save()
 
     # ─── Fake Presence ────────────────────────────────────────────────────────
 
@@ -645,7 +645,7 @@ class SecureMeStore:
     async def async_set_fake_presence(self, active: bool) -> None:
         """Set fake presence state and persist."""
         self._data["fake_presence"] = active
-        await self.async_save()
+        self._schedule_save()
 
     def get_home_alone_cameras(self) -> list[str]:
         """Get configured Home Alone Monitor camera entity IDs."""
@@ -654,7 +654,7 @@ class SecureMeStore:
     async def async_save_home_alone_cameras(self, cameras: list[str]) -> None:
         """Save Home Alone Monitor camera entity IDs."""
         self._data["home_alone_cameras"] = cameras
-        await self.async_save()
+        self._schedule_save()
 
     # ─── Floorplan (v1.5.0) ───────────────────────────────────────────
     # The image itself is stored on disk under custom_components/secure_me/
@@ -732,7 +732,7 @@ class SecureMeStore:
             fp["openings"] = openings
         else:
             fp.setdefault("openings", [])
-        await self.async_save()
+        self._schedule_save()
 
     async def async_save_floorplan_markers(
         self, markers: dict[str, dict[str, Any]]
@@ -743,7 +743,7 @@ class SecureMeStore:
         """
         fp = self._data.setdefault("floorplan", self._empty_floorplan())
         fp[ATTR_FLOORPLAN_MARKERS] = markers or {}
-        await self.async_save()
+        self._schedule_save()
 
     async def async_clear_floorplan_image(self) -> None:
         """Clear only the image metadata (url + dimensions).
@@ -758,8 +758,26 @@ class SecureMeStore:
         fp[ATTR_FLOORPLAN_HEIGHT] = 0
         await self.async_save()
 
+    def get_test_history(self) -> list[dict]:
+        """Return test result history (newest first, max 10)."""
+        return self._data.get("test_history", [])
+
+    async def async_append_test_result(self, result: dict) -> None:
+        """Prepend a test result and keep only the last 10 entries."""
+        history = self._data.get("test_history", [])
+        history.insert(0, result)
+        self._data["test_history"] = history[:10]
+        self._schedule_save()
+
     def get_floorplan_image_b64(self) -> str | None:
-        """Return the stored base64 PNG backup, or None if not available."""
+        """Legacy sync accessor. Use async_get_floorplan_image_b64() in async contexts."""
+        return self._data.get("floorplan", {}).get("image_b64")
+
+    async def async_get_floorplan_image_b64(self) -> str | None:
+        """Return the stored base64 PNG backup from the dedicated image store."""
+        data = await self._image_store.async_load()
+        if data and data.get("image_b64"):
+            return data["image_b64"]
         return self._data.get("floorplan", {}).get("image_b64")
 
     async def async_restore_floorplan_image_from_backup(
@@ -773,7 +791,7 @@ class SecureMeStore:
         import base64 as _base64
         import struct as _struct
 
-        b64 = self.get_floorplan_image_b64()
+        b64 = await self.async_get_floorplan_image_b64()
         if not b64:
             return None
         try:
@@ -830,7 +848,7 @@ class SecureMeStore:
         current = self._data.get(CONF_AUTO_ACTIONS, {})
         current.update(config)
         self._data[CONF_AUTO_ACTIONS] = current
-        await self.async_save()
+        self._schedule_save()
 
     # Fake Presence v2
 
@@ -856,7 +874,7 @@ class SecureMeStore:
             fp = self._default_fake_presence_v2()
         fp[FP_ACTIVE] = active
         self._data["fake_presence"] = fp
-        await self.async_save()
+        self._schedule_save()
 
     async def async_save_fake_presence_v2(self, config: dict) -> None:
         """Save full Fake Presence v2 config dict."""
@@ -865,4 +883,4 @@ class SecureMeStore:
             fp = self._default_fake_presence_v2()
         fp.update(config)
         self._data["fake_presence"] = fp
-        await self.async_save()
+        self._schedule_save()

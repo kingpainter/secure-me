@@ -450,12 +450,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         )
 
         self._last_health_event_time: float = 0.0
-        self._health_event_interval: float = 5.0
+        self._health_event_interval: float = 30.0   # 30s is sufficient for passive health polling
+        self._battery_cache: list[dict] | None = None
+        self._battery_cache_time: float = 0.0
+        self._battery_cache_ttl: float = 300.0      # 5-minute TTL
         self._last_countdown: int = -1
 
         # v1.4.0: Presence-based auto-arm monitor (started after store is loaded)
         self._presence_monitor: PresenceMonitor | None = None
         self._auto_actions_manager: AutoActionsManager | None = None
+
+        # Ring buffer of recent arm/disarm/trigger events (max 20, newest first).
+        # Must be initialized here so _state_changed() can safely insert on the
+        # very first state transition after startup (before any restore call).
+        self._arm_history: list[dict] = []
 
     # ── Scheduled test runner ────────────────────────────────────────────────
 
@@ -656,7 +664,38 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info(
             "Coordinator received state change: %s (countdown=%d)", new_state, countdown
         )
+        # Append to arm history ring buffer (max 20 events)
+        import time as _time_mod
+        self._arm_history.insert(0, {
+            "state": new_state,
+            "by": self._armed_by if "arm" in new_state else (
+                self._disarmed_by if new_state == "disarmed" else
+                self._triggered_by if new_state == "triggered" else None
+            ),
+            "ts": int(_time_mod.time()),
+        })
+        self._arm_history = self._arm_history[:20]
         await self.async_request_refresh()
+
+        # Fire an immediate health event on every state change so the Testing
+        # tab and any listeners see the new state without waiting up to 30s for
+        # the passive health polling interval. Reset the interval timer so the
+        # next passive event is a full 30s away (avoids double-firing).
+        self._last_health_event_time = _time_mod.monotonic()
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_health_updated",
+            {
+                "modules": self.get_module_health(),
+                "health_score": self.get_health_score(),
+                "alarm_state": new_state,
+                "triggered_by": self._triggered_by,
+                "open_sensors": self.zone_manager.get_all_open_sensors(),
+                "countdown": countdown,
+                "arm_history": self._arm_history[:5],
+                "last_triggered": self._last_triggered,
+                "bypassed_sensors": self._bypassed_sensors,
+            },
+        )
 
         if new_state == STATE_ALARM_DISARMED:
             self.zone_manager.clear_all_triggers()
@@ -753,6 +792,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     {
                         "modules": self.get_module_health(),
                         "health_score": self.get_health_score(),
+                        "alarm_state": self.alarm_state,
+                        "triggered_by": self._triggered_by,
+                        "open_sensors": self.zone_manager.get_all_open_sensors(),
+                        "countdown": self.state_machine.countdown,
+                        "arm_history": self._arm_history[:5],
                     },
                 )
             return data
@@ -796,6 +840,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     @property
     def open_sensors(self) -> list[str]:
         return self.zone_manager.get_all_open_sensors()
+
+    @property
+    def arm_history(self) -> list[dict]:
+        """Return recent arm/disarm/trigger events, newest first (max 20)."""
+        return self._arm_history
 
     @property
     def bypassed_sensors(self) -> list[str]:
@@ -880,7 +929,42 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         - Restarts zone monitoring if the restored state is armed.
         - Does NOT fire EVENT_ALARM_ARMED — this is a silent restore.
         - v1.4.3: Restores last_triggered and bypassed_sensors attributes.
+
+        HA stores AlarmControlPanelState enum values (StrEnum) in the entity
+        registry. These are identical to our internal state strings for all
+        standard modes. The one exception is 'armed_home_alone' which HA has
+        no enum value for — we map it to ARMED_CUSTOM_BYPASS on the way out,
+        so we must reverse-map it back here on restore.
+
+        We also accept the 'secure_me_mode' attribute (set on every state write)
+        as the authoritative source, since it carries the true Secure Me state
+        string and is passed in by alarm_control_panel.async_added_to_hass().
         """
+        # Reverse-map HA-canonical states to Secure Me internal state strings.
+        # This is the safety net for any discrepancy between what HA persists
+        # and what our state machine expects.
+        _HA_TO_SM: dict[str, str] = {
+            "armed_custom_bypass": STATE_ALARM_ARMED_HOME_ALONE,
+            # All other HA state strings are identical to ours, but list them
+            # explicitly so the mapping is self-documenting and testable.
+            "disarmed":         STATE_ALARM_DISARMED,
+            "arming":           STATE_ALARM_ARMING,
+            "armed_away":       STATE_ALARM_ARMED_AWAY,
+            "armed_home":       STATE_ALARM_ARMED_HOME,
+            "armed_night":      STATE_ALARM_ARMED_NIGHT,
+            "armed_vacation":   STATE_ALARM_ARMED_VACATION,
+            "armed_home_alone": STATE_ALARM_ARMED_HOME_ALONE,
+            "pending":          STATE_ALARM_PENDING,
+            "triggered":        STATE_ALARM_TRIGGERED,
+        }
+        mapped_state = _HA_TO_SM.get(state, state)
+        if mapped_state != state:
+            _LOGGER.info(
+                "Coordinator restore: mapped HA state '%s' -> Secure Me state '%s'",
+                state, mapped_state,
+            )
+        state = mapped_state
+
         _LOGGER.info(
             "Coordinator restoring alarm state: '%s' (armed_by=%s)", state, armed_by
         )
@@ -1409,6 +1493,23 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self._auto_actions_manager.async_start()
 
     # ── Health ───────────────────────────────────────────────────────────────
+
+    def get_batteries_cached(self, configured_eids: set[str]) -> list[dict]:
+        """Return cached battery list; rebuilds every 5 minutes."""
+        now = time.monotonic()
+        if (
+            self._battery_cache is not None
+            and now - self._battery_cache_time < self._battery_cache_ttl
+        ):
+            return self._battery_cache
+        from .ws_helpers import _discover_batteries
+        self._battery_cache = _discover_batteries(self.hass, configured_eids)
+        self._battery_cache_time = now
+        return self._battery_cache
+
+    def invalidate_battery_cache(self) -> None:
+        """Force a battery cache rebuild on next access."""
+        self._battery_cache = None
 
     def get_health_score(self) -> int:
         total, available = 0, 0

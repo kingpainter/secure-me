@@ -2,6 +2,7 @@
 """The Secure Me integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
@@ -72,11 +73,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = SecureMeCoordinator(hass, entry)
     await coordinator.async_load_store_config(store)
 
-    try:
-        await coordinator.async_config_entry_first_refresh()
-    except Exception as err:
-        _LOGGER.error("Error during initial data fetch: %s", err)
-        raise ConfigEntryNotReady from err
+    # Retry up to 3 times with a short delay before raising ConfigEntryNotReady.
+    # HA sometimes restarts while other integrations are still loading, causing
+    # transient failures that resolve within a few seconds.
+    _last_err: Exception | None = None
+    for _attempt in range(3):
+        try:
+            await coordinator.async_config_entry_first_refresh()
+            _last_err = None
+            break
+        except Exception as err:
+            _last_err = err
+            _LOGGER.warning(
+                "Secure Me first refresh failed (attempt %d/3): %s", _attempt + 1, err
+            )
+            if _attempt < 2:
+                await asyncio.sleep(2)
+    if _last_err is not None:
+        _LOGGER.error("Secure Me setup failed after 3 attempts: %s", _last_err)
+        raise ConfigEntryNotReady from _last_err
 
     hass.data[DOMAIN][entry.entry_id] = {
         COORDINATOR: coordinator,
