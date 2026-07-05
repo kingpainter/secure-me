@@ -255,85 +255,46 @@ class AlarmStateMachine:
 
     # ── Public API ───────────────────────────────────────────────────────────
 
-    async def arm_away(self, skip_delay: bool = False) -> bool:
-        """Arm in away mode."""
+    async def _arm(self, target_state: str, skip_delay: bool = False) -> bool:
+        """Shared arm logic for all arm modes (away/home/night/vacation/home_alone).
+
+        Kept as a single implementation so a future fix to the arm flow (e.g.
+        a countdown or lock edge case) only has to be made once, instead of
+        in five near-identical copies that can drift out of sync.
+        """
         async with self._transition_lock:
             if self.is_armed:
                 _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
                 return False
             await self._cancel_countdown()
             if skip_delay or self._exit_delay == 0:
-                await self._set_state(STATE_ALARM_ARMED_AWAY)
+                await self._set_state(target_state)
             else:
                 await self._set_state(STATE_ALARM_ARMING)
                 self._countdown_task = asyncio.create_task(
-                    self._countdown_timer(STATE_ALARM_ARMED_AWAY, self._exit_delay)
+                    self._countdown_timer(target_state, self._exit_delay)
                 )
             return True
+
+    async def arm_away(self, skip_delay: bool = False) -> bool:
+        """Arm in away mode."""
+        return await self._arm(STATE_ALARM_ARMED_AWAY, skip_delay)
 
     async def arm_home(self, skip_delay: bool = False) -> bool:
         """Arm in home mode."""
-        async with self._transition_lock:
-            if self.is_armed:
-                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
-                return False
-            await self._cancel_countdown()
-            if skip_delay or self._exit_delay == 0:
-                await self._set_state(STATE_ALARM_ARMED_HOME)
-            else:
-                await self._set_state(STATE_ALARM_ARMING)
-                self._countdown_task = asyncio.create_task(
-                    self._countdown_timer(STATE_ALARM_ARMED_HOME, self._exit_delay)
-                )
-            return True
+        return await self._arm(STATE_ALARM_ARMED_HOME, skip_delay)
 
     async def arm_night(self, skip_delay: bool = False) -> bool:
         """Arm in night mode."""
-        async with self._transition_lock:
-            if self.is_armed:
-                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
-                return False
-            await self._cancel_countdown()
-            if skip_delay or self._exit_delay == 0:
-                await self._set_state(STATE_ALARM_ARMED_NIGHT)
-            else:
-                await self._set_state(STATE_ALARM_ARMING)
-                self._countdown_task = asyncio.create_task(
-                    self._countdown_timer(STATE_ALARM_ARMED_NIGHT, self._exit_delay)
-                )
-            return True
+        return await self._arm(STATE_ALARM_ARMED_NIGHT, skip_delay)
 
     async def arm_vacation(self, skip_delay: bool = False) -> bool:
         """Arm in vacation mode."""
-        async with self._transition_lock:
-            if self.is_armed:
-                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
-                return False
-            await self._cancel_countdown()
-            if skip_delay or self._exit_delay == 0:
-                await self._set_state(STATE_ALARM_ARMED_VACATION)
-            else:
-                await self._set_state(STATE_ALARM_ARMING)
-                self._countdown_task = asyncio.create_task(
-                    self._countdown_timer(STATE_ALARM_ARMED_VACATION, self._exit_delay)
-                )
-            return True
+        return await self._arm(STATE_ALARM_ARMED_VACATION, skip_delay)
 
     async def arm_home_alone(self, skip_delay: bool = False) -> bool:
         """Arm in home alone mode (children supervised, cameras on, motion visual-only)."""
-        async with self._transition_lock:
-            if self.is_armed:
-                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
-                return False
-            await self._cancel_countdown()
-            if skip_delay or self._exit_delay == 0:
-                await self._set_state(STATE_ALARM_ARMED_HOME_ALONE)
-            else:
-                await self._set_state(STATE_ALARM_ARMING)
-                self._countdown_task = asyncio.create_task(
-                    self._countdown_timer(STATE_ALARM_ARMED_HOME_ALONE, self._exit_delay)
-                )
-            return True
+        return await self._arm(STATE_ALARM_ARMED_HOME_ALONE, skip_delay)
 
     async def disarm(self) -> bool:
         """Disarm alarm."""
@@ -346,31 +307,39 @@ class AlarmStateMachine:
             return True
 
     async def trigger_entry_delay(self, zone_type: str) -> bool:
-        """Trigger entry delay (zone breached while armed)."""
-        if not self.is_armed:
-            _LOGGER.warning("Cannot trigger entry delay - not armed (state=%s)", self._current_state)
-            return False
+        """Trigger entry delay (zone breached while armed).
 
-        if zone_type == ZONE_TYPE_INSTANT:
-            _LOGGER.warning("Instant zone triggered - no delay!")
-            await self.trigger_alarm("instant_zone")
+        RACE FIX: now runs under _transition_lock so a simultaneous
+        disarm()/arm_*() call can't interleave with a sensor trigger and
+        corrupt _countdown_task/_target_state. Internally calls
+        _trigger_alarm_locked() rather than the public trigger_alarm(),
+        since asyncio.Lock is not re-entrant and we already hold the lock.
+        """
+        async with self._transition_lock:
+            if not self.is_armed:
+                _LOGGER.warning("Cannot trigger entry delay - not armed (state=%s)", self._current_state)
+                return False
+
+            if zone_type == ZONE_TYPE_INSTANT:
+                _LOGGER.warning("Instant zone triggered - no delay!")
+                await self._trigger_alarm_locked("instant_zone")
+                return True
+
+            if zone_type == ZONE_TYPE_ENTRY and self._entry_delay > 0:
+                _LOGGER.warning("Entry zone triggered - starting %ds entry delay", self._entry_delay)
+                await self._cancel_countdown()
+                await self._set_state(STATE_ALARM_PENDING)
+                self._countdown_task = asyncio.create_task(
+                    self._countdown_timer(STATE_ALARM_TRIGGERED, self._entry_delay)
+                )
+                return True
+
+            _LOGGER.warning("Zone type '%s' triggered - immediate alarm", zone_type)
+            await self._trigger_alarm_locked(f"zone_{zone_type}")
             return True
 
-        if zone_type == ZONE_TYPE_ENTRY and self._entry_delay > 0:
-            _LOGGER.warning("Entry zone triggered - starting %ds entry delay", self._entry_delay)
-            await self._cancel_countdown()
-            await self._set_state(STATE_ALARM_PENDING)
-            self._countdown_task = asyncio.create_task(
-                self._countdown_timer(STATE_ALARM_TRIGGERED, self._entry_delay)
-            )
-            return True
-
-        _LOGGER.warning("Zone type '%s' triggered - immediate alarm", zone_type)
-        await self.trigger_alarm(f"zone_{zone_type}")
-        return True
-
-    async def trigger_alarm(self, source: str) -> bool:
-        """Trigger alarm immediately."""
+    async def _trigger_alarm_locked(self, source: str) -> bool:
+        """Trigger alarm immediately. Caller must already hold _transition_lock."""
         if self._current_state == STATE_ALARM_TRIGGERED:
             _LOGGER.warning("Already triggered")
             return False
@@ -387,14 +356,29 @@ class AlarmStateMachine:
 
         return True
 
+    async def trigger_alarm(self, source: str) -> bool:
+        """Trigger alarm immediately (public entry point -- acquires the lock).
+
+        RACE FIX: previously ran without _transition_lock, so a concurrent
+        disarm() could interleave with this call. Now serialized like every
+        other state transition.
+        """
+        async with self._transition_lock:
+            return await self._trigger_alarm_locked(source)
+
     async def cancel_pending(self) -> bool:
-        """Cancel pending state (disarm during entry delay)."""
-        if not self.is_pending:
-            return False
-        _LOGGER.info("Pending state cancelled (disarmed during entry delay)")
-        await self._cancel_countdown()
-        await self._set_state(STATE_ALARM_DISARMED)
-        return True
+        """Cancel pending state (disarm during entry delay).
+
+        RACE FIX: now runs under _transition_lock, matching every other
+        state transition.
+        """
+        async with self._transition_lock:
+            if not self.is_pending:
+                return False
+            _LOGGER.info("Pending state cancelled (disarmed during entry delay)")
+            await self._cancel_countdown()
+            await self._set_state(STATE_ALARM_DISARMED)
+            return True
 
     def restore_state(self, state: str) -> None:
         """Restore state directly after HA restart — no callbacks, no delays.

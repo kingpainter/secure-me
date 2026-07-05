@@ -1162,7 +1162,13 @@ class SecureMePanel extends HTMLElement {
   // TAB: SENSORS
   // ===
   _renderSensors() {
-    const sCacheKey = JSON.stringify({ s: this._data.sensors, fp: this._data.fakePresenceActive });
+    // BUG FIX: cache key referenced `this._data.fakePresenceActive`, a field
+    // that is never set anywhere (the real field is `this._data.fakePresence`,
+    // only ever read into a local const below). Because that key component
+    // was always `undefined`, toggling Fake Presence never changed the cache
+    // key, so this tab kept serving the stale cached HTML and silently
+    // reverted the toggle's visual state right after it was clicked.
+    const sCacheKey = JSON.stringify({ s: this._data.sensors, fp: this._data.fakePresence });
     if (this._sensorsRenderKey === sCacheKey && this._sensorsRenderCache) return this._sensorsRenderCache;
     const sensors = this._data.sensors || [];
     const envSensors    = sensors.filter(s => s.is_environmental && !s.env_unmarked);
@@ -7037,13 +7043,25 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-action='toggle-fake-presence']").forEach(btn => {
       btn.addEventListener("click", async () => {
         const current = this._data.fakePresence || false;
-        const result = await this._callWS('set_fake_presence', { active: !current });
+        const next = !current;
+        this._data.fakePresence = next;
+        // Toggle the actual clicked element directly so the CSS slide
+        // animation (.sm-toggle .dot { transition: left 0.2s }) plays.
+        // A full _render() replaces this button's innerHTML immediately,
+        // which would destroy/recreate it mid-transition with no "before"
+        // state to animate from, so we hold off the full render briefly.
+        btn.classList.toggle('on', next);
+        const [result] = await Promise.all([
+          this._callWS('set_fake_presence', { active: next }),
+          new Promise(r => setTimeout(r, 220)),  // let the 0.2s transition finish
+        ]);
         if (result && result.active !== undefined) {
           this._data.fakePresence = result.active;
-          this._render();
         } else {
           this._toast('Could not update Fake Presence', 'error');
+          this._data.fakePresence = current;  // revert
         }
+        this._render();
       });
     });
 
@@ -7085,20 +7103,30 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const field = btn.dataset.fpToggle;
         if (!this._data.fakePresenceV2) this._data.fakePresenceV2 = {};
-        this._data.fakePresenceV2[field] = !this._data.fakePresenceV2[field];
-        // active toggle: persist immediately (same UX as before)
+        const next = !this._data.fakePresenceV2[field];
+        this._data.fakePresenceV2[field] = next;
+        // Toggle the clicked element directly so the CSS slide animation
+        // plays. A full _render() destroys/recreates this button via
+        // innerHTML, which would skip the transition entirely, so the
+        // reconciling render is deferred until the animation has time to run.
+        btn.classList.toggle('on', next);
         if (field === 'active') {
-          const result = await this._callWS('save_fake_presence_v2', { config: this._data.fakePresenceV2 });
+          const [result] = await Promise.all([
+            this._callWS('save_fake_presence_v2', { config: this._data.fakePresenceV2 }),
+            new Promise(r => setTimeout(r, 220)),
+          ]);
           if (result && result.success) {
             // Keep legacy fakePresence bool in sync for Sensors tab badge
             this._data.fakePresence = this._data.fakePresenceV2.active || false;
           } else {
             this._toast('Could not update Fake Presence', 'error');
             // Revert
-            this._data.fakePresenceV2[field] = !this._data.fakePresenceV2[field];
+            this._data.fakePresenceV2[field] = !next;
           }
+          this._render();
+        } else {
+          setTimeout(() => this._render(), 220);
         }
-        this._render();
       });
     });
 
