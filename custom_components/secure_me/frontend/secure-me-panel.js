@@ -835,7 +835,7 @@ class SecureMePanel extends HTMLElement {
           </div>
           <div class="sm-header-pill disarmed" id="shell-status-pill">
             <span class="pill-dot"></span>
-            <span id="shell-status-text">Disarmed</span>
+            <span id="shell-status-text">Deaktiveret</span>
           </div>
           <div id="shell-open-badge" style="display:none;align-items:center;
                padding:4px 10px;border-radius:16px;font-size:11px;font-weight:600;
@@ -1135,7 +1135,7 @@ class SecureMePanel extends HTMLElement {
     if (!this._data.sensors || !this._data.zones) {
       return `
         <div style="padding:0 0 16px">
-          <div class="section-header"><h3 class="section-title">Loading...</h3></div>
+          <div class="section-header"><h3 class="section-title">Indlæser...</h3></div>
           ${[1,2,3].map(() => `
             <div class="sm-card" style="margin-bottom:10px;height:72px" class="sm-skeleton">
               <div class="sm-skeleton" style="height:72px;border-radius:8px"></div>
@@ -1184,7 +1184,7 @@ class SecureMePanel extends HTMLElement {
           <span class="sm-list-row-name">${s.name}</span>
           <span class="badge ${s.sensor_type}" style="flex-shrink:0">${typeLabels[s.sensor_type] || s.sensor_type}</span>
           ${!s.enabled ? `<button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-danger);flex-shrink:0"
-                  data-hide-sensor="${s.entity_id}" title="Hide this sensor">${icon("trash")}</button>` : ''}
+                  data-hide-sensor="${s.entity_id}" title="Skjul denne sensor">${icon("trash")}</button>` : ''}
           <button class="sm-checkbox ${s.enabled ? "checked" : ""}"
                   data-sensor="${s.entity_id}"
                   style="flex-shrink:0">
@@ -1213,7 +1213,7 @@ class SecureMePanel extends HTMLElement {
         <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace;
                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.entity_id}</div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-          <span class="badge environmental">Required</span>
+          <span class="badge environmental">Krævet</span>
           <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-text-tertiary)"
                   data-unmark-env="${s.entity_id}" title="Remove incorrect environmental classification">
             Remove
@@ -1229,9 +1229,9 @@ class SecureMePanel extends HTMLElement {
           <div style="font-size:13px;font-weight:400;color:var(--sm-text-secondary)">${s.name}</div>
           <div style="font-size:10px;color:var(--sm-text-tertiary);font-family:'DM Mono',monospace">${s.entity_id}</div>
         </div>
-        <span class="badge" style="background:rgba(255,255,255,0.06);color:var(--sm-text-tertiary)">Auto-hidden</span>
+        <span class="badge" style="background:rgba(255,255,255,0.06);color:var(--sm-text-tertiary)">Automatisk skjult</span>
         <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;margin-left:8px"
-                data-hide-sensor="${s.entity_id}" title="Permanently exclude this sensor">
+                data-hide-sensor="${s.entity_id}" title="Udeluk denne sensor permanent">
           Exclude
         </button>
       </div>
@@ -1242,10 +1242,10 @@ class SecureMePanel extends HTMLElement {
     const __html = `
       <div class="section-header">
         <div>
-          <h3 class="section-title">Available Sensors</h3>
-          <p class="section-subtitle">${enabled.length} of ${normalSensors.filter(s=>!s.auto_hidden).length} regular sensors active</p>
+          <h3 class="section-title">Tilgængelige sensorer</h3>
+          <p class="section-subtitle">${enabled.length} af ${normalSensors.filter(s=>!s.auto_hidden).length} almindelige sensorer aktive</p>
         </div>
-        <span class="badge accent">${enabled.length} active</span>
+        <span class="badge accent">${enabled.length} aktive</span>
       </div>
 
       <div class="sm-card" style="padding:16px;margin-bottom:16px;border-color:${fakePresenceActive ? 'var(--sm-warning)' : 'var(--sm-border)'}">
@@ -1288,7 +1288,7 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
               <span style="display:flex;align-items:center;gap:6px;color:var(--sm-danger)">
                 ${icon("warn")}
-                <span style="font-weight:500">Environmental Sensors &mdash; Always Active (${envSensors.length})</span>
+                <span style="font-weight:500">Miljøsensorer &mdash; Altid aktive (${envSensors.length})</span>
               </span>
               <span class="chevron">${icon("chevron")}</span>
             </div>
@@ -1297,7 +1297,7 @@ class SecureMePanel extends HTMLElement {
                 ${envSensors.map(s => `<span style="font-size:11px;color:var(--sm-text-secondary);background:rgba(255,59,48,0.10);border:1px solid rgba(255,59,48,0.18);border-radius:4px;padding:1px 6px">${s.name}</span>`).join("")}
               </div>
             ` : `
-              <span style="font-size:11px;color:var(--sm-text-secondary);padding-left:2px">Notifications cannot be disabled</span>
+              <span style="font-size:11px;color:var(--sm-text-secondary);padding-left:2px">Notifikationer kan ikke deaktiveres</span>
             `}
           </div>
           <div class="collapsible-body ${this._envExpanded ? 'expanded' : ''}">
@@ -1309,11 +1309,11 @@ class SecureMePanel extends HTMLElement {
       <div class="sensor-two-col">
         <div class="sm-card no-pad" style="overflow:hidden">
           <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
-            <span>Active (${enabled.length})</span><span>Type / On</span>
+            <span>Aktive (${enabled.length})</span><span>Type / Til</span>
           </div>
           ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
             <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
-              No sensors activated yet.
+              Ingen sensorer aktiveret endnu.
             </div>
           `}
         </div>
@@ -1349,7 +1349,7 @@ class SecureMePanel extends HTMLElement {
       <div class="info-card warning" style="margin-top:16px">
         <span style="color:var(--sm-warning);display:flex;align-items:center">${icon("warn")}</span>
         <div>
-          <div class="info-title" style="color:var(--sm-warning)">Minimum Requirements</div>
+          <div class="info-title" style="color:var(--sm-warning)">Minimumskrav</div>
           <div class="info-text">
             The alarm requires at least 1 contact sensor AND 1 motion sensor to be activated.
             Presence sensors are optional but recommended.
@@ -1373,9 +1373,9 @@ class SecureMePanel extends HTMLElement {
 
     const __zhtml = `
       <div class="section-header">
-        <h3 class="section-title">Zones</h3>
+        <h3 class="section-title">Zoner</h3>
         <button class="sm-btn primary sm" data-action="add-zone">
-          ${icon("plus")} Add Zone
+          ${icon("plus")} Tilføj zone
         </button>
       </div>
 
@@ -1392,8 +1392,8 @@ class SecureMePanel extends HTMLElement {
                 <span class="badge ${z.type}">${typeLabels[z.type] || z.type}</span>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
-                <button class="sm-btn default sm" data-edit-zone="${id}" title="Edit zone" style="font-size:11px;padding:4px 10px">Edit</button>
-                <button class="sm-btn ghost sm" data-delete-zone="${id}" title="Delete zone">${icon("trash")}</button>
+                <button class="sm-btn default sm" data-edit-zone="${id}" title="Rediger zone" style="font-size:11px;padding:4px 10px">Rediger</button>
+                <button class="sm-btn ghost sm" data-delete-zone="${id}" title="Slet zone">${icon("trash")}</button>
                 <button class="sm-toggle ${z.enabled ? "on" : ""}" data-zone-toggle="${id}">
                   <div class="dot"></div>
                 </button>
@@ -1412,7 +1412,7 @@ class SecureMePanel extends HTMLElement {
               `).join("")}
             </div>
           </div>
-        `}).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No zones created yet. Click "Add Zone" to start.</div>'}
+        `}).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen zoner oprettet endnu. Klik "Tilføj zone" for at starte.</div>'}
       </div>
 
     `;
@@ -1437,17 +1437,17 @@ class SecureMePanel extends HTMLElement {
       '<div class="config-dialog">' +
         '<div class="dialog-header">' +
           icon('shield') +
-          '<div class="dialog-title">' + (isEdit ? 'Edit Zone' : 'Add Zone') + '</div>' +
+          '<div class="dialog-title">' + (isEdit ? 'Rediger zone' : 'Tilføj zone') + '</div>' +
           '<button class="dialog-close" data-action="close-dialog">' + icon("close") + '</button>' +
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Zone Name</label>' +
-          '<input type="text" class="form-input" id="zone-name" placeholder="e.g. Front Door, Living Room" value="' + (temp.name || '') + '">' +
+          '<label class="form-label">Zonenavn</label>' +
+          '<input type="text" class="form-input" id="zone-name" placeholder="f.eks. Entredør, Stue" value="' + (temp.name || '') + '">' +
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Zone Type</label>' +
+          '<label class="form-label">Zonetype</label>' +
           '<select class="form-select" id="zone-type">' +
             '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Entry/Exit — Doors with delay</option>' +
             '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Interior — Motion sensors</option>' +
@@ -1457,7 +1457,7 @@ class SecureMePanel extends HTMLElement {
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Active in Arm Modes</label>' +
+          '<label class="form-label">Aktiv i tilkoblingstilstande</label>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">' +
             ['away', 'home', 'night', 'vacation', 'home_alone'].map(m => {
               const checked = armModes.includes(m);
@@ -1476,7 +1476,7 @@ class SecureMePanel extends HTMLElement {
         '</div>' +
 
         '<div class="form-group">' +
-          '<label class="form-label">Assign Sensors (' + enabledSensors.length + ' available)</label>' +
+          '<label class="form-label">Tildel sensorer (' + enabledSensors.length + ' tilgængelige)</label>' +
           (enabledSensors.length > 0 ?
             enabledSensors.map(s =>
               '<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--sm-border);margin-bottom:6px;font-size:13px">' +
@@ -1486,7 +1486,7 @@ class SecureMePanel extends HTMLElement {
                 '<span class="badge ' + s.sensor_type + '" style="font-size:10px">' + s.sensor_type + '</span>' +
               '</label>'
             ).join('') :
-            '<div style="padding:12px;text-align:center;color:var(--sm-text-tertiary);font-size:12px">No sensors enabled. Activate sensors in the Sensors tab first.</div>'
+            '<div style="padding:12px;text-align:center;color:var(--sm-text-tertiary);font-size:12px">Ingen sensorer aktiveret. Aktivér sensorer under Sensorer-fanen først.</div>'
           ) +
         '</div>' +
 
@@ -1563,7 +1563,7 @@ class SecureMePanel extends HTMLElement {
                     '</select>' +
                   '</div>' +
                   '<div>' +
-                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">TTS Speaker</div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">TTS-højtaler</div>' +
                     '<select class="form-select ha-sensor-speaker" data-sensor-eid="' + eid + '" style="font-size:12px">' +
                       '<option value="">-- None --</option>' +
                       availSpeakers.map(sp => '<option value="' + sp.entity_id + '"' + (haCfg.home_alone_tts_speaker === sp.entity_id ? ' selected' : '') + '>' + (sp.name || sp.entity_id) + '</option>').join('') +
@@ -1580,7 +1580,7 @@ class SecureMePanel extends HTMLElement {
                   '<div>' +
                     '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Action 2 text</div>' +
                     '<input type="text" class="form-input ha-sensor-action2" data-sensor-eid="' + eid + '"' +
-                      ' style="font-size:12px" placeholder="Please close the door."' +
+                      ' style="font-size:12px" placeholder="Luk venligst døren."' +
                       ' value="' + (haCfg.home_alone_action_2 || '') + '">' +
                   '</div>' +
                 '</div>' +
@@ -1590,8 +1590,8 @@ class SecureMePanel extends HTMLElement {
         ) : '') +
 
         '<div class="dialog-footer">' +
-          '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
-          '<button class="btn-dialog save" data-action="save-zone">Save Zone</button>' +
+          '<button class="btn-dialog cancel" data-action="close-dialog">Annuller</button>' +
+          '<button class="btn-dialog save" data-action="save-zone">Gem zone</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -1760,14 +1760,14 @@ class SecureMePanel extends HTMLElement {
                     Tracker: <span style="font-family:'DM Mono',monospace">${u.person_entity.replace("person.","")}</span>
                   </div>` : ""}
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
-                  ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">No push service</span>'}
-                  ${u.receive_critical !== false ? '<span class="badge" style="background:var(--sm-red-dim);color:var(--sm-red);font-size:10px">Critical</span>' : ''}
+                  ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">Ingen push-tjeneste</span>'}
+                  ${u.receive_critical !== false ? '<span class="badge" style="background:var(--sm-red-dim);color:var(--sm-red);font-size:10px">Kritisk</span>' : ''}
                   ${u.tts_quiet_start != null && u.tts_quiet_end != null ? `<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px">Quiet ${u.tts_quiet_start}-${u.tts_quiet_end}h</span>` : ''}
                 </div>
               </div>
             </div>
             <div style="display:flex;gap:6px">
-              <button class="sm-btn default sm" data-edit-user="${id}">${icon("settings")} Edit</button>
+              <button class="sm-btn default sm" data-edit-user="${id}">${icon("settings")} Rediger</button>
               <button class="sm-btn ghost sm" data-delete-user="${id}">${icon("trash")}</button>
             </div>
           </div>
@@ -1781,20 +1781,20 @@ class SecureMePanel extends HTMLElement {
           ${u.person_entity ? `
             <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:var(--sm-blue-dim);
                         border:1px solid rgba(10,132,255,0.15);display:flex;align-items:center;gap:8px">
-              <span style="color:var(--sm-blue);font-size:13px">Person tracker linked</span>
+              <span style="color:var(--sm-blue);font-size:13px">Person-tracker tilknyttet</span>
               <span style="font-size:11px;color:var(--sm-text-secondary);font-family:'DM Mono',monospace;margin-left:auto">${u.person_entity}</span>
             </div>
           ` : ""}
         </div>
-      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No users created yet. Click "Add User" to start.</div>'}
+      `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen brugere oprettet endnu. Klik "Tilføj bruger" for at starte.</div>'}
 
       <div class="info-card info">
         <span style="color:var(--sm-blue)">${icon("nfc")}</span>
         <div style="flex:1">
-          <div class="info-title" style="color:var(--sm-blue)">Import NFC tags</div>
-          <div class="info-text">Import existing NFC tags from Home Assistant</div>
+          <div class="info-title" style="color:var(--sm-blue)">Importér NFC-tags</div>
+          <div class="info-text">Importér eksisterende NFC-tags fra Home Assistant</div>
         </div>
-        <button class="sm-btn default sm" data-action="import-nfc">Import</button>
+        <button class="sm-btn default sm" data-action="import-nfc">Importér</button>
       </div>
 
     `;
@@ -1833,8 +1833,8 @@ class SecureMePanel extends HTMLElement {
 
         // Name
         '<div class="form-group">' +
-          '<label class="form-label">User Name</label>' +
-          '<input type="text" class="form-input" id="user-name" placeholder="e.g. Flemming, Lucas" value="' + (temp.name || '') + '">' +
+          '<label class="form-label">Brugernavn</label>' +
+          '<input type="text" class="form-input" id="user-name" placeholder="f.eks. Flemming, Lucas" value="' + (temp.name || '') + '">' +
         '</div>' +
 
         // Code
@@ -1872,7 +1872,7 @@ class SecureMePanel extends HTMLElement {
           '</div>' +
 
           '<div class="form-group">' +
-            '<label class="form-label">Push Notify Service</label>' +
+            '<label class="form-label">Push-notifikationstjeneste</label>' +
             '<select class="form-select" id="user-notify-service">' +
               '<option value="">-- None (use notification default) --</option>' +
               services.map(s =>
@@ -1903,8 +1903,8 @@ class SecureMePanel extends HTMLElement {
         '</div>' +
 
         '<div class="dialog-footer">' +
-          '<button class="btn-dialog cancel" data-action="close-dialog">Cancel</button>' +
-          '<button class="btn-dialog save" data-action="save-user">' + (isEdit ? 'Save Changes' : 'Save User') + '</button>' +
+          '<button class="btn-dialog cancel" data-action="close-dialog">Annuller</button>' +
+          '<button class="btn-dialog save" data-action="save-user">' + (isEdit ? 'Gem ændringer' : 'Gem bruger') + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -2009,8 +2009,8 @@ class SecureMePanel extends HTMLElement {
 
     const html = `
       <div class="section-header">
-        <h3 class="section-title">Modules</h3>
-        <span class="badge accent">${enabledCount} active</span>
+        <h3 class="section-title">Moduler</h3>
+        <span class="badge accent">${enabledCount} aktive</span>
       </div>
 
       ${Object.entries(MODULE_DEFS).map(([key, def]) => {
@@ -2088,7 +2088,7 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
               <div>
-                <div style="font-size:13px;font-weight:600">Cameras Configured</div>
+                <div style="font-size:13px;font-weight:600">Kameraer konfigureret</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">${cameraCount} camera${cameraCount !== 1 ? 's' : ''}</div>
               </div>
             </div>
@@ -2102,7 +2102,7 @@ class SecureMePanel extends HTMLElement {
                   </div>
                 `).join('')}
               </div>
-            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No cameras configured yet</div>'}
+            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen kameraer konfigureret endnu</div>'}
           </div>
           
           <div style="display:flex;gap:8px">
@@ -2133,7 +2133,7 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
               <div>
-                <div style="font-size:13px;font-weight:600">Locks Configured</div>
+                <div style="font-size:13px;font-weight:600">Låse konfigureret</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">${lockCount} lock${lockCount !== 1 ? 's' : ''}</div>
               </div>
             </div>
@@ -2146,7 +2146,7 @@ class SecureMePanel extends HTMLElement {
                   </div>
                 `).join('')}
               </div>
-            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No locks configured yet</div>'}
+            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen låse konfigureret endnu</div>'}
           </div>
           
           <div style="display:flex;gap:8px">
@@ -2167,21 +2167,21 @@ class SecureMePanel extends HTMLElement {
       return `
         <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure thermostats for energy saving</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér termostater til energibesparelse</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
-              <div><div style="font-size:13px;font-weight:600">Thermostats Configured</div>
+              <div><div style="font-size:13px;font-weight:600">Termostater konfigureret</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${thermostatCount} thermostat${thermostatCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No thermostats configured yet</div>'}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen termostater konfigureret endnu</div>'}
           </div>
           <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-climate-config">${icon("settings")} Configure Thermostats</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+            <button class="sm-btn primary" data-action="open-climate-config">${icon("settings")} Konfigurér termostater</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
           </div>
         </div>`;
     }
@@ -2192,21 +2192,21 @@ class SecureMePanel extends HTMLElement {
       return `
         <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure alarm sirens and patterns</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér alarmsirener og mønstre</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
-              <div><div style="font-size:13px;font-weight:600">Sirens Configured</div>
+              <div><div style="font-size:13px;font-weight:600">Sirener konfigureret</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${sirenCount} siren${sirenCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No sirens configured yet</div>'}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen sirener konfigureret endnu</div>'}
           </div>
           <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-siren-config">${icon("settings")} Configure Sirens</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+            <button class="sm-btn primary" data-action="open-siren-config">${icon("settings")} Konfigurér sirener</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
           </div>
         </div>`;
     }
@@ -2217,22 +2217,22 @@ class SecureMePanel extends HTMLElement {
       return `
         <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure light automation and effects</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér lysautomatisering og effekter</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
-              <div><div style="font-size:13px;font-weight:600">Lights Configured</div>
+              <div><div style="font-size:13px;font-weight:600">Lys konfigureret</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${lightCount} light${lightCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
               ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No lights configured yet</div>'}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen lys konfigureret endnu</div>'}
           </div>
           <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-lights-config">${icon("settings")} Configure Lights</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+            <button class="sm-btn primary" data-action="open-lights-config">${icon("settings")} Konfigurér lys</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
           </div>
         </div>`;
     }
@@ -2243,21 +2243,21 @@ class SecureMePanel extends HTMLElement {
       return `
         <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
           <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Configure voice notifications</div>
+          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér talebeskeder</div>
           <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
               
-              <div><div style="font-size:13px;font-weight:600">Speakers Configured</div>
+              <div><div style="font-size:13px;font-weight:600">Højtalere konfigureret</div>
               <div style="font-size:12px;color:var(--sm-text-secondary)">${speakerCount} speaker${speakerCount !== 1 ? 's' : ''}</div></div>
             </div>
             ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
               ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
                 ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">No speakers configured yet</div>'}
+            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen højtalere konfigureret endnu</div>'}
           </div>
           <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-tts-config">${icon("settings")} Configure TTS</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Close</button>
+            <button class="sm-btn primary" data-action="open-tts-config">${icon("settings")} Konfigurér TTS</button>
+            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
           </div>
         </div>`;
     }
@@ -2427,9 +2427,9 @@ class SecureMePanel extends HTMLElement {
   _renderFloorplan() {
     if (!this._floorplanLoaded) {
       return `
-        <div class="section-header"><h3 class="section-title">Floorplan</h3></div>
+        <div class="section-header"><h3 class="section-title">Etageplan</h3></div>
         <div class="sm-card" style="padding:32px;text-align:center;color:var(--sm-text-secondary)">
-          Loading floorplan...
+          Indlæser etageplan...
         </div>
       `;
     }
@@ -2443,11 +2443,11 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Floorplan</h3>
+        <h3 class="section-title">Etageplan</h3>
         ${liveMode
-          ? `<span class="badge" style="background:var(--sm-green-dim);color:var(--sm-green)">Home Alone Live</span>`
+          ? `<span class="badge" style="background:var(--sm-green-dim);color:var(--sm-green)">Alene-tilstand live</span>`
           : editMode
-            ? `<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning)">Edit mode</span>`
+            ? `<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning)">Redigeringstilstand</span>`
             : hasImage && roomCount > 0
               ? `<span class="badge accent">${roomCount} rum</span>`
               : ""
@@ -2809,7 +2809,7 @@ class SecureMePanel extends HTMLElement {
              data-fp-canvas>
 
           <!-- PNG background — always visible -->
-          <img src="${cacheBust}" alt="Floorplan" draggable="false"
+          <img src="${cacheBust}" alt="Etageplan" draggable="false"
                style="position:absolute;inset:0;width:100%;height:100%;
                       object-fit:contain;pointer-events:none;-webkit-user-drag:none">
 
@@ -3763,9 +3763,9 @@ class SecureMePanel extends HTMLElement {
     const __ahtml = `
       <div class="segment-control">
         <button class="segment-btn ${section === "notifications" ? "active" : ""}"
-                data-auto-section="notifications">Notifications</button>
+                data-auto-section="notifications">Notifikationer</button>
         <button class="segment-btn ${section === "automations" ? "active" : ""}"
-                data-auto-section="automations">Automations</button>
+                data-auto-section="automations">Automatiseringer</button>
       </div>
 
       ${section === "notifications" ? `
@@ -3798,29 +3798,29 @@ class SecureMePanel extends HTMLElement {
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
-              <h3 class="section-title" style="margin:0">System Notifications</h3>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Always active — routed per user. Test sends to admin users only.</div>
+              <h3 class="section-title" style="margin:0">Systemnotifikationer</h3>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Altid aktiv — dirigeres per bruger. Test sendes kun til admin-brugere.</div>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px">
-            ${systemNotifs.map(systemNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No system notifications yet.</div>'}
+            ${systemNotifs.map(systemNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">Ingen systemnotifikationer endnu.</div>'}
           </div>
 
           <div style="border-top:1px solid var(--sm-border);margin:16px 0 12px"></div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <div>
-              <h3 class="section-title" style="margin:0">Custom Notifications</h3>
-              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">User-defined alerts and automations</div>
+              <h3 class="section-title" style="margin:0">Brugerdefinerede notifikationer</h3>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Brugerdefinerede alarmer og automatiseringer</div>
             </div>
             <button class="sm-btn primary sm" data-action="add-notification">${icon('plus')} Add</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-            ${customNotifs.map(customNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">No custom notifications. Click Add to create one.</div>'}
+            ${customNotifs.map(customNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">Ingen brugerdefinerede notifikationer. Klik Tilføj for at oprette en.</div>'}
           </div>`;
         })() + `
       ` : `
         <div class="section-header">
-          <h3 class="section-title">Automations</h3>
+          <h3 class="section-title">Automatiseringer</h3>
           <button class="sm-btn primary sm" data-action="add-automation">
             ${icon("plus")} Add Automation
           </button>
@@ -3848,13 +3848,13 @@ class SecureMePanel extends HTMLElement {
               </button>
             </div>
           </div>
-        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">No automations created yet.</div>'}
+        `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen automatiseringer oprettet endnu.</div>'}
 
         <div class="info-card info">
           
           <div style="flex:1">
             <div class="info-title" style="color:var(--sm-blue)">Blueprints</div>
-            <div class="info-text">Use ready-made blueprints for alarm lighting, siren control and more</div>
+            <div class="info-text">Brug færdige blueprints til alarmlys, sirenstyring og mere</div>
           </div>
           <button class="sm-btn default sm">Gennemse</button>
         </div>
@@ -3871,7 +3871,7 @@ class SecureMePanel extends HTMLElement {
   // ===
   _renderSpecialFeatures() {
     if (this._data.autoActions === null) {
-      return `<div style="padding:40px;text-align:center;color:var(--sm-text-secondary);font-size:13px">Loading...</div>`;
+      return `<div style="padding:40px;text-align:center;color:var(--sm-text-secondary);font-size:13px">Indlæser...</div>`;
     }
 
     const aa = this._data.autoActions || {};
@@ -3895,8 +3895,8 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header">
-        <h2>Special Features</h2>
-        <p>Presence-based automation and Fake Presence configuration.</p>
+        <h2>Specialfunktioner</h2>
+        <p>Tilstedeværelsesbaseret automatisering og Fake Presence-konfiguration.</p>
       </div>
 
       <!-- AUTO ACTIONS -->
@@ -3907,7 +3907,7 @@ class SecureMePanel extends HTMLElement {
             ${icon("shield")}
           </div>
           <div style="flex:1">
-            <div style="font-size:15px;font-weight:600">Auto Actions</div>
+            <div style="font-size:15px;font-weight:600">Auto-handlinger</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
               Automatic actions when all persons leave home
             </div>
@@ -3919,7 +3919,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aaLockEnabled ? '12px' : '0'}">
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("lock")}
-              <span style="font-size:13px;font-weight:600">Lock doors</span>
+              <span style="font-size:13px;font-weight:600">Lås døre</span>
             </div>
             <button class="sm-toggle ${aaLockEnabled ? 'on' : ''}" data-aa-toggle="auto_lock_enabled">
               <div class="dot"></div>
@@ -3961,7 +3961,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aaCamEnabled ? '12px' : '0'}">
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("camera")}
-              <span style="font-size:13px;font-weight:600">Activate cameras</span>
+              <span style="font-size:13px;font-weight:600">Aktivér kameraer</span>
             </div>
             <button class="sm-toggle ${aaCamEnabled ? 'on' : ''}" data-aa-toggle="auto_camera_enabled">
               <div class="dot"></div>
@@ -3981,7 +3981,7 @@ class SecureMePanel extends HTMLElement {
         <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:10px">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
             ${icon("user")}
-            <span style="font-size:13px;font-weight:600">Arrival confirmation</span>
+            <span style="font-size:13px;font-weight:600">Bekræftelse ved ankomst</span>
             <span style="font-size:11px;color:var(--sm-text-tertiary);margin-left:auto">${delayLabel(aaArrivalDelay)}</span>
           </div>
           <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">
@@ -3996,7 +3996,7 @@ class SecureMePanel extends HTMLElement {
         <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <div>
-              <div style="font-size:13px;font-weight:600">Notify all users</div>
+              <div style="font-size:13px;font-weight:600">Giv besked til alle brugere</div>
               <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">
                 ON = all users &nbsp;&bull;&nbsp; OFF = admins only
               </div>
@@ -4007,7 +4007,7 @@ class SecureMePanel extends HTMLElement {
           </div>
         </div>
 
-        <button class="sm-btn primary" data-action="save-auto-actions">Save Auto Actions</button>
+        <button class="sm-btn primary" data-action="save-auto-actions">Gem auto-handlinger</button>
       </div>
 
       <!-- FAKE PRESENCE v2 -->
@@ -4047,8 +4047,8 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("shield")}
               <div>
-                <div style="font-size:13px;font-weight:500">Block alarm arm</div>
-                <div style="font-size:11px;color:var(--sm-text-tertiary)">Alarm will not arm automatically</div>
+                <div style="font-size:13px;font-weight:500">Blokér tilkobling af alarm</div>
+                <div style="font-size:11px;color:var(--sm-text-tertiary)">Alarmen tilkobles ikke automatisk</div>
               </div>
             </div>
             <button class="sm-toggle ${fpBlockAlarm ? 'on' : ''}" data-fp-toggle="block_alarm">
@@ -4062,8 +4062,8 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("lock")}
               <div>
-                <div style="font-size:13px;font-weight:500">Block auto-lock</div>
-                <div style="font-size:11px;color:var(--sm-text-tertiary)">Doors will not lock automatically</div>
+                <div style="font-size:13px;font-weight:500">Blokér auto-lås</div>
+                <div style="font-size:11px;color:var(--sm-text-tertiary)">Døre låses ikke automatisk</div>
               </div>
             </div>
             <button class="sm-toggle ${fpBlockLocks ? 'on' : ''}" data-fp-toggle="block_locks">
@@ -4077,8 +4077,8 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("camera")}
               <div>
-                <div style="font-size:13px;font-weight:500">Block camera activation</div>
-                <div style="font-size:11px;color:var(--sm-text-tertiary)">Cameras will not activate automatically</div>
+                <div style="font-size:13px;font-weight:500">Blokér kameraaktivering</div>
+                <div style="font-size:11px;color:var(--sm-text-tertiary)">Kameraer aktiveres ikke automatisk</div>
               </div>
             </div>
             <button class="sm-toggle ${fpBlockCameras ? 'on' : ''}" data-fp-toggle="block_cameras">
@@ -4091,7 +4091,7 @@ class SecureMePanel extends HTMLElement {
             Fake Presence is ON. Remember to turn it off when you leave for real.
           </div>
 
-          <button class="sm-btn primary" data-action="save-fake-presence-v2">Save Fake Presence</button>
+          <button class="sm-btn primary" data-action="save-fake-presence-v2">Gem Fake Presence</button>
         ` : ''}
       </div>
     `;
@@ -4120,7 +4120,7 @@ class SecureMePanel extends HTMLElement {
             </svg>
           </div>
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:var(--sm-purple)">Home Alone Mode</div>
+            <div style="font-size:14px;font-weight:600;color:var(--sm-purple)">Alene-tilstand</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
               Dedicated arm mode for when children are home alone
             </div>
@@ -4158,7 +4158,7 @@ class SecureMePanel extends HTMLElement {
       </div>
 
       <div class="sm-card" style="padding:20px;text-align:center;opacity:0.6">
-        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:8px">Coming Soon</div>
+        <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:8px">Kommer snart</div>
         <div style="font-size:12px;color:var(--sm-text-tertiary)">
           Pet immunity &bull; AI person detection &bull; House map with live motion &bull; Cloud sync &bull; Voice control
         </div>
@@ -4191,7 +4191,7 @@ class SecureMePanel extends HTMLElement {
     };
     return `
       <div class="section-header" style="margin-top:16px">
-        <h3 class="section-title">Recent Events</h3>
+        <h3 class="section-title">Seneste hændelser</h3>
       </div>
       <div class="sm-card" style="padding:0;overflow:hidden">
         ${events.map((ev, i) => {
@@ -4272,7 +4272,7 @@ class SecureMePanel extends HTMLElement {
     return `
       <!-- ── System Health ─────────────────────────────────────────── -->
       <div class="section-header">
-        <h3 class="section-title">System Health</h3>
+        <h3 class="section-title">Systemhelbred</h3>
         <span class="badge accent">${score}%</span>
       </div>
 
@@ -4314,7 +4314,7 @@ class SecureMePanel extends HTMLElement {
                   <div>
                     <div style="font-size:12px;font-weight:600;text-transform:capitalize">${id}</div>
                     <div style="font-size:10px;color:var(--sm-text-secondary)">
-                      ${!m.enabled ? "disabled" : m.total === 0 ? "not configured" : m.available + "/" + m.total + " ok"}
+                      ${!m.enabled ? "deaktiveret" : m.total === 0 ? "ikke konfigureret" : m.available + "/" + m.total + " ok"}
                     </div>
                   </div>
                 </div>
@@ -4329,8 +4329,8 @@ class SecureMePanel extends HTMLElement {
 
       <!-- ── Run Tests ─────────────────────────────────────────────── -->
       <div class="section-header" style="margin-top:20px">
-        <h3 class="section-title">Run Tests</h3>
-        ${isRunning ? '<span class="badge entry">Running...</span>' : ""}
+        <h3 class="section-title">Kør tests</h3>
+        ${isRunning ? '<span class="badge entry">Kører...</span>' : ""}
       </div>
 
       <div class="sm-card" style="padding:14px">
@@ -4353,7 +4353,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none"
                data-action="toggle-test-desc">
             <span style="font-size:12px;color:var(--sm-text-secondary)">What does each test check?</span>
-            <span style="font-size:11px;color:var(--sm-text-tertiary)">${this._testDescExpanded ? "Hide" : "Show"}</span>
+            <span style="font-size:11px;color:var(--sm-text-tertiary)">${this._testDescExpanded ? "Skjul" : "Vis"}</span>
           </div>
           ${this._testDescExpanded ? `
             <div style="margin-top:10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
@@ -4390,7 +4390,7 @@ class SecureMePanel extends HTMLElement {
         <!-- Last Test Run -->
         <div style="display:flex;flex-direction:column">
           <div class="section-header">
-            <h3 class="section-title">Last Test Run</h3>
+            <h3 class="section-title">Seneste testkørsel</h3>
             ${lastResult ? `<span class="badge ${
               lastResult.overall === "pass" ? "accent" :
               lastResult.overall === "warning" ? "entry" : "perimeter"
@@ -4408,7 +4408,7 @@ class SecureMePanel extends HTMLElement {
         <!-- Test History -->
         <div style="display:flex;flex-direction:column">
           <div class="section-header">
-            <h3 class="section-title">Test History</h3>
+            <h3 class="section-title">Testhistorik</h3>
             ${results.length > 1 ? `<span class="badge actions">${results.length} results</span>` : ""}
           </div>
           ${results.length > 1 ? (() => {
@@ -4430,8 +4430,8 @@ class SecureMePanel extends HTMLElement {
                   <div style="text-align:right;flex-shrink:0">
                     <div style="font-size:12px;font-weight:600;color:${col}">${r.overall.toUpperCase()}</div>
                     <div style="font-size:11px;color:var(--sm-text-secondary)">
-                      ${passed}/${total} passed &middot; ${r.duration_seconds}s
-                      ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} failed</span>` : ""}
+                      ${passed}/${total} bestået &middot; ${r.duration_seconds}s
+                      ${r.summary?.failed ? ` &middot; <span style="color:var(--sm-danger)">${r.summary.failed} fejlede</span>` : ""}
                     </div>
                   </div>
                 </div>`;
@@ -4456,7 +4456,7 @@ class SecureMePanel extends HTMLElement {
                 ` : ''}
               </div>`;
           })() : `
-            <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary);font-size:13px">No history yet.</div>
+            <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary);font-size:13px">Ingen historik endnu.</div>
           `}
         </div>
 
@@ -4495,8 +4495,8 @@ class SecureMePanel extends HTMLElement {
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-size:13px;font-weight:600">${s.name || 'Scheduled Test'}</span>
               <span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${testLabel}</span>
-              ${s.notify_on_fail !== false ? '<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning);font-size:10px">Notify on fail</span>' : ''}
-              ${s.enabled === false ? '<span class="badge" style="opacity:0.5;font-size:10px">Disabled</span>' : ''}
+              ${s.notify_on_fail !== false ? '<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning);font-size:10px">Giv besked ved fejl</span>' : ''}
+              ${s.enabled === false ? '<span class="badge" style="opacity:0.5;font-size:10px">Deaktiveret</span>' : ''}
             </div>
             <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:3px">
               ${schedDesc} at ${timeStr}
@@ -4504,7 +4504,7 @@ class SecureMePanel extends HTMLElement {
             </div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0">
-            <button class="sm-btn default sm" data-run-sched="${id}" title="Run now" style="padding:4px 8px">${icon('play')}</button>
+            <button class="sm-btn default sm" data-run-sched="${id}" title="Kør nu" style="padding:4px 8px">${icon('play')}</button>
             <button class="sm-btn ghost sm" data-edit-sched="${id}" title="Edit" style="padding:4px 8px">${icon('edit')}</button>
             <button class="sm-btn ghost sm" data-delete-sched="${id}" title="Delete" style="padding:4px 8px">${icon('trash')}</button>
           </div>
@@ -4513,13 +4513,13 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header" style="margin-top:20px">
-        <h3 class="section-title">Scheduled Tests</h3>
+        <h3 class="section-title">Planlagte tests</h3>
         <button class="sm-btn primary sm" data-action="add-sched-test">${icon('plus')} Add</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${entries.length > 0
           ? entries.map(schedCard).join('')
-          : '<div class="sm-card" style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:13px">No scheduled tests. Click Add to create one.</div>'
+          : '<div class="sm-card" style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:13px">Ingen planlagte tests. Klik Tilføj for at oprette en.</div>'
         }
       </div>
     `;
@@ -4536,37 +4536,37 @@ class SecureMePanel extends HTMLElement {
         <div class="config-dialog" style="max-width:460px">
           <div class="dialog-header">
             ${icon('clock')}
-            <div class="dialog-title">${isEdit ? 'Edit Scheduled Test' : 'Add Scheduled Test'}</div>
+            <div class="dialog-title">${isEdit ? 'Rediger planlagt test' : 'Tilføj planlagt test'}</div>
             <button class="dialog-close" data-action="close-sched-dialog">${icon('close')}</button>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Name</label>
+            <label class="form-label">Navn</label>
             <input type="text" class="form-input" id="sched-name"
-              placeholder="e.g. Weekly Sunday check" value="${t.name || ''}">
+              placeholder="f.eks. Ugentligt søndagstjek" value="${t.name || ''}">
           </div>
 
           <div class="form-group">
-            <label class="form-label">Test Type</label>
+            <label class="form-label">Testtype</label>
             <select class="form-select" id="sched-test-type">
-              <option value="quick"    ${(t.test_type || 'quick') === 'quick'    ? 'selected' : ''}>Quick - entity availability only</option>
-              <option value="standard" ${t.test_type === 'standard' ? 'selected' : ''}>Standard - full module verification</option>
-              <option value="full"     ${t.test_type === 'full'     ? 'selected' : ''}>Full - sensor signal included</option>
+              <option value="quick"    ${(t.test_type || 'quick') === 'quick'    ? 'selected' : ''}>Hurtig - kun entitets-tilgængelighed</option>
+              <option value="standard" ${t.test_type === 'standard' ? 'selected' : ''}>Standard - fuld modulverifikation</option>
+              <option value="full"     ${t.test_type === 'full'     ? 'selected' : ''}>Fuld - inkl. sensorsignal</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Schedule</label>
+            <label class="form-label">Tidsplan</label>
             <select class="form-select" id="sched-mode" onchange="this.getRootNode().host._onSchedModeChange(this.value)">
-              <option value="weekly"   ${(sched.mode || 'weekly') === 'weekly'   ? 'selected' : ''}>Weekly - specific weekday</option>
-              <option value="interval" ${sched.mode === 'interval' ? 'selected' : ''}>Every N weeks - always Sunday</option>
-              <option value="daily"    ${sched.mode === 'daily'    ? 'selected' : ''}>Daily</option>
+              <option value="weekly"   ${(sched.mode || 'weekly') === 'weekly'   ? 'selected' : ''}>Ugentlig - bestemt ugedag</option>
+              <option value="interval" ${sched.mode === 'interval' ? 'selected' : ''}>Hver N. uge - altid søndag</option>
+              <option value="daily"    ${sched.mode === 'daily'    ? 'selected' : ''}>Dagligt</option>
             </select>
           </div>
 
           <div id="sched-weekly-opts" style="${(sched.mode || 'weekly') === 'weekly' ? '' : 'display:none'}">
             <div class="form-group">
-              <label class="form-label">Weekday</label>
+              <label class="form-label">Hverdag</label>
               <select class="form-select" id="sched-weekday">
                 ${WEEKDAYS.map((d, i) => '<option value="' + i + '"' + ((sched.weekday ?? 6) === i ? ' selected' : '') + '>' + d + '</option>').join('')}
               </select>
@@ -4585,7 +4585,7 @@ class SecureMePanel extends HTMLElement {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Time of day</label>
+            <label class="form-label">Tidspunkt på dagen</label>
             <div style="display:flex;align-items:center;gap:8px">
               <input type="number" class="form-input" id="sched-hour"
                 min="0" max="23" value="${sched.hour ?? 8}" style="width:70px;text-align:center">
@@ -4599,20 +4599,20 @@ class SecureMePanel extends HTMLElement {
           <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:14px">
               <input type="checkbox" id="sched-notify-fail" ${t.notify_on_fail !== false ? 'checked' : ''}>
-              <span style="flex:1">Notify admins on failure</span>
-              <span style="font-size:11px;color:var(--sm-text-tertiary)">Push to admin users</span>
+              <span style="flex:1">Giv besked til admins ved fejl</span>
+              <span style="font-size:11px;color:var(--sm-text-tertiary)">Push til admin-brugere</span>
             </label>
           </div>
 
           <div class="form-group">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.04);font-size:14px">
               <input type="checkbox" id="sched-enabled" ${t.enabled !== false ? 'checked' : ''}>
-              <span style="flex:1">Enabled</span>
+              <span style="flex:1">Aktiveret</span>
             </label>
           </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="close-sched-dialog">Cancel</button>
+            <button class="btn-dialog cancel" data-action="close-sched-dialog">Annuller</button>
             <button class="btn-dialog save" data-action="save-sched-test">
               ${isEdit ? 'Save Changes' : 'Add Schedule'}
             </button>
@@ -4698,10 +4698,10 @@ class SecureMePanel extends HTMLElement {
             </div>
             <div style="font-size:11px;opacity:0.75;margin-top:2px">
               ${result.timestamp} &middot; ${result.duration_seconds}s &middot;
-              <span style="color:var(--sm-accent)">${summary.passed || 0} passed</span>
-              ${summary.failed  ? ` &middot; <span style="color:var(--sm-danger)">${summary.failed} failed</span>` : ""}
-              ${summary.warned  ? ` &middot; <span style="color:var(--sm-warning)">${summary.warned} warned</span>` : ""}
-              ${summary.skipped ? ` &middot; ${summary.skipped} skipped` : ""}
+              <span style="color:var(--sm-accent)">${summary.passed || 0} bestået</span>
+              ${summary.failed  ? ` &middot; <span style="color:var(--sm-danger)">${summary.failed} fejlede</span>` : ""}
+              ${summary.warned  ? ` &middot; <span style="color:var(--sm-warning)">${summary.warned} advarsler</span>` : ""}
+              ${summary.skipped ? ` &middot; ${summary.skipped} sprunget over` : ""}
             </div>
           </div>
         </div>
@@ -4709,7 +4709,7 @@ class SecureMePanel extends HTMLElement {
         <!-- Module results -->
         <div style="padding:8px 14px">
           <div style="font-size:10px;font-weight:600;color:var(--sm-text-tertiary);
-               text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Modules</div>
+               text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Moduler</div>
           ${Object.entries(mods).map(([id, m]) => {
             const color = m.status === "pass"    ? "var(--sm-accent)" :
                           m.status === "skipped" ? "var(--sm-text-tertiary)" :
@@ -4780,7 +4780,7 @@ class SecureMePanel extends HTMLElement {
                 ${sensors.offline > 0 ? "FAIL" : "PASS"}
               </span>
               <div style="flex:1">
-                <span style="font-size:13px;font-weight:500">Sensors</span>
+                <span style="font-size:13px;font-weight:500">Sensorer</span>
                 <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:8px">
                   ${sensors.online}/${sensors.total} online
                 </span>
@@ -4809,7 +4809,7 @@ class SecureMePanel extends HTMLElement {
                   <span style="color:var(--sm-danger)">${bats.critical_count} critical</span>
                 ` : ""}
                 ${bats.low_count === 0 && bats.critical_count === 0 ? `
-                  <span style="color:var(--sm-accent)">All OK</span>
+                  <span style="color:var(--sm-accent)">Alt OK</span>
                 ` : ""}
                 <span style="font-size:10px;color:var(--sm-text-tertiary);margin-left:auto">
                   Does not affect PASS/FAIL
@@ -4830,10 +4830,10 @@ class SecureMePanel extends HTMLElement {
     if (configuredSensors.length === 0) {
       return `
         <div class="section-header">
-          <h3 class="section-title">Sensor Status</h3>
+          <h3 class="section-title">Sensorstatus</h3>
         </div>
         <div class="sm-card" style="text-align:center;padding:24px;color:var(--sm-text-tertiary)">
-          No sensors configured.
+          Ingen sensorer konfigureret.
         </div>
       `;
     }
@@ -4874,7 +4874,7 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Sensor Status</h3>
+        <h3 class="section-title">Sensorstatus</h3>
         <span class="badge ${offline > 0 ? 'perimeter' : 'accent'}">${online}/${sensorStatuses.length} online</span>
       </div>
 
@@ -4903,7 +4903,7 @@ class SecureMePanel extends HTMLElement {
     if (!batteries || batteries.length === 0) {
       return `
         <div class="section-header">
-          <h3 class="section-title">Battery Overview</h3>
+          <h3 class="section-title">Batterioversigt</h3>
         </div>
         <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
           No battery sensors discovered.
@@ -4957,7 +4957,7 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Battery Overview</h3>
+        <h3 class="section-title">Batterioversigt</h3>
         <span class="badge accent">${batteries.length} tracked</span>
       </div>
 
@@ -5252,7 +5252,7 @@ class SecureMePanel extends HTMLElement {
         <div class="config-dialog">
           <div class="dialog-header">
             
-            <div class="dialog-title">Camera Module Configuration</div>
+            <div class="dialog-title">Konfiguration af kameramodul</div>
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
           
@@ -5262,7 +5262,7 @@ class SecureMePanel extends HTMLElement {
           
           <div class="item-list">
             ${cameras.length === 0 ? 
-              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">No cameras configured. Click "Add Camera" to start.</div>' :
+              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">Ingen kameraer konfigureret. Klik "Tilføj kamera" for at starte.</div>' :
               cameras.map((cam, idx) => this._renderCameraRow(cam, idx)).join('')
             }
           </div>
@@ -5294,16 +5294,16 @@ class SecureMePanel extends HTMLElement {
         </div>
         
         <div class="form-group">
-          <label class="form-label">Camera Entity</label>
+          <label class="form-label">Kamera-entitet</label>
           <input type="text" 
                  class="entity-search" 
-                 placeholder="Search cameras..."
+                 placeholder="Søg kameraer..."
                  data-search-target="camera-select-${camera.id}">
           <select class="form-select" 
                   id="camera-select-${camera.id}"
                   data-camera-id="${camera.id}"
                   data-field="entity_id">
-            <option value="">-- Select Camera --</option>
+            <option value="">-- Vælg kamera --</option>
             ${availableCameras.map(c => `
               <option value="${c.entity_id}" ${c.entity_id === camera.entity_id ? 'selected' : ''}>
                 ${c.name} (${c.entity_id})
@@ -5332,7 +5332,7 @@ class SecureMePanel extends HTMLElement {
         </div>
         
         <div class="form-group">
-          <label class="form-label">Recording Mode</label>
+          <label class="form-label">Optagelsestilstand</label>
           <div class="radio-group">
             <div class="radio-option ${camera.recording_mode === 'disabled' ? 'selected' : ''}"
                  data-camera-id="${camera.id}"
@@ -5342,7 +5342,7 @@ class SecureMePanel extends HTMLElement {
                      name="mode-${camera.id}" 
                      value="disabled"
                      ${camera.recording_mode === 'disabled' ? 'checked' : ''}>
-              <label>Disabled</label>
+              <label>Deaktiveret</label>
             </div>
             <div class="radio-option ${camera.recording_mode === 'continuous' ? 'selected' : ''}"
                  data-camera-id="${camera.id}"
@@ -5352,7 +5352,7 @@ class SecureMePanel extends HTMLElement {
                      name="mode-${camera.id}" 
                      value="continuous"
                      ${camera.recording_mode === 'continuous' ? 'checked' : ''}>
-              <label>Continuous Recording</label>
+              <label>Kontinuerlig optagelse</label>
             </div>
             <div class="radio-option ${camera.recording_mode === 'motion' ? 'selected' : ''}"
                  data-camera-id="${camera.id}"
@@ -5362,7 +5362,7 @@ class SecureMePanel extends HTMLElement {
                      name="mode-${camera.id}" 
                      value="motion"
                      ${camera.recording_mode === 'motion' ? 'checked' : ''}>
-              <label>Motion-Triggered</label>
+              <label>Bevægelsesudløst</label>
             </div>
           </div>
         </div>
@@ -5430,14 +5430,14 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <div class="dialog-title">Lock Module Configuration</div>
+            <div class="dialog-title">Konfiguration af låsemodul</div>
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
 
           <div class="info-card ${domainLocks.length > 0 ? 'success' : 'warning'}">
             ${domainLocks.length > 0
-              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Found ${domainLocks.length} lock entity(ies) in Home Assistant</div>`
-              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>No lock entities found. Use manual search below to add any entity.</div>`
+              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Fandt ${domainLocks.length} låse-entitet(er) i Home Assistant</div>`
+              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>Ingen låse-entiteter fundet. Brug manuel søgning nedenfor for at tilføje en entitet.</div>`
             }
           </div>
 
@@ -5450,11 +5450,11 @@ class SecureMePanel extends HTMLElement {
           <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <span style="font-weight:600;font-size:14px;color:var(--sm-text,#fff);">Lock ${idx + 1}</span>
-              <button data-action="remove-lock" data-lock-id="${lock.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Remove</button>
+              <button data-action="remove-lock" data-lock-id="${lock.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Fjern</button>
             </div>
 
             <div style="margin-bottom:12px;">
-              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entitet</label>
               ${lock.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;"> ${lock.entity_id}</div>` : ''}
               <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
                 <input type="text" placeholder="Search entities (type 2+ chars)..." 
@@ -5463,27 +5463,27 @@ class SecureMePanel extends HTMLElement {
                   value="${search}">
               </div>
               <select data-lock-id="${lock.id}" data-field="entity_id" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                <option value="">-- Select entity --</option>
+                <option value="">-- Vælg entitet --</option>
                 ${filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === lock.entity_id ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('')}
                 ${!filtered.find(e => e.entity_id === lock.entity_id) && lock.entity_id ? `<option value="${lock.entity_id}" selected>${lock.entity_id}</option>` : ''}
               </select>
             </div>
 
             <div style="margin-bottom:12px;">
-              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Behavior</label>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:8px;">Adfærd</label>
               <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;">
                 <input type="checkbox" data-lock-id="${lock.id}" data-field="lock_on_arm" ${lock.lock_on_arm ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">
-                <span style="font-size:13px;color:var(--sm-text,#fff);">Lock when alarm is armed</span>
+                <span style="font-size:13px;color:var(--sm-text,#fff);">Lås når alarmen tilkobles</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                 <input type="checkbox" data-lock-id="${lock.id}" data-field="unlock_on_disarm" ${lock.unlock_on_disarm ? 'checked' : ''} style="width:16px;height:16px;cursor:pointer;">
-                <span style="font-size:13px;color:var(--sm-text,#fff);">Unlock when alarm is disarmed</span>
+                <span style="font-size:13px;color:var(--sm-text,#fff);">Lås op når alarmen frakobles</span>
               </label>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Retry attempts</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Antal forsøg</label>
                 <input type="number" min="0" max="10" data-lock-id="${lock.id}" data-field="retry_attempts" value="${lock.retry_attempts}" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;">
               </div>
               <div>
@@ -5495,8 +5495,8 @@ class SecureMePanel extends HTMLElement {
         </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
-            <button class="btn-dialog save" data-action="save-lock-config">Save Configuration</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
+            <button class="btn-dialog save" data-action="save-lock-config">Gem konfiguration</button>
           </div>
         </div>
       </div>
@@ -5557,14 +5557,14 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <div class="dialog-title">Climate Module Configuration</div>
+            <div class="dialog-title">Konfiguration af klimamodul</div>
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
 
           <div class="info-card ${domainEntities.length > 0 ? 'success' : 'warning'}">
             ${domainEntities.length > 0
-              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Found ${domainEntities.length} climate entity(ies) in Home Assistant</div>`
-              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>No climate entities found. Use manual search to add any entity.</div>`
+              ? `<span style="color:var(--sm-accent)">${icon("check")}</span><div>Fandt ${domainEntities.length} klima-entitet(er) i Home Assistant</div>`
+              : `<span style="color:var(--sm-warning)">${icon("warn")}</span><div>Ingen klima-entiteter fundet. Brug manuel søgning for at tilføje en entitet.</div>`
             }
           </div>
 
@@ -5577,17 +5577,17 @@ class SecureMePanel extends HTMLElement {
           <div style="background:rgba(255,255,255,0.05);border:1px solid var(--sm-border,#333);border-radius:10px;padding:16px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <span style="font-weight:600;font-size:14px;color:var(--sm-text,#fff);">Thermostat ${idx + 1}</span>
-              <button data-action="remove-climate" data-climate-id="${t.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Remove</button>
+              <button data-action="remove-climate" data-climate-id="${t.id}" style="background:rgba(255,69,58,0.15);border:1px solid #ff453a;color:#ff453a;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">Fjern</button>
             </div>
 
             <div style="margin-bottom:12px;">
-              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entity</label>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:6px;">Entitet</label>
               ${t.entity_id ? `<div style="padding:8px 12px;background:rgba(52,199,89,0.1);border:1px solid rgba(52,199,89,0.3);border-radius:6px;font-size:13px;color:#34c759;margin-bottom:6px;"> ${t.entity_id}</div>` : ''}
               <input type="text" placeholder="Search entities (type 2+ chars for all, or leave blank for climate only)..."
                 data-climate-search="${t.id}"
                 style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;box-sizing:border-box;margin-bottom:6px;">
               <select data-climate-id="${t.id}" data-field="entity_id" style="width:100%;padding:8px 12px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                <option value="">-- Select entity --</option>
+                <option value="">-- Vælg entitet --</option>
                 ${domainEntities.map(e => `<option value="${e.entity_id}" ${e.entity_id === t.entity_id ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('')}
                 ${!domainEntities.find(e => e.entity_id === t.entity_id) && t.entity_id ? `<option value="${t.entity_id}" selected>${t.entity_id}</option>` : ''}
               </select>
@@ -5595,20 +5595,20 @@ class SecureMePanel extends HTMLElement {
 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Når tilkoblet</label>
                 <select data-climate-id="${t.id}" data-field="arm_mode" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                  <option value="off" ${t.arm_mode==='off'?'selected':''}>Turn Off</option>
-                  <option value="eco" ${t.arm_mode==='eco'?'selected':''}>Eco Mode</option>
-                  <option value="away" ${t.arm_mode==='away'?'selected':''}>Away Mode</option>
+                  <option value="off" ${t.arm_mode==='off'?'selected':''}>Sluk</option>
+                  <option value="eco" ${t.arm_mode==='eco'?'selected':''}>Eco-tilstand</option>
+                  <option value="away" ${t.arm_mode==='away'?'selected':''}>Væk-tilstand</option>
                 </select>
               </div>
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Når frakoblet</label>
                 <select data-climate-id="${t.id}" data-field="disarm_mode" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                  <option value="heat" ${t.disarm_mode==='heat'?'selected':''}>Heat</option>
-                  <option value="cool" ${t.disarm_mode==='cool'?'selected':''}>Cool</option>
+                  <option value="heat" ${t.disarm_mode==='heat'?'selected':''}>Varme</option>
+                  <option value="cool" ${t.disarm_mode==='cool'?'selected':''}>Køl</option>
                   <option value="auto" ${t.disarm_mode==='auto'?'selected':''}>Auto</option>
-                  <option value="restore" ${t.disarm_mode==='restore'?'selected':''}>Restore Previous</option>
+                  <option value="restore" ${t.disarm_mode==='restore'?'selected':''}>Gendan forrige</option>
                 </select>
               </div>
             </div>
@@ -5627,8 +5627,8 @@ class SecureMePanel extends HTMLElement {
         </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
-            <button class="btn-dialog save" data-action="save-climate-config">Save Configuration</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
+            <button class="btn-dialog save" data-action="save-climate-config">Gem konfiguration</button>
           </div>
         </div>
       </div>
@@ -5735,7 +5735,7 @@ class SecureMePanel extends HTMLElement {
         <div class="config-dialog">
           <div class="dialog-header">
             
-            <div class="dialog-title">Siren Module Configuration</div>
+            <div class="dialog-title">Konfiguration af sirenemodul</div>
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
           
@@ -5745,19 +5745,19 @@ class SecureMePanel extends HTMLElement {
           
           <div class="item-list">
             ${sirens.length === 0 ? 
-              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">No sirens configured.</div>' :
+              '<div style="text-align:center;color:var(--sm-text-secondary);padding:20px;">Ingen sirener konfigureret.</div>' :
               sirens.map((s, idx) => this._renderSirenRow(s, idx)).join('')
             }
           </div>
           
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
             <button class="sm-btn ghost-outlined" data-action="quick-test-siren"
                     ${this._sirenTestRunning ? 'disabled' : ''}
                     style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:5px">
               ${icon("siren")} ${this._sirenTestRunning ? 'Testing...' : 'Test Sound'}
             </button>
-            <button class="btn-dialog save" data-action="save-siren-config">Save Configuration</button>
+            <button class="btn-dialog save" data-action="save-siren-config">Gem konfiguration</button>
           </div>
         </div>
       </div>
@@ -5794,14 +5794,14 @@ class SecureMePanel extends HTMLElement {
       <div class="item-card">
         <div class="item-header">
           <div class="item-number">Siren ${idx + 1}</div>
-          <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">Delete</button>
+          <button class="delete-item-btn" data-action="remove-siren" data-siren-id="${siren.id}">Slet</button>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Siren Entity</label>
+          <label class="form-label">Sirene-entitet</label>
           <input type="text" class="entity-search" placeholder="Search siren, switch or input_boolean..." data-search-target="siren-select-${siren.id}">
           <select class="form-select" id="siren-select-${siren.id}" data-siren-id="${siren.id}" data-field="entity_id">
-            <option value="">-- Select Entity --</option>
+            <option value="">-- Vælg entitet --</option>
             ${domainGroups.map(group => group.entities.length === 0 ? '' : `
               <optgroup label="${group.label}">
                 ${group.entities.map(e => `
@@ -5818,11 +5818,11 @@ class SecureMePanel extends HTMLElement {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Alarm Pattern</label>
+          <label class="form-label">Alarmmønster</label>
           <select class="form-select" data-siren-id="${siren.id}" data-field="pattern">
-            <option value="continuous" ${siren.pattern === 'continuous' ? 'selected' : ''}>Continuous</option>
-            <option value="intermittent" ${siren.pattern === 'intermittent' ? 'selected' : ''}>Intermittent</option>
-            <option value="rapid" ${siren.pattern === 'rapid' ? 'selected' : ''}>Rapid Beeps</option>
+            <option value="continuous" ${siren.pattern === 'continuous' ? 'selected' : ''}>Kontinuerlig</option>
+            <option value="intermittent" ${siren.pattern === 'intermittent' ? 'selected' : ''}>Periodisk</option>
+            <option value="rapid" ${siren.pattern === 'rapid' ? 'selected' : ''}>Hurtige bip</option>
           </select>
           ${isOnOff ? `
             <div style="margin-top:4px;font-size:11px;color:var(--sm-text-tertiary)">
@@ -5907,14 +5907,14 @@ class SecureMePanel extends HTMLElement {
     ).join('');
     return `
       <div style="position:relative;margin-top:6px;">
-        <input data-lp-search="${pickerId}" type="text" placeholder="Search lights..." autocomplete="off"
+        <input data-lp-search="${pickerId}" type="text" placeholder="Søg lys..." autocomplete="off"
           style="width:100%;padding:7px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px 6px 0 0;color:var(--sm-text,#fff);font-size:12px;box-sizing:border-box;outline:none;">
         <div data-lp-list="${pickerId}"
           style="max-height:160px;overflow-y:auto;background:rgba(28,28,30,0.98);border:1px solid var(--sm-border,#444);border-top:none;border-radius:0 0 6px 6px;padding:2px 0;">
-          ${rows || '<span style="display:block;padding:8px 10px;font-size:12px;color:var(--sm-text-tertiary);">No lights available</span>'}
+          ${rows || '<span style="display:block;padding:8px 10px;font-size:12px;color:var(--sm-text-tertiary);">Ingen lys tilgængelige</span>'}
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:5px;">
-          <button data-lp-add="${pickerId}" style="padding:5px 14px;background:${accentColor}22;border:1px solid ${accentColor}66;border-radius:6px;color:${accentColor};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Add selected</button>
+          <button data-lp-add="${pickerId}" style="padding:5px 14px;background:${accentColor}22;border:1px solid ${accentColor}66;border-radius:6px;color:${accentColor};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">Tilføj valgte</button>
         </div>
       </div>`;
   }
@@ -5934,24 +5934,24 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog">
           <div class="dialog-header">
-            <div class="dialog-title">Lights Module Configuration</div>
+            <div class="dialog-title">Konfiguration af lysmodul</div>
             <button class="dialog-close" data-action="close-dialog">${icon("close")}</button>
           </div>
 
           <!-- ARM / DISARM behaviour -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
             <div>
-              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Armed</label>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Når tilkoblet</label>
               <select data-lights-field="arm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                <option value="turn_off" ${this._tempConfig?.arm_action==='turn_off'?'selected':''}>Turn Off</option>
-                <option value="leave" ${this._tempConfig?.arm_action==='leave'?'selected':''}>Leave As-Is</option>
+                <option value="turn_off" ${this._tempConfig?.arm_action==='turn_off'?'selected':''}>Sluk</option>
+                <option value="leave" ${this._tempConfig?.arm_action==='leave'?'selected':''}>Lad være som den er</option>
               </select>
             </div>
             <div>
-              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">When Disarmed</label>
+              <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Når frakoblet</label>
               <select data-lights-field="disarm_action" style="width:100%;padding:8px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                <option value="restore" ${this._tempConfig?.disarm_action==='restore'?'selected':''}>Restore Previous</option>
-                <option value="turn_on" ${this._tempConfig?.disarm_action==='turn_on'?'selected':''}>Turn On</option>
+                <option value="restore" ${this._tempConfig?.disarm_action==='restore'?'selected':''}>Gendan forrige</option>
+                <option value="turn_on" ${this._tempConfig?.disarm_action==='turn_on'?'selected':''}>Tænd</option>
               </select>
             </div>
           </div>
@@ -5960,18 +5960,18 @@ class SecureMePanel extends HTMLElement {
           <div style="${sectionBox}">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
               <div style="display:flex;align-items:center;gap:8px;">
-                <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Flash lights on alarm</span>
+                <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Blink lys ved alarm</span>
                 <span style="font-size:11px;color:var(--sm-text-secondary);">(red / blue)</span>
               </div>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                 <input type="checkbox" data-lights-field="trigger_flash" ${this._tempConfig?.trigger_flash?'checked':''} style="width:16px;height:16px;cursor:pointer;">
-                <span style="font-size:12px;color:var(--sm-text-secondary);">Enabled</span>
+                <span style="font-size:12px;color:var(--sm-text-secondary);">Aktiveret</span>
               </label>
             </div>
 
             <div style="min-height:36px;padding:6px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
               ${selected.length === 0
-                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No flash lights selected</span>'
+                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">Ingen blinklys valgt</span>'
                 : selected.map(eid => {
                     const e = domainLights.find(l => l.entity_id === eid);
                     return `<span style="${chipStyle('#ff9f0a')}">${e?.name || eid}<button data-action="remove-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:4px;" title="Remove">&#x2715;</button></span>`;
@@ -5983,11 +5983,11 @@ class SecureMePanel extends HTMLElement {
             ${this._tempConfig?.trigger_flash ? `
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
               <div>
-                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Flash Pattern</label>
+                <label style="display:block;font-size:12px;color:var(--sm-text-secondary,#999);margin-bottom:4px;">Blinkmønster</label>
                 <select data-lights-field="flash_pattern" style="width:100%;padding:7px;background:rgba(255,255,255,0.07);border:1px solid var(--sm-border,#444);border-radius:6px;color:var(--sm-text,#fff);font-size:13px;">
-                  <option value="rapid" ${this._tempConfig?.flash_pattern==='rapid'?'selected':''}>Rapid</option>
-                  <option value="slow" ${this._tempConfig?.flash_pattern==='slow'?'selected':''}>Slow</option>
-                  <option value="intermittent" ${this._tempConfig?.flash_pattern==='intermittent'?'selected':''}>Intermittent</option>
+                  <option value="rapid" ${this._tempConfig?.flash_pattern==='rapid'?'selected':''}>Hurtig</option>
+                  <option value="slow" ${this._tempConfig?.flash_pattern==='slow'?'selected':''}>Langsom</option>
+                  <option value="intermittent" ${this._tempConfig?.flash_pattern==='intermittent'?'selected':''}>Periodisk</option>
                 </select>
               </div>
               <div>
@@ -6000,13 +6000,13 @@ class SecureMePanel extends HTMLElement {
           <!-- SECTION 2: Steady white lights -->
           <div style="${sectionBox}">
             <div style="margin-bottom:10px;">
-              <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Steady white lights on alarm</span>
+              <span style="font-size:13px;font-weight:500;color:var(--sm-text,#fff);">Konstant hvidt lys ved alarm</span>
               <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:2px;">Turns on immediately at 100% white brightness. No flashing.</div>
             </div>
 
             <div style="min-height:36px;padding:6px;background:rgba(255,255,255,0.04);border:1px solid var(--sm-border,#333);border-radius:8px;display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
               ${steadySelected.length === 0
-                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">No steady lights selected</span>'
+                ? '<span style="color:#666;font-size:12px;padding:4px 6px;">Intet konstant lys valgt</span>'
                 : steadySelected.map(eid => {
                     const e = domainLights.find(l => l.entity_id === eid);
                     return `<span style="${chipStyle('#64d2ff')}">${e?.name || eid}<button data-action="remove-steady-light" data-entity="${eid}" style="background:none;border:none;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:4px;" title="Remove">&#x2715;</button></span>`;
@@ -6017,13 +6017,13 @@ class SecureMePanel extends HTMLElement {
           </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
             <button class="sm-btn ghost-outlined" data-action="quick-test-lights"
                     ${this._lightsTestRunning ? 'disabled' : ''}
                     style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:5px">
               ${icon("bulb")} ${this._lightsTestRunning ? 'Testing...' : 'Test Flash'}
             </button>
-            <button class="btn-dialog save" data-action="save-lights-config">Save Configuration</button>
+            <button class="btn-dialog save" data-action="save-lights-config">Gem konfiguration</button>
           </div>
         </div>
       </div>
@@ -6122,25 +6122,25 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog" style="max-width:500px">
           <div class="dialog-header">
-            <div class="dialog-title">${tc._editId ? 'Edit' : 'Add'} Notification</div>
+            <div class="dialog-title">${tc._editId ? 'Rediger' : 'Tilføj'} notifikation</div>
             <button class="dialog-close" data-action="close-dialog">${icon('close')}</button>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Name</label>
+            <label class="form-label">Navn</label>
             <input type="text" class="form-input" id="notif-name"
-                   placeholder="e.g. Armed away push" value="${tc.name || ''}">
+                   placeholder="f.eks. Push ved tilkobling Borte" value="${tc.name || ''}">
           </div>
 
           <div class="form-group">
-            <label class="form-label">Trigger</label>
+            <label class="form-label">Udløser</label>
             <select class="form-select" id="notif-trigger">
               ${TRIGGERS.map(t => `<option value="${t.value}" ${tc.trigger===t.value?'selected':''}>${t.label}</option>`).join('')}
             </select>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Message</label>
+            <label class="form-label">Besked</label>
             <input type="text" class="form-input" id="notif-message"
                    placeholder="e.g. Alarm armed by {armed_by}" value="${tc.message || ''}">
             <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">
@@ -6149,7 +6149,7 @@ class SecureMePanel extends HTMLElement {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Channels</label>
+            <label class="form-label">Kanaler</label>
             <div style="display:flex;gap:12px;flex-wrap:wrap">
               <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
                 <input type="checkbox" id="notif-ch-push" ${hasPush?'checked':''}>
@@ -6161,7 +6161,7 @@ class SecureMePanel extends HTMLElement {
                 ${icon('speaker')} TTS voice
               </label>
             </div>
-            ${!ttsEnabled ? '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">TTS channel requires the TTS module to be enabled.</div>' : ''}
+            ${!ttsEnabled ? '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">TTS-kanal kræver at TTS-modulet er aktiveret.</div>' : ''}
           </div>
 
           ${hasTTS && ttsEnabled && this._speakerProfiles?.length > 0 ? `
@@ -6179,15 +6179,15 @@ class SecureMePanel extends HTMLElement {
           ` : ''}
 
           <div class="form-group" id="notif-service-group" style="${!hasPush?'display:none':''}">
-            <label class="form-label">Notify Service</label>
+            <label class="form-label">Notifikationstjeneste</label>
             <select class="form-select" id="notif-service">
               ${services.map(s => `<option value="${s}" ${tc.service===s?'selected':''}>${s}</option>`).join('')}
             </select>
           </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
-            <button class="btn-dialog save" data-action="save-notification-dialog">Save</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
+            <button class="btn-dialog save" data-action="save-notification-dialog">Gem</button>
           </div>
         </div>
       </div>
@@ -6287,7 +6287,7 @@ class SecureMePanel extends HTMLElement {
     const chipsEl = dialogMount.querySelector('[data-tts-chips]');
     if (chipsEl) {
       chipsEl.innerHTML = selectedEntities.length === 0
-        ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:16px;font-size:12px">No speakers added — optional if using a custom TTS service</div>'
+        ? '<div style="text-align:center;color:var(--sm-text-tertiary);padding:16px;font-size:12px">Ingen højtalere tilføjet — valgfrit hvis du bruger en brugerdefineret TTS-tjeneste</div>'
         : selectedEntities.map(entityId => {
             const entity = availableMP.find(e => e.entity_id === entityId);
             return `<span class="entity-chip">${entity?.name || entityId}<button data-action="remove-tts" data-entity="${entityId}">${icon('close')}</button></span>`;
@@ -6298,7 +6298,7 @@ class SecureMePanel extends HTMLElement {
     }
     const addSelect = dialogMount.querySelector('#tts-add-select');
     if (addSelect) {
-      addSelect.innerHTML = '<option value="">-- Add speaker --</option>' +
+      addSelect.innerHTML = '<option value="">-- Tilføj højtaler --</option>' +
         unselected.map(e => `<option value="${e.entity_id}">${e.name} (${e.entity_id})</option>`).join('');
     }
   }
@@ -6432,7 +6432,7 @@ class SecureMePanel extends HTMLElement {
 
     const speakerCheckboxes = (msgId, msgSpeakers) =>
       profiles.length === 0
-        ? '<div style="font-size:11px;color:var(--sm-text-tertiary)">No speaker profiles configured above.</div>'
+        ? '<div style="font-size:11px;color:var(--sm-text-tertiary)">Ingen højtalerprofiler konfigureret ovenfor.</div>'
         : '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">' +
           profiles.map(p => {
             const checked = !msgSpeakers || msgSpeakers.length === 0 || msgSpeakers.includes(p.entity_id);
@@ -6447,40 +6447,40 @@ class SecureMePanel extends HTMLElement {
       <div class="config-dialog-overlay">
         <div class="config-dialog" style="max-width:580px">
           <div class="dialog-header">
-            <div class="dialog-title">TTS Module</div>
+            <div class="dialog-title">TTS-modul</div>
             <button class="dialog-close" data-action="close-dialog">${icon('close')}</button>
           </div>
 
           <!-- GLOBAL SETTINGS -->
           <div class="form-group">
-            <label class="form-label">Default TTS Service</label>
+            <label class="form-label">Standard TTS-tjeneste</label>
             <select class="form-select" data-tts-field="tts_service" id="tts-service-select">
               <option value="tts.cloud_say" ${(tc.tts_service||'tts.cloud_say')==='tts.cloud_say'?'selected':''}>tts.cloud_say (Nabu Casa)</option>
               <option value="tts.google_translate_say" ${tc.tts_service==='tts.google_translate_say'?'selected':''}>tts.google_translate_say</option>
               <option value="tts.google_say" ${tc.tts_service==='tts.google_say'?'selected':''}>tts.google_say (Cast)</option>
               <option value="tts.piper" ${tc.tts_service==='tts.piper'?'selected':''}>tts.piper (local)</option>
-              <option value="custom" ${isCustomService?'selected':''}>Custom...</option>
+              <option value="custom" ${isCustomService?'selected':''}>Brugerdefineret...</option>
             </select>
             ${isCustomService ? `<input type="text" class="form-input" id="tts-service-custom" style="margin-top:6px" placeholder="e.g. tts.my_custom_say" value="${tc.tts_service||''}">` : `<input type="text" class="form-input" id="tts-service-custom" style="margin-top:6px;display:none" placeholder="e.g. tts.my_custom_say">`}
           </div>
 
           <div class="form-group">
-            <label class="form-label">Language</label>
+            <label class="form-label">Sprog</label>
             <select class="form-select" data-tts-field="language">
-              <option value="da" ${(tc.language||'da')==='da'?'selected':''}>Danish</option>
-              <option value="en" ${tc.language==='en'?'selected':''}>English</option>
-              <option value="de" ${tc.language==='de'?'selected':''}>German</option>
-              <option value="sv" ${tc.language==='sv'?'selected':''}>Swedish</option>
-              <option value="nb" ${tc.language==='nb'?'selected':''}>Norwegian</option>
+              <option value="da" ${(tc.language||'da')==='da'?'selected':''}>Dansk</option>
+              <option value="en" ${tc.language==='en'?'selected':''}>Engelsk</option>
+              <option value="de" ${tc.language==='de'?'selected':''}>Tysk</option>
+              <option value="sv" ${tc.language==='sv'?'selected':''}>Svensk</option>
+              <option value="nb" ${tc.language==='nb'?'selected':''}>Norsk</option>
             </select>
           </div>
 
           <!-- SPEAKER PROFILES -->
           <div class="form-group">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <label class="form-label" style="margin:0">Speaker Profiles</label>
+              <label class="form-label" style="margin:0">Højtalerprofiler</label>
               <select class="form-select" id="sp-add-select" style="max-width:220px;font-size:12px">
-                <option value="">-- Add speaker --</option>
+                <option value="">-- Tilføj højtaler --</option>
                 ${unselected.map(e => `<option value="${e.entity_id}">${e.name}</option>`).join('')}
               </select>
             </div>
@@ -6496,7 +6496,7 @@ class SecureMePanel extends HTMLElement {
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                       <div>
                         <input type="text" class="form-input" style="font-size:13px;font-weight:500;width:180px"
-                               placeholder="Profile name" value="${p.name||''}"
+                               placeholder="Profilnavn" value="${p.name||''}"
                                data-sp-eid="${p.entity_id}" data-sp-field="name">
                         <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">${p.entity_id}</div>
                       </div>
@@ -6504,7 +6504,7 @@ class SecureMePanel extends HTMLElement {
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                       <div>
-                        <label class="form-label" style="font-size:11px">TTS Service</label>
+                        <label class="form-label" style="font-size:11px">TTS-tjeneste</label>
                         <select class="form-select" style="font-size:12px"
                                 data-sp-eid="${p.entity_id}" data-sp-field="tts_service">
                           ${spServices.map(s => `<option value="${s}" ${p.tts_service===s?'selected':''}>${s}</option>`).join('')}
@@ -6524,7 +6524,7 @@ class SecureMePanel extends HTMLElement {
           <!-- CUSTOM MESSAGES -->
           <div class="form-group">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-              <label class="form-label" style="margin:0">Custom Messages</label>
+              <label class="form-label" style="margin:0">Brugerdefinerede beskeder</label>
               <button class="sm-btn primary sm" data-action="add-tts-message">${icon('plus')} Add</button>
             </div>
 
@@ -6537,7 +6537,7 @@ class SecureMePanel extends HTMLElement {
                   return `<div style="border:1px solid var(--sm-border);border-radius:8px;padding:12px;margin-bottom:8px;background:rgba(255,255,255,0.03)">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
                       <input type="text" class="form-input" style="flex:1;margin-right:8px;font-size:13px"
-                             placeholder="Message name" value="${msg.name||''}"
+                             placeholder="Beskednavn" value="${msg.name||''}"
                              data-tts-msg-id="${msg.id}" data-tts-msg-field="name">
                       <label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-right:8px;cursor:pointer">
                         <span class="sm-toggle ${msg.enabled?'on':''}" data-tts-msg-toggle="${msg.id}" style="width:32px;height:18px">
@@ -6548,7 +6548,7 @@ class SecureMePanel extends HTMLElement {
                     </div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
                       <div>
-                        <label class="form-label" style="font-size:11px">Trigger</label>
+                        <label class="form-label" style="font-size:11px">Udløser</label>
                         <select class="form-select" style="font-size:12px"
                                 data-tts-msg-id="${msg.id}" data-tts-msg-field="trigger">
                           ${TRIGGERS.map(t => `<option value="${t.value}" ${msg.trigger===t.value?'selected':''}>${t.label}</option>`).join('')}
@@ -6589,8 +6589,8 @@ class SecureMePanel extends HTMLElement {
           </div>
 
           <div class="dialog-footer">
-            <button class="btn-dialog cancel" data-action="cancel-dialog">Cancel</button>
-            <button class="btn-dialog save" data-action="save-tts-config">Save</button>
+            <button class="btn-dialog cancel" data-action="cancel-dialog">Annuller</button>
+            <button class="btn-dialog save" data-action="save-tts-config">Gem</button>
           </div>
         </div>
       </div>
@@ -7347,7 +7347,7 @@ class SecureMePanel extends HTMLElement {
           ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
           : domainEntities;
         const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- Select entity --</option>' +
+        sel.innerHTML = '<option value="">-- Vælg entitet --</option>' +
           filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
           (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
       });
@@ -7380,7 +7380,7 @@ class SecureMePanel extends HTMLElement {
           ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
           : domainEntities;
         const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- Select entity --</option>' +
+        sel.innerHTML = '<option value="">-- Vælg entitet --</option>' +
           filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
           (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
       });
