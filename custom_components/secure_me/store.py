@@ -637,15 +637,12 @@ class SecureMeStore:
             self._schedule_save()
 
     # ─── Fake Presence ────────────────────────────────────────────────────────
-
-    def get_fake_presence(self) -> bool:
-        """Get current fake presence state."""
-        return self._data.get("fake_presence", False)
-
-    async def async_set_fake_presence(self, active: bool) -> None:
-        """Set fake presence state and persist."""
-        self._data["fake_presence"] = active
-        self._schedule_save()
+    # NOTE: get_fake_presence() / async_set_fake_presence() for Fake Presence v2
+    # (dict-based, with block_alarm/block_locks/block_cameras) are defined further
+    # down under "Fake Presence v2". The old v1 bool-only versions that used to
+    # live here were removed — they were dead code (shadowed by the v2 versions)
+    # and, if ever called again by mistake, would have overwritten the v2 dict
+    # with a bare bool and wiped the block_* settings.
 
     def get_home_alone_cameras(self) -> list[str]:
         """Get configured Home Alone Monitor camera entity IDs."""

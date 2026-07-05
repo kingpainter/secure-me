@@ -24,7 +24,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-from .ws_helpers import _get_store, _get_coordinator  # noqa: F401
+from .ws_helpers import _get_store, _get_coordinator, _discover_batteries  # noqa: F401
 
 
 @websocket_api.websocket_command({
@@ -452,66 +452,6 @@ async def ws_test_automation(
 # HEALTH SUMMARY
 #
 
-def _discover_batteries(
-    hass: HomeAssistant,
-    configured_entity_ids: set[str] | None = None,
-) -> list[dict[str, Any]]:
-    """Discover battery sensors for configured Secure Me sensors only.
-
-    Strategy:
-    1. Build a set of HA device_ids from the configured sensor entity_ids.
-    2. Return only battery-class sensors that belong to those same devices.
-    3. If device registry is unavailable, fall back to name-prefix matching.
-    """
-    if not configured_entity_ids:
-        return []
-
-    # --- Build set of device_ids for configured sensors ---
-    device_ids: set[str] = set()
-    try:
-        from homeassistant.helpers import entity_registry as er, device_registry as dr
-        ent_reg = er.async_get(hass)
-        for eid in configured_entity_ids:
-            entry = ent_reg.async_get(eid)
-            if entry and entry.device_id:
-                device_ids.add(entry.device_id)
-    except Exception:
-        device_ids = set()
-
-    batteries: list[dict[str, Any]] = []
-
-    for state in hass.states.async_all("sensor"):
-        if state.attributes.get("device_class") != "battery":
-            continue
-
-        # Match by device_id if we have registry access
-        if device_ids:
-            try:
-                from homeassistant.helpers import entity_registry as er
-                ent_reg = er.async_get(hass)
-                entry = ent_reg.async_get(state.entity_id)
-                if not entry or entry.device_id not in device_ids:
-                    continue
-            except Exception:
-                pass
-
-        level = None
-        try:
-            level = int(float(state.state))
-        except (ValueError, TypeError):
-            pass
-
-        batteries.append({
-            "entity_id": state.entity_id,
-            "name": state.attributes.get("friendly_name", state.entity_id),
-            "level": level,
-            "available": state.state not in ("unavailable", "unknown", None),
-        })
-
-    return sorted(batteries, key=lambda b: (b["level"] is None, b["level"] or 0))
-
-
-
 def _normalize_module_config(module_id: str, config: dict) -> dict:
     """Normalize panel config format to module class format.
 
@@ -673,13 +613,16 @@ async def ws_get_health_summary(
 
     health_score = round((available_entities / total_entities) * 100) if total_entities > 0 else 100
 
-    # Battery summary — only for configured sensors
+    # Battery summary — cached via coordinator (5-minute TTL) to avoid
+    # scanning all HA entities on every health poll.
+    store = _get_store(hass)
     configured_eids: set[str] = set()
-    if coordinator:
-        store = _get_store(hass)
-        if store:
-            configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
-    batteries = _discover_batteries(hass, configured_eids)
+    if store:
+        configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+    if coordinator and hasattr(coordinator, "get_batteries_cached"):
+        batteries = coordinator.get_batteries_cached(configured_eids)
+    else:
+        batteries = _discover_batteries(hass, configured_eids)
     low_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
     critical_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
 
@@ -695,6 +638,12 @@ async def ws_get_health_summary(
         "batteries": batteries,
         "low_battery_count": len(low_batteries),
         "critical_battery_count": len(critical_batteries),
+        "armed_by": coordinator.armed_by if coordinator else None,
+        "triggered_by": coordinator.triggered_by if coordinator else None,
+        "last_triggered": getattr(coordinator, "_last_triggered", None) if coordinator else None,
+        "bypassed_sensors": getattr(coordinator, "_bypassed_sensors", []) if coordinator else [],
+        "open_sensors": coordinator.open_sensors if coordinator else [],
+        "arm_history": coordinator.arm_history[:10] if coordinator else [],
     })
 
 
@@ -851,12 +800,16 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
         else:
             results["siren_test"] = {"success": None, "message": "Siren not configured or not enabled"}
 
-    # --- Battery discovery (standard + full) — only configured sensors ---
+    # --- Battery discovery (standard + full) — use coordinator cache ---
     if test_type in ("standard", "full"):
-        configured_eids: set[str] = set()
+        configured_eids_bat: set[str] = set()
         if store:
-            configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
-        batteries = _discover_batteries(hass, configured_eids)
+            configured_eids_bat = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+        if coordinator and hasattr(coordinator, "get_batteries_cached"):
+            coordinator.invalidate_battery_cache()  # force fresh data during explicit test
+            batteries = coordinator.get_batteries_cached(configured_eids_bat)
+        else:
+            batteries = _discover_batteries(hass, configured_eids_bat)
         low = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
         critical = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
         results["batteries"] = {
@@ -883,12 +836,9 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     skipped = sum(1 for m in results["modules"].values() if m.get("status") == "skipped")
     results["summary"] = {"passed": passed, "failed": failed, "warned": warned, "skipped": skipped}
 
-    # --- Persist to test history ---
+    # --- Persist to test history (via store method — no direct _data access) ---
     if store:
-        test_history = store._data.get("test_history", [])
-        test_history.insert(0, results)
-        store._data["test_history"] = test_history[:10]
-        await store.async_save()
+        await store.async_append_test_result(results)
 
     return results
 
