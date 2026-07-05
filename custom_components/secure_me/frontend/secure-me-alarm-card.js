@@ -17,6 +17,7 @@ const SMI = {
   speaker: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
   key:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>',
   back:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+  skip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>',
 };
 
 const STATE_CFG = {
@@ -31,6 +32,17 @@ const STATE_CFG = {
   triggered:        { label: "ALARM UDLOST",       color: "#ef4444", glow: "rgba(239,68,68,0.6)",    pulse: true  },
   armed_custom_bypass: { label: "Tilkoblet — Alene",  color: "#10b981", glow: "rgba(16,185,129,0.4)",   pulse: false },
   unknown:          { label: "Henter status...",   color: "#64748b", glow: "rgba(100,116,139,0.2)",  pulse: false },
+};
+
+// v1.5.0: short label + icon per arm mode, used by the dedicated "arming"
+// countdown view (see _renderArming()) to show what's being armed into.
+const _MODE_LABEL = {
+  armed_away: "Borte", armed_home: "Hjemme", armed_night: "Nat",
+  armed_vacation: "Ferie", armed_home_alone: "Alene",
+};
+const _MODE_ICON = {
+  armed_away: SMI.lock, armed_home: SMI.home, armed_night: SMI.moon,
+  armed_vacation: SMI.plane, armed_home_alone: SMI.users,
 };
 
 class SecureMeAlarmCard extends HTMLElement {
@@ -325,6 +337,44 @@ class SecureMeAlarmCard extends HTMLElement {
         }
         .arm-btn:not(.active) .arm-btn-icon { color: rgba(255,255,255,0.4); }
 
+        /* ── Arming (exit-delay countdown) view ── */
+        .arming-view {
+          display: flex; flex-direction: column; align-items: center;
+          gap: 14px; padding: 6px 0 2px;
+        }
+        .arming-countdown {
+          font-family: 'DM Mono', monospace;
+          font-size: 46px;
+          font-weight: 700;
+          color: #f59e0b;
+          line-height: 1;
+          letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
+        }
+        .arming-target {
+          display: flex; align-items: center; gap: 8px;
+          font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.65);
+        }
+        .arming-target svg { width: 18px; height: 18px; color: #f59e0b; }
+        .arming-actions { display: flex; gap: 8px; width: 100%; }
+        .arming-btn {
+          flex: 1;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          padding: 13px; border-radius: 14px; cursor: pointer;
+          font-family: inherit; font-size: 13px; font-weight: 700;
+          letter-spacing: 0.01em;
+          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.7);
+          transition: all 0.15s;
+        }
+        .arming-btn svg { width: 16px; height: 16px; }
+        .arming-btn:hover { background: rgba(255,255,255,0.09); }
+        .arming-btn:active { transform: scale(0.96); }
+        .arming-btn.skip   { border-color: rgba(245,158,11,0.35); color: #f59e0b; background: rgba(245,158,11,0.08); }
+        .arming-btn.skip:hover   { background: rgba(245,158,11,0.15); }
+        .arming-btn.cancel { border-color: rgba(239,68,68,0.3);  color: #ef4444; background: rgba(239,68,68,0.1); }
+        .arming-btn.cancel:hover { background: rgba(239,68,68,0.16); }
+
         /* ── Disarm button ── */
         .disarm-btn {
           width: 100%;
@@ -345,6 +395,76 @@ class SecureMeAlarmCard extends HTMLElement {
         .disarm-btn svg { width: 18px; height: 18px; }
         .disarm-btn:hover { background: rgba(239,68,68,0.16); }
         .disarm-btn:active { transform: scale(0.99); }
+
+        /* ── Arming countdown view (v1.5.0) ── */
+        .arming-view {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 4px 2px;
+          text-align: center;
+        }
+        .arming-icon {
+          width: 56px; height: 56px;
+          border-radius: 16px;
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 4px;
+        }
+        .arming-icon svg { width: 28px; height: 28px; }
+        .arming-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.65);
+          letter-spacing: 0.01em;
+        }
+        .arming-countdown {
+          font-family: 'DM Mono', monospace;
+          font-size: 44px;
+          font-weight: 700;
+          line-height: 1.15;
+          letter-spacing: 0.02em;
+          font-variant-numeric: tabular-nums;
+          animation: sm-count-pulse 0.5s ease;
+        }
+        .arming-actions {
+          display: flex;
+          gap: 8px;
+          width: 100%;
+          margin-top: 8px;
+        }
+        .arming-skip-btn, .arming-cancel-btn {
+          flex: 1;
+          display: flex; align-items: center; justify-content: center;
+          gap: 8px;
+          padding: 12px;
+          border-radius: 14px;
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+          transition: all 0.15s;
+          border: 1px solid rgba(255,255,255,0.07);
+        }
+        .arming-skip-btn svg, .arming-cancel-btn svg { width: 16px; height: 16px; }
+        .arming-skip-btn {
+          background: rgba(255,255,255,0.05);
+          color: rgba(255,255,255,0.7);
+        }
+        .arming-skip-btn:hover { background: rgba(255,255,255,0.09); }
+        .arming-cancel-btn {
+          background: rgba(239,68,68,0.1);
+          border-color: rgba(239,68,68,0.3);
+          color: #ef4444;
+        }
+        .arming-cancel-btn:hover { background: rgba(239,68,68,0.16); }
+        .arming-skip-btn:active, .arming-cancel-btn:active { transform: scale(0.96); }
+        @keyframes sm-count-pulse {
+          0%   { transform: scale(1);    opacity: 0.7; }
+          40%  { transform: scale(1.08); opacity: 1;   }
+          100% { transform: scale(1);    opacity: 1;   }
+        }
 
         /* ── Lock section ── */
         .lock-row {
@@ -584,11 +704,37 @@ class SecureMeAlarmCard extends HTMLElement {
     const showFp = state === "armed_home_alone" && this._floorplanLoaded && this._floorplan?.image_url;
 
     return [
-      armed ? this._renderDisarm() : this._renderArmGrid(state, showHA),
+      state === "arming" ? this._renderArming() : (armed ? this._renderDisarm() : this._renderArmGrid(state, showHA)),
       showFp        ? this._renderFloorplan()  : "",
       locks.length  ? this._renderLocks()      : "",
       msgs.length   ? this._renderTTS(msgs)    : "",
     ].join("");
+  }
+
+  // v1.5.0: dedicated exit-delay countdown view. Previously the arm-mode
+  // grid stayed on screen during "arming" with only a small badge in the
+  // header showing the countdown -- easy to miss, and the grid stayed
+  // clickable during the delay. Backend already exposes target_mode via
+  // the entity's extra_state_attributes; this was just never wired up here.
+  _renderArming() {
+    const modeMap = {
+      armed_away:       { icon: SMI.lock,  label: "Borte"  },
+      armed_home:       { icon: SMI.home,  label: "Hjemme" },
+      armed_night:      { icon: SMI.moon,  label: "Nat"    },
+      armed_vacation:   { icon: SMI.plane, label: "Ferie"  },
+      armed_home_alone: { icon: SMI.users, label: "Alene"  },
+    };
+    const target = modeMap[this._attr("target_mode")] || { icon: SMI.lock, label: "" };
+    const secs = this._localCountdown != null ? this._localCountdown : 0;
+
+    return `<div class="arming-view">
+      <div class="arming-countdown">${secs}s</div>
+      <div class="arming-target">${target.icon} Tilkobler ${_smEsc(target.label)}…</div>
+      <div class="arming-actions">
+        <button class="arming-btn skip" data-sm-skip="1">${SMI.skip} Spring over</button>
+        <button class="arming-btn cancel" data-sm-arm="disarm">${SMI.unlock} Fortryd</button>
+      </div>
+    </div>`;
   }
 
   // ── Floorplan live-view (Home Alone mode only) ────────────────────────────
@@ -870,8 +1016,23 @@ class SecureMeAlarmCard extends HTMLElement {
     const pinKey = e.target.closest("[data-sm-pin]");
     if (pinKey) { this._handlePin(pinKey.dataset.smPin); return; }
 
+    const skipBtn = e.target.closest("[data-sm-skip]");
+    if (skipBtn) { this._handleSkip(); return; }
+
     const armBtn = e.target.closest("[data-sm-arm]");
     if (armBtn) { this._handleArm(armBtn.dataset.smArm); return; }
+  }
+
+  // v1.5.0: "Spring over" button in the arming countdown view -- uses the
+  // existing secure_me/skip_delay WS command (added in v1.4.3 but never
+  // exposed anywhere in this card until now).
+  async _handleSkip() {
+    try {
+      await this._hass.callWS({ type: "secure_me/skip_delay" });
+    } catch {
+      /* ignore -- state will simply not change if it fails */
+    }
+    this._update(true);
   }
 
   // ── Arm logic ──────────────────────────────────────────────────────────────
@@ -897,8 +1058,10 @@ class SecureMeAlarmCard extends HTMLElement {
         if (code) w.code = code;
         await this._hass.callWS(w);
       }
-      this._pinMode = null; this._pinValue = ""; this._pinError = "";
+      this._pinValue = ""; this._pinError = "";
     } catch {
+      // Re-open the PIN screen so the error is visible and the user can retry.
+      this._pinMode = action;
       this._pinError = this._state() === "unknown" ? "Alarm ikke fundet" : "Forkert kode";
     }
     this._update(true);
@@ -908,7 +1071,19 @@ class SecureMeAlarmCard extends HTMLElement {
   _handlePin(key) {
     if (key === "cancel") { this._pinMode = null; this._pinValue = ""; this._pinError = ""; this._update(true); return; }
     if (key === "back")   { this._pinValue = this._pinValue.slice(0,-1); this._pinError = ""; this._update(true); return; }
-    if (key === "ok")     { if (this._pinValue.length >= 1) this._callArm(this._pinMode, this._pinValue); return; }
+    if (key === "ok") {
+      if (this._pinValue.length >= 1) {
+        const action = this._pinMode;
+        const code = this._pinValue;
+        // Leave the PIN screen right away and show the default/arming view;
+        // _callArm() will re-open this screen with an error if the code
+        // turns out to be wrong.
+        this._pinMode = null;
+        this._update(true);
+        this._callArm(action, code);
+      }
+      return;
+    }
     if (this._pinValue.length < 8) {
       // User must press OK to submit - no auto-submit on 4 digits to prevent accidental activation.
       this._pinValue += key; this._pinError = ""; this._update(true);

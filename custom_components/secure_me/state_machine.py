@@ -85,6 +85,16 @@ class AlarmStateMachine:
         return self._countdown
 
     @property
+    def target_state(self) -> str | None:
+        """The arm mode being transitioned to during an exit-delay countdown.
+
+        Only meaningful while current_state == 'arming'. None otherwise.
+        Added so the frontend can show e.g. 'Tilkobler Borte... 12s' during
+        the countdown instead of just a bare number.
+        """
+        return self._target_state
+
+    @property
     def exit_delay(self) -> int:
         return self._exit_delay
 

@@ -145,6 +145,12 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         if self.coordinator.alarm_state in [STATE_ALARM_ARMING, STATE_ALARM_PENDING]:
             attrs["countdown"] = self.coordinator.delay_countdown
 
+        # v1.5.0: expose which mode is being armed into during the exit-delay
+        # countdown, so the card can show "Tilkobler <mode>..." instead of a
+        # bare countdown number.
+        if self.coordinator.alarm_state == STATE_ALARM_ARMING:
+            attrs["target_mode"] = self.coordinator.target_mode
+
         # Add triggered_by if triggered
         if self.coordinator.alarm_state == STATE_ALARM_TRIGGERED:
             attrs["triggered_by"] = self.coordinator.triggered_by

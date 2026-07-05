@@ -814,6 +814,14 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return self.state_machine.countdown
 
     @property
+    def target_mode(self) -> str | None:
+        """Arm mode being transitioned to during the exit-delay countdown.
+
+        Only meaningful while alarm_state == 'arming'. None otherwise.
+        """
+        return self.state_machine.target_state
+
+    @property
     def exit_delay(self) -> int:
         return self.state_machine.exit_delay
 
