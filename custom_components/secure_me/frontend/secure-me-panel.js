@@ -304,25 +304,25 @@ const icon = (name) => ICONS[name] || "";
 
 // === Tab Definitions ===
 const TABS = [
-  { key: "sensors", label: "Sensors", icon: "sensor" },
-  { key: "zones", label: "Zones", icon: "zone" },
-  { key: "users", label: "Users", icon: "user" },
-  { key: "modules", label: "Modules", icon: "module" },
-  { key: "floorplan", label: "Floorplan", icon: "map" },
-  { key: "automations", label: "Actions", icon: "bell" },
+  { key: "sensors", label: "Sensorer", icon: "sensor" },
+  { key: "zones", label: "Zoner", icon: "zone" },
+  { key: "users", label: "Brugere", icon: "user" },
+  { key: "modules", label: "Moduler", icon: "module" },
+  { key: "floorplan", label: "Etageplan", icon: "map" },
+  { key: "automations", label: "Handlinger", icon: "bell" },
   { key: "testing", label: "Test", icon: "flask" },
   { key: "special", label: "Special", icon: "shield" },
-  { key: "future", label: "Future", icon: "rocket" },
+  { key: "future", label: "Fremtid", icon: "rocket" },
 ];
 
 // Module definitions
 const MODULE_DEFS = {
-  camera: { name: "Camera", icon: "camera", desc: "POE control & recording", color: "var(--sm-blue)", domain: "camera" },
-  lock: { name: "Lock", icon: "lock", desc: "Smart lock control with retry", color: "var(--sm-accent)", domain: "lock" },
-  lights: { name: "Lights", icon: "bulb", desc: "Auto lights & alarm flash", color: "var(--sm-warning)", domain: "light" },
-  climate: { name: "Climate", icon: "thermo", desc: "Multi-zone heating", color: "var(--sm-danger)", domain: "climate" },
-  siren: { name: "Siren", icon: "siren", desc: "Alarm sound with failsafe", color: "var(--sm-danger)", domain: "siren" },
-  tts: { name: "TTS", icon: "speaker", desc: "Danish voice messages", color: "var(--sm-purple)", domain: "tts" },
+  camera: { name: "Kamera", icon: "camera", desc: "POE-styring & optagelse", color: "var(--sm-blue)", domain: "camera" },
+  lock: { name: "Lås", icon: "lock", desc: "Smart låsestyring med automatisk gentagelse", color: "var(--sm-accent)", domain: "lock" },
+  lights: { name: "Lys", icon: "bulb", desc: "Automatisk lys & alarmblink", color: "var(--sm-warning)", domain: "light" },
+  climate: { name: "Klima", icon: "thermo", desc: "Multi-zone opvarmning", color: "var(--sm-danger)", domain: "climate" },
+  siren: { name: "Sirene", icon: "siren", desc: "Alarmlyd med failsafe", color: "var(--sm-danger)", domain: "siren" },
+  tts: { name: "TTS", icon: "speaker", desc: "Danske talebeskeder", color: "var(--sm-purple)", domain: "tts" },
 };
 
 
@@ -411,14 +411,14 @@ class SecureMePanel extends HTMLElement {
     if (!pill) return;
     const state = this._alarmState || "disarmed";
     const cd = this._armingCountdown;
-    let cls = "disarmed", label = "Disarmed";
-    if      (state === "armed_away")       { cls = "armed";    label = "Armed Away"; }
-    else if (state === "armed_home")       { cls = "armed";    label = "Armed Home"; }
-    else if (state === "armed_night")      { cls = "armed";    label = "Armed Night"; }
-    else if (state === "armed_vacation")   { cls = "armed";    label = "Armed Vacation"; }
-    else if (state === "armed_home_alone") { cls = "armed";    label = "Home Alone"; }
-    else if (state === "arming")         { cls = "arming";   label = cd > 0 ? `Arming ${cd}s` : "Arming"; }
-    else if (state === "pending")        { cls = "pending";  label = cd > 0 ? `Entry ${cd}s` : "Pending"; }
+    let cls = "disarmed", label = "Deaktiveret";
+    if      (state === "armed_away")       { cls = "armed";    label = "Tilkoblet Borte"; }
+    else if (state === "armed_home")       { cls = "armed";    label = "Tilkoblet Hjemme"; }
+    else if (state === "armed_night")      { cls = "armed";    label = "Tilkoblet Nat"; }
+    else if (state === "armed_vacation")   { cls = "armed";    label = "Tilkoblet Ferie"; }
+    else if (state === "armed_home_alone") { cls = "armed";    label = "Alene"; }
+    else if (state === "arming")         { cls = "arming";   label = cd > 0 ? `Tilkobler ${cd}s` : "Tilkobler"; }
+    else if (state === "pending")        { cls = "pending";  label = cd > 0 ? `Indgang ${cd}s` : "Afventer"; }
     else if (state === "triggered") {
       cls = "triggered";
       const tb = this._alarmTriggeredBy;
@@ -792,18 +792,18 @@ class SecureMePanel extends HTMLElement {
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
-      this._toast("Test notification sent!", "success");
+      this._toast("Testnotifikation sendt!", "success");
     } else {
-      this._toast("Could not send: " + (result?.error || "Unknown error"), "error");
+      this._toast("Kunne ikke sende: " + (result?.error || "Ukendt fejl"), "error");
     }
   }
 
   async _testAutomation(autoId) {
     const result = await this._callWS("test_automation", { automation_id: autoId });
     if (result && result.success) {
-      this._toast("Test automation executed!", "success");
+      this._toast("Testautomatisering udført!", "success");
     } else {
-      this._toast("Could not execute: " + (result?.error || "Unknown error"), "error");
+      this._toast("Kunne ikke udføre: " + (result?.error || "Ukendt fejl"), "error");
     }
   }
 
@@ -995,7 +995,7 @@ class SecureMePanel extends HTMLElement {
   // Returns Promise<boolean>. Renders a styled overlay with OK/Cancel
   // buttons; resolves true on OK, false on Cancel or backdrop click.
   // Replaces window.confirm() which is blocking and unstyled.
-  _confirm(message, title = "Confirm") {
+  _confirm(message, title = "Bekræft") {
     return new Promise((resolve) => {
       const root = this.shadowRoot;
       if (!root) { resolve(false); return; }
@@ -1027,7 +1027,7 @@ class SecureMePanel extends HTMLElement {
 
       const cancelBtn = document.createElement("button");
       cancelBtn.className = "sm-btn ghost";
-      cancelBtn.textContent = "Cancel";
+      cancelBtn.textContent = "Annuller";
       cancelBtn.style.cssText = "padding:8px 16px;";
 
       const okBtn = document.createElement("button");
@@ -1176,7 +1176,7 @@ class SecureMePanel extends HTMLElement {
     const enabled       = normalSensors.filter(s => s.enabled && !s.auto_hidden);
     const disabled      = normalSensors.filter(s => !s.enabled && !s.auto_hidden);
     const autoHidden    = normalSensors.filter(s => s.auto_hidden);
-    const typeLabels    = { contact: "Contact", motion: "Motion", presence: "Presence", environmental: "Environmental" };
+    const typeLabels    = { contact: "Kontakt", motion: "Bevægelse", presence: "Tilstedeværelse", environmental: "Miljø" };
 
     const renderSensorRow = (s) => `
       <div class="sm-list-row ${s.enabled ? "" : "disabled"}">
@@ -1215,8 +1215,8 @@ class SecureMePanel extends HTMLElement {
         <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
           <span class="badge environmental">Krævet</span>
           <button class="sm-btn ghost sm" style="padding:4px 8px;font-size:11px;color:var(--sm-text-tertiary)"
-                  data-unmark-env="${s.entity_id}" title="Remove incorrect environmental classification">
-            Remove
+                  data-unmark-env="${s.entity_id}" title="Fjern forkert miljøklassificering">
+            Fjern
           </button>
         </div>
       </div>
@@ -1368,7 +1368,7 @@ class SecureMePanel extends HTMLElement {
     if (this._zonesRenderKey === zCacheKey && this._zonesRenderCache) return this._zonesRenderCache;
     const zones = this._data.zones || {};
     const enabledSensors = (this._data.sensors || []).filter(s => s.enabled);
-    const typeLabels = { entry: "Entry/Exit", interior: "Interior", perimeter: "Perimeter", instant: "Instant" };
+    const typeLabels = { entry: "Indgang/Udgang", interior: "Indendørs", perimeter: "Perimeter", instant: "Øjeblikkelig" };
     const modeColors = { away: "var(--sm-danger)", home: "var(--sm-accent)", night: "var(--sm-blue)", vacation: "var(--sm-purple)", home_alone: "var(--sm-green)" };
 
     const __zhtml = `
@@ -1604,8 +1604,8 @@ class SecureMePanel extends HTMLElement {
     const armModes = Array.from(root.querySelectorAll('.zone-mode-cb:checked')).map(cb => cb.value);
     const sensors = Array.from(root.querySelectorAll('.zone-sensor-cb:checked')).map(cb => cb.value);
 
-    if (!name) { this._toast('Please enter a zone name.', 'warning'); return; }
-    if (armModes.length === 0) { this._toast('Select at least one arm mode.', 'warning'); return; }
+    if (!name) { this._toast('Indtast et zonenavn.', 'warning'); return; }
+    if (armModes.length === 0) { this._toast('Vælg mindst én tilkoblingstilstand.', 'warning'); return; }
 
     const temp = this._tempConfig || {};
     const zoneId = temp._zoneId || ('zone_' + Date.now());
@@ -1690,10 +1690,10 @@ class SecureMePanel extends HTMLElement {
 
       this._showDialog = null;
       this._tempConfig = null;
-      this._toast((temp._zoneId ? 'Zone updated.' : 'Zone created.'), 'success');
+      this._toast((temp._zoneId ? 'Zone opdateret.' : 'Zone oprettet.'), 'success');
       await this._loadData();
     } else {
-      this._toast('Could not save zone: ' + (result?.error || 'Unknown error'), 'error');
+      this._toast('Kunne ikke gemme zone: ' + (result?.error || 'Ukendt fejl'), 'error');
     }
   }
 
@@ -1718,9 +1718,9 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _deleteZone(zoneId) {
-    if (!await this._confirm('This zone and all its sensors will be removed.', 'Delete Zone?')) return;
+    if (!await this._confirm('Denne zone og alle dens sensorer vil blive fjernet.', 'Slet zone?')) return;
     await this._callWS('delete_zone', { zone_id: zoneId });
-    this._toast('Zone deleted', 'success');
+    this._toast('Zone slettet', 'success');
     this._zonesRenderCache = null;
     await this._loadData();
   }
@@ -1930,7 +1930,7 @@ class SecureMePanel extends HTMLElement {
     const ttsQuietStart  = quietStartRaw !== '' && quietStartRaw !== null ? parseInt(quietStartRaw) : null;
     const ttsQuietEnd    = quietEndRaw   !== '' && quietEndRaw   !== null ? parseInt(quietEndRaw)   : null;
 
-    if (!name) { this._toast('Please enter a user name.', 'warning'); return; }
+    if (!name) { this._toast('Indtast et brugernavn.', 'warning'); return; }
 
     const notificationSettings = {
       notify_service:    notifyService,
@@ -1943,9 +1943,9 @@ class SecureMePanel extends HTMLElement {
 
     if (isEdit) {
       if (code) {
-        if (code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
-        if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
-        if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
+        if (code.length < 4) { this._toast('Koden skal være mindst 4 cifre.', 'warning'); return; }
+        if (code !== codeConfirm) { this._toast('Koderne matcher ikke.', 'warning'); return; }
+        if (!/^[0-9]+$/.test(code)) { this._toast('Koden må kun bestå af tal.', 'warning'); return; }
       }
       const existing = this._data.users[userId] || {};
       const config = {
@@ -1962,14 +1962,14 @@ class SecureMePanel extends HTMLElement {
         this._showDialog = null;
         this._tempConfig = null;
         await this._loadData();
-        this._toast('User updated', 'success');
+        this._toast('Bruger opdateret', 'success');
       } else {
-        this._toast('Could not update user: ' + (result?.error || 'Unknown error'), 'error');
+        this._toast('Kunne ikke opdatere bruger: ' + (result?.error || 'Ukendt fejl'), 'error');
       }
     } else {
-      if (!code || code.length < 4) { this._toast('Code must be at least 4 digits.', 'warning'); return; }
-      if (code !== codeConfirm) { this._toast('Codes do not match.', 'warning'); return; }
-      if (!/^[0-9]+$/.test(code)) { this._toast('Code must be numbers only.', 'warning'); return; }
+      if (!code || code.length < 4) { this._toast('Koden skal være mindst 4 cifre.', 'warning'); return; }
+      if (code !== codeConfirm) { this._toast('Koderne matcher ikke.', 'warning'); return; }
+      if (!/^[0-9]+$/.test(code)) { this._toast('Koden må kun bestå af tal.', 'warning'); return; }
 
       const config = {
         name,
@@ -1984,17 +1984,17 @@ class SecureMePanel extends HTMLElement {
         this._showDialog = null;
         this._tempConfig = null;
         await this._loadData();
-        this._toast('User saved!', 'success');
+        this._toast('Bruger gemt!', 'success');
       } else {
-        this._toast('Could not save user: ' + (result?.error || 'Unknown error'), 'error');
+        this._toast('Kunne ikke gemme bruger: ' + (result?.error || 'Ukendt fejl'), 'error');
       }
     }
   }
 
   async _deleteUser(userId) {
-    if (!await this._confirm('This user will be permanently removed.', 'Delete User?')) return;
+    if (!await this._confirm('Denne bruger vil blive fjernet permanent.', 'Slet bruger?')) return;
     await this._callWS('delete_user', { user_id: userId });
-    this._toast('User deleted', 'success');
+    this._toast('Bruger slettet', 'success');
     await this._loadData();
   }
 
@@ -3793,7 +3793,7 @@ class SecureMePanel extends HTMLElement {
           const customNotifCard = ([id, n]) => notifCardInner(id, n,
             `<button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>
              <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:3px 7px">${icon('edit')}</button>
-             <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Delete" style="padding:3px 7px">${icon('trash')}</button>`);
+             <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Slet" style="padding:3px 7px">${icon('trash')}</button>`);
 
           return `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -3822,16 +3822,16 @@ class SecureMePanel extends HTMLElement {
         <div class="section-header">
           <h3 class="section-title">Automatiseringer</h3>
           <button class="sm-btn primary sm" data-action="add-automation">
-            ${icon("plus")} Add Automation
+            ${icon("plus")} Tilføj automatisering
           </button>
         </div>
         ${Object.entries(automations).map(([id, a]) => `
           <div class="sm-card" style="padding:16px;opacity:${a.enabled ? 1 : 0.5}">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <div>
-                <div style="font-size:14px;font-weight:600">${a.name || "Automation"}</div>
+                <div style="font-size:14px;font-weight:600">${a.name || "Automatisering"}</div>
                 <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:4px">
-                  Trigger: <span class="badge entry">${a.trigger || "?"}</span>
+                  Udløser: <span class="badge entry">${a.trigger || "?"}</span>
                 </div>
               </div>
               <button class="sm-toggle ${a.enabled ? "on" : ""}"
@@ -4184,10 +4184,10 @@ class SecureMePanel extends HTMLElement {
   _renderArmHistory(events) {
     if (!events || events.length === 0) return "";
     const STATE_LABELS = {
-      disarmed: "Disarmed", armed_away: "Armed Away", armed_home: "Armed Home",
-      armed_night: "Armed Night", armed_vacation: "Armed Vacation",
-      armed_home_alone: "Home Alone", triggered: "Triggered",
-      arming: "Arming", pending: "Pending",
+      disarmed: "Deaktiveret", armed_away: "Tilkoblet Borte", armed_home: "Tilkoblet Hjemme",
+      armed_night: "Tilkoblet Nat", armed_vacation: "Tilkoblet Ferie",
+      armed_home_alone: "Alene", triggered: "Udløst",
+      arming: "Tilkobler", pending: "Afventer",
     };
     return `
       <div class="section-header" style="margin-top:16px">
@@ -4234,35 +4234,35 @@ class SecureMePanel extends HTMLElement {
       .filter(([,m]) => m.enabled && m.status !== "ok")
       .map(([id]) => id);
     const weightedLabel = problemModules.length > 0
-      ? `${problemModules.length} module${problemModules.length > 1 ? "s" : ""} with issues`
-      : score >= 90 ? "All Systems Healthy"
-      : score >= 70 ? "Minor Issues Detected" : "Critical Issues Found";
+      ? `${problemModules.length} modul${problemModules.length > 1 ? "er" : ""} med problemer`
+      : score >= 90 ? "Alle systemer sunde"
+      : score >= 70 ? "Mindre problemer fundet" : "Kritiske problemer fundet";
 
     // Test level definitions shown as descriptions on hover/below button
     const TEST_LEVELS = [
       {
         key: "quick",
-        label: "Quick Test",
-        desc: "Entity availability only. No devices activated. Safe to run anytime.",
-        checks: ["Entity availability for all modules", "Flags unconfigured (enabled but empty) modules"],
-        notChecked: ["Device response", "Battery levels", "Sensor signal"],
+        label: "Hurtig test",
+        desc: "Kun entitets-tilgængelighed. Ingen enheder aktiveres. Sikker at køre når som helst.",
+        checks: ["Entitets-tilgængelighed for alle moduler", "Markerer ikke-konfigurerede (aktiverede men tomme) moduler"],
+        notChecked: ["Enhedsrespons", "Batteriniveauer", "Sensorsignal"],
         color: "var(--sm-accent)",
         btnClass: "sm-btn primary",
       },
       {
         key: "standard",
-        label: "Standard Test",
-        desc: "Full module verification. Devices briefly activated (lock cycle, TTS, siren beep).",
-        checks: ["Everything in Quick", "Lock: unlock/relock cycle", "Siren: 2s test tone", "TTS: test announcement", "Lights: brief flash", "Battery levels (informational)"],
-        notChecked: ["Sensor signal quality"],
+        label: "Standard test",
+        desc: "Fuld modulverifikation. Enheder aktiveres kortvarigt (låsecyklus, TTS, sirenebip).",
+        checks: ["Alt i Hurtig", "Lås: lås op/lås-cyklus", "Sirene: 2s testlyd", "TTS: testbesked", "Lys: kort blink", "Batteriniveauer (informativt)"],
+        notChecked: ["Sensorsignalkvalitet"],
         color: "var(--sm-blue)",
         btnClass: "sm-btn default",
       },
       {
         key: "full",
-        label: "Full Test",
-        desc: "Complete system check including all sensor signal quality.",
-        checks: ["Everything in Standard", "All configured sensors online check", "Zone integrity"],
+        label: "Fuld test",
+        desc: "Komplet systemtjek inklusive al sensorsignalkvalitet.",
+        checks: ["Alt i Standard", "Online-tjek af alle konfigurerede sensorer", "Zoneintegritet"],
         notChecked: [],
         color: "var(--sm-purple)",
         btnClass: "sm-btn",
@@ -4424,7 +4424,7 @@ class SecureMePanel extends HTMLElement {
                      ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
                   <span style="color:${col};font-size:14px">${ic}</span>
                   <div style="flex:1;min-width:0">
-                    <div style="font-size:13px;font-weight:600">${{quick:"Quick",standard:"Standard",full:"Full",lights:"Lights",sensor:"Sensor",module:"Module"}[r.test_type] || r.test_type} Test</div>
+                    <div style="font-size:13px;font-weight:600">${{quick:"Hurtig",standard:"Standard",full:"Fuld",lights:"Lys",sensor:"Sensor",module:"Modul"}[r.test_type] || r.test_type} test</div>
                     <div style="font-size:11px;color:var(--sm-text-secondary)">${r.timestamp}</div>
                   </div>
                   <div style="text-align:right;flex-shrink:0">
@@ -4506,7 +4506,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;gap:4px;flex-shrink:0">
             <button class="sm-btn default sm" data-run-sched="${id}" title="Kør nu" style="padding:4px 8px">${icon('play')}</button>
             <button class="sm-btn ghost sm" data-edit-sched="${id}" title="Edit" style="padding:4px 8px">${icon('edit')}</button>
-            <button class="sm-btn ghost sm" data-delete-sched="${id}" title="Delete" style="padding:4px 8px">${icon('trash')}</button>
+            <button class="sm-btn ghost sm" data-delete-sched="${id}" title="Slet" style="padding:4px 8px">${icon('trash')}</button>
           </div>
         </div>`;
     };
@@ -4643,7 +4643,7 @@ class SecureMePanel extends HTMLElement {
     const isEdit      = !!this._schedTemp?._id;
     const testId      = this._schedTemp?._id || '';
 
-    if (!name) { this._toast('Please enter a name.', 'warning'); return; }
+    if (!name) { this._toast('Indtast et navn.', 'warning'); return; }
 
     const schedule = { mode, hour, minute };
     if (mode === 'weekly')   schedule.weekday        = weekday;
@@ -4663,10 +4663,10 @@ class SecureMePanel extends HTMLElement {
       this._schedTemp  = null;
       await this._loadTestingData();
       this._render();
-      this._toast(isEdit ? 'Schedule updated' : 'Schedule added', 'success');
+      this._toast(isEdit ? 'Tidsplan opdateret' : 'Tidsplan tilføjet', 'success');
     } else {
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isEdit ? 'Save Changes' : 'Add Schedule'; }
-      this._toast('Could not save schedule — check HA logs', 'error');
+      this._toast('Kunne ikke gemme tidsplan — tjek HA-logs', 'error');
     }
   }
 
@@ -4723,14 +4723,14 @@ class SecureMePanel extends HTMLElement {
             // Build reason string — informative and actionable
             let reason = "";
             if (m.status === "warning" && m.reason === "no_entities") {
-              reason = "Not configured — add entities in module settings";
+              reason = "Ikke konfigureret — tilføj entiteter i modulindstillinger";
             } else if (m.status === "skipped" && m.reason === "disabled") {
-              reason = "Module disabled";
+              reason = "Modul deaktiveret";
             } else if (m.status === "skipped" && m.reason === "not selected") {
-              reason = "Not selected in this test";
+              reason = "Ikke valgt i denne test";
             } else if (m.status === "fail" && m.unavailable && m.unavailable.length > 0) {
-              reason = "Unavailable: " + m.unavailable.slice(0, 2).join(", ") +
-                       (m.unavailable.length > 2 ? " +" + (m.unavailable.length-2) + " more" : "");
+              reason = "Utilgængelig: " + m.unavailable.slice(0, 2).join(", ") +
+                       (m.unavailable.length > 2 ? " +" + (m.unavailable.length-2) + " flere" : "");
             } else if (m.test_result?.message) {
               reason = m.test_result.message;
             } else if (m.message) {
@@ -5070,12 +5070,12 @@ class SecureMePanel extends HTMLElement {
       const result = await this._callWS('quick_test_siren');
       if (result?.success) {
         const tested = result.details?.entities_tested?.map(e => e.entity_id).join(', ') || 'done';
-        this._toast('Siren test OK: ' + tested, 'success');
+        this._toast('Sirenetest OK: ' + tested, 'success');
       } else {
-        this._toast('Siren test failed: ' + (result?.message || 'Unknown error'), 'error');
+        this._toast('Sirenetest fejlede: ' + (result?.message || 'Ukendt fejl'), 'error');
       }
     } catch (err) {
-      this._toast('Siren test error: ' + String(err), 'error');
+      this._toast('Fejl ved sirenetest: ' + String(err), 'error');
     }
 
     this._sirenTestRunning = false;
@@ -5094,12 +5094,12 @@ class SecureMePanel extends HTMLElement {
       const result = await this._callWS('quick_test_lights');
       if (result?.success) {
         const tested = result.details?.lights_tested?.join(', ') || 'done';
-        this._toast('Flash test OK: ' + tested, 'success');
+        this._toast('Blinktest OK: ' + tested, 'success');
       } else {
-        this._toast('Flash test failed: ' + (result?.message || 'Unknown error'), 'error');
+        this._toast('Blinktest fejlede: ' + (result?.message || 'Ukendt fejl'), 'error');
       }
     } catch (err) {
-      this._toast('Flash test error: ' + String(err), 'error');
+      this._toast('Fejl ved blinktest: ' + String(err), 'error');
     }
 
     this._lightsTestRunning = false;
@@ -5204,7 +5204,7 @@ class SecureMePanel extends HTMLElement {
     // Validation
     const invalid = this._tempConfig.cameras.filter(c => !c.entity_id);
     if (invalid.length > 0) {
-      this._toast('Please select a camera entity for all cameras before saving.', 'warning'); return;
+      this._toast('Vælg en kamera-entitet for alle kameraer før du gemmer.', 'warning'); return;
     }
     this._cameraSaving = true;
     
@@ -5229,10 +5229,10 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      this._toast('Camera configuration saved! Active immediately.', 'success');
+      this._toast('Kamerakonfiguration gemt! Aktiv med det samme.', 'success');
     } else {
       this._cameraSaving = false;
-      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+      this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error');
     }
   }
 
@@ -5408,13 +5408,13 @@ class SecureMePanel extends HTMLElement {
     if (this._lockSaving) return;
     this._lockSaving = true;
     const invalid = this._tempConfig.locks.filter(l => !l.entity_id);
-    if (invalid.length > 0) { this._toast('Please select an entity for all locks.', 'warning'); return; }
+    if (invalid.length > 0) { this._toast('Vælg en entitet for alle låse.', 'warning'); return; }
     const config = { enabled: true, locks: this._tempConfig.locks.map(l => ({ entity_id: l.entity_id, lock_on_arm: l.lock_on_arm, unlock_on_disarm: l.unlock_on_disarm, retry_attempts: l.retry_attempts, retry_delay: l.retry_delay })) };
     const result = await this._callWS('save_module', { module_id: 'lock', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      this._toast('Lock configuration saved! Active immediately.', 'success');
-    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
+      this._toast('Låsekonfiguration gemt! Aktiv med det samme.', 'success');
+    } else { this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error'); }
   }
 
   _renderLockDialog() {
@@ -5539,13 +5539,13 @@ class SecureMePanel extends HTMLElement {
     if (this._climateSaving) return;
     this._climateSaving = true;
     const invalid = this._tempConfig.thermostats.filter(t => !t.entity_id);
-    if (invalid.length > 0) { this._toast('Please select an entity for all thermostats.', 'warning'); return; }
+    if (invalid.length > 0) { this._toast('Vælg en entitet for alle termostater.', 'warning'); return; }
     const config = { enabled: true, thermostats: this._tempConfig.thermostats.map(t => ({ entity_id: t.entity_id, arm_mode: t.arm_mode, disarm_mode: t.disarm_mode, eco_temp: t.eco_temp, comfort_temp: t.comfort_temp })) };
     const result = await this._callWS('save_module', { module_id: 'climate', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      this._toast('Climate configuration saved! Active immediately.', 'success');
-    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
+      this._toast('Klimakonfiguration gemt! Aktiv med det samme.', 'success');
+    } else { this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error'); }
   }
 
   _renderClimateDialog() {
@@ -5697,7 +5697,7 @@ class SecureMePanel extends HTMLElement {
     this._sirenSaving = true;
     const invalid = this._tempConfig.sirens.filter(s => !s.entity_id);
     if (invalid.length > 0) {
-      this._toast('Please select a siren entity for all sirens before saving.', 'warning'); return;
+      this._toast('Vælg en sirene-entitet for alle sirener før du gemmer.', 'warning'); return;
       return;
     }
     
@@ -5720,9 +5720,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      this._toast('Siren configuration saved! Active immediately.', 'success');
+      this._toast('Sirenekonfiguration gemt! Aktiv med det samme.', 'success');
     } else {
-      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+      this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error');
     }
   }
 
@@ -5887,13 +5887,13 @@ class SecureMePanel extends HTMLElement {
   async _saveLightsConfig() {
     if (this._lightsSaving) return;
     this._lightsSaving = true;
-    if (this._tempConfig.entities.length === 0) { this._toast('Please add at least one light entity.', 'warning'); return; }
+    if (this._tempConfig.entities.length === 0) { this._toast('Tilføj mindst ét lys-entitet.', 'warning'); return; }
     const config = { enabled: true, entities: this._tempConfig.entities, steady_entities: this._tempConfig.steady_entities || [], arm_action: this._tempConfig.arm_action, disarm_action: this._tempConfig.disarm_action, trigger_flash: this._tempConfig.trigger_flash, flash_pattern: this._tempConfig.flash_pattern, flash_duration: this._tempConfig.flash_duration };
     const result = await this._callWS('save_module', { module_id: 'lights', config });
     if (result && result.success !== false) {
       this._showDialog = null; this._tempConfig = null; await this._loadData();
-      this._toast('Lights configuration saved! Active immediately.', 'success');
-    } else { this._toast('Save failed: ' + (result?.error || 'Unknown error'), 'error'); }
+      this._toast('Lyskonfiguration gemt! Aktiv med det samme.', 'success');
+    } else { this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error'); }
   }
 
   _renderLightPicker(pickerId, available, accentColor) {
@@ -6060,8 +6060,8 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _saveNotificationDialog() {
-    if (!this._tempConfig.name) { this._toast('Enter a notification name.', 'warning'); return; }
-    if (!this._tempConfig.channels?.length) { this._toast('Select at least one channel.', 'warning'); return; }
+    if (!this._tempConfig.name) { this._toast('Indtast et notifikationsnavn.', 'warning'); return; }
+    if (!this._tempConfig.channels?.length) { this._toast('Vælg mindst én kanal.', 'warning'); return; }
 
     const notifId = this._tempConfig._editId || Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
     const config = {
@@ -6080,9 +6080,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      this._toast('Notification saved!', 'success');
+      this._toast('Notifikation gemt!', 'success');
     } else {
-      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+      this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error');
     }
   }
 
@@ -6092,9 +6092,9 @@ class SecureMePanel extends HTMLElement {
     this._automationsRenderCache = null;
     if (result && result.success !== false) {
       await this._loadData();
-      this._toast('Notification deleted.', 'success');
+      this._toast('Notifikation slettet.', 'success');
     } else {
-      this._toast('Could not delete notification.', 'error');
+      this._toast('Kunne ikke slette notifikation.', 'error');
     }
   }
 
@@ -6373,12 +6373,12 @@ class SecureMePanel extends HTMLElement {
   }
 
   async _testTTSMessage(message) {
-    if (!message) { this._toast('Enter a message to test.', 'warning'); return; }
+    if (!message) { this._toast('Indtast en besked at teste.', 'warning'); return; }
     const result = await this._callWS('test_tts', { message });
     if (result && result.success !== false) {
-      this._toast('TTS test sent!', 'success');
+      this._toast('TTS-test sendt!', 'success');
     } else {
-      this._toast('TTS test failed: ' + (result?.error || 'TTS module not enabled'), 'error');
+      this._toast('TTS-test fejlede: ' + (result?.error || 'TTS-modul ikke aktiveret'), 'error');
     }
   }
 
@@ -6403,9 +6403,9 @@ class SecureMePanel extends HTMLElement {
       this._showDialog = null;
       this._tempConfig = null;
       await this._loadData();
-      this._toast('TTS configuration saved!', 'success');
+      this._toast('TTS-konfiguration gemt!', 'success');
     } else {
-      this._toast('Could not save: ' + (result?.error || 'Unknown error'), 'error');
+      this._toast('Kunne ikke gemme: ' + (result?.error || 'Ukendt fejl'), 'error');
     }
   }
 
@@ -6574,7 +6574,7 @@ class SecureMePanel extends HTMLElement {
                     ` : `
                       <div style="margin-bottom:8px">
                         <input type="text" class="form-input" style="font-size:12px;margin-bottom:4px"
-                               placeholder="MP3 URL e.g. /local/alarm.mp3"
+                               placeholder="MP3 URL f.eks. /local/alarm.mp3"
                                value="${msg.media_url||''}"
                                data-tts-msg-id="${msg.id}" data-tts-msg-field="media_url">
                       </div>
@@ -6793,7 +6793,7 @@ class SecureMePanel extends HTMLElement {
     this._availableEntities = {};  // Cache of entities by domain
             await this._loadData();
           } else {
-            this._toast(`Could not save: ${result?.error || "Unknown error"}`, 'error');
+            this._toast(`Kunne ikke gemme: ${result?.error || "Ukendt fejl"}`, 'error');
           }
         } catch (err) {
           this._toast(`JSON error: ${err.message} - Check syntax in text field.`, 'error');
@@ -6899,11 +6899,11 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.deleteSched;
         const name = this._data.scheduledTests[id]?.name || 'this schedule';
-        if (!await this._confirm('Remove "' + name + '"?', 'Delete Schedule')) return;
+        if (!await this._confirm('Fjern "' + name + '"?', 'Slet tidsplan')) return;
         await this._callWS('delete_scheduled_test', { test_id: id });
         await this._loadTestingData();
         this._render();
-        this._toast('Schedule removed', 'success');
+        this._toast('Tidsplan fjernet', 'success');
       });
     });
 
@@ -6911,7 +6911,7 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.runSched;
         const name = this._data.scheduledTests[id]?.name || 'test';
-        this._toast('Running "' + name + '"...', 'info');
+        this._toast('Kører "' + name + '"...', 'info');
         const result = await this._callWS('run_scheduled_test_now', { test_id: id });
         await this._loadTestingData();
         this._render();
@@ -7015,11 +7015,11 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const entityId = btn.dataset.hideSensor;
         if (!await this._confirm(
-          'This sensor will be hidden from the panel. You can restore it by editing the Secure Me configuration.',
-          'Hide Sensor?'
+          'Denne sensor vil blive skjult fra panelet. Du kan gendanne den ved at redigere Secure Me-konfigurationen.',
+          'Skjul sensor?'
         )) return;
         await this._callWS('hide_sensor', { entity_id: entityId, hidden: true });
-        this._toast('Sensor hidden', 'success');
+        this._toast('Sensor skjult', 'success');
         await this._loadData();
       });
     });
@@ -7029,11 +7029,11 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const entityId = btn.dataset.unmarkEnv;
         if (!await this._confirm(
-          'This will remove the environmental classification and hide the sensor. It will no longer trigger alarm notifications.',
-          'Remove Environmental Sensor?'
+          'Dette vil fjerne miljøklassificeringen og skjule sensoren. Den vil ikke længere udløse alarmnotifikationer.',
+          'Fjern miljøsensor?'
         )) return;
         await this._callWS('unmark_environmental', { entity_id: entityId });
-        this._toast('Environmental sensor removed', 'success');
+        this._toast('Miljøsensor fjernet', 'success');
         await this._loadData();
       });
     });
@@ -7058,7 +7058,7 @@ class SecureMePanel extends HTMLElement {
         if (result && result.active !== undefined) {
           this._data.fakePresence = result.active;
         } else {
-          this._toast('Could not update Fake Presence', 'error');
+          this._toast('Kunne ikke opdatere Fake Presence', 'error');
           this._data.fakePresence = current;  // revert
         }
         this._render();
@@ -7091,9 +7091,9 @@ class SecureMePanel extends HTMLElement {
       btn.addEventListener("click", async () => {
         const result = await this._callWS('save_auto_actions', { config: this._data.autoActions || {} });
         if (result && result.success) {
-          this._toast('Auto Actions saved', 'success');
+          this._toast('Auto-handlinger gemt', 'success');
         } else {
-          this._toast('Save failed', 'error');
+          this._toast('Kunne ikke gemme', 'error');
         }
       });
     });
@@ -7119,7 +7119,7 @@ class SecureMePanel extends HTMLElement {
             // Keep legacy fakePresence bool in sync for Sensors tab badge
             this._data.fakePresence = this._data.fakePresenceV2.active || false;
           } else {
-            this._toast('Could not update Fake Presence', 'error');
+            this._toast('Kunne ikke opdatere Fake Presence', 'error');
             // Revert
             this._data.fakePresenceV2[field] = !next;
           }
@@ -7136,9 +7136,9 @@ class SecureMePanel extends HTMLElement {
         const result = await this._callWS('save_fake_presence_v2', { config: this._data.fakePresenceV2 || {} });
         if (result && result.success) {
           this._data.fakePresence = (this._data.fakePresenceV2 || {}).active || false;
-          this._toast('Fake Presence saved', 'success');
+          this._toast('Fake Presence gemt', 'success');
         } else {
-          this._toast('Save failed', 'error');
+          this._toast('Kunne ikke gemme', 'error');
         }
       });
     });
@@ -7226,13 +7226,13 @@ class SecureMePanel extends HTMLElement {
         const action = btn.dataset.action;
         switch(action) {
           case "import-nfc":
-            this._toast("Import NFC tags - coming soon.", "info");
+            this._toast("Importér NFC-tags - kommer snart.", "info");
             break;
           case "add-notification":
             this._openNotificationDialog();
             break;
           case "add-automation":
-            this._toast("Add Automation - coming soon.", "info");
+            this._toast("Tilføj automatisering - kommer snart.", "info");
             break;
         }
       });
