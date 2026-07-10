@@ -1168,7 +1168,7 @@ class SecureMePanel extends HTMLElement {
     // was always `undefined`, toggling Fake Presence never changed the cache
     // key, so this tab kept serving the stale cached HTML and silently
     // reverted the toggle's visual state right after it was clicked.
-    const sCacheKey = JSON.stringify({ s: this._data.sensors, fp: this._data.fakePresence });
+    const sCacheKey = JSON.stringify({ s: this._data.sensors, fp: this._data.fakePresence, env: this._envExpanded, hidden: this._hiddenSensorsExpanded });
     if (this._sensorsRenderKey === sCacheKey && this._sensorsRenderCache) return this._sensorsRenderCache;
     const sensors = this._data.sensors || [];
     const envSensors    = sensors.filter(s => s.is_environmental && !s.env_unmarked);
