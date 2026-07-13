@@ -868,14 +868,3 @@ class ZoneManager:
             _LOGGER.warning("Open sensors detected: %s", open_sensors)
             return True
         return False
-
-    def get_status(self) -> dict[str, Any]:
-        return {
-            "total_zones": len(self._zones),
-            "enabled_zones": len([z for z in self._zones.values() if z.enabled]),
-            "triggered_zones": len(self.get_triggered_zones()),
-            "total_sensors": len(self._sensor_to_zone),
-            "open_sensors": len(self.get_all_open_sensors()),
-            "sensor_groups": len(self._sensor_groups),
-            "zones": [zone.to_dict() for zone in self._zones.values()],
-        }

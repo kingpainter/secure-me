@@ -39,8 +39,6 @@ from .const import (
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_TRIGGERED,
-    EVENT_MODULE_ENABLED,
-    EVENT_MODULE_DISABLED,
     EVENT_MODULE_ERROR,
     # v1.4.3: rich error events
     EVENT_ALARM_ARM_FAILED,
@@ -70,7 +68,6 @@ from .const import (
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
-from .module_manager import ModuleManager
 from .auto_actions import AutoActionsManager
 from .modules import (
     CameraModule,
@@ -1411,20 +1408,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     self.hass.bus.async_fire(
                         EVENT_MODULE_ERROR, {"module": mid, "action": "trigger", "error": str(err)}
                     )
-
-    def enable_module(self, module_id: str) -> bool:
-        if module_id not in self.modules:
-            return False
-        self.modules[module_id].enable()
-        self.hass.bus.async_fire(EVENT_MODULE_ENABLED, {"module": module_id})
-        return True
-
-    def disable_module(self, module_id: str) -> bool:
-        if module_id not in self.modules:
-            return False
-        self.modules[module_id].disable()
-        self.hass.bus.async_fire(EVENT_MODULE_DISABLED, {"module": module_id})
-        return True
 
     def update_module_config(self, module_id: str, config: dict) -> bool:
         """Re-initialize a module with updated configuration."""

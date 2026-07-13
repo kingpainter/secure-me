@@ -342,3 +342,62 @@ class TestStoreCRUD:
         }
         await store.async_save_sensors_bulk(sensors)
         assert len(store.get_sensors()) == 2
+
+
+class TestStoreTestHistory:
+    """Tests for get_test_history() / async_append_test_result().
+
+    Previously get_test_history() had zero test coverage and zero callers --
+    ws_get_test_results() in ws_modules.py reached into store._data directly
+    instead of using the public accessor. Now wired in, so this needs
+    real coverage.
+    """
+
+    def test_get_test_history_default_empty(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        assert store.get_test_history() == []
+
+    @pytest.mark.asyncio
+    async def test_append_test_result_adds_entry(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        await store.async_append_test_result({"test_type": "quick", "overall": "pass"})
+        history = store.get_test_history()
+        assert len(history) == 1
+        assert history[0]["overall"] == "pass"
+
+    @pytest.mark.asyncio
+    async def test_append_test_result_newest_first(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        await store.async_append_test_result({"test_type": "quick", "overall": "pass"})
+        await store.async_append_test_result({"test_type": "full", "overall": "fail"})
+        history = store.get_test_history()
+        assert history[0]["test_type"] == "full"
+        assert history[1]["test_type"] == "quick"
+
+    @pytest.mark.asyncio
+    async def test_append_test_result_caps_at_ten(self):
+        """Only the last 10 test results are kept."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+        store._data = store._default_data()
+        store._store = MagicMock()
+        store._store.async_save = AsyncMock()
+
+        for i in range(15):
+            await store.async_append_test_result({"test_type": "quick", "overall": str(i)})
+        history = store.get_test_history()
+        assert len(history) == 10
+        # Newest (i=14) first
+        assert history[0]["overall"] == "14"

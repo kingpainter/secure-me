@@ -386,11 +386,6 @@ class SecureMeStore:
             return "environmental"
         return "contact"
 
-    async def async_save_sensor(self, entity_id: str, config: dict[str, Any]) -> None:
-        """Save sensor configuration."""
-        self._data.setdefault("sensors", {})[entity_id] = config
-        self._schedule_save()
-
     async def async_save_sensors_bulk(self, sensors: dict[str, Any]) -> None:
         """Save multiple sensor configurations at once."""
         self._data["sensors"] = sensors
@@ -401,17 +396,6 @@ class SecureMeStore:
     def get_sensor_groups(self) -> dict[str, Any]:
         """Get all sensor groups."""
         return self._data.get("sensor_groups", {})
-
-    def get_sensor_group(self, group_id: str) -> dict[str, Any] | None:
-        """Get a single sensor group by ID."""
-        return self._data.get("sensor_groups", {}).get(group_id)
-
-    def get_group_for_sensor(self, entity_id: str) -> str | None:
-        """Return the group_id that contains this sensor, or None."""
-        for gid, group in self._data.get("sensor_groups", {}).items():
-            if entity_id in group.get("entities", []):
-                return gid
-        return None
 
     async def async_save_sensor_group(
         self, group_id: str | None, config: dict[str, Any]
@@ -765,10 +749,6 @@ class SecureMeStore:
         history.insert(0, result)
         self._data["test_history"] = history[:10]
         self._schedule_save()
-
-    def get_floorplan_image_b64(self) -> str | None:
-        """Legacy sync accessor. Use async_get_floorplan_image_b64() in async contexts."""
-        return self._data.get("floorplan", {}).get("image_b64")
 
     async def async_get_floorplan_image_b64(self) -> str | None:
         """Return the stored base64 PNG backup from the dedicated image store."""

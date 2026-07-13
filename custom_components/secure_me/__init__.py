@@ -167,6 +167,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False
 
+            # Dispatcher is created once per HA runtime (guarded by
+            # _websocket_registered, which stays True by design -- see
+            # websocket_api.py's ~45 unguarded command registrations, which
+            # would need their own dedup logic before this guard could safely
+            # be reset). async_unload() existed but was unreachable dead code;
+            # wire it in here so the 6 event-bus listeners are torn down if
+            # hass.data ever gets cleared without a full HA restart.
+            dispatcher = hass.data[DOMAIN].get("_notification_dispatcher")
+            if dispatcher:
+                try:
+                    dispatcher.async_unload()
+                except Exception as err:
+                    _LOGGER.debug("Error unloading notification dispatcher: %s", err)
+
         hass.data[DOMAIN].pop(entry.entry_id)
         _LOGGER.info("Secure Me integration unloaded successfully")
 

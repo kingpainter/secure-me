@@ -122,6 +122,59 @@ async def test_unload_entry_cleans_up(hass: HomeAssistant, mock_config_entry, mo
 
 
 @pytest.mark.asyncio
+async def test_unload_entry_calls_dispatcher_async_unload(hass: HomeAssistant, mock_config_entry, mock_coordinator):
+    """Regression: NotificationDispatcher.async_unload() existed but was never
+    called anywhere, leaving its event-bus listeners unreachable dead code."""
+    from custom_components.secure_me import async_unload_entry
+    from custom_components.secure_me.const import COORDINATOR
+
+    mock_coordinator.async_shutdown = AsyncMock()
+    mock_dispatcher = MagicMock()
+
+    hass.data["secure_me"] = {
+        mock_config_entry.entry_id: {
+            COORDINATOR: mock_coordinator,
+            "undo_update_listener": MagicMock(),
+        },
+        "_notification_dispatcher": mock_dispatcher,
+    }
+
+    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+
+    with patch("custom_components.secure_me.panel.async_unregister_panel"):
+        await async_unload_entry(hass, mock_config_entry)
+
+    mock_dispatcher.async_unload.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_unload_entry_dispatcher_unload_error_does_not_crash(hass: HomeAssistant, mock_config_entry, mock_coordinator):
+    """A failure while unloading the dispatcher must not block the rest of unload."""
+    from custom_components.secure_me import async_unload_entry
+    from custom_components.secure_me.const import COORDINATOR
+
+    mock_coordinator.async_shutdown = AsyncMock()
+    mock_dispatcher = MagicMock()
+    mock_dispatcher.async_unload.side_effect = Exception("boom")
+
+    hass.data["secure_me"] = {
+        mock_config_entry.entry_id: {
+            COORDINATOR: mock_coordinator,
+            "undo_update_listener": MagicMock(),
+        },
+        "_notification_dispatcher": mock_dispatcher,
+    }
+
+    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+
+    with patch("custom_components.secure_me.panel.async_unregister_panel"):
+        result = await async_unload_entry(hass, mock_config_entry)
+
+    assert result is True
+    mock_dispatcher.async_unload.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_reload_entry(hass: HomeAssistant, mock_config_entry):
     """Test config entry reload via async_update_options."""
     from custom_components.secure_me import async_update_options

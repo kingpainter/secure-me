@@ -1124,7 +1124,7 @@ async def ws_get_test_results(
         connection.send_result(msg["id"], {"results": []})
         return
 
-    results = store._data.get("test_history", [])
+    results = store.get_test_history()
     connection.send_result(msg["id"], {"results": results})
 
 

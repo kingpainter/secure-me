@@ -699,12 +699,6 @@ class NotificationDispatcher:
 
     # ── Introspection ─────────────────────────────────────────────────────────
 
-    def get_monitored_sensors(self) -> dict[str, list[str]]:
-        return {
-            "smoke": sorted(self._smoke_sensors),
-            "moisture": sorted(self._moisture_sensors),
-        }
-
 
 def async_setup_dispatcher(hass: HomeAssistant) -> NotificationDispatcher:
     dispatcher = NotificationDispatcher(hass)
