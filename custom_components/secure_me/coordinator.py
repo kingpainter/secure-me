@@ -30,12 +30,6 @@ from .const import (
     CONF_ENTRY_DELAY,
     CONF_TRIGGER_TIME,
     DEFAULT_TRIGGER_TIME,
-    MODULE_CAMERA,
-    MODULE_LOCK,
-    MODULE_LIGHTS,
-    MODULE_CLIMATE,
-    MODULE_SIREN,
-    MODULE_TTS,
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_TRIGGERED,
@@ -44,7 +38,6 @@ from .const import (
     EVENT_ALARM_ARM_FAILED,
     EVENT_ALARM_INVALID_CODE,
     EVENT_ALARM_COMMAND_REJECTED,
-    CONF_FAKE_PRESENCE,
     NOTIFY_ID_FAKE_PRESENCE,
     FAKE_PRESENCE_ON_EN,
     FAKE_PRESENCE_OFF_EN,
@@ -470,7 +463,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return
 
         from datetime import datetime
-        import time as _time
 
         scheduled = self.store.get_scheduled_tests()
         if not scheduled:
@@ -1528,7 +1520,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             ]
             result[mid] = {
                 "enabled": True,
-                "status": "problem" if unavail else "ok",
+                "status": "degraded" if getattr(module, "degraded", False) else ("error" if unavail else "ok"),
                 "total": len(entities),
                 "available": len(entities) - len(unavail),
                 "unavailable": unavail,

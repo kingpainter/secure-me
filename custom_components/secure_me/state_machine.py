@@ -3,7 +3,7 @@
 
 import asyncio
 import logging
-from typing import Any, Callable
+from typing import Callable
 
 from homeassistant.core import HomeAssistant
 
@@ -19,7 +19,6 @@ from .const import (
     STATE_ALARM_TRIGGERED,
     ZONE_TYPE_ENTRY,
     ZONE_TYPE_INSTANT,
-    NOTIFY_ID_MODULE_ERROR,
 )
 
 _LOGGER = logging.getLogger(__name__)

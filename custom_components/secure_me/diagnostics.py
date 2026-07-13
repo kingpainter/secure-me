@@ -14,12 +14,6 @@ from .const import (
     CONF_CODE,
     COORDINATOR,
     DOMAIN,
-    MODULE_CAMERA,
-    MODULE_CLIMATE,
-    MODULE_LIGHTS,
-    MODULE_LOCK,
-    MODULE_SIREN,
-    MODULE_TTS,
     VERSION,
 )
 
@@ -158,10 +152,9 @@ async def async_get_config_entry_diagnostics(
         }
 
     # --- Recent Test Results ---
-    # Bug fix: store is a SecureMeStore object, not a dict. Use store._data directly.
     test_results_info: dict[str, Any] = {}
     if store:
-        test_history = store._data.get("test_history", [])
+        test_history = store.get_test_history()
         last_result = test_history[0] if test_history else {}
         test_results_info = {
             "test_history_count": len(test_history),

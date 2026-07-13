@@ -2,7 +2,6 @@
 # VERSION = "1.5.0"
 
 import logging
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import (

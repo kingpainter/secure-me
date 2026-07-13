@@ -697,8 +697,6 @@ class NotificationDispatcher:
                 if CHANNEL_PUSH in channels:
                     await _send_push(self.hass, notif.get("service", "notify.notify"), title, msg)
 
-    # ── Introspection ─────────────────────────────────────────────────────────
-
 
 def async_setup_dispatcher(hass: HomeAssistant) -> NotificationDispatcher:
     dispatcher = NotificationDispatcher(hass)

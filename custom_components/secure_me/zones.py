@@ -12,8 +12,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .const import (
     ZONE_TYPE_ENTRY,
     ZONE_TYPE_INSTANT,
-    ZONE_TYPE_INTERIOR,
-    ZONE_TYPE_PERIMETER,
     NOTIFY_ID_MODULE_ERROR,
     EVENT_READY_TO_ARM_MODES_CHANGED,
 )

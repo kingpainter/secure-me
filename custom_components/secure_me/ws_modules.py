@@ -14,11 +14,6 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     DOMAIN,
-    CONF_AUTO_ACTIONS,
-    FP_ACTIVE,
-    FP_BLOCK_ALARM,
-    FP_BLOCK_LOCKS,
-    FP_BLOCK_CAMERAS,
 )
 
 _LOGGER = logging.getLogger(__name__)

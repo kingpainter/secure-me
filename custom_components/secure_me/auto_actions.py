@@ -26,7 +26,6 @@ from typing import Any
 from homeassistant.core import HomeAssistant, callback
 
 from .const import (
-    DOMAIN,
     AA_LOCK_ENABLED,
     AA_LOCK_DELAY,
     AA_ALARM_ENABLED,
