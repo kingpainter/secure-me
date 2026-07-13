@@ -401,3 +401,92 @@ class TestStoreTestHistory:
         assert len(history) == 10
         # Newest (i=14) first
         assert history[0]["overall"] == "14"
+
+
+class TestGetAreaName:
+    """Tests for _get_area_name() -- room/area lookup used to group the
+    sensor list in the panel by HA area instead of an unsorted flat list.
+    """
+
+    def test_entity_with_direct_area_returns_area_name(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        mock_entry = MagicMock(area_id="area_kitchen", device_id=None)
+        mock_area = MagicMock(name="Køkken")
+        mock_area.name = "Køkken"
+
+        with patch("homeassistant.helpers.entity_registry.async_get") as mock_er, \
+             patch("homeassistant.helpers.area_registry.async_get") as mock_ar:
+            mock_er.return_value.async_get.return_value = mock_entry
+            mock_ar.return_value.async_get_area.return_value = mock_area
+            result = store._get_area_name("binary_sensor.kitchen_door")
+
+        assert result == "Køkken"
+
+    def test_entity_falls_back_to_device_area(self):
+        """Most entities don't have their own area -- they inherit from their device."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        mock_entry = MagicMock(area_id=None, device_id="device_1")
+        mock_device = MagicMock(area_id="area_hall")
+        mock_area = MagicMock()
+        mock_area.name = "Entré"
+
+        with patch("homeassistant.helpers.entity_registry.async_get") as mock_er, \
+             patch("homeassistant.helpers.device_registry.async_get") as mock_dr, \
+             patch("homeassistant.helpers.area_registry.async_get") as mock_ar:
+            mock_er.return_value.async_get.return_value = mock_entry
+            mock_dr.return_value.async_get.return_value = mock_device
+            mock_ar.return_value.async_get_area.return_value = mock_area
+            result = store._get_area_name("binary_sensor.hall_motion")
+
+        assert result == "Entré"
+
+    def test_no_area_anywhere_returns_andet(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        mock_entry = MagicMock(area_id=None, device_id=None)
+
+        with patch("homeassistant.helpers.entity_registry.async_get") as mock_er:
+            mock_er.return_value.async_get.return_value = mock_entry
+            result = store._get_area_name("binary_sensor.unassigned")
+
+        assert result == "Andet"
+
+    def test_entity_not_in_registry_returns_andet(self):
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        with patch("homeassistant.helpers.entity_registry.async_get") as mock_er:
+            mock_er.return_value.async_get.return_value = None
+            result = store._get_area_name("binary_sensor.not_registered")
+
+        assert result == "Andet"
+
+    def test_area_id_set_but_area_deleted_returns_andet(self):
+        """area_id points at an area that no longer exists in the registry."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        mock_entry = MagicMock(area_id="area_deleted", device_id=None)
+
+        with patch("homeassistant.helpers.entity_registry.async_get") as mock_er, \
+             patch("homeassistant.helpers.area_registry.async_get") as mock_ar:
+            mock_er.return_value.async_get.return_value = mock_entry
+            mock_ar.return_value.async_get_area.return_value = None
+            result = store._get_area_name("binary_sensor.orphaned")
+
+        assert result == "Andet"
+
+    def test_registry_lookup_exception_returns_andet(self):
+        """Any unexpected error must not break sensor list rendering."""
+        mock_hass = MagicMock()
+        store = SecureMeStore(mock_hass)
+
+        with patch("homeassistant.helpers.entity_registry.async_get", side_effect=RuntimeError("boom")):
+            result = store._get_area_name("binary_sensor.whatever")
+
+        assert result == "Andet"

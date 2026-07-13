@@ -293,6 +293,32 @@ class SecureMeStore:
         """Get all configured sensors."""
         return self._data.get("sensors", {})
 
+    def _get_area_name(self, entity_id: str) -> str:
+        """Return the HA area/room name for an entity, or 'Andet' if none assigned.
+
+        Most entities don't have an area set directly -- they inherit it from
+        their device. Falls back to 'Andet' (Other) on any lookup failure so
+        room-grouping in the panel never breaks if a registry entry is missing.
+        """
+        try:
+            from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
+
+            ent_reg = er.async_get(self.hass)
+            entry = ent_reg.async_get(entity_id)
+            area_id = entry.area_id if entry else None
+            if not area_id and entry and entry.device_id:
+                dev_reg = dr.async_get(self.hass)
+                device = dev_reg.async_get(entry.device_id)
+                area_id = device.area_id if device else None
+            if not area_id:
+                return "Andet"
+            area_reg = ar.async_get(self.hass)
+            area = area_reg.async_get_area(area_id)
+            return area.name if area else "Andet"
+        except Exception as err:
+            _LOGGER.debug("Area lookup failed for %s: %s", entity_id, err)
+            return "Andet"
+
     def get_available_sensors(self) -> list[dict[str, Any]]:
         """Get all available binary_sensors from HA that could be alarm sensors."""
         sensors = []
@@ -322,6 +348,7 @@ class SecureMeStore:
                     "sensor_type", self._infer_type(device_class)
                 ),
                 "env_unmarked": configured.get("env_unmarked", False),
+                "area": self._get_area_name(state.entity_id),
                 # v1.2.0 per-sensor fields
                 "entry_delay": configured.get("entry_delay", None),
                 "auto_bypass": configured.get("auto_bypass", False),
@@ -343,6 +370,7 @@ class SecureMeStore:
                 "enabled": configured.get("enabled", False),
                 "sensor_type": "presence",
                 "excluded": False,
+                "area": self._get_area_name(state.entity_id),
                 "entry_delay": None,
                 "auto_bypass": False,
                 "auto_bypass_modes": [],
@@ -367,6 +395,7 @@ class SecureMeStore:
                 "enabled": configured.get("enabled", False),
                 "sensor_type": "presence",
                 "auto_hidden": auto_hidden and not configured.get("enabled", False),
+                "area": self._get_area_name(state.entity_id),
                 "entry_delay": None,
                 "auto_bypass": False,
                 "auto_bypass_modes": [],

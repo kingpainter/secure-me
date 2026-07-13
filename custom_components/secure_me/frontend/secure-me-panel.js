@@ -1178,6 +1178,28 @@ class SecureMePanel extends HTMLElement {
     const autoHidden    = normalSensors.filter(s => s.auto_hidden);
     const typeLabels    = { contact: "Kontakt", motion: "Bevægelse", presence: "Tilstedeværelse", environmental: "Miljø" };
 
+    // v1.5.0: group by HA area/room (falls back to 'Andet' when unassigned).
+    // Areas sorted alphabetically (da locale); 'Andet' is always pushed last
+    // since it's a catch-all, not a real room. Sensors within each area are
+    // sorted alphabetically by name.
+    const groupByArea = (list) => {
+      const groups = {};
+      for (const s of list) {
+        const area = s.area || "Andet";
+        if (!groups[area]) groups[area] = [];
+        groups[area].push(s);
+      }
+      const areaNames = Object.keys(groups).sort((a, b) => {
+        if (a === "Andet") return 1;
+        if (b === "Andet") return -1;
+        return a.localeCompare(b, "da");
+      });
+      for (const area of areaNames) {
+        groups[area].sort((a, b) => a.name.localeCompare(b.name, "da"));
+      }
+      return areaNames.map(area => ({ area, sensors: groups[area] }));
+    };
+
     const renderSensorRow = (s) => `
       <div class="sm-list-row ${s.enabled ? "" : "disabled"}">
         <div class="sm-list-row-top">
@@ -1205,6 +1227,21 @@ class SecureMePanel extends HTMLElement {
         ` : ''}
       </div>
     `;
+
+    const renderAreaGroup = (areaGroups, emptyMessage) => {
+      if (areaGroups.length === 0) {
+        return `<div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">${emptyMessage}</div>`;
+      }
+      return areaGroups.map(({ area, sensors: areaSensors }) => `
+        <div class="sm-area-group">
+          <div style="padding:6px 16px;font-size:11px;font-weight:600;color:var(--sm-text-tertiary);
+                      text-transform:uppercase;letter-spacing:0.3px;background:rgba(255,255,255,0.02)">
+            ${area}
+          </div>
+          ${areaSensors.map(s => renderSensorRow(s)).join("")}
+        </div>
+      `).join("");
+    };
 
     const renderEnvRow = (s) => `
       <div style="display:flex;flex-direction:column;gap:4px;
@@ -1311,22 +1348,14 @@ class SecureMePanel extends HTMLElement {
           <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
             <span>Aktive (${enabled.length})</span><span>Type / Til</span>
           </div>
-          ${enabled.length > 0 ? enabled.map(s => renderSensorRow(s)).join("") : `
-            <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
-              Ingen sensorer aktiveret endnu.
-            </div>
-          `}
+          ${renderAreaGroup(groupByArea(enabled), "Ingen sensorer aktiveret endnu.")}
         </div>
 
         <div class="sm-card no-pad" style="overflow:hidden">
           <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
             <span>Inactive (${disabled.length})</span><span>Type / On</span>
           </div>
-          ${disabled.length > 0 ? disabled.map(s => renderSensorRow(s)).join("") : `
-            <div style="padding:20px;text-align:center;color:var(--sm-text-tertiary);font-size:13px">
-              All sensors are active.
-            </div>
-          `}
+          ${renderAreaGroup(groupByArea(disabled), "All sensors are active.")}
         </div>
       </div>
 
