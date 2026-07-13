@@ -373,11 +373,19 @@ class TestSirenModuleDomainHandling:
 
     @pytest.mark.asyncio
     async def test_turn_on_unsupported_domain_fires_notification(self):
-        """Regression: this used to fail completely silently."""
+        """Regression: this used to fail completely silently.
+
+        base.py's _on_failure calls the real
+        homeassistant.components.persistent_notification.async_create function
+        directly (a local import inside the method), not hass.components.* --
+        that convention only exists in test_base_module.py's hand-written
+        mirror class, which doesn't reflect the real module.
+        """
         hass = self._make_hass()
         mod = self._make_siren(hass)
-        await mod._turn_on_entity("media_player.kitchen", 50)
-        hass.components.persistent_notification.async_create.assert_called_once()
+        with patch("homeassistant.components.persistent_notification.async_create") as mock_create:
+            await mod._turn_on_entity("media_player.kitchen", 50)
+            mock_create.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_turn_off_unsupported_domain_returns_false(self):

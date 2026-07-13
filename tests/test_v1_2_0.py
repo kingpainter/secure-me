@@ -319,7 +319,7 @@ class TestSensorGroupInStore:
             "event_count": 3,
         })
 
-        g = store.get_sensor_group("fixed_id")
+        g = store.get_sensor_groups()["fixed_id"]
         assert g["name"] == "New name"
         assert g["event_count"] == 3
 
@@ -354,6 +354,12 @@ class TestSensorGroupInStore:
         assert result is False
 
     def test_get_group_for_sensor(self):
+        """store.get_sensor_groups() is the surviving public accessor -- the
+        singular get_group_for_sensor()/get_sensor_group() helpers were removed
+        as dead code (zero production callers; only get_sensor_groups() /
+        the plural form is used by ws_sensors.py). This test now checks the
+        same lookup-by-sensor behaviour directly against the full dict.
+        """
         mock_hass = MagicMock()
         store = SecureMeStore(mock_hass)
         store._data = store._default_data()
@@ -365,11 +371,15 @@ class TestSensorGroupInStore:
             "event_count": 2,
         }
 
-        gid = store.get_group_for_sensor("binary_sensor.door1")
-        assert gid == "g1"
+        def _find_group_for_sensor(groups, entity_id):
+            for gid, group in groups.items():
+                if entity_id in group.get("entities", []):
+                    return gid
+            return None
 
-        gid_none = store.get_group_for_sensor("binary_sensor.other")
-        assert gid_none is None
+        groups = store.get_sensor_groups()
+        assert _find_group_for_sensor(groups, "binary_sensor.door1") == "g1"
+        assert _find_group_for_sensor(groups, "binary_sensor.other") is None
 
 
 # ─── ZoneManager sensor group integration ────────────────────────────────────
@@ -447,10 +457,9 @@ class TestPerSensorFields:
         store._store = MagicMock()
         store._store.async_save = AsyncMock()
 
-        await store.async_save_sensor(
-            "binary_sensor.garage",
-            {"enabled": True, "entry_delay": 45, "auto_bypass": False, "arm_on_close": False},
-        )
+        await store.async_save_sensors_bulk({
+            "binary_sensor.garage": {"enabled": True, "entry_delay": 45, "auto_bypass": False, "arm_on_close": False},
+        })
 
         sensors = store.get_sensors()
         assert sensors["binary_sensor.garage"]["entry_delay"] == 45
@@ -463,10 +472,9 @@ class TestPerSensorFields:
         store._store = MagicMock()
         store._store.async_save = AsyncMock()
 
-        await store.async_save_sensor(
-            "binary_sensor.back_door",
-            {"enabled": True, "entry_delay": None, "auto_bypass": True, "arm_on_close": False},
-        )
+        await store.async_save_sensors_bulk({
+            "binary_sensor.back_door": {"enabled": True, "entry_delay": None, "auto_bypass": True, "arm_on_close": False},
+        })
 
         sensors = store.get_sensors()
         assert sensors["binary_sensor.back_door"]["auto_bypass"] is True
@@ -479,10 +487,9 @@ class TestPerSensorFields:
         store._store = MagicMock()
         store._store.async_save = AsyncMock()
 
-        await store.async_save_sensor(
-            "binary_sensor.front_door",
-            {"enabled": True, "entry_delay": None, "auto_bypass": False, "arm_on_close": True},
-        )
+        await store.async_save_sensors_bulk({
+            "binary_sensor.front_door": {"enabled": True, "entry_delay": None, "auto_bypass": False, "arm_on_close": True},
+        })
 
         sensors = store.get_sensors()
         assert sensors["binary_sensor.front_door"]["arm_on_close"] is True
