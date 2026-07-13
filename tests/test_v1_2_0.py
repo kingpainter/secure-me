@@ -444,6 +444,71 @@ class TestZoneManagerSensorGroups:
         assert len(zm._sensor_groups["g1"]._activations) == 0
 
 
+class TestHomeAloneDoorDispatchDebounce:
+    """Regression: the Home Alone door-notification dispatch (camera snapshot
+    + push + TTS) used to fire on every single sensor trigger with zero
+    debounce -- unlike the normal alarm trigger path, which suppresses rapid
+    re-fires per sensor. A door that rattles in the wind or has a bouncy
+    contact sensor could spam push/TTS repeatedly. Uses the real hass fixture
+    (not a mirror) so the actual async_track_state_change_event wiring in
+    ZoneManager.start_monitoring is exercised end-to-end.
+    """
+
+    @pytest.mark.asyncio
+    async def test_rapid_door_flap_dispatches_only_once(self, hass):
+        hass.states.async_set("binary_sensor.front_door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+
+        zm = ZoneManager(hass)
+        zm.add_zone("z1", "entry", sensors=["binary_sensor.front_door"], enabled=True, arm_modes=["home_alone"])
+        zm.load_sensor_configs({})
+
+        with patch(
+            "custom_components.secure_me.notification_dispatcher.dispatch_home_alone_door_trigger",
+            new=AsyncMock(),
+        ) as mock_dispatch:
+            zm.start_monitoring(callback_func=AsyncMock(), arm_mode="home_alone")
+
+            # Rapid flap: on -> off -> on, all within the 0.5s debounce window
+            hass.states.async_set("binary_sensor.front_door", "on", {"device_class": "door"})
+            await hass.async_block_till_done()
+            hass.states.async_set("binary_sensor.front_door", "off", {"device_class": "door"})
+            await hass.async_block_till_done()
+            hass.states.async_set("binary_sensor.front_door", "on", {"device_class": "door"})
+            await hass.async_block_till_done()
+
+            assert mock_dispatch.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_different_doors_debounced_independently(self, hass):
+        """Debounce is keyed per-entity -- one door flapping must not
+        suppress a genuine, simultaneous trigger from a different door."""
+        hass.states.async_set("binary_sensor.front_door", "off", {"device_class": "door"})
+        hass.states.async_set("binary_sensor.back_door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+
+        zm = ZoneManager(hass)
+        zm.add_zone(
+            "z1", "entry",
+            sensors=["binary_sensor.front_door", "binary_sensor.back_door"],
+            enabled=True, arm_modes=["home_alone"],
+        )
+        zm.load_sensor_configs({})
+
+        with patch(
+            "custom_components.secure_me.notification_dispatcher.dispatch_home_alone_door_trigger",
+            new=AsyncMock(),
+        ) as mock_dispatch:
+            zm.start_monitoring(callback_func=AsyncMock(), arm_mode="home_alone")
+
+            hass.states.async_set("binary_sensor.front_door", "on", {"device_class": "door"})
+            await hass.async_block_till_done()
+            hass.states.async_set("binary_sensor.back_door", "on", {"device_class": "door"})
+            await hass.async_block_till_done()
+
+            assert mock_dispatch.call_count == 2
+
+
 # ─── Per-sensor fields in store ───────────────────────────────────────────────
 
 class TestPerSensorFields:
@@ -601,6 +666,9 @@ class TestPushNotificationConstants:
             "SECURE_ME_ARM_NIGHT",
             "SECURE_ME_ARM_VACATION",
             "SECURE_ME_ARM_HOME_ALONE",
+            # v1.5.0: Home Alone door-notification quick-response buttons
+            "SECURE_ME_HOME_ALONE_ACTION_1",
+            "SECURE_ME_HOME_ALONE_ACTION_2",
         }
         assert set(PUSH_EVENT_ACTIONS) == expected
 

@@ -243,6 +243,13 @@ HOME_ALONE_DEFAULT_ACTION_2 = "Please close the door."
 EVENT_HOME_ALONE_ACTION_1 = "SECURE_ME_HOME_ALONE_ACTION_1"
 EVENT_HOME_ALONE_ACTION_2 = "SECURE_ME_HOME_ALONE_ACTION_2"
 
+# Home Alone quick-response actions also travel over the same push-action
+# channel as arm/disarm -- appended here (rather than in the PUSH_EVENT_ACTIONS
+# list above) because these two constants aren't defined until this point in
+# the file.
+PUSH_EVENT_ACTIONS.append(EVENT_HOME_ALONE_ACTION_1)
+PUSH_EVENT_ACTIONS.append(EVENT_HOME_ALONE_ACTION_2)
+
 # Floorplan (Home Alone live-view)
 FLOORPLAN_DIR_NAME   = "floorplan"
 FLOORPLAN_IMAGE_NAME = "floorplan.png"

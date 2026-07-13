@@ -14,6 +14,7 @@ from .const import (
     ZONE_TYPE_INSTANT,
     NOTIFY_ID_MODULE_ERROR,
     EVENT_READY_TO_ARM_MODES_CHANGED,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -731,7 +732,35 @@ class ZoneManager:
                 # (camera snapshot + push action buttons + TTS) but do NOT
                 # trigger the alarm.
                 if device_class in _HOME_ALONE_DOOR_LIKE_CLASSES:
+                    # v1.5.0 bugfix: this branch used to dispatch (camera
+                    # snapshot + push + TTS) on every single trigger with no
+                    # debounce at all -- unlike the normal trigger path below,
+                    # which suppresses rapid re-fires per sensor. A door that
+                    # rattles in the wind or has a bouncy contact sensor could
+                    # spam pushes/TTS repeatedly. Reuse the same anti-flap
+                    # debounce window used everywhere else in this file.
+                    now = time.monotonic()
+                    last = self._last_trigger_time.get(entity_id, 0.0)
+                    if now - last < self._debounce_interval:
+                        _LOGGER.debug(
+                            "Home Alone: door sensor %s debounced (%.3fs since last dispatch)",
+                            entity_id, now - last,
+                        )
+                        return
+                    self._last_trigger_time[entity_id] = now
+
                     sensor_cfg = self.get_home_alone_sensor_config(entity_id)
+                    # Remember this trigger's context so a tap on either of
+                    # the two push-notification quick-response buttons
+                    # (EVENT_HOME_ALONE_ACTION_1/2) knows which door/speaker
+                    # it belongs to. Mobile-app action-button taps only echo
+                    # back the action id, not the original notification
+                    # payload, so this has to be tracked out-of-band.
+                    self.hass.data.setdefault(DOMAIN, {})["_last_home_alone_trigger"] = {
+                        "entity_id": entity_id,
+                        "sensor_cfg": sensor_cfg,
+                        "timestamp": time.monotonic(),
+                    }
                     from .notification_dispatcher import dispatch_home_alone_door_trigger
                     self.hass.async_create_task(
                         dispatch_home_alone_door_trigger(

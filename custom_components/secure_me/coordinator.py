@@ -54,6 +54,8 @@ from .const import (
     EVENT_ACTION_ARM_VACATION,
     EVENT_ACTION_ARM_HOME_ALONE,
     STATE_ALARM_ARMED_HOME_ALONE,
+    EVENT_HOME_ALONE_ACTION_1,
+    EVENT_HOME_ALONE_ACTION_2,
     # v1.4.0: presence-based auto-arm
     AUTO_ARM_AWAY_DELAY,
     AUTO_ARM_PUSH_TITLE,
@@ -609,6 +611,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             coro = self.async_arm_vacation()
         elif action == EVENT_ACTION_ARM_HOME_ALONE:
             coro = self.async_arm_home_alone()
+        elif action in (EVENT_HOME_ALONE_ACTION_1, EVENT_HOME_ALONE_ACTION_2):
+            # Quick-response tap on a Home Alone door notification -- speak
+            # the corresponding message on that door's configured speaker.
+            from .notification_dispatcher import handle_home_alone_quick_response
+            coro = handle_home_alone_quick_response(self.hass, action)
         else:
             return
 

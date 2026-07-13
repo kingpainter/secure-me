@@ -32,6 +32,7 @@ User notification settings (on each user object):
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
 from typing import Any
 
@@ -421,6 +422,58 @@ async def dispatch_home_alone_door_trigger(
             _LOGGER.error(
                 "Home Alone TTS failed for speaker %s: %s", speaker_entity, err
             )
+
+
+async def handle_home_alone_quick_response(hass: HomeAssistant, action: str) -> None:
+    """Handle a tap on one of the two Home Alone push-notification quick-
+    response buttons by speaking the corresponding message on the door's
+    configured TTS speaker.
+
+    Looks up the most recently stored Home Alone trigger context (set by
+    ZoneManager.start_monitoring's home_alone branch in
+    hass.data[DOMAIN]['_last_home_alone_trigger']). Silently ignored if the
+    context is missing, stale (older than 5 minutes -- guards against a
+    delayed/duplicate tap acting on an unrelated, already-resolved event),
+    or the door has no speaker configured.
+    """
+    ctx = hass.data.get(DOMAIN, {}).get("_last_home_alone_trigger")
+    if not ctx:
+        _LOGGER.debug("Home Alone quick response '%s' ignored -- no trigger context", action)
+        return
+
+    age = time.monotonic() - ctx.get("timestamp", 0)
+    if age > 300:
+        _LOGGER.debug(
+            "Home Alone quick response '%s' ignored -- context is %.0fs old (stale)",
+            action, age,
+        )
+        return
+
+    sensor_cfg = ctx.get("sensor_cfg", {})
+    speaker_entity = sensor_cfg.get(CONF_HOME_ALONE_SPEAKER)
+    if not speaker_entity:
+        _LOGGER.debug(
+            "Home Alone quick response '%s' ignored -- no speaker configured for this door",
+            action,
+        )
+        return
+
+    if action == EVENT_HOME_ALONE_ACTION_1:
+        message = sensor_cfg.get(CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1)
+    elif action == EVENT_HOME_ALONE_ACTION_2:
+        message = sensor_cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2)
+    else:
+        return
+
+    try:
+        tts_module = _get_tts_module(hass)
+        if tts_module:
+            await tts_module.announce_system(message, urgent=False, speaker_ids=[speaker_entity])
+            _LOGGER.info("Home Alone quick response spoken on %s: %s", speaker_entity, message)
+        else:
+            _LOGGER.debug("Home Alone quick response TTS skipped -- TTS module not enabled")
+    except Exception as err:
+        _LOGGER.error("Home Alone quick response TTS failed: %s", err)
 
 
 class NotificationDispatcher:
