@@ -198,6 +198,8 @@ const panelStyles = `
     50%       { opacity: 0.55; }
   }
   .fp-room-active { animation: fp-room-glow 1.8s ease-in-out infinite; }
+  .fp-room { transition: fill-opacity 0.4s ease, stroke-opacity 0.4s ease; }
+  .fp-opening-group { transition: opacity 0.4s ease; }
 
   .test-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   @media (max-width: 600px) { .test-grid-3 { grid-template-columns: 1fr; } }
@@ -512,7 +514,13 @@ class SecureMePanel extends HTMLElement {
           if (prev[eid] !== v) changed = true;
         }
         this._lastMarkerStates = next;
-        if (changed) this._queueRender();
+        if (changed) {
+          // Targeted DOM patch instead of a full re-render -- see
+          // _fpUpdateLiveState() for why this matters for smoothness.
+          // Fall back to a full render if the canvas isn't mounted yet
+          // (e.g. the very first update right after entering the tab).
+          if (!this._fpUpdateLiveState()) this._queueRender();
+        }
       }
     }
   }
@@ -2446,6 +2454,67 @@ class SecureMePanel extends HTMLElement {
     return (room.sensors || []).some(eid => this._sensorIsActive(eid));
   }
 
+  _fpUpdateLiveState() {
+    // Targeted DOM patch for Home Alone live-view updates -- avoids the full
+    // innerHTML teardown/rebuild that _queueRender() would otherwise do.
+    //
+    // Why this matters: rebuilding the whole SVG on every sensor tick used to
+    // restart the CSS glow animation on every currently-active room (even ones
+    // whose own sensor didn't change), pop door/window markers in and out of
+    // existence instead of fading them, and re-parse a large HTML string for
+    // a change that's really just "toggle one attribute on one element".
+    //
+    // Returns true if the patch was applied, false if the canvas isn't in the
+    // DOM yet (caller should fall back to a full _queueRender() in that case).
+    const canvas = this.shadowRoot?.querySelector('[data-fp-canvas]');
+    if (!canvas) return false;
+    const svg = canvas.querySelector('[data-fp-svg]');
+    if (!svg) return false;
+
+    const fp = this._data.floorplan;
+    if (!fp) return false;
+
+    // Rooms: toggle glow class + opacity only when the active-state actually
+    // flips, so an already-glowing room's animation is never interrupted.
+    for (const [rid, room] of Object.entries(fp.rooms || {})) {
+      const poly = svg.querySelector(`[data-fp-room="${rid}"]`);
+      if (!poly) continue;
+      const isActive = this._fpRoomIsActive(room);
+      const wasActive = poly.classList.contains('fp-room-active');
+      if (isActive !== wasActive) {
+        poly.classList.toggle('fp-room-active', isActive);
+        poly.setAttribute('fill-opacity', isActive ? '0.35' : '0');
+        poly.setAttribute('stroke-opacity', isActive ? '0.8' : '0');
+      }
+      const labelEl = canvas.querySelector(`[data-fp-label="${rid}"]`);
+      if (labelEl) labelEl.style.opacity = isActive ? '1' : '0';
+    }
+
+    // Openings: fade in/out via opacity instead of adding/removing from the DOM.
+    (fp.openings || []).forEach((op, oi) => {
+      const group = svg.querySelector(`[data-fp-opening-group="${oi}"]`);
+      if (!group) return;
+      const eid = op.entity_id || null;
+      const isOpen = eid ? this._hass?.states?.[eid]?.state === "on" : false;
+      group.style.opacity = isOpen ? '1' : '0';
+    });
+
+    // Sensor pins: only regenerate the ones whose active-state changed --
+    // one small <g> each, not the whole SVG.
+    for (const [eid, m] of Object.entries(fp.markers || {})) {
+      const pin = svg.querySelector(`[data-fp-pin="${eid}"]`);
+      if (!pin) continue;
+      const isActive = this._sensorIsActive(eid);
+      const wasActive = pin.dataset.fpPinActive === "1";
+      if (isActive !== wasActive) {
+        pin.dataset.fpPinActive = isActive ? "1" : "0";
+        pin.innerHTML = this._fpRenderSensorPinInner(eid, m);
+      }
+    }
+
+    return true;
+  }
+
   _fpPointsToSvgPolygon(points, w, h) {
     // points are [x_pct, y_pct] — convert to px for SVG viewBox
     return points.map(([x,y]) => `${(x/100*w).toFixed(1)},${(y/100*h).toFixed(1)}`).join(" ");
@@ -2510,6 +2579,55 @@ class SecureMePanel extends HTMLElement {
           ${icon("upload")} ${this._floorplanUploading ? "Uploader..." : "Upload PNG"}
         </button>
       </div>
+    `;
+  }
+
+  _fpRenderSensorPinInner(eid, m) {
+    // Shared by the cold SVG render and the targeted live-update path so both
+    // produce identical markup for a pin's interior (everything except the
+    // wrapping <g>, which owns the stable id used for direct DOM patching).
+    const x = parseFloat(m.x_pct);
+    const y = parseFloat(m.y_pct);
+    if (isNaN(x) || isNaN(y)) return "";
+    const VW = 1000;
+    const fp = this._data.floorplan || {};
+    const aspectRatio = fp.width && fp.height ? (fp.height / fp.width) : 0.6;
+    const VH = Math.round(VW * aspectRatio);
+    const sx = (x / 100 * VW).toFixed(1);
+    const sy = (y / 100 * VH).toFixed(1);
+    const isActive = this._sensorIsActive(eid);
+    const kind  = m.kind || "motion";
+    const color = isActive ? "#ef4444" : "#10b981";
+    const dim   = isActive ? "rgba(239,68,68,0.18)" : "rgba(16,185,129,0.12)";
+    const r     = isActive ? 14 : 10;
+    const label = m.label || this._sensorFriendlyName(eid);
+
+    let iconPath = "";
+    if (kind === "motion" || kind === "occupancy") {
+      iconPath = `<circle cx="${sx}" cy="${sy}" r="4" fill="${color}" opacity="0.9" pointer-events="none"/>`;
+    } else if (kind === "door") {
+      iconPath = `<rect x="${(parseFloat(sx)-3.5).toFixed(1)}" y="${(parseFloat(sy)-5).toFixed(1)}" width="7" height="10" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+    } else if (kind === "window") {
+      iconPath = `<rect x="${(parseFloat(sx)-5).toFixed(1)}" y="${(parseFloat(sy)-3).toFixed(1)}" width="10" height="6" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+    }
+
+    const pulseRing = isActive ? `
+      <circle cx="${sx}" cy="${sy}" r="${r + 5}" fill="none"
+              stroke="${color}" stroke-width="1.5" opacity="0.4"
+              pointer-events="none">
+        <animate attributeName="r" values="${r}; ${r+10}; ${r}" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5; 0; 0.5" dur="1.8s" repeatCount="indefinite"/>
+      </circle>` : "";
+
+    return `
+      ${pulseRing}
+      <circle cx="${sx}" cy="${sy}" r="${r}" fill="${dim}" stroke="${color}"
+              stroke-width="1.5" pointer-events="none"/>
+      ${iconPath}
+      ${isActive ? `<text x="${sx}" y="${(parseFloat(sy) + r + 14).toFixed(1)}"
+            text-anchor="middle" font-family="DM Sans,sans-serif"
+            font-size="16" font-weight="600" fill="${color}" opacity="0.95"
+            pointer-events="none" style="user-select:none">${label}</text>` : ""}
     `;
   }
 
@@ -2594,14 +2712,17 @@ class SecureMePanel extends HTMLElement {
       const my  = ((y1+y2)/2/100*VH).toFixed(1);
       const color = op.type === "window" ? "#fbbf24" : "#e2e8f0";
       const label = op.label || (op.type === "window" ? "Vindue" : "Dor");
-      // In live mode: only show if sensor is open (or no sensor assigned = always show)
-      // In edit/view mode: always show
+      // In live mode: rendered always, but faded via opacity when the sensor
+      // reports closed (or no sensor assigned) -- this lets it fade smoothly
+      // instead of popping in/out of the DOM on every state change.
+      // In edit/view mode: always fully visible.
       const isEditVisible = editMode || liveMode;
       if (!isEditVisible) return "";
+      let liveOpacity = 1;
       if (liveMode) {
-        const eid     = op.entity_id || null;
-        const isOpen  = eid ? this._hass?.states?.[eid]?.state === "on" : false;
-        if (!isOpen) return "";
+        const eid    = op.entity_id || null;
+        const isOpen = eid ? this._hass?.states?.[eid]?.state === "on" : false;
+        liveOpacity = isOpen ? 1 : 0;
       }
       const isSelOp = editMode && this._floorplanSelectedOpening === oi;
 
@@ -2615,6 +2736,7 @@ class SecureMePanel extends HTMLElement {
         : "";
 
       return `
+        <g class="fp-opening-group" data-fp-opening-group="${oi}" style="opacity:${liveMode ? liveOpacity : 1}">
         ${isSelOp ? `
           <line x1="${sx1}" y1="${sy1}" x2="${sx2}" y2="${sy2}"
                 stroke="white" stroke-width="12" stroke-linecap="round"
@@ -2633,54 +2755,17 @@ class SecureMePanel extends HTMLElement {
                 font-size="18" fill="${color}" opacity="${isSelOp ? 1 : 0.9}"
                 pointer-events="none" style="user-select:none">${label}</text>
         ` : ""}
+        </g>
       `;
     }).join("");
 
     // Build SVG sensor pins (live mode: show active/inactive; edit mode: show all)
     const markerEntries = Object.entries(fp.markers || {});
     const svgSensorPins = (liveMode && markerEntries.length > 0) ? markerEntries.map(([eid, m]) => {
-      const x = parseFloat(m.x_pct);
-      const y = parseFloat(m.y_pct);
-      if (isNaN(x) || isNaN(y)) return "";
-      const sx = (x / 100 * VW).toFixed(1);
-      const sy = (y / 100 * VH).toFixed(1);
+      const inner = this._fpRenderSensorPinInner(eid, m);
+      if (!inner) return "";
       const isActive = this._sensorIsActive(eid);
-      const kind  = m.kind || "motion";
-      // Color: active = danger red, inactive = muted green
-      const color = isActive ? "#ef4444" : "#10b981";
-      const dim   = isActive ? "rgba(239,68,68,0.18)" : "rgba(16,185,129,0.12)";
-      const r     = isActive ? 14 : 10;
-      const label = m.label || this._sensorFriendlyName(eid);
-
-      // Inner icon path per kind
-      let iconPath = "";
-      if (kind === "motion" || kind === "occupancy") {
-        iconPath = `<circle cx="${sx}" cy="${sy}" r="4" fill="${color}" opacity="0.9" pointer-events="none"/>`;
-      } else if (kind === "door") {
-        iconPath = `<rect x="${(parseFloat(sx)-3.5).toFixed(1)}" y="${(parseFloat(sy)-5).toFixed(1)}" width="7" height="10" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
-      } else if (kind === "window") {
-        iconPath = `<rect x="${(parseFloat(sx)-5).toFixed(1)}" y="${(parseFloat(sy)-3).toFixed(1)}" width="10" height="6" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
-      }
-
-      // Pulse ring for active sensors
-      const pulseRing = isActive ? `
-        <circle cx="${sx}" cy="${sy}" r="${r + 5}" fill="none"
-                stroke="${color}" stroke-width="1.5" opacity="0.4"
-                pointer-events="none">
-          <animate attributeName="r" values="${r}; ${r+10}; ${r}" dur="1.8s" repeatCount="indefinite"/>
-          <animate attributeName="opacity" values="0.5; 0; 0.5" dur="1.8s" repeatCount="indefinite"/>
-        </circle>` : "";
-
-      return `
-        ${pulseRing}
-        <circle cx="${sx}" cy="${sy}" r="${r}" fill="${dim}" stroke="${color}"
-                stroke-width="1.5" pointer-events="none"/>
-        ${iconPath}
-        ${isActive ? `<text x="${sx}" y="${(parseFloat(sy) + r + 14).toFixed(1)}"
-              text-anchor="middle" font-family="DM Sans,sans-serif"
-              font-size="16" font-weight="600" fill="${color}" opacity="0.95"
-              pointer-events="none" style="user-select:none">${label}</text>` : ""}
-      `;
+      return `<g class="fp-pin" data-fp-pin="${eid}" data-fp-pin-active="${isActive ? 1 : 0}">${inner}</g>`;
     }).join("") : "";
 
     // In-progress drawing preview
@@ -2866,18 +2951,20 @@ class SecureMePanel extends HTMLElement {
                 const pts = room.points || [];
                 if (pts.length < 3) return "";
                 const isActive = this._fpRoomIsActive(room);
-                if (!isActive) return "";
                 const cx = pts.reduce((s,[x])=>s+x,0)/pts.length;
                 const cy = pts.reduce((s,[,y])=>s+y,0)/pts.length;
                 const color = room.color || this._fpRoomColor(idx);
                 return `
-                  <div style="position:absolute;left:${cx}%;top:${cy}%;
+                  <div data-fp-label="${rid}"
+                       style="position:absolute;left:${cx}%;top:${cy}%;
                               transform:translate(-50%,-50%);
                               background:${color}cc;
                               color:#fff;font-size:11px;font-weight:700;
                               padding:3px 8px;border-radius:6px;
                               white-space:nowrap;pointer-events:none;
-                              box-shadow:0 2px 8px rgba(0,0,0,0.5)">
+                              box-shadow:0 2px 8px rgba(0,0,0,0.5);
+                              transition:opacity 0.4s ease;
+                              opacity:${isActive ? 1 : 0}">
                     ${room.name || "Rum"}
                   </div>
                 `;
