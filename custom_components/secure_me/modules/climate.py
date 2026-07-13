@@ -95,6 +95,10 @@ class ClimateModule(AlarmModule):
             "message": "Climate module test passed",
             "details": {"climates": [], "total_zones": len(self.climates)},
         }
+        # Collected instead of overwriting results["message"] each time --
+        # with more than one climate zone, only the LAST issue used to survive
+        # in the summary (details per-zone were always correct).
+        messages: list[str] = []
 
         for climate in self.climates:
             state = self.hass.states.get(climate)
@@ -110,12 +114,15 @@ class ClimateModule(AlarmModule):
 
             if not climate_info["available"]:
                 results["success"] = False
-                results["message"] = f"Climate {climate} unavailable"
+                messages.append(f"Climate {climate} unavailable")
 
             if "away" not in climate_info["preset_modes"] and not self.away_temperature:
-                results["message"] = f"Climate {climate} does not support away mode"
+                messages.append(f"Climate {climate} does not support away mode")
 
             results["details"]["climates"].append(climate_info)
+
+        if messages:
+            results["message"] = "; ".join(messages)
 
         return results
 

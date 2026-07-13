@@ -27,7 +27,6 @@ class CameraModule(AlarmModule):
         self.recording_entities = config.get("recording_entities", [])
         self.poe_delay = self._validate_poe_delay(config.get("poe_delay", DEFAULT_POE_DELAY))
         self.auto_record = config.get("auto_record", False)
-        self._poe_was_on = False
 
         _LOGGER.info(
             "Camera module initialized: %d POE switches, %d cameras, delay=%ds",
@@ -38,9 +37,9 @@ class CameraModule(AlarmModule):
         if not self.enabled:
             return True
 
-        self._poe_was_on = await self._check_poe_status()
+        poe_was_on = await self._check_poe_status()
 
-        if self._poe_was_on:
+        if poe_was_on:
             _LOGGER.info("Camera module: POE already ON - skipping %ds delay", self.poe_delay)
         else:
             _LOGGER.info("Camera module: POE OFF - turning on, waiting %ds", self.poe_delay)
@@ -122,8 +121,16 @@ class CameraModule(AlarmModule):
                 },
             },
         }
+        # Collected instead of overwriting results["message"] each time -- with
+        # more than one problem, only the LAST one used to survive in the
+        # summary (details per-item were always correct, but the one-line
+        # summary silently hid earlier issues).
+        messages: list[str] = []
 
-        # Always check POE switch availability first
+        # Always check POE switch availability first -- check ALL of them
+        # before deciding whether to bail out (previously this returned on
+        # the FIRST unavailable switch, never even looking at the rest).
+        poe_switches_ok = True
         for switch in self.poe_switches:
             available = self.is_entity_available(switch)
             results["details"]["poe_switches"].append({
@@ -133,8 +140,13 @@ class CameraModule(AlarmModule):
             })
             if not available:
                 results["success"] = False
-                results["message"] = f"POE switch {switch} unavailable"
-                return results
+                messages.append(f"POE switch {switch} unavailable")
+                poe_switches_ok = False
+
+        if not poe_switches_ok:
+            if messages:
+                results["message"] = "; ".join(messages)
+            return results
 
         # POE is OFF: turn on, wait for cameras to boot, then test
         if poe_configured and not poe_initially_on:
@@ -144,14 +156,23 @@ class CameraModule(AlarmModule):
             )
             results["details"]["poe_status"]["powered_on_for_test"] = True
 
+            poe_on_ok = True
             for switch in self.poe_switches:
-                await self.async_call_service_with_retry(
+                if not await self.async_call_service_with_retry(
                     "switch", "turn_on",
                     target={"entity_id": switch},
                     action=f"test_poe_on:{switch}",
-                )
+                ):
+                    poe_on_ok = False
 
-            await asyncio.sleep(self.poe_delay)
+            if not poe_on_ok:
+                # Retries already exhausted -- cameras will very likely still
+                # be unavailable below, but don't wait poe_delay seconds and
+                # don't silently continue as if power-on succeeded.
+                results["success"] = False
+                messages.append("Failed to turn on POE switch(es) for test")
+            else:
+                await asyncio.sleep(self.poe_delay)
 
         elif poe_configured and poe_initially_on:
             # POE already on — test immediately, save poe_delay seconds
@@ -169,7 +190,7 @@ class CameraModule(AlarmModule):
             })
             if not available:
                 results["success"] = False
-                results["message"] = f"Camera {camera} unavailable after POE on"
+                messages.append(f"Camera {camera} unavailable after POE on")
 
         for entity in self.recording_entities:
             results["details"]["recording_entities"].append({
@@ -181,11 +202,23 @@ class CameraModule(AlarmModule):
         # Restore POE to OFF if it was off before the test
         if poe_configured and not poe_initially_on:
             _LOGGER.info("Camera test: restoring POE to OFF (initial state)")
+            restore_ok = True
             for switch in self.poe_switches:
-                await self.async_call_service(
+                if not await self.async_call_service_with_retry(
                     "switch", "turn_off",
                     target={"entity_id": switch},
-                )
+                    action=f"test_poe_restore_off:{switch}",
+                ):
+                    restore_ok = False
+            results["details"]["poe_status"]["restored_to_off"] = restore_ok
+            if not restore_ok:
+                # Retries already exhausted -- surface this instead of leaving
+                # the user unaware that POE/cameras are now stuck powered on.
+                results["success"] = False
+                messages.append("Failed to restore POE to OFF afterwards")
+
+        if messages:
+            results["message"] = "; ".join(messages)
 
         return results
 

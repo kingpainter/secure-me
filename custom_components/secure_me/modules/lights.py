@@ -124,8 +124,17 @@ class LightsModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "Lights module test passed",
-            "details": {"lights": [], "backup_restore": False, "emergency_flash": False},
+            "details": {
+                "lights": [],
+                "steady_lights": [],
+                "backup_restore": False,
+                "emergency_flash": False,
+            },
         }
+        # Collected instead of overwriting results["message"] each time --
+        # with more than one broken light, only the LAST one used to survive
+        # in the summary (details per-light were always correct).
+        messages: list[str] = []
 
         for light in self.lights:
             state = self.hass.states.get(light)
@@ -137,8 +146,23 @@ class LightsModule(AlarmModule):
             }
             if not light_info["available"]:
                 results["success"] = False
-                results["message"] = f"Light {light} unavailable"
+                messages.append(f"Light {light} unavailable")
             results["details"]["lights"].append(light_info)
+
+        # steady_lights were previously never checked here at all -- a Full
+        # test could report success even if every steady light was broken.
+        for light in self.steady_lights:
+            state = self.hass.states.get(light)
+            light_info = {
+                "entity_id": light,
+                "available": self.is_entity_available(light),
+                "state": state.state if state else None,
+                "brightness": state.attributes.get("brightness") if state else None,
+            }
+            if not light_info["available"]:
+                results["success"] = False
+                messages.append(f"Steady light {light} unavailable")
+            results["details"]["steady_lights"].append(light_info)
 
         # Backup/restore test
         test_light = self.lights[0] if self.lights else None
@@ -161,6 +185,9 @@ class LightsModule(AlarmModule):
                 results["details"]["emergency_flash"] = True
             except Exception:
                 pass
+
+        if messages:
+            results["message"] = "; ".join(messages)
 
         return results
 

@@ -2,7 +2,7 @@
 # VERSION = "1.2.0"
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from .conftest import MockModule, MockHass
 
 
@@ -146,105 +146,48 @@ class TestModuleHealth:
 
 
 class TestLockModuleFunctional:
-    """Tests for LockModule async_test() functional lock/unlock cycle."""
+    """Tests for the REAL LockModule.async_test() (custom_components.secure_me.modules.lock).
+
+    Previously this class tested a hand-written FakeLockModule that reimplemented
+    the logic independently -- it could pass even if the real module diverged
+    (and it had, silently: the real module used to leave the lock unlocked after
+    testing an unlocked lock, and never functionally tested a lock that started
+    locked). These tests now import and exercise the real class directly.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_real_sleep(self):
+        """async_test() uses real asyncio.sleep(2) between lock/unlock steps.
+
+        Patched here so the test suite doesn't take 4s+ per lock -- this does not
+        change production behaviour, only how fast the test observes it.
+        """
+        with patch("custom_components.secure_me.modules.lock.asyncio.sleep", new=AsyncMock()):
+            yield
+
+    def _wire_service_calls(self, hass):
+        """Make hass.services.async_call flip lock state, mimicking a real lock."""
+        async def _handle(domain, service, service_data=None, target=None, blocking=True):
+            eid = (target or {}).get("entity_id", "")
+            if domain == "lock" and service == "unlock":
+                hass.set_state(eid, "unlocked")
+            elif domain == "lock" and service == "lock":
+                hass.set_state(eid, "locked")
+        hass.services.async_call = AsyncMock(side_effect=_handle)
 
     def _make_lock_module(self, hass, locks=None, door_sensors=None, battery_sensors=None):
-        import asyncio
-
-        class FakeLockModule:
-            def __init__(self):
-                self.hass = hass
-                self.locks = locks or []
-                self.door_sensors = door_sensors or {}
-                self.battery_sensors = battery_sensors or {}
-                self._call_log = []
-
-            def is_entity_available(self, eid):
-                state = self.hass.states.get(eid)
-                return bool(state and state.state not in ("unavailable", "unknown"))
-
-            def get_entity_state(self, eid):
-                state = self.hass.states.get(eid)
-                return state.state if state else None
-
-            async def async_call_service(self, domain, service, target=None, data=None):
-                eid = (target or {}).get("entity_id", "")
-                self._call_log.append((domain, service, eid))
-                if service == "unlock":
-                    self.hass.set_state(eid, "unlocked")
-                elif service == "lock":
-                    self.hass.set_state(eid, "locked")
-                return True
-
-            async def async_test(self):
-                results = {
-                    "success": True,
-                    "message": "Lock module test passed",
-                    "details": {"locks": [], "total_locks": len(self.locks), "functional_test": True},
-                }
-                for lock in self.locks:
-                    lock_info = {
-                        "entity_id": lock,
-                        "available": self.is_entity_available(lock),
-                        "initial_state": self.get_entity_state(lock),
-                        "battery": None,
-                        "door_sensor": None,
-                        "unlock_ok": None,
-                        "relock_ok": None,
-                        "test_passed": False,
-                        "skip_reason": None,
-                    }
-                    battery_sensor = self.battery_sensors.get(lock)
-                    if battery_sensor:
-                        try:
-                            level = int(float(self.get_entity_state(battery_sensor) or ""))
-                            lock_info["battery"] = level
-                            if level < 20:
-                                results["message"] = f"Lock {lock} battery low ({level}%)"
-                        except (ValueError, TypeError):
-                            pass
-                    door_sensor = self.door_sensors.get(lock)
-                    if door_sensor:
-                        door_state = self.get_entity_state(door_sensor)
-                        lock_info["door_sensor"] = {"entity_id": door_sensor, "state": door_state}
-                        if door_state == "on":
-                            lock_info["skip_reason"] = "door_open"
-                            lock_info["test_passed"] = True
-                            results["details"]["locks"].append(lock_info)
-                            continue
-                    if not lock_info["available"]:
-                        lock_info["test_passed"] = False
-                        results["success"] = False
-                        results["message"] = f"Lock {lock} unavailable"
-                        results["details"]["locks"].append(lock_info)
-                        continue
-                    try:
-                        await self.async_call_service("lock", "unlock", target={"entity_id": lock})
-                        await asyncio.sleep(0)
-                        unlock_state = self.get_entity_state(lock)
-                        lock_info["unlock_ok"] = unlock_state == "unlocked"
-                        await self.async_call_service("lock", "lock", target={"entity_id": lock})
-                        await asyncio.sleep(0)
-                        relock_state = self.get_entity_state(lock)
-                        lock_info["relock_ok"] = relock_state == "locked"
-                        lock_info["final_state"] = self.get_entity_state(lock)
-                        lock_info["test_passed"] = lock_info["unlock_ok"] and lock_info["relock_ok"]
-                        if not lock_info["test_passed"]:
-                            results["success"] = False
-                            results["message"] = f"Lock {lock} functional test failed"
-                    except Exception as err:
-                        lock_info["test_passed"] = False
-                        lock_info["error"] = str(err)
-                        results["success"] = False
-                        results["message"] = f"Lock {lock} test error: {err}"
-                    results["details"]["locks"].append(lock_info)
-                return results
-
-        return FakeLockModule()
+        from custom_components.secure_me.modules.lock import LockModule
+        config = {
+            "locks": locks or [],
+            "door_sensors": door_sensors or {},
+            "battery_sensors": battery_sensors or {},
+        }
+        return LockModule(hass, config)
 
     @pytest.mark.asyncio
     async def test_lock_functional_test_passes(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
         assert result["success"] is True
@@ -255,17 +198,36 @@ class TestLockModuleFunctional:
         assert lock_info["final_state"] == "locked"
 
     @pytest.mark.asyncio
-    async def test_lock_always_ends_locked(self, mock_hass):
+    async def test_lock_always_ends_locked_when_starting_unlocked(self, mock_hass):
+        """Regression test for the bug this class used to hide: starting unlocked
+        must still end locked, not be relocked-then-unlocked-again."""
         mock_hass.set_state("lock.front", "unlocked")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
         assert mock_hass.states.get("lock.front").state == "locked"
-        assert result["details"]["locks"][0]["relock_ok"] is True
+        lock_info = result["details"]["locks"][0]
+        assert lock_info["relock_ok"] is True
+        assert lock_info["unlock_ok"] is None  # never attempted -- was already unlocked
+
+    @pytest.mark.asyncio
+    async def test_lock_starting_locked_is_actually_exercised(self, mock_hass):
+        """Regression test: a lock that starts locked must be functionally tested
+        (unlock -> verify -> relock -> verify), not rubber-stamped as passed."""
+        mock_hass.set_state("lock.front", "locked")
+        self._wire_service_calls(mock_hass)
+        mod = self._make_lock_module(mock_hass, locks=["lock.front"])
+        result = await mod.async_test()
+        assert mock_hass.services.async_call.call_count == 2  # unlock + relock
+        lock_info = result["details"]["locks"][0]
+        assert lock_info["unlock_ok"] is True
+        assert lock_info["relock_ok"] is True
 
     @pytest.mark.asyncio
     async def test_lock_skipped_when_door_open(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("binary_sensor.door", "on")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(
             mock_hass,
             locks=["lock.front"],
@@ -276,11 +238,12 @@ class TestLockModuleFunctional:
         lock_info = result["details"]["locks"][0]
         assert lock_info["skip_reason"] == "door_open"
         assert lock_info["test_passed"] is True
-        assert len(mod._call_log) == 0
+        mock_hass.services.async_call.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_lock_unavailable_fails(self, mock_hass):
         mock_hass.set_state("lock.front", "unavailable")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
         assert result["success"] is False
@@ -292,6 +255,7 @@ class TestLockModuleFunctional:
     async def test_lock_battery_low_warning(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("sensor.front_battery", "15")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(
             mock_hass,
             locks=["lock.front"],
@@ -304,6 +268,7 @@ class TestLockModuleFunctional:
     @pytest.mark.asyncio
     async def test_lock_reports_unlock_and_relock_separately(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
         lock_info = result["details"]["locks"][0]
@@ -316,6 +281,7 @@ class TestLockModuleFunctional:
     async def test_multiple_locks_all_pass(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("lock.back", "locked")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front", "lock.back"])
         result = await mod.async_test()
         assert result["success"] is True
@@ -326,6 +292,7 @@ class TestLockModuleFunctional:
     async def test_multiple_locks_one_unavailable(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("lock.back", "unavailable")
+        self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front", "lock.back"])
         result = await mod.async_test()
         assert result["success"] is False
@@ -333,6 +300,134 @@ class TestLockModuleFunctional:
         back = next(l for l in result["details"]["locks"] if l["entity_id"] == "lock.back")
         assert front["test_passed"] is True
         assert back["test_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_locks_all_appear_in_summary_message(self, mock_hass):
+        """Regression: with 2+ problems, only the LAST one used to survive in
+        results['message'] -- the first was silently dropped from the summary
+        (though always present in the per-lock details)."""
+        mock_hass.set_state("lock.front", "unavailable")
+        mock_hass.set_state("lock.back", "unavailable")
+        self._wire_service_calls(mock_hass)
+        mod = self._make_lock_module(mock_hass, locks=["lock.front", "lock.back"])
+        result = await mod.async_test()
+        assert "lock.front" in result["message"]
+        assert "lock.back" in result["message"]
+
+
+class TestSirenModuleDomainHandling:
+    """Regression tests for the REAL SirenModule (custom_components.secure_me.modules.siren).
+
+    Previously an unsupported-domain siren entity (e.g. a renamed/misconfigured
+    entity, or a media_player-based siren) failed completely silently: no
+    exception, no notification, just a debug-level log line nobody sees. During
+    a real trigger this meant a siren could simply never sound. During the Test
+    tab it meant `test_fired: true` was reported even though nothing happened --
+    a false-positive safety test. No test file previously covered this module
+    at all.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_real_sleep(self):
+        with patch("custom_components.secure_me.modules.siren.asyncio.sleep", new=AsyncMock()):
+            yield
+
+    def _make_hass(self):
+        hass = MockHass()
+        hass.components = MagicMock()
+        hass.components.persistent_notification = MagicMock()
+        hass.components.persistent_notification.async_create = MagicMock()
+        hass.services.async_call = AsyncMock()
+        return hass
+
+    def _make_siren(self, hass, sirens=None):
+        from custom_components.secure_me.modules.siren import SirenModule
+        return SirenModule(hass, {"sirens": sirens or []})
+
+    @pytest.mark.asyncio
+    async def test_turn_on_supported_siren_domain_returns_true(self):
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        assert await mod._turn_on_entity("siren.front", 50) is True
+
+    @pytest.mark.asyncio
+    async def test_turn_on_supported_switch_domain_returns_true(self):
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        assert await mod._turn_on_entity("switch.siren_relay", 50) is True
+
+    @pytest.mark.asyncio
+    async def test_turn_on_unsupported_domain_returns_false(self):
+        """Regression: this used to return None and look like success."""
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        assert await mod._turn_on_entity("media_player.kitchen", 50) is False
+
+    @pytest.mark.asyncio
+    async def test_turn_on_unsupported_domain_sets_degraded(self):
+        """Regression: a misconfigured siren must now surface as degraded."""
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        await mod._turn_on_entity("media_player.kitchen", 50)
+        assert mod.degraded is True
+
+    @pytest.mark.asyncio
+    async def test_turn_on_unsupported_domain_fires_notification(self):
+        """Regression: this used to fail completely silently."""
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        await mod._turn_on_entity("media_player.kitchen", 50)
+        hass.components.persistent_notification.async_create.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off_unsupported_domain_returns_false(self):
+        hass = self._make_hass()
+        mod = self._make_siren(hass)
+        assert await mod._turn_off_entity("media_player.kitchen") is False
+
+    @pytest.mark.asyncio
+    async def test_async_test_fails_for_unsupported_domain_entity(self):
+        """Regression: async_test() used to report test_fired=True (false positive)
+        for an entity that never actually did anything."""
+        hass = self._make_hass()
+        hass.set_state("media_player.kitchen", "idle")
+        mod = self._make_siren(hass, sirens=[{"entity_id": "media_player.kitchen"}])
+        result = await mod.async_test()
+        entity_result = result["details"]["entities_tested"][0]
+        assert entity_result["test_fired"] is False
+        assert result["success"] is False
+
+    @pytest.mark.asyncio
+    async def test_async_test_passes_for_supported_switch_domain(self):
+        hass = self._make_hass()
+        hass.set_state("switch.siren_relay", "off")
+        mod = self._make_siren(hass, sirens=[{"entity_id": "switch.siren_relay"}])
+        result = await mod.async_test()
+        entity_result = result["details"]["entities_tested"][0]
+        assert entity_result["test_fired"] is True
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_async_test_passes_for_native_siren_domain(self):
+        hass = self._make_hass()
+        hass.set_state("siren.front", "off")
+        mod = self._make_siren(hass, sirens=[{"entity_id": "siren.front"}])
+        result = await mod.async_test()
+        entity_result = result["details"]["entities_tested"][0]
+        assert entity_result["test_fired"] is True
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_entities_all_appear_in_summary_message(self):
+        """Regression: only the LAST problem used to survive in results['message']."""
+        hass = self._make_hass()
+        # both entities missing from hass -> both unavailable
+        mod = self._make_siren(hass, sirens=[
+            {"entity_id": "siren.front"}, {"entity_id": "siren.back"},
+        ])
+        result = await mod.async_test()
+        assert "siren.front" in result["message"]
+        assert "siren.back" in result["message"]
 
 
 class TestAlarmCycleTest:
@@ -580,3 +675,285 @@ class TestSeveritySystem:
         }
         expected = {"environmental", "contact", "motion", "presence"}
         assert set(SENSOR_SEVERITY.keys()) == expected
+
+
+class TestTTSSpeakerTargeting:
+    """Regression tests for the REAL TTSModule._play_message speaker targeting.
+
+    Previously, a message targeted at specific speakers (msg['speakers']) that
+    no longer matched any configured profile (e.g. a renamed/removed speaker)
+    silently fell back to announcing on ALL speakers instead of being skipped.
+    A message meant for one room could unexpectedly announce house-wide.
+    """
+
+    def _make_hass(self):
+        hass = MockHass()
+        hass.services.async_call = AsyncMock()
+        return hass
+
+    def _profile(self, entity_id, name):
+        return {
+            "entity_id": entity_id, "name": name, "volume": 0.5,
+            "tts_service": "tts.cloud_say", "tts_entity": "tts.home_assistant_cloud",
+        }
+
+    def _make_tts(self, hass, speaker_profiles=None):
+        from custom_components.secure_me.modules.tts import TTSModule
+        return TTSModule(hass, {"speaker_profiles": speaker_profiles or []})
+
+    @pytest.mark.asyncio
+    async def test_targeted_message_no_match_skips_instead_of_broadcasting(self):
+        """Regression: this used to fall back to announcing on ALL speakers."""
+        hass = self._make_hass()
+        mod = self._make_tts(hass, [self._profile("media_player.kitchen", "Kitchen")])
+        mod._play_on_speakers = AsyncMock()
+        msg = {"type": "tts", "message": "Hello", "speakers": ["media_player.removed"]}
+        await mod._play_message(msg)
+        mod._play_on_speakers.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_targeted_message_plays_only_on_matching_speaker(self):
+        hass = self._make_hass()
+        mod = self._make_tts(hass, [
+            self._profile("media_player.kitchen", "Kitchen"),
+            self._profile("media_player.living", "Living"),
+        ])
+        mod._play_on_speakers = AsyncMock()
+        msg = {"type": "tts", "message": "Hello", "speakers": ["media_player.kitchen"]}
+        await mod._play_message(msg)
+        mod._play_on_speakers.assert_called_once()
+        called_speakers = mod._play_on_speakers.call_args.args[1]
+        assert {s["entity_id"] for s in called_speakers} == {"media_player.kitchen"}
+
+    @pytest.mark.asyncio
+    async def test_untargeted_message_plays_on_all_speakers(self):
+        hass = self._make_hass()
+        mod = self._make_tts(hass, [
+            self._profile("media_player.kitchen", "Kitchen"),
+            self._profile("media_player.living", "Living"),
+        ])
+        mod._play_on_speakers = AsyncMock()
+        msg = {"type": "tts", "message": "Hello"}  # no 'speakers' key -> all
+        await mod._play_message(msg)
+        called_speakers = mod._play_on_speakers.call_args.args[1]
+        assert {s["entity_id"] for s in called_speakers} == {"media_player.kitchen", "media_player.living"}
+
+
+class TestLightsModuleSteadyLightsCoverage:
+    """Regression: async_test() previously never checked steady_lights at all --
+    a Full test could report success=True even if every steady light was broken."""
+
+    def _make_lights(self, hass, lights=None, steady_lights=None):
+        from custom_components.secure_me.modules.lights import LightsModule
+        return LightsModule(hass, {"lights": lights or [], "steady_lights": steady_lights or []})
+
+    @pytest.mark.asyncio
+    async def test_steady_lights_included_in_test_details(self, mock_hass):
+        mock_hass.set_state("light.steady1", "on", {"brightness": 255})
+        mod = self._make_lights(mock_hass, steady_lights=["light.steady1"])
+        result = await mod.async_test()
+        assert len(result["details"]["steady_lights"]) == 1
+        assert result["details"]["steady_lights"][0]["entity_id"] == "light.steady1"
+
+    @pytest.mark.asyncio
+    async def test_unavailable_steady_light_fails_test(self, mock_hass):
+        """Regression: this used to report success=True regardless."""
+        mock_hass.set_state("light.steady1", "unavailable")
+        mod = self._make_lights(mock_hass, steady_lights=["light.steady1"])
+        result = await mod.async_test()
+        assert result["success"] is False
+        assert "Steady light" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_available_steady_light_does_not_fail_test(self, mock_hass):
+        mock_hass.set_state("light.steady1", "on")
+        mod = self._make_lights(mock_hass, steady_lights=["light.steady1"])
+        result = await mod.async_test()
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_lights_all_appear_in_summary_message(self, mock_hass):
+        """Regression: only the LAST problem used to survive in results['message']."""
+        mock_hass.set_state("light.a", "unavailable")
+        mock_hass.set_state("light.b", "unavailable")
+        mod = self._make_lights(mock_hass, lights=["light.a", "light.b"])
+        result = await mod.async_test()
+        assert "light.a" in result["message"]
+        assert "light.b" in result["message"]
+
+
+class TestCameraModulePoeRestoreRetry:
+    """Regression: async_test() previously restored POE to OFF with a single,
+    non-retried service call and silently ignored failure -- cameras could be
+    left powered on indefinitely with zero notification to the user."""
+
+    @pytest.fixture(autouse=True)
+    def _no_real_sleep(self):
+        with patch("custom_components.secure_me.modules.camera.asyncio.sleep", new=AsyncMock()), \
+             patch("custom_components.secure_me.modules.base.asyncio.sleep", new=AsyncMock()):
+            yield
+
+    def _make_hass(self):
+        hass = MockHass()
+        hass.components = MagicMock()
+        hass.components.persistent_notification = MagicMock()
+        hass.components.persistent_notification.async_create = MagicMock()
+        return hass
+
+    def _make_camera(self, hass, poe_switches=None, cameras=None):
+        from custom_components.secure_me.modules.camera import CameraModule
+        return CameraModule(hass, {
+            "poe_switches": poe_switches or [], "cameras": cameras or [], "poe_delay": 30,
+        })
+
+    @pytest.mark.asyncio
+    async def test_poe_restored_off_successfully(self):
+        hass = self._make_hass()
+        hass.set_state("switch.poe1", "off")
+
+        async def _handle(domain, service, service_data=None, target=None, blocking=True):
+            eid = (target or {}).get("entity_id", "")
+            if domain == "switch" and service == "turn_off":
+                hass.set_state(eid, "off")
+            elif domain == "switch" and service == "turn_on":
+                hass.set_state(eid, "on")
+        hass.services.async_call = AsyncMock(side_effect=_handle)
+
+        mod = self._make_camera(hass, poe_switches=["switch.poe1"])
+        result = await mod.async_test()
+        assert result["details"]["poe_status"]["restored_to_off"] is True
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_poe_restore_failure_is_surfaced(self):
+        """Regression: this used to be silently swallowed."""
+        hass = self._make_hass()
+        hass.set_state("switch.poe1", "off")
+        hass.services.async_call = AsyncMock(side_effect=Exception("network error"))
+
+        mod = self._make_camera(hass, poe_switches=["switch.poe1"])
+        result = await mod.async_test()
+        assert result["details"]["poe_status"]["restored_to_off"] is False
+        assert result["success"] is False
+        assert "restore POE" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_poe_switches_all_checked_and_reported(self):
+        """Regression: previously this returned on the FIRST unavailable POE
+        switch and never even looked at the rest -- both details and the
+        summary message were incomplete."""
+        hass = self._make_hass()
+        hass.set_state("switch.poe1", "unavailable")
+        hass.set_state("switch.poe2", "unavailable")
+        hass.services.async_call = AsyncMock()
+
+        mod = self._make_camera(hass, poe_switches=["switch.poe1", "switch.poe2"])
+        result = await mod.async_test()
+        assert len(result["details"]["poe_switches"]) == 2
+        assert "switch.poe1" in result["message"]
+        assert "switch.poe2" in result["message"]
+
+
+class TestTTSModuleMessageAggregation:
+    """Regression: only the LAST unavailable speaker used to survive in
+    results['message'] -- details per-speaker were always correct."""
+
+    def _make_hass(self):
+        hass = MockHass()
+        hass.services.async_call = AsyncMock()
+        return hass
+
+    def _profile(self, entity_id, name):
+        return {
+            "entity_id": entity_id, "name": name, "volume": 0.5,
+            "tts_service": "tts.cloud_say", "tts_entity": "tts.home_assistant_cloud",
+        }
+
+    def _make_tts(self, hass, speaker_profiles=None):
+        from custom_components.secure_me.modules.tts import TTSModule
+        return TTSModule(hass, {"speaker_profiles": speaker_profiles or []})
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_speakers_all_appear_in_summary_message(self):
+        hass = self._make_hass()
+        hass.set_state("media_player.kitchen", "unavailable")
+        hass.set_state("media_player.living", "unavailable")
+        mod = self._make_tts(hass, [
+            self._profile("media_player.kitchen", "Kitchen"),
+            self._profile("media_player.living", "Living"),
+        ])
+        result = await mod.async_test()
+        assert "media_player.kitchen" in result["message"]
+        assert "media_player.living" in result["message"]
+
+
+class TestClimateModule:
+    """Tests for the REAL ClimateModule (custom_components.secure_me.modules.climate).
+
+    This module had no dedicated test coverage at all before this session.
+    """
+
+    def _make_climate(self, hass, climates=None, away_temperature=None):
+        from custom_components.secure_me.modules.climate import ClimateModule
+        return ClimateModule(hass, {
+            "climates": climates or [], "away_temperature": away_temperature,
+        })
+
+    @pytest.mark.asyncio
+    async def test_available_climate_with_away_preset_passes(self, mock_hass):
+        mock_hass.set_state("climate.living", "heat", {
+            "preset_modes": ["home", "away"], "preset_mode": "home",
+            "current_temperature": 21, "temperature": 21,
+        })
+        mod = self._make_climate(mock_hass, climates=["climate.living"])
+        result = await mod.async_test()
+        assert result["success"] is True
+        info = result["details"]["climates"][0]
+        assert info["available"] is True
+        assert info["preset_modes"] == ["home", "away"]
+
+    @pytest.mark.asyncio
+    async def test_unavailable_climate_fails_test(self, mock_hass):
+        mock_hass.set_state("climate.living", "unavailable")
+        mod = self._make_climate(mock_hass, climates=["climate.living"])
+        result = await mod.async_test()
+        assert result["success"] is False
+        assert "Climate" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_climate_without_away_support_or_temperature_is_informational_only(self, mock_hass):
+        """No 'away' preset and no away_temperature configured -- this is a
+        warning-style note in the message, not a test failure."""
+        mock_hass.set_state("climate.living", "heat", {"preset_modes": ["home"]})
+        mod = self._make_climate(mock_hass, climates=["climate.living"])
+        result = await mod.async_test()
+        assert result["success"] is True
+        assert "does not support away mode" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_climate_with_away_temperature_configured_no_warning(self, mock_hass):
+        mock_hass.set_state("climate.living", "heat", {"preset_modes": ["home"]})
+        mod = self._make_climate(mock_hass, climates=["climate.living"], away_temperature=16)
+        result = await mod.async_test()
+        assert result["message"] == "Climate module test passed"
+
+    @pytest.mark.asyncio
+    async def test_multiple_unavailable_climates_all_appear_in_summary_message(self, mock_hass):
+        """Regression: only the LAST issue used to survive in results['message']."""
+        mock_hass.set_state("climate.living", "unavailable")
+        mock_hass.set_state("climate.bedroom", "unavailable")
+        mod = self._make_climate(mock_hass, climates=["climate.living", "climate.bedroom"])
+        result = await mod.async_test()
+        assert "climate.living" in result["message"]
+        assert "climate.bedroom" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_missing_climate_state_handled_gracefully(self, mock_hass):
+        """Entity not in HA states at all -- must not raise, must report unavailable."""
+        mod = self._make_climate(mock_hass, climates=["climate.missing"])
+        result = await mod.async_test()
+        assert result["success"] is False
+        info = result["details"]["climates"][0]
+        assert info["available"] is False
+        assert info["current_temperature"] is None
+        assert info["preset_modes"] == []

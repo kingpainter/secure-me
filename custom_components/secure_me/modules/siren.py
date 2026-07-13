@@ -61,42 +61,56 @@ class SirenModule(AlarmModule):
         """Return HA domain of an entity_id."""
         return entity_id.split(".")[0] if "." in entity_id else ""
 
-    async def _turn_on_entity(self, entity_id: str, volume: int = 80) -> None:
-        """Turn on a siren, switch, or input_boolean entity."""
+    async def _turn_on_entity(self, entity_id: str, volume: int = 80) -> bool:
+        """Turn on a siren, switch, or input_boolean entity.
+
+        Returns True only if a supported domain action was actually attempted.
+        An unsupported domain (misconfigured/renamed entity) now fires the
+        module's degraded notification instead of only logging a warning --
+        previously this failed completely silently, both during a real
+        trigger and during the Test tab's functional test.
+        """
         domain = self._domain(entity_id)
         if domain == "siren":
-            await self.async_call_service_with_retry(
+            return await self.async_call_service_with_retry(
                 "siren", "turn_on",
                 target={"entity_id": entity_id},
                 service_data={"volume_level": volume / 100.0},
                 action=f"siren_on_{entity_id}",
             )
         elif domain in ONOFF_DOMAINS:
-            await self.async_call_service_with_retry(
+            return await self.async_call_service_with_retry(
                 "homeassistant", "turn_on",
                 target={"entity_id": entity_id},
                 action=f"onoff_siren_on_{entity_id}",
             )
         else:
             _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+            self._on_failure(f"unsupported_domain:{entity_id}")
+            return False
 
-    async def _turn_off_entity(self, entity_id: str) -> None:
-        """Turn off a siren, switch, or input_boolean entity."""
+    async def _turn_off_entity(self, entity_id: str) -> bool:
+        """Turn off a siren, switch, or input_boolean entity.
+
+        Returns True only if a supported domain action was actually attempted.
+        """
         domain = self._domain(entity_id)
         if domain == "siren":
-            await self.async_call_service_with_retry(
+            return await self.async_call_service_with_retry(
                 "siren", "turn_off",
                 target={"entity_id": entity_id},
                 action=f"siren_off_{entity_id}",
             )
         elif domain in ONOFF_DOMAINS:
-            await self.async_call_service_with_retry(
+            return await self.async_call_service_with_retry(
                 "homeassistant", "turn_off",
                 target={"entity_id": entity_id},
                 action=f"onoff_siren_off_{entity_id}",
             )
         else:
             _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+            self._on_failure(f"unsupported_domain:{entity_id}")
+            return False
 
     async def _auto_off_after(self, entity_id: str, duration: int) -> None:
         """Auto-turn-off entity after duration seconds."""
@@ -208,6 +222,10 @@ class SirenModule(AlarmModule):
                 "light_test": False,
             },
         }
+        # Collected instead of overwriting results["message"] each time --
+        # with more than one siren/gateway problem, only the LAST one used to
+        # survive in the summary (details per-entity were always correct).
+        messages: list[str] = []
 
         # Test generic entities
         for entry in self.sirens:
@@ -224,17 +242,20 @@ class SirenModule(AlarmModule):
             }
             if available:
                 try:
-                    await self._turn_on_entity(entity_id, 50)
+                    turned_on = await self._turn_on_entity(entity_id, 50)
                     await asyncio.sleep(2)
-                    await self._turn_off_entity(entity_id)
-                    entity_result["test_fired"] = True
+                    turned_off = await self._turn_off_entity(entity_id)
+                    entity_result["test_fired"] = bool(turned_on and turned_off)
+                    if not entity_result["test_fired"]:
+                        results["success"] = False
+                        messages.append(f"Test failed for {entity_id} (unsupported domain or service call failed)")
                 except Exception as err:
                     _LOGGER.error("Siren entity test failed for %s: %s", entity_id, err)
                     results["success"] = False
-                    results["message"] = f"Test failed for {entity_id}"
+                    messages.append(f"Test failed for {entity_id}")
             else:
                 results["success"] = False
-                results["message"] = f"Entity {entity_id} unavailable"
+                messages.append(f"Entity {entity_id} unavailable")
             results["details"]["entities_tested"].append(entity_result)
 
         # Legacy gateway light info
@@ -247,7 +268,7 @@ class SirenModule(AlarmModule):
             }
             if not available:
                 results["success"] = False
-                results["message"] = f"Gateway light {self.gateway_light} unavailable"
+                messages.append(f"Gateway light {self.gateway_light} unavailable")
 
         if self.gateway_mac:
             try:
@@ -264,7 +285,7 @@ class SirenModule(AlarmModule):
             except Exception as err:
                 _LOGGER.error("Siren sound test failed: %s", err)
                 results["success"] = False
-                results["message"] = "Siren sound test failed"
+                messages.append("Siren sound test failed")
 
         if self.gateway_light:
             try:
@@ -279,6 +300,9 @@ class SirenModule(AlarmModule):
                 results["details"]["light_test"] = True
             except Exception as err:
                 _LOGGER.error("Siren light test failed: %s", err)
+
+        if messages:
+            results["message"] = "; ".join(messages)
 
         return results
 

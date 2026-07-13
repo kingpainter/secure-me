@@ -570,6 +570,22 @@ def _get_module_entity_ids(module) -> list[str]:
     return list(set(entities))  # Remove duplicates
 
 
+def _classify_module_status(module, unavail: list) -> str:
+    """Classify a module's health badge status for the frontend.
+
+    Precedence: disabled > degraded > error (unavailable entities) > ok.
+    Extracted as its own function so it can be unit-tested directly instead
+    of only indirectly through the full get_health_summary websocket handler.
+    """
+    if not module.enabled:
+        return "disabled"
+    if getattr(module, "degraded", False):
+        return "degraded"
+    if unavail:
+        return "error"
+    return "ok"
+
+
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/get_health_summary",
 })
@@ -606,9 +622,8 @@ async def ws_get_health_summary(
                 "total": len(entities),
                 "available": len(avail),
                 "unavailable": unavail,
-                "status": "disabled" if not module.enabled else (
-                    "problem" if unavail else "ok"
-                ),
+                "degraded": getattr(module, "degraded", False),
+                "status": _classify_module_status(module, unavail),
             }
 
     health_score = round((available_entities / total_entities) * 100) if total_entities > 0 else 100

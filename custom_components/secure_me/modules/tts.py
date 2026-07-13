@@ -188,6 +188,11 @@ class TTSModule(AlarmModule):
                 "test_announcement": False,
             },
         }
+        # Collected instead of overwriting results["message"] each time --
+        # with more than one broken speaker, only the LAST one used to
+        # survive in the summary (details per-speaker were always correct).
+        messages: list[str] = []
+
         for sp in speakers:
             eid = sp.get("entity_id", "")
             state = self.hass.states.get(eid)
@@ -201,7 +206,7 @@ class TTSModule(AlarmModule):
             }
             if not info["available"]:
                 results["success"] = False
-                results["message"] = f"Speaker {eid} unavailable"
+                messages.append(f"Speaker {eid} unavailable")
             results["details"]["speakers"].append(info)
 
         test_msg = next((m for m in self.custom_messages if m.get("enabled", True)), None)
@@ -212,7 +217,11 @@ class TTSModule(AlarmModule):
             except Exception as err:
                 _LOGGER.error("TTS test failed: %s", err)
                 results["success"] = False
-                results["message"] = "TTS announcement test failed"
+                messages.append("TTS announcement test failed")
+
+        if messages:
+            results["message"] = "; ".join(messages)
+
         return results
 
     # -- Internal ------------------------------------------------------------
@@ -339,8 +348,16 @@ class TTSModule(AlarmModule):
         speakers = self.get_speakers()
         if msg_speaker_ids:
             speakers = [s for s in speakers if s.get("entity_id") in msg_speaker_ids]
-        if not speakers:
-            speakers = self.get_speakers()
+            if not speakers:
+                # Targeted message but none of the target entity_ids are currently
+                # configured (renamed/removed speaker) -- skip it rather than
+                # falling back to announcing on every speaker in the house.
+                _LOGGER.warning(
+                    "TTS message '%s' targets speakers %s but none are currently "
+                    "configured -- skipping",
+                    msg.get("name", "?"), msg_speaker_ids,
+                )
+                return
 
         await self._play_on_speakers(text, speakers, test_mode=test_mode)
 
