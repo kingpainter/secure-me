@@ -686,10 +686,16 @@ alarm Lovelace card. Buttons are loaded dynamically via
 - 4-digit PIN entry, OK confirmation required (no auto-submit)
 - 5 arm modes (away, home, night, vacation, home_alone)
 - Live exit/entry countdown via `_manageCdTicker()` (1s setInterval)
-- Routes all arm calls through Secure Me's WebSocket API (`secure_me/arm_*`)
-  not HA's standard `alarm_control_panel` service
+- v1.5.0: away/home/night/vacation/disarm route through HA's standard
+  `alarm_control_panel.*` services (vacation moved off websocket once
+  `ARM_VACATION` became a first-class HA feature). Only `arm_home_alone`
+  still goes through Secure Me's websocket API (`secure_me/arm_home_alone`),
+  since HA has no standard command for it -- see `API.md` for the full
+  arm/disarm contract.
 - Home Alone quick-message buttons loaded dynamically from
   `secure_me/get_home_alone_messages`
+- v1.5.0: floorplan live-view (room glow, opening fade, sensor pin markers)
+  rendered in Home Alone mode, mirroring the panel's own live preview
 
 ---
 
