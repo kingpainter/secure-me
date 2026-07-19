@@ -26,29 +26,52 @@ Secure Me's interne tilstande (se `const.py`, `STATE_ALARM_*`):
 | `armed_home`       | `armed_home`                                 | Ja |
 | `armed_night`      | `armed_night`                                | Ja |
 | `armed_vacation`   | `armed_vacation`                              | Ja (first-class HA-feature siden v1.4.3) |
-| `armed_home_alone` | `armed_custom_bypass`                         | **Nej — se §2** |
+| `armed_home_alone` | `armed_home_alone` (rå streng, ikke et HA-enum-medlem) | **Nej — se §2** |
 | `triggered`        | `triggered`                                  | Ja |
 
 **Regel:** Brug aldrig `entity.state` alene til at afgøre om alarmen er i
-Home Alone-mode. Brug altid attributten `secure_me_mode` (§4), som altid
-indeholder den ægte Secure Me-tilstand.
+Home Alone-mode i generisk HA-tooling (voice assistants, det indbyggede
+alarm-kort) — de kender ikke strengen `armed_home_alone` og vil vise
+"Unknown". Secure Me's egne kort læser `entity.state` direkte og har en
+eksplicit `armed_home_alone`-gren, så det er trygt der. Attributten
+`secure_me_mode` (§4) indeholder altid den samme værdi som `entity.state`
+og er den foretrukne kilde for nyt kode, uanset hvilken vej fremtidige
+HA-ændringer måtte tage.
 
 ## 2. Home Alone — den ene bevidste undtagelse
 
 HA's `AlarmControlPanelState`-enum har intet begreb der svarer til "hjemme,
-men alene". Der findes ikke og vil formentlig aldrig komme et standard
-alternativ til dette. Derfor:
+men alene", og har kun én "custom"-plads (`ARMED_CUSTOM_BYPASS`) — der er
+ingen anden ledig plads at låne. Derfor:
 
-- Entiteten rapporterer `armed_custom_bypass` som `state`, så HA's egne UI's
-  og integrationer ikke går i stykker på en ukendt streng.
-- Den ægte tilstand `armed_home_alone` eksponeres via attributten
-  `secure_me_mode`.
+- Entiteten rapporterer den rå streng `"armed_home_alone"` direkte som
+  `state` — **ikke** `ARMED_CUSTOM_BYPASS`. Dette er bevidst reverteret i
+  v1.5.0 efter at `ARMED_CUSTOM_BYPASS`-mapningen brød
+  `secure_me_alarm_tab_card.js` (kunne ikke skelne Alene fra en almindelig
+  bypass) og gav risiko for fremtidig kollision, hvis noget andet nogensinde
+  brugte samme bypass-slot.
+- Konsekvens: HA's *indbyggede* standard alarm-kort og evt.
+  voice-assistant-eksponering (Google Home/Alexa) vil vise "Unknown" i
+  Home Alone-tilstand, da strengen ikke er et gyldigt enum-medlem. Accepteret
+  tradeoff — Secure Me styres udelukkende via egne kort
+  (`secure-me-panel.js`, `secure-me-alarm-card.js`,
+  `secure_me_alarm_tab_card.js`), som alle læser `entity.state` direkte og
+  har en eksplicit `armed_home_alone`-gren.
+- Den ægte tilstand er også tilgængelig via attributten `secure_me_mode`, som nu
+  er identisk med `entity.state` for home_alone (men beholdt som stabil
+  kontrakt uafhængigt af fremtidige HA-ændringer).
 - Arming sker **ikke** via en standard `alarm_control_panel`-service (HA's
   entity-interface har ingen `arm_home_alone`-kommando), men via:
   - `secure_me.arm_home_alone` — HA-service, dokumenteret i `services.yaml`,
     anbefalet vej for automations/scripts (tilføjet i v1.5.0-API-oprydningen).
   - `secure_me/arm_home_alone` — websocket-kommando, brugt af
     `secure-me-alarm-card.js`.
+
+**Bagudkompatibilitet:** Entiteter der blev gemt af en ældre Secure
+Me-build (hvor `state` genuinely var `armed_custom_bypass`) genkendes
+stadig korrekt ved HA-genstart — `coordinator.py`'s
+`async_restore_state()` reverse-mapper `armed_custom_bypass →
+armed_home_alone` som en legacy-fallback.
 
 Dette er den eneste bevidst non-standard del af kontrakten. Alt andet
 (away/home/night/vacation/disarm) går gennem HA's standard
@@ -84,7 +107,7 @@ Dette er den eneste bevidst non-standard del af kontrakten. Alt andet
 
 | Attribut            | Type                  | Til stede når                          | Beskrivelse |
 |----------------------|-----------------------|------------------------------------------|-------------|
-| `secure_me_mode`     | string                | Altid                                     | Den ægte Secure Me-tilstand — brug denne, ikke `state`, for at skelne `armed_home_alone` fra `armed_custom_bypass`. |
+| `secure_me_mode`     | string                | Altid                                     | Den ægte Secure Me-tilstand. Identisk med `entity.state` siden v1.5.0-revert af `armed_home_alone`; beholdes som stabil, HA-uafhængig kontrakt for kode der ikke vil parse `entity.state` direkte. |
 | `changed_by`         | string \| null        | Altid                                     | Navnet på brugeren der sidst armerede/disarmede. **Bemærk:** hedder `changed_by`, ikke `armed_by`. |
 | `countdown`          | int                   | Kun under `arming`/`pending`              | Sekunder tilbage af exit-/entry-delay. |
 | `target_mode`        | string                | Kun under `arming`                        | Hvilken `armed_*`-state alarmen er på vej ind i. |

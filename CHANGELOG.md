@@ -66,6 +66,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `_render()` tearing down floorplan inspector DOM while sensor flyout was open, causing HA state updates (fired every second via `set hass()`) to interrupt sensor selection
 - `coordinator.py`: scheduled test runner (`_check_scheduled_tests`) imported `_run_test_internal` from `.websocket_api`, but that function lives in `.ws_modules` and was never re-exported from `websocket_api.py` — every scheduled test run would have failed with `ImportError`. Found while wiring up `services.py` and fixed by importing from the correct module.
 
+#### Home Alone state collision (regression, reverted)
+- `armed_home_alone` had been mapped to HA's `AlarmControlPanelState.ARMED_CUSTOM_BYPASS` (HA's enum has no dedicated slot for it). This broke `secure_me_alarm_tab_card.js` -- it lost the ability to distinguish Home Alone from a real bypass, and had no reason to expect `armed_custom_bypass` to mean Home Alone -- and risked a future collision if anything else ever used the same bypass slot.
+- Reverted: `alarm_control_panel.py`'s `alarm_state` property now returns the raw string `"armed_home_alone"` directly instead of the enum mapping. The other five modes (disarmed/away/home/night/vacation) are unaffected and still use HA's native enum. `coordinator.py`'s `async_restore_state()` keeps the `armed_custom_bypass -> armed_home_alone` reverse-map as a legacy fallback for entities persisted by an older build.
+- Known, accepted trade-off: HA's built-in default alarm-control-panel card and any voice assistant exposure (Google Home/Alexa) will show "Unknown" for this state, since it isn't a recognised enum value. Not a concern here since Secure Me is only ever driven through its own cards.
+- New `tests/test_alarm_control_panel.py` locks in the raw-string behaviour for home_alone and confirms vacation/standard states are unaffected.
+- Verified on the live server: no errors in the HA log, `secure_me_alarm_tab_card.js` arms correctly in Alone mode and shows the right state.
+- `API.md` updated throughout (§1, §2, §4) to describe the raw-string behaviour instead of the old `ARMED_CUSTOM_BYPASS` mapping.
+
+#### CI test infrastructure
+- `requirements.txt` / `pytest.yaml` installed `pytest-homeassistant-custom-component` unpinned. Left unpinned, pip's resolver had settled on an old release (0.13.109) whose bundled HA core predates HA 2024.11 -- before `AlarmControlPanelState` and `ARM_VACATION` existed -- which broke any test touching `alarm_control_panel.alarm_state`. This had been silently latent since no test previously exercised that property directly.
+- Root cause once traced further: HA Core has required Python 3.13 since release 2025.2, so *any* version of the test package bundling a post-2024.11 HA core also requires Python 3.13+. The CI matrix's Python 3.11/3.12 legs could never resolve a compatible-enough version, regardless of pinning.
+- Fixed by changing the CI matrix (`pytest.yaml`) to `["3.13"]` only, and pinning `pytest-homeassistant-custom-component==0.13.316` (bundles HA Core 2026.2.3, confirmed via wheel metadata) in `requirements.txt`. `pytest.yaml` now installs via `pip install -r requirements.txt` (single source of truth) instead of a separate unpinned inline list.
+
 #### Control API
 - New `services.py` registers the `secure_me.arm_away` / `arm_home` / `arm_night` / `arm_vacation` / `arm_home_alone` / `disarm` / `trigger` / `run_test` / `enable_module` / `disable_module` services with `hass.services.async_register()`. These were documented in `services.yaml` since early versions but had no backing handler -- calling them (e.g. from an automation) failed with "service not found". They now work and are unregistered cleanly on last config entry unload.
 - `services.yaml`: added `force` field to all five arm services, matching what README.md already documented and what the coordinator methods already accepted
@@ -98,7 +111,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `websocket_api.py` reduced from 2600 lines to 172 lines (entry point + imports only)
 
 #### Alarm state
-- `alarm_control_panel.py`: `state` property replaced with `alarm_state` override returning `AlarmControlPanelState` enum values — `armed_home_alone` maps to `ARMED_CUSTOM_BYPASS` for HA compatibility
+- `alarm_control_panel.py`: `state` property replaced with `alarm_state` override. `armed_home_alone` is reported as its own raw string (`"armed_home_alone"`), not mapped to any HA `AlarmControlPanelState` enum member — see "Fixed" below for why this changed mid-branch.
 - New `secure_me_mode` state attribute always exposes the true Secure Me coordinator state (e.g. `armed_home_alone`)
 - Frontend panel now reads `secure_me_mode` attribute instead of `.state` — fixes panel showing "Disarmed" when Home Alone was active
 
