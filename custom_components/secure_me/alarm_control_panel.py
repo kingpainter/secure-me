@@ -84,26 +84,49 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
 
     @property
     def alarm_state(self):
-        """Return the current alarm state as an AlarmControlPanelState.
+        """Return the current alarm state.
 
-        HA's AlarmControlPanelState does not include 'armed_home_alone'.
-        We map it to ARMED_CUSTOM_BYPASS so HA accepts the state and stores
-        it correctly in the entity registry. The true Secure Me mode is
-        always available via the 'secure_me_mode' state attribute.
+        REVERT: 'armed_home_alone' previously mapped to HA's
+        ARMED_CUSTOM_BYPASS enum member, since AlarmControlPanelState has
+        no dedicated slot for it. That broke secure_me_alarm_tab_card.js
+        (lost ability to distinguish Home Alone from a real bypass) and
+        risked colliding with anything else using that same slot.
+
+        We now report the raw string 'armed_home_alone' directly instead.
+        This is NOT a member of HA's AlarmControlPanelState enum (HA Core
+        2024.11+ only recognises the fixed enum values), so:
+          - Secure Me's own frontend cards (secure-me-panel.js,
+            secure-me-alarm-card.js, secure_me_alarm_tab_card.js) work
+            correctly -- they read the raw entity state (or the
+            'secure_me_mode' attribute) directly and already have an
+            explicit 'armed_home_alone' branch.
+          - HA's built-in default alarm-control-panel card, and any
+            voice assistant exposure (Google Home / Alexa), would show
+            this as "Unknown" since it's not a recognised enum value.
+            Accepted trade-off: Secure Me is only ever driven through its
+            own cards.
+
+        The other five modes (disarmed/away/home/night/vacation) are
+        untouched and continue to use HA's native enum values.
         """
         from homeassistant.components.alarm_control_panel import AlarmControlPanelState
+        state = self.coordinator.alarm_state
+
+        # Home Alone: raw custom string, not part of HA's enum (see above).
+        if state == "armed_home_alone":
+            return "armed_home_alone"
+
         _MAP = {
-            "disarmed":         AlarmControlPanelState.DISARMED,
-            "arming":           AlarmControlPanelState.ARMING,
-            "armed_away":       AlarmControlPanelState.ARMED_AWAY,
-            "armed_home":       AlarmControlPanelState.ARMED_HOME,
-            "armed_night":      AlarmControlPanelState.ARMED_NIGHT,
-            "armed_vacation":   AlarmControlPanelState.ARMED_VACATION,
-            "armed_home_alone": AlarmControlPanelState.ARMED_CUSTOM_BYPASS,
-            "pending":          AlarmControlPanelState.PENDING,
-            "triggered":        AlarmControlPanelState.TRIGGERED,
+            "disarmed":       AlarmControlPanelState.DISARMED,
+            "arming":         AlarmControlPanelState.ARMING,
+            "armed_away":     AlarmControlPanelState.ARMED_AWAY,
+            "armed_home":     AlarmControlPanelState.ARMED_HOME,
+            "armed_night":    AlarmControlPanelState.ARMED_NIGHT,
+            "armed_vacation": AlarmControlPanelState.ARMED_VACATION,
+            "pending":        AlarmControlPanelState.PENDING,
+            "triggered":      AlarmControlPanelState.TRIGGERED,
         }
-        return _MAP.get(self.coordinator.alarm_state, AlarmControlPanelState.DISARMED)
+        return _MAP.get(state, AlarmControlPanelState.DISARMED)
 
     @property
     def code_arm_required(self) -> bool:
@@ -166,10 +189,12 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         if last_triggered:
             attrs[ATTR_LAST_TRIGGERED] = last_triggered
 
-        # v1.5.0: Expose the raw Secure Me coordinator state as an attribute.
-        # HA's AlarmControlPanelState enum doesn't include 'armed_home_alone', so
-        # the entity state is mapped to 'armed_custom_bypass' by HA. The frontend
-        # panel reads this attribute to get the true Secure Me state.
+        # Expose the raw Secure Me coordinator state as an attribute too.
+        # This is now identical to the entity's own state for every mode
+        # (armed_home_alone is reported raw, see alarm_state above), but we
+        # keep it for older frontend code that still reads secure_me_mode
+        # explicitly, and as a stable contract independent of any future HA
+        # enum changes.
         attrs["secure_me_mode"] = self.coordinator.alarm_state
 
         return attrs
@@ -283,11 +308,14 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         v1.4.3: Also restores last_triggered timestamp and bypassed_sensors
         list so the alarm panel attributes survive HA restart.
 
-        v1.5.0: Prefer the 'secure_me_mode' extra_state_attribute over
-        last.state as the authoritative source for the restored state.
-        HA maps 'armed_home_alone' to 'armed_custom_bypass' on the entity
-        state — using secure_me_mode avoids the need for a reverse-map and
-        is robust against any future HA enum changes.
+        Prefer the 'secure_me_mode' extra_state_attribute over last.state as
+        the authoritative source for the restored state. The raw entity
+        state for armed_home_alone now already matches secure_me_mode (no
+        more armed_custom_bypass indirection), but secure_me_mode is still
+        preferred here as a safety net for entities last persisted by an
+        older Secure Me build where the raw state was 'armed_custom_bypass'.
+        coordinator.async_restore_state() still reverse-maps that legacy
+        value for the same reason.
         """
         await super().async_added_to_hass()
 

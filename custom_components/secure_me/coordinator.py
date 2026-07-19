@@ -936,9 +936,15 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         HA stores AlarmControlPanelState enum values (StrEnum) in the entity
         registry. These are identical to our internal state strings for all
-        standard modes. The one exception is 'armed_home_alone' which HA has
-        no enum value for — we map it to ARMED_CUSTOM_BYPASS on the way out,
-        so we must reverse-map it back here on restore.
+        standard modes.
+
+        'armed_home_alone' is now reported as its own raw string (see
+        alarm_control_panel.SecureMeAlarmPanel.alarm_state) rather than
+        being mapped to ARMED_CUSTOM_BYPASS, so it no longer needs a reverse-
+        map for newly-written entities. The 'armed_custom_bypass' entry
+        below is kept only as a legacy fallback for entities that were last
+        persisted by an older Secure Me build, where the raw state genuinely
+        was 'armed_custom_bypass'.
 
         We also accept the 'secure_me_mode' attribute (set on every state write)
         as the authoritative source, since it carries the true Secure Me state
@@ -948,6 +954,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # This is the safety net for any discrepancy between what HA persists
         # and what our state machine expects.
         _HA_TO_SM: dict[str, str] = {
+            # Legacy-only (entities persisted by an older build): see docstring above.
             "armed_custom_bypass": STATE_ALARM_ARMED_HOME_ALONE,
             # All other HA state strings are identical to ours, but list them
             # explicitly so the mapping is self-documenting and testable.
