@@ -101,6 +101,11 @@ class SecureMeAlarmCard extends HTMLElement {
       for (const op of (this._floorplan.openings || [])) {
         if (op.entity_id) allSensors.push(op.entity_id);
       }
+      // v1.5.0 etape 3 gap-fix: individual sensor pin markers (fp.markers)
+      // must also be watched, or a pin-only sensor's own state change would
+      // never trigger a repaint -- it would just show whatever state it was
+      // in at first load, forever.
+      Object.keys(this._floorplan.markers || {}).forEach(eid => allSensors.push(eid));
       if (allSensors.length > 0) {
         const prev = this._lastFpSensorStates;
         let changed = false;
@@ -144,8 +149,12 @@ class SecureMeAlarmCard extends HTMLElement {
           image_url: fpRes.image_url || null,
           width:     fpRes.width     || 0,
           height:    fpRes.height    || 0,
-          rooms:     fpRes.rooms     || fpRes.markers || {},
+          rooms:     fpRes.rooms     || {},
           openings:  fpRes.openings  || [],
+          // v1.5.0 etape 3 gap-fix: individual sensor pin markers were never
+          // copied into this._floorplan at all, so _buildFloorplanSVGContent's
+          // new pin-rendering had nothing to draw from even after being added.
+          markers:   fpRes.markers   || {},
         };
       }
       this._floorplanLoaded = true;
@@ -750,6 +759,67 @@ class SecureMeAlarmCard extends HTMLElement {
     return points.map(([x, y]) => `${(x / 100 * vw).toFixed(1)},${(y / 100 * vh).toFixed(1)}`).join(" ");
   }
 
+  // v1.5.0 etape 3 gap-fix: individual sensor pin markers (fp.markers) --
+  // point-sensors not tied to a room polygon (e.g. a standalone motion
+  // sensor). The panel's own "Alene-tilstand live" preview
+  // (_renderFloorplanCanvas in secure-me-panel.js) has always rendered
+  // these as pulsing red/green pins; this card's live view previously only
+  // drew rooms + openings, so pin-only sensors were invisible on the real
+  // dashboard even though they showed correctly inside the config panel.
+
+  _sensorIsActive(entityId) {
+    return this._hass?.states?.[entityId]?.state === "on";
+  }
+
+  _sensorFriendlyName(entityId) {
+    return this._hass?.states?.[entityId]?.attributes?.friendly_name || entityId;
+  }
+
+  // Mirrors panel._fpRenderSensorPinInner() so both surfaces render pins
+  // identically. VW/VH passed in (not recomputed) to match this card's
+  // existing _buildFloorplanSVGContent/_renderFloorplan call sites.
+  _fpRenderSensorPinInner(eid, m, VW, VH) {
+    const x = parseFloat(m.x_pct);
+    const y = parseFloat(m.y_pct);
+    if (isNaN(x) || isNaN(y)) return "";
+    const sx = (x / 100 * VW).toFixed(1);
+    const sy = (y / 100 * VH).toFixed(1);
+    const isActive = this._sensorIsActive(eid);
+    const kind  = m.kind || "motion";
+    const color = isActive ? "#ef4444" : "#10b981";
+    const dim   = isActive ? "rgba(239,68,68,0.18)" : "rgba(16,185,129,0.12)";
+    const r     = isActive ? 14 : 10;
+    const label = m.label || this._sensorFriendlyName(eid);
+
+    let iconPath = "";
+    if (kind === "motion" || kind === "occupancy") {
+      iconPath = `<circle cx="${sx}" cy="${sy}" r="4" fill="${color}" opacity="0.9" pointer-events="none"/>`;
+    } else if (kind === "door") {
+      iconPath = `<rect x="${(parseFloat(sx)-3.5).toFixed(1)}" y="${(parseFloat(sy)-5).toFixed(1)}" width="7" height="10" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+    } else if (kind === "window") {
+      iconPath = `<rect x="${(parseFloat(sx)-5).toFixed(1)}" y="${(parseFloat(sy)-3).toFixed(1)}" width="10" height="6" rx="1" fill="${color}" opacity="0.85" pointer-events="none"/>`;
+    }
+
+    const pulseRing = isActive ? `
+      <circle cx="${sx}" cy="${sy}" r="${r + 5}" fill="none"
+              stroke="${color}" stroke-width="1.5" opacity="0.4"
+              pointer-events="none">
+        <animate attributeName="r" values="${r}; ${r+10}; ${r}" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5; 0; 0.5" dur="1.8s" repeatCount="indefinite"/>
+      </circle>` : "";
+
+    return `
+      ${pulseRing}
+      <circle cx="${sx}" cy="${sy}" r="${r}" fill="${dim}" stroke="${color}"
+              stroke-width="1.5" pointer-events="none"/>
+      ${iconPath}
+      ${isActive ? `<text x="${sx}" y="${(parseFloat(sy) + r + 14).toFixed(1)}"
+            text-anchor="middle" font-family="DM Sans,sans-serif"
+            font-size="16" font-weight="600" fill="${color}" opacity="0.95"
+            pointer-events="none" style="user-select:none">${_smEsc(label)}</text>` : ""}
+    `;
+  }
+
   _buildFloorplanSVGContent(fp, VW, VH) {
     const rooms       = fp.rooms    || {};
     const openings    = fp.openings || [];
@@ -794,7 +864,18 @@ class SecureMeAlarmCard extends HTMLElement {
               <circle cx="${sx2}" cy="${sy2}" r="5" fill="${color}" opacity="0.85" style="pointer-events:none"/>`;
     }).join("");
 
-    return svgRooms + svgOpenings;
+    // Individual sensor pin markers (fp.markers) -- point-sensors not
+    // assigned to any room polygon. Always rendered (color/pulse alone
+    // conveys active vs inactive), matching the panel's own live preview.
+    const markerEntries = Object.entries(fp.markers || {});
+    const svgSensorPins = markerEntries.map(([eid, m]) => {
+      const inner = this._fpRenderSensorPinInner(eid, m, VW, VH);
+      if (!inner) return "";
+      const isActive = this._sensorIsActive(eid);
+      return `<g class="fp-pin" data-fp-pin="${eid}" data-fp-pin-active="${isActive ? 1 : 0}">${inner}</g>`;
+    }).join("");
+
+    return svgRooms + svgOpenings + svgSensorPins;
   }
 
   _buildFloorplanLabels(fp) {
