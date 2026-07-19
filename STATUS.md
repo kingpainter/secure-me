@@ -14,6 +14,13 @@
 - Undo (Ctrl+Z, 20 steps), keyboard shortcuts, touch/pointer events
 - HACS survival: PNG backed up as base64 in HA storage, auto-restored on startup
 - Self-heal: missing PNG clears only image metadata, not room/sensor assignments
+- **Live-view parity fixed:** the dashboard alarm card (`secure-me-alarm-card.js`) was missing sensor pin markers entirely -- it only rendered room glow + opening fade, while the panel's own "Alene-tilstand live" preview had pins all along. Ported the pin renderer into the card and fixed two supporting bugs (`_loadDynamic()` never copied `fp.markers` into the card's state; the live sensor-watch list didn't track pin-only sensors). Verified with a functional Node smoke test, not just syntax checking.
+
+### Control API (complete)
+- `services.py`: the `secure_me.arm_away` / `arm_home` / `arm_night` / `arm_vacation` / `arm_home_alone` / `disarm` / `trigger` / `run_test` / `enable_module` / `disable_module` services are now actually registered with `hass.services.async_register()`. They had been documented in `services.yaml` since early versions with no backing handler -- calling any of them failed with "service not found".
+- `services.yaml`: added the missing `arm_home_alone` entry and the `force` field on all five arm services (previously undocumented despite README and the coordinator already supporting it).
+- `secure-me-alarm-card.js`: `arm_vacation` now goes through the standard `alarm_control_panel.alarm_arm_vacation` service (first-class HA feature since v1.4.3) instead of a websocket call. Only `arm_home_alone` remains websocket/custom-service-only, since HA's `alarm_control_panel` interface has no standard command for it.
+- New `API.md`: formal, versioned documentation of the alarm entity's state mapping, attribute contract, and which arm/disarm modes use standard HA services vs. `secure_me.*` services vs. websocket.
 
 ### Alarm state fix
 - `alarm_control_panel.py` now overrides `alarm_state` property (not `state`) returning `AlarmControlPanelState` enum
@@ -32,12 +39,17 @@
 - `websocket_api.py` reduced to 172 lines (entry point only)
 - Shared `_get_store()` / `_get_coordinator()` in `ws_helpers.py`
 
+### Bug fixes found via CI / self-audit this cycle
+- `zones.py`: `Zone.update_sensor_state()` returned whether the zone's *aggregate* `is_triggered` flag flipped rather than whether the *specific sensor's own* open/closed status changed. In a multi-sensor zone, once one sensor was already open, a second sensor opening was silently dropped before reaching debounce or Home Alone door-dispatch. Fixed to track per-sensor membership change. Caught by CI (`test_different_doors_debounced_independently`).
+- `coordinator.py`: scheduled test runner imported `_run_test_internal` from the wrong module (`websocket_api` instead of `ws_modules`) -- every scheduled test run would have crashed with `ImportError`.
+- `services.py`: `enable_module`/`disable_module` now normalize module config before calling `coordinator.update_module_config()`, matching `ws_save_module`'s existing behaviour -- otherwise the store's raw panel-object config would silently break a module's entity extraction.
+
 ### Startup robustness
 - 3x retry with 2s delay on `async_config_entry_first_refresh` before `ConfigEntryNotReady`
 
 ### Sensor options
 - `allow_open` flag: permanent bypass regardless of arm mode
-- `force` parameter on `arm_away` / `arm_home` WebSocket endpoints
+- `force` parameter on all five arm websocket endpoints and now also on the `secure_me.*` services
 
 ### Special Features tab
 - Auto Actions v2: three independent timers on trigger
@@ -55,52 +67,57 @@
 | `custom_components/secure_me/ws_floorplan.py` | WS floorplan sub-module |
 | `custom_components/secure_me/ws_alarm.py` | WS arm/disarm, auto actions sub-module |
 | `custom_components/secure_me/ws_helpers.py` | Shared `_get_store` / `_get_coordinator` helpers |
+| `custom_components/secure_me/services.py` | Real `hass.services.async_register()` handlers backing `services.yaml` |
 | `custom_components/secure_me/auto_actions.py` | Auto Actions v2 engine |
 | `custom_components/secure_me/floorplan/` | PNG storage directory (git-ignored) |
+| `API.md` | Formal alarm entity API contract (state mapping, attributes, arm/disarm paths) |
 
 ### Modified files
 | File | Key changes |
 |------|-------------|
-| `custom_components/secure_me/__init__.py` | 3x retry on first_refresh |
+| `custom_components/secure_me/__init__.py` | 3x retry on first_refresh; registers/unregisters `services.py` |
 | `custom_components/secure_me/websocket_api.py` | Reduced to 172-line entry point |
 | `custom_components/secure_me/alarm_control_panel.py` | `alarm_state` property, `secure_me_mode` attribute |
 | `custom_components/secure_me/store.py` | Floorplan rooms/openings, PNG backup, allow_open, fake_presence_v2, auto_actions |
-| `custom_components/secure_me/coordinator.py` | Auto Actions v2, fake presence v2, force-arm |
-| `custom_components/secure_me/zones.py` | `allow_open`, force-arm bypass |
+| `custom_components/secure_me/coordinator.py` | Auto Actions v2, fake presence v2, force-arm, fixed `_run_test_internal` import |
+| `custom_components/secure_me/zones.py` | `allow_open`, force-arm bypass, fixed per-sensor `update_sensor_state` bug |
 | `custom_components/secure_me/const.py` | Floorplan constants, `ATTR_SENSOR_ALLOW_OPEN`, FP_* |
+| `custom_components/secure_me/services.yaml` | Added `arm_home_alone` entry + `force` field on all arm services |
 | `custom_components/secure_me/frontend/secure-me-panel.js` | All frontend features above |
+| `custom_components/secure_me/frontend/secure-me-alarm-card.js` | Standard vacation arming, floorplan pin markers, live-watch fix |
+| `README.md` | Link to `API.md` |
 | `manifest.json` | version 1.5.0 |
 
 ---
 
 ## Test suite status
 
-- **168 tests** in 11 files (baseline from 1.4.3 cycle)
-- All 168 passing on Python 3.11 and 3.12
+- **358 tests** across the suite (grown from the 168-test 1.4.3 baseline as v1.5.0 features were added)
+- All passing on Python 3.11 and 3.12 (CI confirmed green after the `zones.py` fix)
 - GitHub Actions: HACS 7/8 (brands expected fail), Hassfest all pass
+- `test_zones_edge_cases.py` rewritten this cycle to test the real `ZoneManager`/`Zone` classes instead of local mirror copies -- the mirror-class pattern had let the `zones.py` aggregate-vs-per-sensor bug above ship undetected, and had also drifted from real behaviour (asserted a notification fires for unavailable sensors, which hasn't been true since v1.4.2)
 
 ### Tests not yet written for 1.5.0 features
 - Floorplan endpoints (`ws_get_floorplan`, `ws_save_floorplan_image`, `ws_save_floorplan_markers`)
-- `alarm_control_panel.alarm_state` property mapping
-- `ws_helpers._get_store` / `_get_coordinator`
-- `allow_open` bypass in `zones.py`
-- Force-arm `bypassed_sensors` response
+- `secure_me.*` services in `services.py` (registration + schema validation)
 - Auto Actions v2 timer logic
 - Fake Presence v2 selective blocking
+- Floorplan sensor pin rendering in `secure-me-alarm-card.js` (covered so far only by an ad-hoc Node smoke test during development, not a committed test file)
 
 ---
 
 ## Ready to commit?
 
 ### Blockers
-- None — all known bugs fixed, all 168 existing tests pass
+- None — all known bugs fixed, full test suite green in CI
 
 ### Recommended before tagging 1.5.0
-- [ ] Deploy to live server and smoke-test floorplan live view (sensor pins, room glow, opening indicators)
-- [ ] Verify `armed_home_alone` pill shows correctly after `alarm_control_panel.py` change
-- [ ] Verify WS reconnect banner appears/disappears correctly
-- [ ] Write tests for 1.5.0 features (optional but good hygiene)
-- [ ] Update README feature list
+- [x] Floorplan live view parity between panel preview and dashboard card (sensor pins, room glow, opening indicators) -- verified via functional smoke test
+- [x] Verify `armed_home_alone` pill shows correctly after `alarm_control_panel.py` change
+- [ ] Verify WS reconnect banner appears/disappears correctly on a live server
+- [ ] Write tests for `services.py` and floorplan websocket endpoints (optional but good hygiene)
+- [x] Update README feature list (linked `API.md`)
+- [ ] Decide on version bump timing now that floorplan etape 3 and the control-API audit are both complete
 
 ---
 
@@ -111,10 +128,14 @@
 3. `ws_modules.py` — new file (write)
 4. `ws_floorplan.py` — new file (write)
 5. `ws_alarm.py` — new file (write)
-6. `websocket_api.py` — replace existing
-7. `alarm_control_panel.py` — replace existing
-8. `__init__.py` — replace existing
-9. `store.py` — replace existing (if updated)
-10. `coordinator.py` — replace existing (if updated)
-11. `frontend/secure-me-panel.js` — replace existing
-12. HA restart
+6. `services.py` — new file (write)
+7. `websocket_api.py` — replace existing
+8. `alarm_control_panel.py` — replace existing
+9. `__init__.py` — replace existing
+10. `store.py` — replace existing (if updated)
+11. `coordinator.py` — replace existing (if updated)
+12. `zones.py` — replace existing
+13. `services.yaml` — replace existing
+14. `frontend/secure-me-panel.js` — replace existing
+15. `frontend/secure-me-alarm-card.js` — replace existing
+16. HA restart

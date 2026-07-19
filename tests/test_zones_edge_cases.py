@@ -2,163 +2,49 @@
 
 Covers v0.5.0 + v0.6.0 changes:
 - Sensor deleted from HA (new_state=None) -> treated as closed, user notified
-- Sensor unavailable/unknown while armed -> treated as closed, user notified
+- Sensor unavailable/unknown while armed -> treated as closed
 - check_for_open_sensors() skips unavailable/missing sensors
 - Sensor opens during exit delay -> trigger ignored (arming state guard)
 - Debounce: rapid sensor flapping within 500ms fires callback only once
+- Debounce is per-entity: a second sensor in the same zone must still fire
+
+v1.5.0 rewrite: this file used to test local "mirror" copies of Zone/
+ZoneManager instead of the real custom_components.secure_me.zones classes.
+That anti-pattern meant these tests could stay green even when the real
+module regressed -- which is exactly what happened: a bug where
+Zone.update_sensor_state() reported "changed" based on the zone's aggregate
+is_triggered flag rather than the specific sensor's own state shipped
+undetected (only caught later by test_v1_2_0.py's real-module Home Alone
+dispatch tests). Every test below now exercises the real ZoneManager/Zone
+classes via the real `hass` pytest fixture instead of a hand-rolled mirror.
+One assertion was also corrected while migrating: the old mirror asserted a
+persistent_notification IS fired for unavailable/unknown sensors, but the
+real module has deliberately logged this at DEBUG with no notification
+since v1.4.2 (to avoid alerting on routine Zigbee/WiFi flaps) -- the mirror
+test had been asserting stale, pre-v1.4.2 behaviour that no longer matches
+production.
 """
-# VERSION = "1.2.0"
+# VERSION = "1.5.0"
 
-import time
 import pytest
-from unittest.mock import MagicMock, patch
-from .conftest import MockHass
+from unittest.mock import AsyncMock, patch
 
-
-# ---------------------------------------------------------------------------
-# Minimal Zone + ZoneManager mirrors (no HA import dependency)
-# ---------------------------------------------------------------------------
-
-_OPEN_STATES = frozenset({"on", "open", "detected", "unlocked"})
-
-
-class Zone:
-    def __init__(self, zone_id, zone_type, sensors=None, enabled=True):
-        self.zone_id = zone_id
-        self.zone_type = zone_type
-        self.sensors = sensors or []
-        self.enabled = enabled
-        self._open_sensors = []
-
-    @property
-    def is_triggered(self):
-        return len(self._open_sensors) > 0
-
-    @property
-    def open_sensors(self):
-        return self._open_sensors.copy()
-
-    def update_sensor_state(self, entity_id, is_open):
-        was = self.is_triggered
-        if is_open and entity_id not in self._open_sensors:
-            self._open_sensors.append(entity_id)
-        elif not is_open and entity_id in self._open_sensors:
-            self._open_sensors.remove(entity_id)
-        return was != self.is_triggered
-
-    def clear_open_sensors(self):
-        self._open_sensors.clear()
-
-
-class ZoneManager:
-    """Mirrors zones.py ZoneManager logic for isolated unit testing."""
-
-    NOTIFY_ID = "secure_me_module_error"
-    DEBOUNCE_INTERVAL = 0.5
-
-    def __init__(self, hass):
-        self.hass = hass
-        self._zones = {}
-        self._sensor_to_zone = {}
-        self._last_trigger_time = {}
-        self._trigger_callback = None
-        # Notification mock
-        self.hass.components = MagicMock()
-        self.hass.components.persistent_notification = MagicMock()
-        self.hass.components.persistent_notification.async_create = MagicMock()
-
-    def add_zone(self, zone_id, zone_type, sensors=None, enabled=True):
-        zone = Zone(zone_id, zone_type, sensors, enabled)
-        self._zones[zone_id] = zone
-        for s in (sensors or []):
-            self._sensor_to_zone[s] = zone_id
-
-    def get_zone_by_sensor(self, entity_id):
-        zid = self._sensor_to_zone.get(entity_id)
-        return self._zones.get(zid) if zid else None
-
-    def get_all_open_sensors(self):
-        result = []
-        for zone in self._zones.values():
-            if zone.enabled:
-                result.extend(zone.open_sensors)
-        return result
-
-    def clear_all_triggers(self):
-        for zone in self._zones.values():
-            zone.clear_open_sensors()
-
-    def update_sensor_state(self, entity_id, state):
-        """Mirrors ZoneManager.update_sensor_state including edge cases."""
-        zone = self.get_zone_by_sensor(entity_id)
-        if not zone or not zone.enabled:
-            return False, None
-
-        # EDGE CASE: entity deleted
-        if state is None:
-            self.hass.components.persistent_notification.async_create(
-                message=f"Sensor '{entity_id}' disappeared.",
-                title="Secure Me - Sensor Missing",
-                notification_id=f"{self.NOTIFY_ID}_sensor_{entity_id.replace('.', '_')}",
-            )
-            changed = zone.update_sensor_state(entity_id, False)
-            return changed, zone if changed else None
-
-        # EDGE CASE: sensor unavailable/unknown
-        if state.state in ("unavailable", "unknown"):
-            self.hass.components.persistent_notification.async_create(
-                message=f"Sensor '{entity_id}' is {state.state}.",
-                title="Secure Me - Sensor Unavailable",
-                notification_id=f"{self.NOTIFY_ID}_unavail_{entity_id.replace('.', '_')}",
-            )
-            changed = zone.update_sensor_state(entity_id, False)
-            return changed, zone if changed else None
-
-        is_open = state.state in _OPEN_STATES
-        changed = zone.update_sensor_state(entity_id, is_open)
-        return changed, zone if changed else None
-
-    def check_for_open_sensors(self):
-        """Mirrors zones.py check_for_open_sensors -- skips unavailable/missing."""
-        for zone in self._zones.values():
-            if not zone.enabled:
-                continue
-            for sensor in zone.sensors:
-                state = self.hass.states.get(sensor)
-                if not state:
-                    continue  # missing -- skip
-                if state.state in ("unavailable", "unknown"):
-                    continue  # unavailable -- skip
-                if state.state in _OPEN_STATES:
-                    zone.update_sensor_state(sensor, True)
-        return len(self.get_all_open_sensors()) > 0
-
-    def fire_trigger_if_debounce_ok(self, entity_id, zone, callback):
-        """Debounce logic extracted for testability."""
-        now = time.monotonic()
-        last = self._last_trigger_time.get(entity_id, 0.0)
-        if now - last < self.DEBOUNCE_INTERVAL:
-            return False  # debounced
-        self._last_trigger_time[entity_id] = now
-        callback(zone)
-        return True
+from custom_components.secure_me.zones import ZoneManager, _OPEN_STATES
+from .conftest import MockState
 
 
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
-class MockState:
-    def __init__(self, state):
-        self.state = state
-
-
 def make_manager_with_zone(hass, zone_id="zone_1", zone_type="entry",
-                           sensors=None, enabled=True):
-    mgr = ZoneManager(hass)
+                           sensors=None, enabled=True, arm_modes=None):
+    """Create a real ZoneManager with a single zone for testing."""
+    zm = ZoneManager(hass)
     sensors = sensors or ["binary_sensor.door"]
-    mgr.add_zone(zone_id, zone_type, sensors=sensors, enabled=enabled)
-    return mgr
+    zm.add_zone(zone_id, zone_type, sensors=sensors, enabled=enabled,
+                arm_modes=arm_modes)
+    return zm
 
 
 # ---------------------------------------------------------------------------
@@ -168,43 +54,46 @@ def make_manager_with_zone(hass, zone_id="zone_1", zone_type="entry",
 class TestSensorDeleted:
     """new_state=None -- entity removed from HA while armed."""
 
-    def test_deleted_sensor_treated_as_closed(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_deleted_sensor_treated_as_closed(self, hass):
+        zm = make_manager_with_zone(hass)
 
         # First open the sensor
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        assert "binary_sensor.door" in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        assert "binary_sensor.door" in zm.get_all_open_sensors()
 
         # Now delete it (state=None)
-        mgr.update_sensor_state("binary_sensor.door", None)
-        assert "binary_sensor.door" not in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", None)
+        assert "binary_sensor.door" not in zm.get_all_open_sensors()
 
-    def test_deleted_sensor_fires_persistent_notification(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_deleted_sensor_fires_persistent_notification(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", None)
-        hass.components.persistent_notification.async_create.assert_called_once()
-        args = hass.components.persistent_notification.async_create.call_args
-        assert "Missing" in str(args) or "disappeared" in str(args).lower()
+        with patch("homeassistant.components.persistent_notification.async_create") as mock_create:
+            zm.update_sensor_state("binary_sensor.door", None)
+            mock_create.assert_called_once()
+            _, kwargs = mock_create.call_args
+            msg = kwargs.get("message", "")
+            title = kwargs.get("title", "")
+            assert "disappeared" in msg.lower() or "Missing" in title
 
-    def test_deleted_sensor_returns_false_changed_if_already_closed(self):
+    @pytest.mark.asyncio
+    async def test_deleted_sensor_returns_false_changed_if_already_closed(self, hass):
         """No change if sensor was already closed when deleted."""
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+        zm = make_manager_with_zone(hass)
 
         # Sensor was never opened
-        changed, zone = mgr.update_sensor_state("binary_sensor.door", None)
+        changed, zone = zm.update_sensor_state("binary_sensor.door", None)
         assert changed is False
 
-    def test_deleted_unknown_sensor_returns_false(self):
+    @pytest.mark.asyncio
+    async def test_deleted_unknown_sensor_returns_false(self, hass):
         """Sensor not in any zone -> returns (False, None)."""
-        hass = MockHass()
-        mgr = ZoneManager(hass)
-        mgr.add_zone("z1", "entry", sensors=["binary_sensor.other"])
+        zm = ZoneManager(hass)
+        zm.add_zone("z1", "entry", sensors=["binary_sensor.other"])
 
-        changed, zone = mgr.update_sensor_state("binary_sensor.unknown", None)
+        changed, zone = zm.update_sensor_state("binary_sensor.unknown", None)
         assert changed is False
         assert zone is None
 
@@ -214,50 +103,51 @@ class TestSensorDeleted:
 # ---------------------------------------------------------------------------
 
 class TestSensorUnavailable:
-    """Unavailable/unknown sensor -> treated as closed, notification sent."""
+    """Unavailable/unknown sensor -> treated as closed."""
 
-    def test_unavailable_treated_as_closed(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_unavailable_treated_as_closed(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        # Open sensor, then go unavailable
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        mgr.update_sensor_state("binary_sensor.door", MockState("unavailable"))
-        assert "binary_sensor.door" not in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "unavailable"))
+        assert "binary_sensor.door" not in zm.get_all_open_sensors()
 
-    def test_unknown_treated_as_closed(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_unknown_treated_as_closed(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        mgr.update_sensor_state("binary_sensor.door", MockState("unknown"))
-        assert "binary_sensor.door" not in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "unknown"))
+        assert "binary_sensor.door" not in zm.get_all_open_sensors()
 
-    def test_unavailable_fires_notification(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_unavailable_does_not_fire_notification(self, hass):
+        """v1.4.2: unavailable/unknown is logged at DEBUG, not alerted on --
+        Zigbee/WiFi sensors routinely flap offline for a few seconds and a
+        notification on every occurrence would drown out real issues."""
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("unavailable"))
-        hass.components.persistent_notification.async_create.assert_called_once()
-        args = hass.components.persistent_notification.async_create.call_args
-        assert "Unavailable" in str(args) or "unavailable" in str(args)
+        with patch("homeassistant.components.persistent_notification.async_create") as mock_create:
+            zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "unavailable"))
+            mock_create.assert_not_called()
 
-    def test_sensor_recovery_from_unavailable(self):
+    @pytest.mark.asyncio
+    async def test_sensor_recovery_from_unavailable(self, hass):
         """Sensor recovers from unavailable -> normal open/close tracking resumes."""
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("unavailable"))
-        assert "binary_sensor.door" not in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "unavailable"))
+        assert "binary_sensor.door" not in zm.get_all_open_sensors()
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        assert "binary_sensor.door" in mgr.get_all_open_sensors()
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        assert "binary_sensor.door" in zm.get_all_open_sensors()
 
-    def test_unavailable_no_change_if_already_closed(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_unavailable_no_change_if_already_closed(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        changed, _ = mgr.update_sensor_state("binary_sensor.door", MockState("unavailable"))
+        changed, _ = zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "unavailable"))
         assert changed is False  # was already closed
 
 
@@ -268,151 +158,188 @@ class TestSensorUnavailable:
 class TestCheckOpenSensors:
     """check_for_open_sensors does not block arming for offline sensors."""
 
-    def test_open_sensor_detected(self):
-        hass = MockHass()
-        hass.set_state("binary_sensor.door", "on")
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
+    @pytest.mark.asyncio
+    async def test_open_sensor_detected(self, hass):
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
 
-        assert mgr.check_for_open_sensors() is True
+        assert zm.check_for_open_sensors() is True
 
-    def test_closed_sensor_not_blocking(self):
-        hass = MockHass()
-        hass.set_state("binary_sensor.door", "off")
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
+    @pytest.mark.asyncio
+    async def test_closed_sensor_not_blocking(self, hass):
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
 
-        assert mgr.check_for_open_sensors() is False
+        assert zm.check_for_open_sensors() is False
 
-    def test_unavailable_sensor_skipped(self):
-        hass = MockHass()
-        hass.set_state("binary_sensor.door", "unavailable")
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
+    @pytest.mark.asyncio
+    async def test_unavailable_sensor_skipped(self, hass):
+        hass.states.async_set("binary_sensor.door", "unavailable")
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
 
-        assert mgr.check_for_open_sensors() is False
+        assert zm.check_for_open_sensors() is False
 
-    def test_unknown_sensor_skipped(self):
-        hass = MockHass()
-        hass.set_state("binary_sensor.door", "unknown")
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
+    @pytest.mark.asyncio
+    async def test_unknown_sensor_skipped(self, hass):
+        hass.states.async_set("binary_sensor.door", "unknown")
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
 
-        assert mgr.check_for_open_sensors() is False
+        assert zm.check_for_open_sensors() is False
 
-    def test_missing_entity_skipped(self):
+    @pytest.mark.asyncio
+    async def test_missing_entity_skipped(self, hass):
         """Entity not in HA states -> no block on arming."""
-        hass = MockHass()
         # Do NOT set state -- entity missing
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"])
 
-        assert mgr.check_for_open_sensors() is False
+        assert zm.check_for_open_sensors() is False
 
-    def test_mixed_sensors_open_and_unavailable(self):
+    @pytest.mark.asyncio
+    async def test_mixed_sensors_open_and_unavailable(self, hass):
         """Only the genuinely open sensor should block."""
-        hass = MockHass()
-        hass.set_state("binary_sensor.door1", "on")
-        hass.set_state("binary_sensor.door2", "unavailable")
-        mgr = ZoneManager(hass)
-        mgr.add_zone("z1", "entry",
-                     sensors=["binary_sensor.door1", "binary_sensor.door2"])
+        hass.states.async_set("binary_sensor.door1", "on", {"device_class": "door"})
+        hass.states.async_set("binary_sensor.door2", "unavailable")
+        await hass.async_block_till_done()
+        zm = ZoneManager(hass)
+        zm.add_zone("z1", "entry",
+                    sensors=["binary_sensor.door1", "binary_sensor.door2"])
 
-        assert mgr.check_for_open_sensors() is True
-        open_s = mgr.get_all_open_sensors()
+        assert zm.check_for_open_sensors() is True
+        open_s = zm.get_all_open_sensors()
         assert "binary_sensor.door1" in open_s
         assert "binary_sensor.door2" not in open_s
 
-    def test_disabled_zone_not_checked(self):
-        hass = MockHass()
-        hass.set_state("binary_sensor.door", "on")
-        mgr = make_manager_with_zone(hass, sensors=["binary_sensor.door"],
+    @pytest.mark.asyncio
+    async def test_disabled_zone_not_checked(self, hass):
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, sensors=["binary_sensor.door"],
                                      enabled=False)
 
-        assert mgr.check_for_open_sensors() is False
+        assert zm.check_for_open_sensors() is False
 
 
 # ---------------------------------------------------------------------------
 # Tests: sensor opens during exit delay (arming state guard)
 # ---------------------------------------------------------------------------
+# NOTE: this guard actually lives in coordinator.py's _zone_triggered(), not
+# in zones.py -- these two tests illustrate the guard's boolean logic only.
+# Full end-to-end coverage of the real guard lives in test_state_machine*.py
+# and test_v1_2_0.py, which exercise the real coordinator/state machine.
 
 class TestExitDelayGuard:
     """Sensor opening during exit delay should not trigger alarm."""
 
     def test_trigger_ignored_during_arming(self):
-        """Mirrors coordinator._zone_triggered guard for arming state."""
-        # We test the guard logic directly:
-        # if arming state, return without triggering
         is_arming = True
         triggered = False
-
         if not is_arming:
-            triggered = True  # would trigger
-
+            triggered = True
         assert triggered is False
 
     def test_trigger_fires_when_armed(self):
         is_arming = False
         triggered = False
-
         if not is_arming:
             triggered = True
-
         assert triggered is True
 
 
 # ---------------------------------------------------------------------------
-# Tests: sensor debounce (v0.6.0)
+# Tests: sensor debounce (v0.6.0) -- real ZoneManager.start_monitoring()
 # ---------------------------------------------------------------------------
 
 class TestSensorDebounce:
-    """Rapid sensor flapping within 500ms fires callback only once."""
+    """Rapid sensor flapping within 500ms fires the trigger callback only
+    once. Exercises the real debounce inside start_monitoring's internal
+    _sensor_state_changed handler end-to-end (not a standalone mirrored
+    method), the same way test_v1_2_0.py's Home Alone dispatch tests do."""
 
-    def test_first_trigger_fires_callback(self):
-        hass = MockHass()
-        mgr = ZoneManager(hass)
-        zone = Zone("z1", "entry", sensors=["binary_sensor.door"])
-        callback = MagicMock()
+    @pytest.mark.asyncio
+    async def test_first_trigger_fires_callback(self, hass):
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, arm_modes=["away"])
+        zm.load_sensor_configs({})
+        callback = AsyncMock()
+        zm.start_monitoring(callback_func=callback, arm_mode="away")
 
-        fired = mgr.fire_trigger_if_debounce_ok("binary_sensor.door", zone, callback)
-        assert fired is True
-        callback.assert_called_once_with(zone)
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
 
-    def test_rapid_second_trigger_debounced(self):
-        """Second call within 500ms must NOT fire callback."""
-        hass = MockHass()
-        mgr = ZoneManager(hass)
-        zone = Zone("z1", "entry", sensors=["binary_sensor.door"])
-        callback = MagicMock()
+        assert callback.call_count == 1
 
-        mgr.fire_trigger_if_debounce_ok("binary_sensor.door", zone, callback)
-        fired = mgr.fire_trigger_if_debounce_ok("binary_sensor.door", zone, callback)
-        assert fired is False
-        assert callback.call_count == 1  # only the first
+    @pytest.mark.asyncio
+    async def test_rapid_second_trigger_debounced(self, hass):
+        """Flap on -> off -> on within 500ms must only fire once."""
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, arm_modes=["away"])
+        zm.load_sensor_configs({})
+        callback = AsyncMock()
+        zm.start_monitoring(callback_func=callback, arm_mode="away")
 
-    def test_trigger_after_debounce_interval_fires_again(self):
-        """Trigger after 500ms+ window fires callback again."""
-        hass = MockHass()
-        mgr = ZoneManager(hass)
-        zone = Zone("z1", "entry", sensors=["binary_sensor.door"])
-        callback = MagicMock()
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
 
-        # First trigger
-        mgr.fire_trigger_if_debounce_ok("binary_sensor.door", zone, callback)
-        # Manually backdate last trigger time by 1 second
-        mgr._last_trigger_time["binary_sensor.door"] -= 1.0
+        assert callback.call_count == 1
 
-        fired = mgr.fire_trigger_if_debounce_ok("binary_sensor.door", zone, callback)
-        assert fired is True
+    @pytest.mark.asyncio
+    async def test_trigger_after_debounce_interval_fires_again(self, hass):
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = make_manager_with_zone(hass, arm_modes=["away"])
+        zm.load_sensor_configs({})
+        callback = AsyncMock()
+        zm.start_monitoring(callback_func=callback, arm_mode="away")
+
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+        assert callback.call_count == 1
+
+        # Backdate the internal debounce clock instead of sleeping 500ms+ --
+        # keeps the test fast while still exercising the real interval check.
+        zm._last_trigger_time["binary_sensor.door"] -= 1.0
+        hass.states.async_set("binary_sensor.door", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        hass.states.async_set("binary_sensor.door", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+
         assert callback.call_count == 2
 
-    def test_different_sensors_debounced_independently(self):
-        """Debounce is per-entity, not global."""
-        hass = MockHass()
-        mgr = ZoneManager(hass)
-        zone = Zone("z1", "entry", sensors=["binary_sensor.door1",
-                                             "binary_sensor.door2"])
-        callback = MagicMock()
+    @pytest.mark.asyncio
+    async def test_different_sensors_debounced_independently(self, hass):
+        """Debounce is per-entity -- one door flapping must not suppress a
+        genuine trigger from a different door in the same zone. This is the
+        same regression covered for the Home Alone dispatch path in
+        test_v1_2_0.py::TestHomeAloneDoorDispatchDebounce, exercised here for
+        the main (non-Home-Alone) trigger_callback path."""
+        hass.states.async_set("binary_sensor.door1", "off", {"device_class": "door"})
+        hass.states.async_set("binary_sensor.door2", "off", {"device_class": "door"})
+        await hass.async_block_till_done()
+        zm = ZoneManager(hass)
+        zm.add_zone(
+            "z1", "entry",
+            sensors=["binary_sensor.door1", "binary_sensor.door2"],
+            enabled=True, arm_modes=["away"],
+        )
+        zm.load_sensor_configs({})
+        callback = AsyncMock()
+        zm.start_monitoring(callback_func=callback, arm_mode="away")
 
-        mgr.fire_trigger_if_debounce_ok("binary_sensor.door1", zone, callback)
-        # door2 has no debounce history -- should fire
-        fired = mgr.fire_trigger_if_debounce_ok("binary_sensor.door2", zone, callback)
-        assert fired is True
+        hass.states.async_set("binary_sensor.door1", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+        hass.states.async_set("binary_sensor.door2", "on", {"device_class": "door"})
+        await hass.async_block_till_done()
+
         assert callback.call_count == 2
 
 
@@ -421,24 +348,24 @@ class TestSensorDebounce:
 # ---------------------------------------------------------------------------
 
 class TestNormalSensorUpdates:
-    """Baseline open/close behavior (sanity checks)."""
+    """Baseline open/close behavior (sanity checks) against the real classes."""
 
-    def test_sensor_open_marks_zone_triggered(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_sensor_open_marks_zone_triggered(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        changed, zone = mgr.update_sensor_state("binary_sensor.door",
-                                                 MockState("on"))
+        changed, zone = zm.update_sensor_state("binary_sensor.door",
+                                                MockState("binary_sensor.door", "on"))
         assert changed is True
         assert zone.is_triggered is True
 
-    def test_sensor_close_clears_trigger(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_sensor_close_clears_trigger(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        changed, zone = mgr.update_sensor_state("binary_sensor.door",
-                                                 MockState("off"))
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        changed, zone = zm.update_sensor_state("binary_sensor.door",
+                                                MockState("binary_sensor.door", "off"))
         assert changed is True
         assert zone.is_triggered is False
 
@@ -450,21 +377,21 @@ class TestNormalSensorUpdates:
         for state_val in ("off", "closed", "locked"):
             assert state_val not in _OPEN_STATES
 
-    def test_disabled_zone_sensor_update_ignored(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass, enabled=False)
+    @pytest.mark.asyncio
+    async def test_disabled_zone_sensor_update_ignored(self, hass):
+        zm = make_manager_with_zone(hass, enabled=False)
 
-        changed, zone = mgr.update_sensor_state("binary_sensor.door",
-                                                 MockState("on"))
+        changed, zone = zm.update_sensor_state("binary_sensor.door",
+                                                MockState("binary_sensor.door", "on"))
         assert changed is False
         assert zone is None
 
-    def test_clear_all_triggers(self):
-        hass = MockHass()
-        mgr = make_manager_with_zone(hass)
+    @pytest.mark.asyncio
+    async def test_clear_all_triggers(self, hass):
+        zm = make_manager_with_zone(hass)
 
-        mgr.update_sensor_state("binary_sensor.door", MockState("on"))
-        assert len(mgr.get_all_open_sensors()) == 1
+        zm.update_sensor_state("binary_sensor.door", MockState("binary_sensor.door", "on"))
+        assert len(zm.get_all_open_sensors()) == 1
 
-        mgr.clear_all_triggers()
-        assert len(mgr.get_all_open_sensors()) == 0
+        zm.clear_all_triggers()
+        assert len(zm.get_all_open_sensors()) == 0

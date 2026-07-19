@@ -83,6 +83,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Found and fixed two supporting bugs while closing the gap: (1) `_loadDynamic()` never copied `fpRes.markers` into `this._floorplan` at all -- pins had no data to render even after the rendering code existed; (2) the live sensor-watch list in `set hass()` only tracked room/opening sensors, so a pin-only sensor's state change would never trigger a repaint once the initial view loaded.
 - Verified with a functional smoke test (Node, stubbed DOM) asserting active/inactive pin color, presence/absence of the friendly-name label, and `data-fp-pin-active` state -- not just JS syntax validation.
 
+#### Test suite: removed mirror-class anti-pattern in `test_zones_edge_cases.py`
+- This file tested local copies of `Zone`/`ZoneManager` instead of the real `custom_components.secure_me.zones` classes -- the same anti-pattern that let the zone aggregate-vs-per-sensor bug (above) ship undetected. Rewrote all 28 tests to exercise the real classes via the real `hass` pytest fixture.
+- While migrating, found the mirror's `test_unavailable_fires_notification` asserted a `persistent_notification` IS created for unavailable/unknown sensors -- but the real module has logged this at DEBUG with no notification since v1.4.2 (avoids alerting on routine Zigbee/WiFi flaps). The test had been silently asserting stale, pre-v1.4.2 behaviour. Corrected to `test_unavailable_does_not_fire_notification` asserting the real (current) behaviour.
+- Added `test_different_sensors_debounced_independently` for the main (non-Home-Alone) `trigger_callback` path, mirroring the same regression test that caught the zone aggregate bug on the Home Alone dispatch path -- now covered on both code paths.
+
 #### Architecture
 - `websocket_api.py` split into four focused sub-modules: `ws_sensors.py`, `ws_modules.py`, `ws_floorplan.py`, `ws_alarm.py`
 - New `ws_helpers.py` with shared `_get_store()` and `_get_coordinator()` helpers — eliminates four duplicate definitions
