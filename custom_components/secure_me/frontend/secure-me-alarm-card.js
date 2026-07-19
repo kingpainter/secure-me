@@ -1046,8 +1046,13 @@ class SecureMeAlarmCard extends HTMLElement {
   }
 
   async _callArm(action, code) {
-    const haMap = { arm_away:"alarm_arm_away", arm_home:"alarm_arm_home", arm_night:"alarm_arm_night", disarm:"alarm_disarm" };
-    const wsMap = { arm_vacation:"secure_me/arm_vacation", arm_home_alone:"secure_me/arm_home_alone" };
+    // v1.5.0: arm_vacation is a first-class HA AlarmControlPanelEntityFeature
+    // (ARM_VACATION, since v1.4.3) so it now goes through the standard
+    // alarm_control_panel service like away/home/night/disarm. Only
+    // arm_home_alone remains websocket-only, since HA's alarm_control_panel
+    // interface has no equivalent standard command for it.
+    const haMap = { arm_away:"alarm_arm_away", arm_home:"alarm_arm_home", arm_night:"alarm_arm_night", arm_vacation:"alarm_arm_vacation", disarm:"alarm_disarm" };
+    const wsMap = { arm_home_alone:"secure_me/arm_home_alone" };
     try {
       if (haMap[action]) {
         const d = { entity_id: this._entity() };

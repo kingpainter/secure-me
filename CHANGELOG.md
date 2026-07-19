@@ -64,6 +64,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Sensor flyout closing mid-scroll due to `mouseover`/`mouseout` events bubbling from child elements (replaced with `pointerenter`/`pointerleave`)
 - Sensor flyout drifting away from input field when panel is scrolled
 - `_render()` tearing down floorplan inspector DOM while sensor flyout was open, causing HA state updates (fired every second via `set hass()`) to interrupt sensor selection
+- `coordinator.py`: scheduled test runner (`_check_scheduled_tests`) imported `_run_test_internal` from `.websocket_api`, but that function lives in `.ws_modules` and was never re-exported from `websocket_api.py` — every scheduled test run would have failed with `ImportError`. Found while wiring up `services.py` and fixed by importing from the correct module.
+
+#### Control API
+- New `services.py` registers the `secure_me.arm_away` / `arm_home` / `arm_night` / `arm_vacation` / `arm_home_alone` / `disarm` / `trigger` / `run_test` / `enable_module` / `disable_module` services with `hass.services.async_register()`. These were documented in `services.yaml` since early versions but had no backing handler -- calling them (e.g. from an automation) failed with "service not found". They now work and are unregistered cleanly on last config entry unload.
+- `services.yaml`: added `force` field to all five arm services, matching what README.md already documented and what the coordinator methods already accepted
+- `services.yaml`: added `arm_home_alone` entry (was previously undocumented despite the `SERVICE_ARM_HOME_ALONE` constant existing)
+- `secure-me-alarm-card.js`: `arm_vacation` now goes through the standard `alarm_control_panel.alarm_arm_vacation` service instead of the `secure_me/arm_vacation` websocket command, now that `ARM_VACATION` is a first-class HA feature (since v1.4.3). Only `arm_home_alone` remains websocket-only, since HA's `alarm_control_panel` entity interface has no equivalent standard command for it.
+- New `API.md`: formal, versioned documentation of the alarm entity's state mapping, attribute contract, and which arm/disarm modes use standard HA services vs. `secure_me.*` services vs. websocket -- replaces "read the code comments" as the source of truth
+- `services.py`: `enable_module`/`disable_module` handlers now normalize the module config (via `ws_modules._normalize_module_config`) before calling `coordinator.update_module_config()`, matching what `ws_save_module` already does. Found during pre-commit self-audit -- without this, toggling a module via the service would have passed the store's raw panel-object config (e.g. `cameras: [{entity_id, poe_port}]`) straight into the module class, which expects flat entity_id string lists, silently breaking that module's entity extraction.
 
 #### Architecture
 - `websocket_api.py` split into four focused sub-modules: `ws_sensors.py`, `ws_modules.py`, `ws_floorplan.py`, `ws_alarm.py`

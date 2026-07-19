@@ -19,6 +19,13 @@ arm_away:
       default: false
       selector:
         boolean:
+    force:
+      name: Force
+      description: Bypass the open-sensor check and force arming.
+      required: false
+      default: false
+      selector:
+        boolean:
 
 arm_home:
   name: Arm Home
@@ -34,6 +41,13 @@ arm_home:
     skip_delay:
       name: Skip Delay
       description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+    force:
+      name: Force
+      description: Bypass the open-sensor check and force arming.
       required: false
       default: false
       selector:
@@ -57,6 +71,13 @@ arm_night:
       default: false
       selector:
         boolean:
+    force:
+      name: Force
+      description: Bypass the open-sensor check and force arming.
+      required: false
+      default: false
+      selector:
+        boolean:
 
 arm_vacation:
   name: Arm Vacation
@@ -72,6 +93,44 @@ arm_vacation:
     skip_delay:
       name: Skip Delay
       description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+    force:
+      name: Force
+      description: Bypass the open-sensor check and force arming.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+arm_home_alone:
+  name: Arm Home Alone
+  description: >-
+    Arm the alarm in Home Alone mode (cameras active, motion visual-only,
+    door sensors notify). This mode has no standard Home Assistant
+    alarm_control_panel equivalent -- HA reports it as "Custom Bypass" on
+    the entity, but the alarm's real mode is always available via the
+    entity's `secure_me_mode` attribute.
+  fields:
+    code:
+      name: Code
+      description: Alarm code for validation.
+      required: false
+      example: "1234"
+      selector:
+        text:
+    skip_delay:
+      name: Skip Delay
+      description: Skip exit delay and arm immediately.
+      required: false
+      default: false
+      selector:
+        boolean:
+    force:
+      name: Force
+      description: Bypass the open-sensor check and force arming.
       required: false
       default: false
       selector:

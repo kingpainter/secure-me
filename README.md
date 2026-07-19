@@ -193,6 +193,11 @@ All modules are configured via the **Modules tab** in the panel. Each module can
 
 All arm services accept optional `code` (string), `skip_delay` (boolean), and `force` (boolean — bypass open sensor check) parameters.
 
+> **Full API contract:** See [API.md](API.md) for the complete alarm entity
+> attribute contract, which arm/disarm modes go through standard
+> `alarm_control_panel.*` services vs. `secure_me.*` services vs. websocket,
+> and the one deliberate non-standard exception (Home Alone mode).
+
 ---
 
 ## Entities

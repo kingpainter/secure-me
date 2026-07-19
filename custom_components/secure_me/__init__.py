@@ -21,6 +21,7 @@ from .const import (
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
+from .services import async_register_services, async_unregister_services
 
 try:
     from . import panel
@@ -114,6 +115,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["_websocket_registered"] = True
         _LOGGER.debug("WebSocket API registered")
 
+    # Register secure_me.* services (global, once) -- see services.py for why
+    # this exists: services.yaml documented these since early versions but
+    # they were never actually registered with hass.services.
+    if not hass.data[DOMAIN].get("_services_registered", False):
+        async_register_services(hass)
+        hass.data[DOMAIN]["_services_registered"] = True
+        _LOGGER.debug("Services registered")
+
     # Register frontend panel (global, once)
     if not hass.data[DOMAIN].get("_panel_registered", False):
         try:
@@ -159,6 +168,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         remaining = [k for k in hass.data[DOMAIN] if k not in (
             entry.entry_id, "store", "_websocket_registered",
             "_panel_registered", "_notification_dispatcher",
+            "_services_registered",
         )]
         if not remaining:
             try:
@@ -166,6 +176,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except Exception:
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False
+
+            try:
+                async_unregister_services(hass)
+            except Exception:
+                pass
+            hass.data[DOMAIN]["_services_registered"] = False
 
             # Dispatcher is created once per HA runtime (guarded by
             # _websocket_registered, which stays True by design -- see

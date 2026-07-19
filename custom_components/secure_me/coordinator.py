@@ -522,7 +522,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
             # Run test via websocket handler logic — import inline to avoid circular
             try:
-                from .websocket_api import _run_test_internal
+                from .ws_modules import _run_test_internal
                 result = await _run_test_internal(self.hass, test_type)
                 overall = result.get("overall", "unknown")
                 timestamp = result.get("timestamp", now_dt.strftime("%Y-%m-%d %H:%M:%S"))
