@@ -71,13 +71,28 @@ class Zone:
         return self._open_sensors.copy()
 
     def update_sensor_state(self, entity_id: str, is_open: bool) -> bool:
-        """Update sensor state. Returns True if zone trigger state changed."""
-        was_triggered = self.is_triggered
+        """Update this sensor's membership in the zone's open-sensor list.
+
+        Returns True if THIS SENSOR's own open/closed status actually changed
+        (added to or removed from the zone's open list) -- not whether the
+        zone's aggregate `is_triggered` flag flipped.
+
+        This distinction matters: in a zone with sensor A already open,
+        sensor B newly opening still returns True here (B's own membership
+        changed), even though `is_triggered` stays True -> True. Callers that
+        need to react per-sensor (e.g. Home Alone door-notification dispatch,
+        the deleted/unavailable-sensor edge cases in ZoneManager) rely on
+        this per-sensor granularity. Using the old aggregate-only semantics
+        silently dropped events for any sensor that changed state while
+        another sensor in the same zone was already open/closed the same way.
+        """
+        was_open = entity_id in self._open_sensors
         if is_open and entity_id not in self._open_sensors:
             self._open_sensors.append(entity_id)
         elif not is_open and entity_id in self._open_sensors:
             self._open_sensors.remove(entity_id)
-        return was_triggered != self.is_triggered
+        now_open = entity_id in self._open_sensors
+        return was_open != now_open
 
     def clear_open_sensors(self) -> None:
         self._open_sensors.clear()
