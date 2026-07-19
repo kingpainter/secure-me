@@ -90,7 +90,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 #### Dead code cleanup
 - `__init__.py`: removed the duplicate local `PLATFORMS` list (was defining the exact same list independently of `const.PLATFORMS`, which only `test_const.py` actually read -- two sources of truth for the same list is a drift risk). Now imports `PLATFORMS` from `.const`, matching every other constant.
-- Identified `module_manager.py` (215 lines, a `ModuleManager` class with its own `async_arm`/`async_disarm`/`async_test_all`) as fully dead code -- zero references anywhere else in the codebase. Superseded long ago by `coordinator.py`'s own `_init_modules()`/`_execute_modules_arm_*()`. Flagged for manual deletion (Claude does not delete files per project rules).
+- Identified `module_manager.py` (215 lines, a `ModuleManager` class with its own `async_arm`/`async_disarm`/`async_test_all`) as fully dead code -- zero references anywhere else in the codebase. Superseded long ago by `coordinator.py`'s own `_init_modules()`/`_execute_modules_arm_*()`. Deleted.
 
 #### Architecture
 - `websocket_api.py` split into four focused sub-modules: `ws_sensors.py`, `ws_modules.py`, `ws_floorplan.py`, `ws_alarm.py`

@@ -118,7 +118,7 @@
 - [ ] Write tests for `services.py` and floorplan websocket endpoints (optional but good hygiene)
 - [x] Update README feature list (linked `API.md`)
 - [ ] Decide on version bump timing now that floorplan etape 3 and the control-API audit are both complete
-- [ ] Delete `module_manager.py` manually (confirmed dead code, zero references -- see CHANGELOG)
+- [x] Delete `module_manager.py` manually (confirmed dead code, zero references -- see CHANGELOG)
 - [ ] Delete `switch.py`/`select.py` platform placeholders if you don't intend to implement them (never wired to any real entities, "Phase 1" scaffolding only) -- optional, lower confidence than `module_manager.py`
 
 ---
