@@ -6,7 +6,6 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr, config_validation as cv
@@ -17,6 +16,7 @@ from .const import (
     UNDO_UPDATE_LISTENER,
     DEFAULT_NAME,
     VERSION,
+    PLATFORMS,
 )
 from .coordinator import SecureMeCoordinator
 from .store import SecureMeStore
@@ -39,14 +39,6 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
-
-PLATFORMS = [
-    Platform.ALARM_CONTROL_PANEL,
-    Platform.BINARY_SENSOR,
-    Platform.SENSOR,
-    Platform.SWITCH,
-    Platform.SELECT,
-]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
