@@ -5,5 +5,13 @@ bcrypt>=4.0.0
 # Development / testing dependencies
 # Install with: pip install -r requirements.txt
 pytest
-pytest-homeassistant-custom-component
+# Pinned: this package bundles a specific Home Assistant core version for tests.
+# Left unpinned, pip's resolver can land on an old release whose bundled HA core
+# predates 2024.11 -- before AlarmControlPanelState and ARM_VACATION existed --
+# which breaks any test that touches alarm_control_panel.alarm_state.
+# 0.13.205 is the newest release that still supports Python 3.11/3.12 (0.13.206+
+# requires Python 3.13, which our CI matrix doesn't use). It bundles HA Core
+# 2025.1, comfortably past the 2024.11 cutoff. If the CI Python matrix is ever
+# bumped to 3.13+, this pin can be raised to track a newer HA core too.
+pytest-homeassistant-custom-component==0.13.205
 pytest-asyncio
