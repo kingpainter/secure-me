@@ -374,5 +374,5 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 MIT License — see [LICENSE](LICENSE) for details.
 
 **Developer:** KingPainter
-**Version:** 1.5.0
+**Version:** 1.5.1
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)
