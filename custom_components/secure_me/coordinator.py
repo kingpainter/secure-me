@@ -398,6 +398,14 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Persists across HA restarts via RestoreEntity attribute restoration.
         self._last_triggered: str | None = None
 
+        # v1.5.0: Guards module trigger dispatch (_execute_modules_trigger)
+        # so it runs exactly once per triggered cycle, regardless of whether
+        # the transition to STATE_ALARM_TRIGGERED came from a real sensor
+        # breach (via _zone_triggered / state_machine's own entry-delay
+        # countdown) or from a manual/service async_trigger() call. See
+        # _state_changed() for the single dispatch point this guards.
+        self._trigger_modules_executed: bool = False
+
         # v1.4.3: Track in-flight push action tasks so we can cancel them
         # during shutdown instead of letting them die mid-arm/disarm.
         # Set holds strong refs (asyncio docs warn that without strong refs
@@ -660,6 +668,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info(
             "Coordinator received state change: %s (countdown=%d)", new_state, countdown
         )
+
+        # v1.5.0: Reset the trigger-modules guard whenever we leave the
+        # triggered state, so the next real trigger cycle can dispatch again.
+        if new_state != STATE_ALARM_TRIGGERED:
+            self._trigger_modules_executed = False
+
         # Append to arm history ring buffer (max 20 events)
         import time as _time_mod
         self._arm_history.insert(0, {
@@ -731,6 +745,23 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             )
 
         elif new_state == STATE_ALARM_TRIGGERED:
+            # v1.5.0 bugfix: this is now the ONLY place module trigger
+            # dispatch happens (siren, camera, lights, lock, TTS), guarded so
+            # it runs exactly once per triggered cycle. Previously, a real
+            # sensor-caused trigger reached this state entirely through
+            # state_machine (_zone_triggered -> trigger_entry_delay ->
+            # _trigger_alarm_locked / the entry-delay countdown timer) without
+            # ever calling _execute_modules_trigger() -- so the siren (and
+            # every other module) never actually fired on a real intrusion,
+            # only when someone called the secure_me.trigger service manually.
+            # async_trigger() no longer calls _execute_modules_trigger() or
+            # sets _last_triggered itself -- both now happen here so every
+            # path into STATE_ALARM_TRIGGERED is covered identically.
+            if not self._trigger_modules_executed:
+                self._trigger_modules_executed = True
+                from datetime import datetime as _dt
+                self._last_triggered = _dt.now().isoformat(timespec="seconds")
+                await self._execute_modules_trigger()
             self.hass.bus.async_fire(
                 EVENT_ALARM_TRIGGERED, {"triggered_by": self._triggered_by}
             )
@@ -761,6 +792,19 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             "Zone %s triggered (type=%s, sensors=%s)",
             zone.zone_id, zone.zone_type, zone.open_sensors,
         )
+
+        # v1.5.0 bugfix: record the real source BEFORE handing off to the
+        # state machine. Previously self._triggered_by was only ever set
+        # inside async_trigger() (the manual/service-call path), so a real
+        # sensor-caused trigger left it stale -- corrupting the
+        # {triggered_by} placeholder in notification templates and the
+        # arm_history ring buffer for every real intrusion.
+        open_sensors = zone.open_sensors
+        source = f"zone:{zone.zone_id}"
+        if open_sensors:
+            source += f" ({open_sensors[0]})"
+        self._triggered_by = source
+
         await self.state_machine.trigger_entry_delay(zone.zone_type)
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -1258,15 +1302,18 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return success
 
     async def async_trigger(self, source: str | None = None) -> bool:
-        """Trigger the alarm."""
+        """Trigger the alarm (manual/service-call entry point).
+
+        v1.5.0: No longer calls _execute_modules_trigger() or sets
+        _last_triggered directly -- _state_changed() now does both,
+        guarded by _trigger_modules_executed, for every path into
+        STATE_ALARM_TRIGGERED (this one included). This keeps a manual
+        secure_me.trigger call and a real sensor-caused trigger behaving
+        identically instead of maintaining two separate code paths.
+        """
         _LOGGER.warning("Alarm triggered! Source: %s", source or "manual")
         self._triggered_by = source or "manual"
         success = await self.state_machine.trigger_alarm(self._triggered_by)
-        if success:
-            # v1.4.3: Record ISO timestamp for last_triggered attribute
-            from datetime import datetime as _dt
-            self._last_triggered = _dt.now().isoformat(timespec="seconds")
-            await self._execute_modules_trigger()
         await self.async_request_refresh()
         return success
 
