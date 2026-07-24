@@ -34,10 +34,10 @@
 - New `API.md`: formal, versioned documentation of the alarm entity's state mapping, attribute contract, and which arm/disarm modes use standard HA services vs. `secure_me.*` services vs. websocket.
 
 ### Alarm state fix
-- `alarm_control_panel.py` now overrides `alarm_state` property (not `state`) returning `AlarmControlPanelState` enum
-- `armed_home_alone` maps to `ARMED_CUSTOM_BYPASS` for HA compatibility
-- `secure_me_mode` attribute always exposes the true coordinator state
-- Panel reads `secure_me_mode` attribute — fixes "Disarmed" shown when Home Alone was active
+- `alarm_control_panel.py` now overrides `alarm_state` property (not `state`) instead of the default `state` property
+- `armed_home_alone` initially mapped to `ARMED_CUSTOM_BYPASS` for HA compatibility, but this broke `secure_me_alarm_tab_card.js` (couldn't distinguish Home Alone from a real bypass) -- **reverted within this same cycle** to report the raw string `"armed_home_alone"` directly instead (see CHANGELOG.md's "Home Alone state collision (regression, reverted)" entry and `API.md` §2 for the full detail). The other five modes (disarmed/away/home/night/vacation) are unaffected and use HA's native enum throughout.
+- `secure_me_mode` attribute always exposes the true coordinator state (identical to `entity.state` for home_alone since the revert)
+- Panel reads `secure_me_mode` attribute -- fixes "Disarmed" shown when Home Alone was active
 
 ### Frontend UX
 - Triggered sensor name shown in topbar pill (friendly name, max 22 chars)

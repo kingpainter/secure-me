@@ -130,7 +130,6 @@ Results use a 4-level severity system:
 
 | Test | Module | Priority | Notes |
 |---|---|---|---|
-| Zone arm/disarm cycle | Core | High | Arm → trigger → disarm, verify state transitions |
 | Push notification delivery | Notifications | Medium | Send test to admin, verify receipt |
 | Sensor debounce verification | Zones | Medium | Rapid trigger, verify 500ms debounce |
 | TTS quiet hours test | TTS | Low | Verify suppression during quiet period |
@@ -139,6 +138,8 @@ Results use a 4-level severity system:
 | bcrypt auth timing | Security | Low | Verify auth completes within 2s |
 | Entry delay accuracy | Core | Medium | Verify countdown matches configured delay |
 | Coordinator push actions | Push | Low | Test SECURE_ME_ARM_AWAY, etc. |
+
+> Note: a full zone arm → trigger → disarm cycle test (`TestAlarmCycleTest`) was implemented in `tests/test_modules.py` since this list was written and is no longer a TODO.
 
 ---
 
