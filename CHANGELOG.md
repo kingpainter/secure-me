@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.1] - 2026-07-24
+
+### Fixed
+
+#### Real sensor-caused alarm trigger never activated siren/camera/lights/lock/TTS (critical, found in production)
+- Discovered when the alarm was armed (away) and genuinely triggered by a sensor: state correctly went to `triggered` and the push notification fired, but the siren never sounded. Manually testing the siren via the Test tab worked fine, which pointed at the trigger *dispatch* path rather than the siren module itself.
+- Root cause: a real sensor breach flows entirely through `ZoneManager` → `coordinator._zone_triggered()` → `state_machine.trigger_entry_delay()` → `state_machine._trigger_alarm_locked()` / the entry-delay countdown timer, none of which ever called `coordinator._execute_modules_trigger()`. That method — which is what actually calls `siren.async_trigger()`, `camera.async_trigger()`, `lights.async_trigger()`, `lock.async_trigger()`, `tts.async_trigger()` — was only ever invoked from `coordinator.async_trigger()`, i.e. a manual `secure_me.trigger` service call. So on every real intrusion, the state machine transitioned correctly but none of the six modules ever actually reacted.
+- Also meant `coordinator._triggered_by` and `coordinator._last_triggered` (ISO timestamp, exposed as an alarm entity attribute, survives HA restart) were only ever populated for a manual trigger — a real sensor-caused trigger left both stale/unset, corrupting the `{triggered_by}` notification placeholder and the `arm_history` log for every genuine break-in.
+- Fixed by making `coordinator._state_changed()` the single dispatch point for module execution on any transition into `STATE_ALARM_TRIGGERED`, guarded by a new `self._trigger_modules_executed` flag so it runs exactly once per triggered cycle regardless of which path (instant zone, entry-delay countdown completing in the background, or a manual service call) produced the transition. `_zone_triggered()` now also records the real source (`zone:<zone_id> (<sensor_entity_id>)`) into `_triggered_by` before handing off to the state machine. `async_trigger()` no longer calls `_execute_modules_trigger()` or sets `_last_triggered` directly — both are now handled uniformly by `_state_changed()`.
+- New `tests/test_coordinator_trigger.py`: real end-to-end tests (no mirror classes) covering both an instant-zone trigger and an entry-delay-zone trigger, asserting the siren module is actually called, `triggered_by`/`last_triggered` are populated correctly, module dispatch fires exactly once per cycle, and the manual `secure_me.trigger` service path still works unchanged.
+- **General learning:** a state machine transition (`current_state == X`) is NOT the same as "the right actions were actually executed". Any function that must react to a state change (siren, camera, notification, etc.) must either hang directly off the same central dispatch callback every other entry path uses, or have an end-to-end test that proves it — not just a test of the state transition itself.
+- Confirmed: CI fully green (367/367 tests, including the 5 new ones), `validate_version.py` consistent.
+
+---
+
 ## [1.5.0] - 2026-07-19
 
 ### Added
@@ -65,13 +80,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Sensor flyout drifting away from input field when panel is scrolled
 - `_render()` tearing down floorplan inspector DOM while sensor flyout was open, causing HA state updates (fired every second via `set hass()`) to interrupt sensor selection
 - `coordinator.py`: scheduled test runner (`_check_scheduled_tests`) imported `_run_test_internal` from `.websocket_api`, but that function lives in `.ws_modules` and was never re-exported from `websocket_api.py` — every scheduled test run would have failed with `ImportError`. Found while wiring up `services.py` and fixed by importing from the correct module.
-
-#### Real sensor-caused alarm trigger never activated siren/camera/lights/lock/TTS (critical, found in production)
-- Discovered when the alarm was armed (away) and genuinely triggered by a sensor: state correctly went to `triggered` and the push notification fired, but the siren never sounded. Manually testing the siren via the Test tab worked fine, which pointed at the trigger *dispatch* path rather than the siren module itself.
-- Root cause: a real sensor breach flows entirely through `ZoneManager` → `coordinator._zone_triggered()` → `state_machine.trigger_entry_delay()` → `state_machine._trigger_alarm_locked()` / the entry-delay countdown timer, none of which ever called `coordinator._execute_modules_trigger()`. That method — which is what actually calls `siren.async_trigger()`, `camera.async_trigger()`, `lights.async_trigger()`, `lock.async_trigger()`, `tts.async_trigger()` — was only ever invoked from `coordinator.async_trigger()`, i.e. a manual `secure_me.trigger` service call. So on every real intrusion, the state machine transitioned correctly but none of the six modules ever actually reacted.
-- Also meant `coordinator._triggered_by` and `coordinator._last_triggered` (ISO timestamp, exposed as an alarm entity attribute, survives HA restart) were only ever populated for a manual trigger — a real sensor-caused trigger left both stale/unset, corrupting the `{triggered_by}` notification placeholder and the `arm_history` log for every genuine break-in.
-- Fixed by making `coordinator._state_changed()` the single dispatch point for module execution on any transition into `STATE_ALARM_TRIGGERED`, guarded by a new `self._trigger_modules_executed` flag so it runs exactly once per triggered cycle regardless of which path (instant zone, entry-delay countdown completing in the background, or a manual service call) produced the transition. `_zone_triggered()` now also records the real source (`zone:<zone_id> (<sensor_entity_id>)`) into `_triggered_by` before handing off to the state machine. `async_trigger()` no longer calls `_execute_modules_trigger()` or sets `_last_triggered` directly — both are now handled uniformly by `_state_changed()`.
-- New `tests/test_coordinator_trigger.py`: real end-to-end tests (no mirror classes) covering both an instant-zone trigger and an entry-delay-zone trigger, asserting the siren module is actually called, `triggered_by`/`last_triggered` are populated correctly, module dispatch fires exactly once per cycle, and the manual `secure_me.trigger` service path still works unchanged.
 
 #### Home Alone state collision (regression, reverted)
 - `armed_home_alone` had been mapped to HA's `AlarmControlPanelState.ARMED_CUSTOM_BYPASS` (HA's enum has no dedicated slot for it). This broke `secure_me_alarm_tab_card.js` -- it lost the ability to distinguish Home Alone from a real bypass, and had no reason to expect `armed_custom_bypass` to mean Home Alone -- and risked a future collision if anything else ever used the same bypass slot.

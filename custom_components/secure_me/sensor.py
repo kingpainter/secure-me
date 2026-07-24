@@ -1,5 +1,5 @@
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
-# VERSION = "1.5.0"
+# VERSION = "1.5.1"
 
 import logging
 from typing import Any

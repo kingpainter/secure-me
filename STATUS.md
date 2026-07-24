@@ -1,10 +1,21 @@
 # Secure Me — Development Status
 
-## Current version: 1.5.0 (released 2026-07-19)
+## Current version: 1.5.1 (released 2026-07-24)
 
 ---
 
-## What is in 1.5.0
+## What is in 1.5.1
+
+### Critical fix: real sensor-caused alarm trigger never activated siren/camera/lights/lock/TTS
+- A real sensor breach while armed went through `ZoneManager` → `coordinator._zone_triggered()` → `state_machine.trigger_entry_delay()` and never called `coordinator._execute_modules_trigger()` — the method that actually calls `siren.async_trigger()` and the other five modules. That method was only ever reachable from a manual `secure_me.trigger` service call. Result: on a real intrusion, state went to `triggered` and the push notification fired, but nothing physically happened (no siren, no camera activation, no lock, no lights, no TTS).
+- Also fixed: `_triggered_by` and `_last_triggered` were only ever populated for a manual trigger, leaving both stale for every real sensor-caused trigger.
+- Fixed by making `coordinator._state_changed()` the single dispatch point for module execution on any transition into `STATE_ALARM_TRIGGERED`, guarded so it runs exactly once per cycle regardless of entry path (instant zone, entry-delay countdown, or manual service call).
+- New `tests/test_coordinator_trigger.py` (5 tests, real end-to-end, no mirrors) locks in the fix. Full suite: 367/367 green in CI.
+- See `CHANGELOG.md` [1.5.1] for full detail.
+
+---
+
+## What was in 1.5.0 (released 2026-07-19)
 
 ### Floorplan (complete)
 - PNG upload, room drawing (rect + polygon), door/window opening markers
@@ -92,8 +103,8 @@
 
 ## Test suite status
 
-- **358 tests** across the suite (grown from the 168-test 1.4.3 baseline as v1.5.0 features were added)
-- All passing on Python 3.11 and 3.12 (CI confirmed green after the `zones.py` fix)
+- **367 tests** across the suite as of 1.5.1 (358 in 1.5.0 + 5 new in `tests/test_coordinator_trigger.py` for the sensor-trigger dispatch fix, plus minor additions)
+- All passing on Python 3.13 (CI matrix; see `pytest.yaml`)
 - GitHub Actions: HACS 7/8 (brands expected fail), Hassfest all pass
 - `test_zones_edge_cases.py` rewritten this cycle to test the real `ZoneManager`/`Zone` classes instead of local mirror copies -- the mirror-class pattern had let the `zones.py` aggregate-vs-per-sensor bug above ship undetected, and had also drifted from real behaviour (asserted a notification fires for unavailable sensors, which hasn't been true since v1.4.2)
 
@@ -111,13 +122,13 @@
 ### Blockers
 - None — all known bugs fixed, full test suite green in CI
 
-### Recommended before tagging 1.5.0
+### Recommended before tagging 1.5.0 (historical, all resolved as of 1.5.1)
 - [x] Floorplan live view parity between panel preview and dashboard card (sensor pins, room glow, opening indicators) -- verified via functional smoke test
 - [x] Verify `armed_home_alone` pill shows correctly after `alarm_control_panel.py` change
 - [ ] Verify WS reconnect banner appears/disappears correctly on a live server
 - [ ] Write tests for `services.py` and floorplan websocket endpoints (optional but good hygiene)
 - [x] Update README feature list (linked `API.md`)
-- [ ] Decide on version bump timing now that floorplan etape 3 and the control-API audit are both complete
+- [x] Decide on version bump timing now that floorplan etape 3 and the control-API audit are both complete — **shipped as 1.5.0 on 2026-07-19**
 - [x] Delete `module_manager.py` manually (confirmed dead code, zero references -- see CHANGELOG)
 - [ ] Delete `switch.py`/`select.py` platform placeholders if you don't intend to implement them (never wired to any real entities, "Phase 1" scaffolding only) -- optional, lower confidence than `module_manager.py`
 

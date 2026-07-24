@@ -16,7 +16,7 @@ State machine per action:
   PENDING -> DONE  (delay elapsed, action ran)
   DONE    -> IDLE  (a person comes home -- reset for next cycle)
 """
-# VERSION = "1.5.0"
+# VERSION = "1.5.1"
 
 import asyncio
 import logging
