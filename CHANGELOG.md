@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.3] - 2026-07-29
+
+### Changed
+
+#### Floorplan image moved out of custom_components/ entirely -- HACS can no longer delete it
+- Root cause behind the recurring "floorplan disappeared after update" reports (v1.5.0 -> v1.5.1, and again in this session): the PNG lived on disk at `custom_components/secure_me/floorplan/floorplan.png`. A HACS update always wipes and replaces the entire `custom_components/secure_me/` directory, so the file was guaranteed to be deleted on every single update, regardless of how good the backup/restore logic in `store.py` and `ws_floorplan.py` (added in v1.5.2) was.
+- In this session's incident, no `image_b64` backup existed yet for the currently-uploaded image (it predated the backup mechanism), so the v1.5.2 self-heal had nothing to restore from and the user had to re-upload the floorplan manually.
+- Moved the floorplan image to `config/www/secure_me_floorplan/floorplan.png`. Home Assistant serves anything under `config/www/` natively at `/local/...` -- this is core HA behaviour, not something Secure Me registers itself, and `www/` is user config data that a HACS update never touches. `FLOORPLAN_URL_PATH` (`const.py`) now points at `/local/secure_me_floorplan/floorplan.png` instead of `/api/secure_me-panel/floorplan/floorplan.png`.
+- `panel.py` no longer registers a custom static HTTP path for the floorplan image -- that entire block (directory creation, `StaticPathConfig` registration) was removed since HA's built-in `/local/` route already covers it.
+- `ws_floorplan.py`'s `_floorplan_paths()` now resolves to `hass.config.path("www", "secure_me_floorplan")` instead of `custom_components/secure_me/floorplan/`.
+- Added a one-time migration (`_migrate_legacy_floorplan_file()`, runs on every `get_floorplan` call, no-op once done) that moves a leftover pre-1.5.3 file from the old `custom_components/` location into `www/` if one is ever found, so nobody silently loses an image still sitting in the old spot.
+- The `image_b64` backup/self-heal mechanism from v1.5.2 is kept in place as a safety net (e.g. if someone manually deletes the file from `www/`), but is no longer the only thing standing between a routine update and a lost floorplan.
+- **User-facing note:** because the image URL itself changed (`/api/...` -> `/local/...`), the floorplan needed to be re-uploaded one final time after this update. No further re-uploads should be needed on subsequent updates.
+- **General learning:** for any user-generated file that must survive plugin/integration updates, `config/www/` (or another location outside the integration's own folder) is the only truly durable option under HACS -- backup-and-restore logic can paper over the symptom but the underlying file will keep getting deleted on every update as long as it lives inside `custom_components/<domain>/`.
+
+---
+
 ## [1.5.2] - 2026-07-29
 
 ### Fixed
