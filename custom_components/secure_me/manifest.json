@@ -9,5 +9,5 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/kingpainter/secure-me/issues",
   "requirements": ["bcrypt>=4.0.0"],
-  "version": "1.5.1"
+  "version": "1.5.2"
 }

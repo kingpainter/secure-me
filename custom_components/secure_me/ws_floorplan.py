@@ -158,9 +158,24 @@ async def ws_get_floorplan(
             )
             # Try to restore from base64 backup stored in the store.
             # This recovers the PNG automatically after a HACS update.
-            restored = await store.async_restore_floorplan_image_from_backup(
-                FLOORPLAN_URL_PATH
-            )
+            # Defensive try/except: a failure here must never crash the whole
+            # get_floorplan response, since rooms/openings/sensor bindings are
+            # otherwise intact and must still reach the frontend. This is
+            # exactly what happened in v1.5.1 (AttributeError on a stray
+            # self._image_store reference) -- fixed now, but this guard stays
+            # so a future regression here degrades gracefully instead of
+            # making the whole floorplan config look "gone".
+            try:
+                restored = await store.async_restore_floorplan_image_from_backup(
+                    FLOORPLAN_URL_PATH
+                )
+            except Exception as err:
+                _LOGGER.warning(
+                    "Floorplan backup restore raised an unexpected error (%s) -- "
+                    "clearing image metadata only (rooms and openings preserved)",
+                    err,
+                )
+                restored = None
             if restored:
                 image_bytes, _w, _h = restored
                 floorplan_dir, _ = _floorplan_paths(hass)

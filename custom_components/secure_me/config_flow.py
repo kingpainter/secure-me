@@ -1,5 +1,5 @@
 """Config flow for Secure Me integration."""
-# VERSION = "1.5.1"
+# VERSION = "1.5.2"
 
 import voluptuous as vol
 from homeassistant import config_entries

@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.2] - 2026-07-29
+
+### Fixed
+
+#### Floorplan image failed to auto-restore after a HACS update (crashed the whole get_floorplan response)
+- Discovered after a HACS update: the floorplan configuration in Secure Me Panel appeared to have vanished again, even though this was believed fixed. The floorplan PNG lives on disk under `custom_components/secure_me/floorplan/`, which a HACS update wipes and replaces along with the rest of the integration's files -- by design, since the store's `.storage/secure_me.panel_config` (rooms, openings, sensor bindings, and an `image_b64` backup of the PNG) is untouched by HACS.
+- The self-heal path in `ws_floorplan.py`'s `ws_get_floorplan()` -- which detects a missing PNG on disk and restores it from the `image_b64` backup -- was already wired in correctly. The bug was inside `store.py`'s `async_get_floorplan_image_b64()`, which referenced `self._image_store.async_load()`, a "dedicated image store" that was never actually implemented anywhere in the class (no `self._image_store` was ever created in `__init__`). Every restore attempt therefore raised an uncaught `AttributeError`, which crashed the entire `ws_get_floorplan()` call -- not just the image portion. Since rooms/openings/sensor assignments are returned in the same response as the image metadata, the whole floorplan configuration appeared to be gone from the panel's point of view, even though it was fully intact in the store the entire time.
+- Fixed `async_get_floorplan_image_b64()` to read the backup directly from `self._data['floorplan']['image_b64']`, which is where `async_save_floorplan_image()` actually stores it -- no separate store object needed.
+- Added a defensive `try/except` around the `async_restore_floorplan_image_from_backup()` call in `ws_get_floorplan()` so that any future error in the restore path degrades gracefully (falls back to clearing image metadata only, preserving rooms/openings) instead of crashing the whole floorplan response again.
+- Also fixed a version-marker drift in `panel.py`: the file header comment had already moved to 1.5.1 while the internal `VERSION` variable (used for the panel's cache-busting query param) was still stuck at `"1.5.0"` -- the two had silently fallen out of sync for a full release cycle.
+- **General learning:** a self-healing code path that references an object never constructed anywhere in `__init__` will pass a casual code read (the method looks complete) but fails on every real invocation. When a "fix" for a recurring bug involves new instance state, grep for where that state is actually initialized -- not just where it's read.
+
+---
+
 ## [1.5.1] - 2026-07-24
 
 ### Fixed

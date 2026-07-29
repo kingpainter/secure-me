@@ -1,5 +1,5 @@
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.5.1"
+# VERSION = "1.5.2"
 
 import base64
 import concurrent.futures
@@ -780,10 +780,16 @@ class SecureMeStore:
         self._schedule_save()
 
     async def async_get_floorplan_image_b64(self) -> str | None:
-        """Return the stored base64 PNG backup from the dedicated image store."""
-        data = await self._image_store.async_load()
-        if data and data.get("image_b64"):
-            return data["image_b64"]
+        """Return the stored base64 PNG backup from the floorplan config.
+
+        NOTE: v1.5.1 briefly referenced a nonexistent self._image_store here
+        (a "dedicated image store" that was never implemented), which raised
+        an uncaught AttributeError on every restore attempt and crashed the
+        whole ws_get_floorplan() call -- including rooms/openings that were
+        otherwise intact. The backup has always actually lived inline in
+        self._data['floorplan']['image_b64'] (see async_save_floorplan_image),
+        so read from there directly.
+        """
         return self._data.get("floorplan", {}).get("image_b64")
 
     async def async_restore_floorplan_image_from_backup(
