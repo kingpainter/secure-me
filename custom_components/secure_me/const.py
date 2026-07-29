@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.5.2"
+# VERSION = "1.5.3"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -251,9 +251,16 @@ PUSH_EVENT_ACTIONS.append(EVENT_HOME_ALONE_ACTION_1)
 PUSH_EVENT_ACTIONS.append(EVENT_HOME_ALONE_ACTION_2)
 
 # Floorplan (Home Alone live-view)
-FLOORPLAN_DIR_NAME   = "floorplan"
+# v1.5.3: moved off disk from custom_components/secure_me/floorplan/ (which
+# HACS wipes and replaces on every update) to config/www/secure_me_floorplan/,
+# served natively by HA under /local/ -- a path HACS never touches, since
+# www/ is user config data, not integration code. This makes the whole
+# image_b64 backup/restore mechanism in store.py a safety net rather than
+# the only thing standing between an update and a lost floorplan.
+FLOORPLAN_WWW_DIR_NAME = "secure_me_floorplan"
+FLOORPLAN_DIR_NAME   = "floorplan"  # legacy custom_components path (migration source only)
 FLOORPLAN_IMAGE_NAME = "floorplan.png"
-FLOORPLAN_URL_PATH   = f"/api/{DOMAIN}-panel/floorplan/{FLOORPLAN_IMAGE_NAME}"
+FLOORPLAN_URL_PATH   = f"/local/{FLOORPLAN_WWW_DIR_NAME}/{FLOORPLAN_IMAGE_NAME}"
 FLOORPLAN_MAX_BYTES  = 4 * 1024 * 1024
 
 ATTR_FLOORPLAN_IMAGE_URL = "image_url"

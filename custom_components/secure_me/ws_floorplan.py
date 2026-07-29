@@ -1,5 +1,5 @@
 """WebSocket API — Floorplan commands for Secure Me."""
-# VERSION = "1.5.1"
+# VERSION = "1.5.3"
 from __future__ import annotations
 
 import base64
@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from .const import (
     DOMAIN,
     FLOORPLAN_DIR_NAME,
+    FLOORPLAN_WWW_DIR_NAME,
     FLOORPLAN_IMAGE_NAME,
     FLOORPLAN_MAX_BYTES,
     FLOORPLAN_URL_PATH,
@@ -36,22 +37,64 @@ _LOGGER = logging.getLogger(__name__)
 from .ws_helpers import _get_store  # noqa: F401
 
 
-# The floorplan image lives on disk under custom_components/secure_me/floorplan/
-# and is served via the panel's static-resource handler (registered in panel.py).
-# The store holds image metadata + per-sensor markers; the bytes never go
-# through the store. Upload comes in as base64 over websocket and is decoded,
-# size-checked, PNG-validated, and written to disk.
+# v1.5.3: the floorplan image lives on disk under config/www/secure_me_floorplan/
+# and is served natively by HA under /local/ -- a path HACS never touches on
+# update, since www/ is user config data rather than integration code. Before
+# v1.5.3 the file lived under custom_components/secure_me/floorplan/, which a
+# HACS update always wipes and replaces along with the rest of the integration.
+# The store still only holds image metadata + per-sensor markers; the bytes
+# never go through the store except as the image_b64 backup safety net.
 
 # PNG signature for header validation (8 bytes per the PNG spec).
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def _floorplan_paths(hass: HomeAssistant) -> tuple[str, str]:
-    """Return (directory, file_path) for the floorplan image on disk."""
+    """Return (directory, file_path) for the floorplan image on disk (www/)."""
+    www_dir = hass.config.path("www", FLOORPLAN_WWW_DIR_NAME)
+    floorplan_file = os.path.join(www_dir, FLOORPLAN_IMAGE_NAME)
+    return www_dir, floorplan_file
+
+
+def _legacy_floorplan_file(hass: HomeAssistant) -> str:
+    """Return the pre-v1.5.3 file path under custom_components/secure_me/.
+
+    Kept only so a one-time migration can pick up a file left over from
+    before the move to www/. Never written to going forward.
+    """
     root_dir = hass.config.path("custom_components", DOMAIN)
-    floorplan_dir = os.path.join(root_dir, FLOORPLAN_DIR_NAME)
-    floorplan_file = os.path.join(floorplan_dir, FLOORPLAN_IMAGE_NAME)
-    return floorplan_dir, floorplan_file
+    return os.path.join(root_dir, FLOORPLAN_DIR_NAME, FLOORPLAN_IMAGE_NAME)
+
+
+def _migrate_legacy_floorplan_file(hass: HomeAssistant) -> bool:
+    """One-time migration: move a pre-v1.5.3 file into www/ if present.
+
+    Runs synchronously on the executor. Returns True if a file was moved.
+    No-op if the legacy file doesn't exist or the new location is already
+    populated (never overwrites a newer upload with an older legacy file).
+    """
+    legacy_file = _legacy_floorplan_file(hass)
+    if not os.path.isfile(legacy_file):
+        return False
+
+    www_dir, floorplan_file = _floorplan_paths(hass)
+    if os.path.isfile(floorplan_file):
+        return False
+
+    os.makedirs(www_dir, exist_ok=True)
+    try:
+        os.replace(legacy_file, floorplan_file)
+    except OSError as err:
+        _LOGGER.warning(
+            "Secure Me: failed to migrate legacy floorplan file %s -> %s (%s)",
+            legacy_file, floorplan_file, err,
+        )
+        return False
+    _LOGGER.info(
+        "Secure Me: migrated legacy floorplan image %s -> %s",
+        legacy_file, floorplan_file,
+    )
+    return True
 
 
 def _read_png_dimensions(data: bytes) -> tuple[int, int] | None:
@@ -142,6 +185,12 @@ async def ws_get_floorplan(
         return
 
     fp = store.get_floorplan()
+
+    # One-time migration: pick up a file left over from before v1.5.3 moved
+    # the floorplan image from custom_components/secure_me/floorplan/ to
+    # config/www/secure_me_floorplan/. No-op once migrated (or if there was
+    # never a legacy file to begin with).
+    await hass.async_add_executor_job(_migrate_legacy_floorplan_file, hass)
 
     # Self-heal: if the store thinks an image exists but the file is gone
     # (e.g. after a HACS update or manual deletion), report image_url=None

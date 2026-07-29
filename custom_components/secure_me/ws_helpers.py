@@ -1,5 +1,5 @@
 """Shared helpers for Secure Me WebSocket sub-modules."""
-# VERSION = "1.5.2"
+# VERSION = "1.5.3"
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
