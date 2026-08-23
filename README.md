@@ -2,7 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.5.1-green)](https://github.com/kingpainter/secure-me/releases)
+[![Version](https://img.shields.io/badge/version-1.5.3-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, an interactive floorplan, real-time health monitoring, and a modern configuration panel.
@@ -48,17 +48,13 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Touch support for tablets
 - Configuration survives HACS updates: PNG backed up in HA storage, auto-restored on startup
 
-**Presence-Based Auto-Arm**
-- Arms automatically 15 minutes after all residents leave (locks + alarm + cameras)
+**Auto Actions (v1.5.0, scoped to Secure Me users from v1.5.4)**
+- Watches the `person_entity` configured on each enabled Secure Me user (Users tab) -- not every `person.*` entity in your HA instance
+- When everyone tracked leaves: three independent action timers with individual delays -- lock, arm alarm, activate cameras
+- Configurable per action with delay slider (defaults: lock 2 min, alarm 5 min, cameras immediately)
 - Arrival confirmation delay prevents GPS flicker from resetting timers
-- Respects Fake Presence toggle
-- Selective Fake Presence v2: block alarm, locks, or cameras independently
-
-**Auto Actions (v1.5.0)**
-- Three independent action timers with individual delays on alarm trigger
-- Actions: arm alarm, activate cameras, send notification
-- Configurable per action with delay slider
-- Arrival confirmation delay prevents GPS flicker
+- Selective Fake Presence v2: block alarm, locks, or cameras independently, re-checked both when the countdown starts and again right before each action fires
+- A single summary notification is sent once all scheduled actions have settled
 
 **Monitoring**
 - System health score with per-module status
@@ -349,6 +345,8 @@ Clear browser cache and force-reload: Chrome/Edge `Ctrl+Shift+R`, Firefox `Ctrl+
 **Floorplan lost after HACS update**
 From v1.5.0 the floor plan image is backed up in HA storage and restored automatically on the next startup. Room and sensor assignments always survive HACS updates. If the image is not restored, re-upload it — your rooms and sensor assignments will still be there.
 
+From v1.5.3 the image itself moved from `custom_components/secure_me/floorplan/` to `config/www/secure_me_floorplan/` (served at `/local/...` instead of `/api/...`) so it can no longer be deleted by a HACS update at all. Because the URL changed, anyone upgrading from v1.5.2 or earlier needs to re-upload the floorplan image **one final time** after updating to v1.5.3 — no further re-uploads should be needed on subsequent updates.
+
 **Alarm arms but doesn't trigger**
 Check that sensors are enabled in the Sensors tab and zones are configured in the Zones tab. Verify the zone's arm modes include the mode you are using. Run a Full test from the Testing tab.
 
@@ -374,5 +372,5 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 MIT License — see [LICENSE](LICENSE) for details.
 
 **Developer:** KingPainter
-**Version:** 1.5.1
+**Version:** 1.5.3
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)

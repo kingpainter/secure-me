@@ -1,7 +1,10 @@
 """Auto Actions manager for Secure Me.
 
-Monitors all person.* entities. When the home becomes empty (all persons
-not_home) it schedules three independent delayed actions:
+Monitors person_entity/tracker_entity from enabled Secure Me user profiles
+(v1.5.4 -- previously watched every person.* entity in HA; see
+async_refresh_trackers() below for why that changed). When the home
+becomes empty (all tracked users not_home) it schedules three independent
+delayed actions:
   1. Lock all configured locks (unless Fake Presence blocks locks).
   2. Arm the alarm in away mode (unless Fake Presence blocks alarm).
   3. Activate cameras / start recording (unless Fake Presence blocks cameras).
@@ -83,17 +86,87 @@ class AutoActionsManager:
         # HA state listener cancel handle
         self._unsub_listener = None
 
+        # v1.5.4: Scoped presence tracking -- only person_entity/tracker_entity
+        # from enabled Secure Me user profiles, not every person.* entity in
+        # HA. Rebuilt by async_refresh_trackers(), called from async_start()
+        # and whenever a user profile is saved/deleted (see ws_sensors.py).
+        self._tracker_entities: set[str] = set()
+
     # -------------------------------------------------------------------------
     # Public lifecycle
     # -------------------------------------------------------------------------
 
     @callback
     def async_start(self) -> None:
-        """Register presence state listener."""
+        """Register presence state listener and start monitoring.
+
+        v1.5.4: Scoped to Secure Me users only (previously watched every
+        person.* entity in HA -- see async_refresh_trackers() docstring).
+        Also checks initial presence state on startup: hass.bus.async_listen
+        only fires on FUTURE state changes, so if the house is already empty
+        when HA (and this manager) starts up, no state_changed event would
+        ever occur to trigger _on_home_empty() without this check.
+        """
+        self.async_refresh_trackers()
         self._unsub_listener = self.hass.bus.async_listen(
             "state_changed", self._handle_state_changed
         )
-        _LOGGER.info("AutoActionsManager started -- monitoring person.* entities")
+        _LOGGER.info(
+            "AutoActionsManager started -- monitoring %d Secure Me user tracker(s)",
+            len(self._tracker_entities),
+        )
+        self.hass.async_create_task(self._check_initial_presence())
+
+    @callback
+    def async_refresh_trackers(self) -> None:
+        """Rebuild the tracked person-entity set from enabled Secure Me users.
+
+        v1.5.4: AutoActionsManager previously reacted to every person.*
+        entity in HA (via a startswith("person.") filter in
+        _handle_state_changed), regardless of whether it was tied to a
+        Secure Me user. A person entity unrelated to the alarm (a guest, a
+        test account, one used only by another integration) could then
+        silently block or delay Auto Actions from ever considering the
+        house "empty", since _all_persons_away() required every person.*
+        entity in the whole HA instance to be not_home. Scoped now to only
+        the person_entity/tracker_entity fields on enabled Secure Me user
+        profiles -- the same source PresenceMonitor (removed in v1.5.4)
+        used to read.
+
+        Call this whenever user profiles may have changed (on
+        async_start(), and from ws_save_user/ws_delete_user) so tracker
+        edits take effect without an HA restart.
+        """
+        trackers: set[str] = set()
+        for user in self.store.get_users().values():
+            if not user.get("enabled", True):
+                continue
+            tracker = user.get("person_entity") or user.get("tracker_entity", "")
+            if tracker:
+                trackers.add(tracker)
+        self._tracker_entities = trackers
+        _LOGGER.debug(
+            "AutoActions: tracking %d Secure Me user(s): %s",
+            len(trackers), ", ".join(sorted(trackers)) or "<none>",
+        )
+
+    async def _check_initial_presence(self) -> None:
+        """Check whether the house is already empty at startup.
+
+        See async_start() docstring -- hass.bus.async_listen only fires on
+        future changes, so this closes the gap where HA restarts while
+        everyone is already away and disarmed.
+        """
+        if not self._tracker_entities:
+            return
+        if not self._all_persons_away():
+            _LOGGER.debug("AutoActions: at least one tracked person is home at startup")
+            return
+        _LOGGER.info(
+            "AutoActions: all tracked Secure Me users show 'not_home' at startup "
+            "-- treating house as already empty"
+        )
+        await self._on_home_empty()
 
     async def async_stop(self) -> None:
         """Cancel all pending tasks and unregister listener."""
@@ -111,9 +184,14 @@ class AutoActionsManager:
 
     @callback
     def _handle_state_changed(self, event: Any) -> None:
-        """Handle HA state_changed events for person.* entities."""
+        """Handle HA state_changed events for tracked Secure Me user entities.
+
+        v1.5.4: filters against self._tracker_entities (Secure Me users
+        only) instead of any entity_id starting with "person." -- see
+        async_refresh_trackers() docstring.
+        """
         entity_id: str = event.data.get("entity_id", "")
-        if not entity_id.startswith("person."):
+        if entity_id not in self._tracker_entities:
             return
 
         new_state = event.data.get("new_state")
@@ -251,6 +329,29 @@ class AutoActionsManager:
         if not self._home_empty:
             _LOGGER.info("AutoActions: %s aborted -- home no longer empty", action)
             return
+
+        # v1.5.4: Re-check Fake Presence right before executing. _schedule_action()
+        # only checked the block flags once, at the moment the house first went
+        # empty -- if Fake Presence was toggled on AFTER that (but before this
+        # action's delay elapsed), the action would still fire unblocked. This
+        # closes the same race that PresenceMonitor's (removed in v1.5.4)
+        # Fake-Presence timer-cancel path used to guard against.
+        fp = self.store.get_fake_presence_v2()
+        if fp.get(FP_ACTIVE, False):
+            block_key = {
+                "lock": FP_BLOCK_LOCKS,
+                "alarm": FP_BLOCK_ALARM,
+                "camera": FP_BLOCK_CAMERAS,
+            }.get(action)
+            if block_key and fp.get(block_key, False):
+                _LOGGER.info(
+                    "AutoActions: %s aborted at execution time -- Fake Presence now blocks it",
+                    action,
+                )
+                self._done_actions.add(action + "_skipped")
+                if self._all_actions_settled():
+                    await self._send_summary_notification()
+                return
 
         _LOGGER.info("AutoActions: executing action '%s'", action)
         result = await self._execute_action(action)
@@ -424,11 +525,22 @@ class AutoActionsManager:
     # -------------------------------------------------------------------------
 
     def _all_persons_away(self) -> bool:
-        """Return True if all person.* entities are not_home."""
-        persons = self.hass.states.async_all("person")
-        if not persons:
+        """Return True if every tracked Secure Me user is currently away.
+
+        v1.5.4: iterates self._tracker_entities (Secure Me users only)
+        instead of every person.* entity in HA -- see
+        async_refresh_trackers() docstring. Fail-safe direction preserved:
+        "unavailable"/"unknown" states count as NOT away (same as
+        PresenceMonitor's equivalent _all_away(), which this replaces), so
+        a flaky tracker never triggers an unattended arm/lock.
+        """
+        if not self._tracker_entities:
             return False
-        return all(s.state == "not_home" for s in persons)
+        for entity_id in self._tracker_entities:
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in ("home", "unavailable", "unknown"):
+                return False
+        return True
 
     def _all_actions_settled(self) -> bool:
         """Return True when all scheduled action tasks have finished or were skipped."""

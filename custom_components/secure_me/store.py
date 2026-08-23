@@ -478,33 +478,56 @@ class SecureMeStore:
     def authenticate_user(self, code: str, user_id: str | None = None) -> dict | None:
         """Authenticate a user by code.
 
-        Uses bcrypt.checkpw in a ThreadPoolExecutor (non-blocking).
+        Uses bcrypt.checkpw in a ThreadPoolExecutor (parallelised across
+        users -- bounds worst-case wait to roughly one bcrypt round-trip
+        instead of N sequential ones, though the calling thread still
+        blocks synchronously until that result is in; see
+        authenticate_user_with_id() for callers that also need the user_id).
         If user_id is given, only that user is checked.
         Returns the matching user dict on success, None on failure.
         Falls back to plaintext comparison for legacy (non-hashed) entries.
         """
+        result = self.authenticate_user_with_id(code, user_id)
+        return result[1] if result else None
+
+    def authenticate_user_with_id(
+        self, code: str, user_id: str | None = None
+    ) -> tuple[str, dict] | None:
+        """Authenticate a user by code, also returning their user_id.
+
+        Same bcrypt-in-ThreadPoolExecutor logic as authenticate_user() --
+        introduced so callers that need the user_id (e.g.
+        coordinator.identify_user_id()) don't have to duplicate the
+        bcrypt-checking loop by hand outside the executor, which used to
+        run bcrypt.checkpw() synchronously per-user on the caller's own
+        thread (typically the event loop) instead of in parallel worker
+        threads.
+
+        Returns (user_id, user_dict) on success, None on failure.
+        """
         users = self._data.get("users", {})
 
-        def _check(user: dict) -> dict | None:
+        def _check(item: tuple[str, dict]) -> tuple[str, dict] | None:
+            uid, user = item
             if not user.get("enabled", True):
                 return None
             stored = user.get("code", "")
             if not stored:
-                return user if not code else None
+                return (uid, user) if not code else None
             if user.get("code_hashed", False):
-                return user if self._check_code(code, stored) else None
+                return (uid, user) if self._check_code(code, stored) else None
             # Legacy plaintext fallback
-            return user if stored == code else None
+            return (uid, user) if stored == code else None
 
         if user_id:
             user = users.get(user_id)
-            return _check(user) if user else None
+            return _check((user_id, user)) if user else None
 
         # Parallel check across all users (matches Alarmo approach)
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {
-                executor.submit(_check, u): u
-                for u in users.values()
+                executor.submit(_check, item): item
+                for item in users.items()
             }
             for future in concurrent.futures.as_completed(futures):
                 result = future.result()
@@ -667,9 +690,13 @@ class SecureMeStore:
         self._schedule_save()
 
     # ─── Floorplan (v1.5.0) ───────────────────────────────────────────
-    # The image itself is stored on disk under custom_components/secure_me/
-    # floorplan/floorplan.png and exposed via panel.py's static-resource
-    # handler. The store only holds image metadata + per-sensor markers.
+    # v1.5.3: the image itself is stored on disk under config/www/
+    # secure_me_floorplan/floorplan.png (served natively by HA under /local/
+    # -- see FLOORPLAN_URL_PATH in const.py), not under custom_components/,
+    # since HACS wipes and replaces that whole directory on every update.
+    # The store only holds image metadata + per-sensor markers, plus the
+    # image_b64 backup below -- now a safety net rather than the only thing
+    # standing between an update and a lost floorplan.
 
     def _empty_floorplan(self) -> dict[str, Any]:
         """Return an empty floorplan structure."""

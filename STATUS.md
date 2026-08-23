@@ -1,10 +1,30 @@
 # Secure Me — Development Status
 
-## Current version: 1.5.1 (released 2026-07-24)
+## Current version: 1.5.3 (released) — 1.5.4 changes below, not yet version-bumped/tagged
 
 ---
 
-## What is in 1.5.1
+## What is in 1.5.4 (in progress, 2026-08-23)
+
+### Presence-system consolidation
+- Removed `PresenceMonitor` (coordinator.py) entirely -- the older, hardcoded-900s, Secure-Me-users-only auto-arm mechanism. `AutoActionsManager` (Auto Actions v2, auto_actions.py) is now the sole presence-based automation system, eliminating the risk of duplicate notifications and inconsistent behaviour between the two.
+- `AutoActionsManager` re-scoped to only watch `person_entity`/`tracker_entity` from enabled Secure Me user profiles (`async_refresh_trackers()`) -- previously it watched every `person.*` entity in the whole HA instance, so an unrelated person entity (guest, test account, another integration) could silently block or delay Auto Actions.
+- New initial-presence check at startup (`_check_initial_presence()`, called from `async_start()`): if the house is already empty when HA restarts, Auto Actions now starts its timers immediately instead of waiting for a state_changed event that will never come.
+- Fake Presence is now re-checked immediately before an action executes, not just once when the house was first found empty -- closes a race where toggling Fake Presence on mid-countdown didn't actually block the action.
+- `tests/test_auto_actions.py` (new, 17 tests) locks in all of the above.
+
+### Robustness
+- `identify_user_id()` (coordinator.py) now delegates to a new `store.authenticate_user_with_id()`, reusing `authenticate_user()`'s parallel ThreadPoolExecutor bcrypt-check instead of running its own sequential per-user bcrypt loop directly on the caller's thread.
+
+### Frontend
+- `secure-me-panel.js`: extracted the near-identical Lock/Climate module entity-search-and-filter wiring (previously duplicated ~15 lines each) into one shared `_wireEntitySearchFilter()` helper.
+
+### Dead code removed
+- `notification_dispatcher.send_auto_arm_notification()` and the three `AUTO_ARM_*` constants in const.py -- both only ever backed the now-removed `PresenceMonitor`.
+
+---
+
+## What is in 1.5.1 (released 2026-07-24)
 
 ### Critical fix: real sensor-caused alarm trigger never activated siren/camera/lights/lock/TTS
 - A real sensor breach while armed went through `ZoneManager` → `coordinator._zone_triggered()` → `state_machine.trigger_entry_delay()` and never called `coordinator._execute_modules_trigger()` — the method that actually calls `siren.async_trigger()` and the other five modules. That method was only ever reachable from a manual `secure_me.trigger` service call. Result: on a real intrusion, state went to `triggered` and the push notification fired, but nothing physically happened (no siren, no camera activation, no lock, no lights, no TTS).
@@ -111,9 +131,9 @@
 ### Tests not yet written for 1.5.0 features
 - Floorplan endpoints (`ws_get_floorplan`, `ws_save_floorplan_image`, `ws_save_floorplan_markers`)
 - `secure_me.*` services in `services.py` (registration + schema validation)
-- Auto Actions v2 timer logic
-- Fake Presence v2 selective blocking
 - Floorplan sensor pin rendering in `secure-me-alarm-card.js` (covered so far only by an ad-hoc Node smoke test during development, not a committed test file)
+
+~~Auto Actions v2 timer logic~~ and ~~Fake Presence v2 selective blocking~~ -- **covered as of 1.5.4** by `tests/test_auto_actions.py` (17 tests: Secure Me user scoping, initial-presence startup check, Fake Presence re-check at execution time, and `_all_persons_away()` fail-safe behaviour). See the 1.5.4 section below.
 
 ---
 

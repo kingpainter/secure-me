@@ -757,49 +757,8 @@ def async_setup_dispatcher(hass: HomeAssistant) -> NotificationDispatcher:
     return dispatcher
 
 
-async def send_auto_arm_notification(
-    hass: HomeAssistant,
-    title: str,
-    message: str,
-    actions_taken: list[str],
-) -> None:
-    """Send push notification to all users after presence-based auto-arm.
-
-    Sent to every enabled user that has a notify_service configured,
-    regardless of receive_own_actions — this is a system-level event.
-
-    Args:
-        title:         Notification title.
-        message:       Notification body.
-        actions_taken: Human-readable list of what was done, e.g.
-                       ['Alarm armed (away)', 'Lock locked'].
-    """
-    store = _get_store(hass)
-    if not store:
-        await _send_push(hass, "notify.notify", title, message)
-        return
-
-    if actions_taken:
-        action_lines = "\n".join(f"- {a}" for a in actions_taken)
-        full_message = f"{message}\n\n{action_lines}"
-    else:
-        full_message = message
-
-    users = store.get_users()
-    sent = False
-    for user in users.values():
-        if not user.get("enabled", True):
-            continue
-        svc = user.get("notify_service", "")
-        if not svc:
-            continue
-        await _send_push(hass, svc, title, full_message)
-        sent = True
-
-    if not sent:
-        await _send_push(hass, "notify.notify", title, full_message)
-
-    _LOGGER.info(
-        "Auto-arm notification sent. Actions: %s",
-        ", ".join(actions_taken) if actions_taken else "none",
-    )
+# v1.5.4: send_auto_arm_notification() removed -- it only ever backed
+# PresenceMonitor's push notification (coordinator.py), which was removed
+# when Auto Actions v2 became the sole presence-based automation system.
+# Auto Actions v2 sends its own summary notification via
+# AutoActionsManager._send_summary_notification() in auto_actions.py.

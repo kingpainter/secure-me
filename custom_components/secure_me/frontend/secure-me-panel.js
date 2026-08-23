@@ -6862,6 +6862,39 @@ class SecureMePanel extends HTMLElement {
     });
   }
 
+  // v1.5.4: Shared live-filter wiring for a domain-entity <select> next to a
+  // search <input>. Previously duplicated near-identically between Lock and
+  // Climate module row editors (~15 lines each, drifted apart only in their
+  // dataset attribute names and domain key) -- extracted here so a future fix
+  // to the filter behaviour only needs to happen once.
+  //
+  // opts: {
+  //   searchAttr: CSS attribute selector fragment, e.g. "data-lock-search"
+  //   searchProp: matching dataset property name, e.g. "lockSearch"
+  //   idAttr:     CSS attribute selector fragment for the row id on the
+  //               target <select>, e.g. "data-lock-id"
+  //   domain:     key into this._availableEntities, e.g. "lock"
+  // }
+  _wireEntitySearchFilter(root, opts) {
+    root.querySelectorAll(`input[${opts.searchAttr}]`).forEach(inp => {
+      inp.addEventListener("input", () => {
+        const rowId = inp.dataset[opts.searchProp];
+        const search = inp.value.toLowerCase();
+        const allEntities = this._allEntities || [];
+        const domainEntities = this._availableEntities[opts.domain] || [];
+        const sel = root.querySelector(`select[${opts.idAttr}='${rowId}'][data-field='entity_id']`);
+        if (!sel) return;
+        const filtered = search.length > 1
+          ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
+          : domainEntities;
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">-- Vælg entitet --</option>' +
+          filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
+          (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
+      });
+    });
+  }
+
   _attachTabListeners() {
     
     // v1.5.0: Floorplan tab listeners (canvas, upload, drag, picker)
@@ -7450,23 +7483,10 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("input[type='checkbox'][data-lock-id]").forEach(cb => {
       cb.addEventListener("change", () => this._updateLockField(parseInt(cb.dataset.lockId), cb.dataset.field, cb.checked));
     });
-    // Lock search: filter select options live
-    root.querySelectorAll("input[data-lock-search]").forEach(inp => {
-      inp.addEventListener("input", () => {
-        const lockId = inp.dataset.lockSearch;
-        const search = inp.value.toLowerCase();
-        const allEntities = this._allEntities || [];
-        const domainEntities = this._availableEntities.lock || [];
-        const sel = root.querySelector(`select[data-lock-id='${lockId}'][data-field='entity_id']`);
-        if (!sel) return;
-        const filtered = search.length > 1
-          ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
-          : domainEntities;
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- Vælg entitet --</option>' +
-          filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
-          (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
-      });
+    // Lock search: filter select options live (v1.5.4: shared helper)
+    this._wireEntitySearchFilter(root, {
+      searchAttr: "data-lock-search", searchProp: "lockSearch",
+      idAttr: "data-lock-id", domain: "lock",
     });
 
     // === Climate Module Handlers ===
@@ -7483,23 +7503,10 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("input[type='number'][data-climate-id]").forEach(inp => {
       inp.addEventListener("change", () => this._updateClimateField(parseInt(inp.dataset.climateId), inp.dataset.field, inp.value));
     });
-    // Climate search: filter select options live
-    root.querySelectorAll("input[data-climate-search]").forEach(inp => {
-      inp.addEventListener("input", () => {
-        const climateId = inp.dataset.climateSearch;
-        const search = inp.value.toLowerCase();
-        const allEntities = this._allEntities || [];
-        const domainEntities = this._availableEntities.climate || [];
-        const sel = root.querySelector(`select[data-climate-id='${climateId}'][data-field='entity_id']`);
-        if (!sel) return;
-        const filtered = search.length > 1
-          ? allEntities.filter(e => e.name.toLowerCase().includes(search) || e.entity_id.toLowerCase().includes(search)).slice(0, 25)
-          : domainEntities;
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">-- Vælg entitet --</option>' +
-          filtered.map(e => `<option value="${e.entity_id}" ${e.entity_id === currentVal ? 'selected' : ''}>${e.name} (${e.entity_id})</option>`).join('') +
-          (!filtered.find(e => e.entity_id === currentVal) && currentVal ? `<option value="${currentVal}" selected>${currentVal}</option>` : '');
-      });
+    // Climate search: filter select options live (v1.5.4: shared helper)
+    this._wireEntitySearchFilter(root, {
+      searchAttr: "data-climate-search", searchProp: "climateSearch",
+      idAttr: "data-climate-id", domain: "climate",
     });
 
     // === Siren Module Handlers ===

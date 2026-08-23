@@ -56,10 +56,6 @@ from .const import (
     STATE_ALARM_ARMED_HOME_ALONE,
     EVENT_HOME_ALONE_ACTION_1,
     EVENT_HOME_ALONE_ACTION_2,
-    # v1.4.0: presence-based auto-arm
-    AUTO_ARM_AWAY_DELAY,
-    AUTO_ARM_PUSH_TITLE,
-    AUTO_ARM_PUSH_MESSAGE,
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -126,243 +122,6 @@ def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
             normalized["gateway_light"] = config["gateway_light"]
 
     return normalized
-
-
-class PresenceMonitor:
-    """Monitor person trackers and auto-arm when all residents leave home.
-
-    Flow:
-      1. Loaded at coordinator startup via async_setup() after store is ready.
-      2. Listens for state_changed events on all user person_entity entries.
-      3. When ALL tracked users are away: starts a countdown (AUTO_ARM_AWAY_DELAY).
-      4. If someone returns before the countdown expires: timer is cancelled.
-      5. On countdown expiry, if alarm is still disarmed:
-           - Lock module: lock all configured locks.
-           - Alarm: arm_away (respects Fake Presence block).
-           - Camera module activates automatically as part of arm_away.
-           - Push notification sent to all users.
-
-    Note on field name: the store persists the person entity under two possible
-    keys depending on when the user profile was created. `person_entity` is the
-    canonical name used by the frontend (secure-me-panel.js); `tracker_entity`
-    existed as a design name in early drafts. We read both for compatibility -
-    `person_entity` takes precedence.
-    """
-
-    def __init__(self, hass: HomeAssistant, coordinator: "SecureMeCoordinator") -> None:
-        self.hass = hass
-        self._coordinator = coordinator
-        self._unsubs: list = []
-        self._away_timer: asyncio.Task | None = None
-        self._tracker_entities: set[str] = set()
-
-    def async_setup(self) -> None:
-        """Discover tracker entities from user profiles and start listening.
-
-        Safe to call multiple times: existing listeners and tracker set are
-        cleared first so this doubles as a refresh path for async_refresh().
-        """
-        # Clear previous subscriptions so re-invocation does not register
-        # duplicate listeners for the same entities.
-        for unsub in self._unsubs:
-            try:
-                unsub()
-            except Exception:
-                pass
-        self._unsubs.clear()
-        self._tracker_entities.clear()
-
-        store = getattr(self._coordinator, "store", None)
-        if not store:
-            _LOGGER.warning("PresenceMonitor: store not ready at setup")
-            return
-
-        for user in store.get_users().values():
-            if not user.get("enabled", True):
-                continue
-            # Read `person_entity` first (canonical name used by frontend) and fall
-            # back to `tracker_entity` for any legacy profiles that might exist.
-            tracker = user.get("person_entity") or user.get("tracker_entity", "")
-            if tracker:
-                self._tracker_entities.add(tracker)
-
-        if not self._tracker_entities:
-            _LOGGER.info("PresenceMonitor: No tracker entities configured - auto-arm disabled")
-            return
-
-        _LOGGER.info(
-            "PresenceMonitor: Watching %d tracker(s): %s",
-            len(self._tracker_entities),
-            ", ".join(sorted(self._tracker_entities)),
-        )
-
-        from homeassistant.helpers.event import async_track_state_change_event
-        unsub = async_track_state_change_event(
-            self.hass,
-            list(self._tracker_entities),
-            self._on_tracker_state_changed,
-        )
-        self._unsubs.append(unsub)
-
-    def async_refresh(self) -> None:
-        """Rebuild tracker subscriptions after user profile changes.
-
-        Call this from user save/delete handlers so person_entity edits
-        take effect without requiring a Home Assistant restart. Any pending
-        auto-arm countdown is cancelled since the tracked set may have
-        changed semantically.
-        """
-        self._cancel_timer()
-        self.async_setup()
-
-    def async_teardown(self) -> None:
-        """Unsubscribe listeners and cancel pending timer."""
-        for unsub in self._unsubs:
-            try:
-                unsub()
-            except Exception:
-                pass
-        self._unsubs.clear()
-        self._cancel_timer()
-
-    # ── Internal helpers ─────────────────────────────────────────────────────
-
-    def _all_away(self) -> bool:
-        """Return True if every tracked person is currently not_home."""
-        if not self._tracker_entities:
-            return False
-        for entity_id in self._tracker_entities:
-            state = self.hass.states.get(entity_id)
-            if state is None:
-                continue
-            if state.state in ("home", "unavailable", "unknown"):
-                return False
-        return True
-
-    def _cancel_timer(self) -> None:
-        if self._away_timer and not self._away_timer.done():
-            self._away_timer.cancel()
-        self._away_timer = None
-
-    @callback
-    def _on_tracker_state_changed(self, event) -> None:
-        """React to person tracker state changes."""
-        entity_id = event.data.get("entity_id")
-        new_state = event.data.get("new_state")
-        if new_state is None:
-            return
-
-        new_val = new_state.state
-        _LOGGER.debug("PresenceMonitor: %s -> %s", entity_id, new_val)
-
-        if new_val == "home":
-            # Someone returned — cancel countdown
-            if self._away_timer:
-                _LOGGER.info(
-                    "PresenceMonitor: %s returned home — auto-arm timer cancelled", entity_id
-                )
-                self._cancel_timer()
-            return
-
-        # Person left - check if everyone is now away
-        if self._all_away() and self._away_timer is None:
-            # Fake Presence blocks the entire auto-arm flow (locks + arm).
-            # User preference (option C): when Fake Presence is on, nothing
-            # auto-runs regardless of tracker state - e.g. user doing laundry
-            # while running errands.
-            if self._coordinator.fake_presence:
-                _LOGGER.info(
-                    "PresenceMonitor: All residents away but Fake Presence active - auto-arm suppressed"
-                )
-                return
-
-            _LOGGER.info(
-                "PresenceMonitor: All residents away - starting %ds auto-arm countdown",
-                AUTO_ARM_AWAY_DELAY,
-            )
-            self._away_timer = asyncio.ensure_future(
-                self._auto_arm_countdown()
-            )
-
-    async def _auto_arm_countdown(self) -> None:
-        """Wait AUTO_ARM_AWAY_DELAY seconds then execute auto-arm sequence."""
-        try:
-            await asyncio.sleep(AUTO_ARM_AWAY_DELAY)
-        except asyncio.CancelledError:
-            _LOGGER.info("PresenceMonitor: Auto-arm countdown cancelled")
-            return
-        finally:
-            self._away_timer = None
-
-        # Double-check: re-verify everyone is still away
-        if not self._all_away():
-            _LOGGER.info("PresenceMonitor: Someone returned during countdown — aborting")
-            return
-
-        # Only act if alarm is currently disarmed
-        if self._coordinator.state_machine.is_armed or self._coordinator.state_machine.is_arming:
-            _LOGGER.info("PresenceMonitor: Alarm already armed — no action needed")
-            return
-
-        _LOGGER.info("PresenceMonitor: Auto-arm sequence starting")
-        await self._execute_auto_arm()
-
-    async def _execute_auto_arm(self) -> None:
-        """Lock locks, arm alarm, then notify all users.
-
-        Fake Presence is re-checked at the top: if it was enabled during the
-        countdown window (or raced with this expiry), the entire sequence is
-        skipped - no locking, no arming, no notification.
-        """
-        from .notification_dispatcher import send_auto_arm_notification
-
-        # Fake Presence short-circuit: skip locks AND arm. Matches user pref
-        # (option C): nothing auto-runs while Fake Presence is active.
-        if self._coordinator.fake_presence:
-            _LOGGER.info(
-                "PresenceMonitor: _execute_auto_arm aborted - Fake Presence active"
-            )
-            return
-
-        actions_taken: list[str] = []
-
-        # 1. Lock all configured locks
-        lock_module = self._coordinator.modules.get("lock")
-        if lock_module and lock_module.enabled:
-            lock_entities = getattr(lock_module, "locks", [])
-            for lock_entity in lock_entities:
-                state = self.hass.states.get(lock_entity)
-                if state and state.state == "unlocked":
-                    try:
-                        await self.hass.services.async_call(
-                            "lock", "lock",
-                            {"entity_id": lock_entity},
-                            blocking=False,
-                        )
-                        actions_taken.append(f"Lock locked: {lock_entity}")
-                        _LOGGER.info("PresenceMonitor: Locked %s", lock_entity)
-                    except Exception as err:
-                        _LOGGER.error("PresenceMonitor: Failed to lock %s: %s", lock_entity, err)
-
-        # 2. Arm alarm in away mode (auto=True respects Fake Presence block)
-        arm_success = await self._coordinator.async_arm_away(auto=True)
-        if arm_success:
-            actions_taken.append("Alarm armed (away) — cameras activated")
-            _LOGGER.info("PresenceMonitor: Alarm armed successfully")
-        else:
-            _LOGGER.warning(
-                "PresenceMonitor: arm_away returned False "
-                "(Fake Presence active or sensors open)"
-            )
-            actions_taken.append("Alarm arm skipped (Fake Presence active or open sensors)")
-
-        # 3. Notify all users
-        await send_auto_arm_notification(
-            self.hass,
-            AUTO_ARM_PUSH_TITLE,
-            AUTO_ARM_PUSH_MESSAGE,
-            actions_taken,
-        )
 
 
 class SecureMeCoordinator(DataUpdateCoordinator):
@@ -456,8 +215,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._battery_cache_ttl: float = 300.0      # 5-minute TTL
         self._last_countdown: int = -1
 
-        # v1.4.0: Presence-based auto-arm monitor (started after store is loaded)
-        self._presence_monitor: PresenceMonitor | None = None
+        # v1.5.4: Auto Actions v2 (auto_actions.py) is now the sole
+        # presence-based automation system; the older PresenceMonitor class
+        # (900s fixed delay, coordinator.py) was removed -- Auto Actions v2
+        # already covered everything it did, with configurable per-action
+        # delays and Fake Presence v2 selective blocking, and is the system
+        # actually exposed in the panel's Special Features tab.
         self._auto_actions_manager: AutoActionsManager | None = None
 
         # Ring buffer of recent arm/disarm/trigger events (max 20, newest first).
@@ -944,21 +707,23 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return "user"
 
     def identify_user_id(self, code: str | None) -> str | None:
-        """Return the user_id from code, or None."""
+        """Return the user_id from code, or None.
+
+        Delegates to store.authenticate_user_with_id(), which runs bcrypt
+        checks for all users in a ThreadPoolExecutor in parallel. Previously
+        this method ran its own sequential loop calling
+        SecureMeStore._check_code() directly per user -- with N configured
+        users that meant up to N sequential bcrypt.checkpw() calls (each
+        deliberately ~50-150ms) on the caller's own thread, which in practice
+        is always the HA event loop thread since this is invoked from every
+        async_arm_*() method right after a successful arm. Using the shared
+        parallel-check method bounds that to roughly one bcrypt round-trip
+        regardless of how many users are configured.
+        """
         if code and hasattr(self, "store") and self.store:
-            users = self.store.get_users()
-            for uid, user in users.items():
-                if not user.get("enabled", True):
-                    continue
-                stored = user.get("code", "")
-                if not stored:
-                    continue
-                from .store import SecureMeStore
-                if user.get("code_hashed", False):
-                    if SecureMeStore._check_code(code, stored):
-                        return uid
-                elif stored == code:
-                    return uid
+            result = self.store.authenticate_user_with_id(code)
+            if result:
+                return result[0]
         return None
 
     async def async_restore_state(
@@ -1346,13 +1111,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             return
         await self.store.async_set_fake_presence(active)
 
-        # Cancel any pending auto-arm countdown when Fake Presence activates.
-        # This guards against the race where all trackers went away first,
-        # the countdown started, and Fake Presence is toggled on before the
-        # countdown expires.
-        if active and self._presence_monitor is not None:
-            self._presence_monitor._cancel_timer()
-
         msg = FAKE_PRESENCE_ON_EN if active else FAKE_PRESENCE_OFF_EN
         try:
             from homeassistant.components.persistent_notification import (
@@ -1382,12 +1140,18 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # ── Module management ────────────────────────────────────────────────────
 
-    def _init_modules(self, store=None) -> None:
-        """Initialize all available modules."""
-        if store is not None:
-            stored_modules = store.get_modules()
-        else:
-            stored_modules = {}
+    def _init_modules(self) -> None:
+        """Initialize all available modules with config_entry.options as a
+        first-boot default. Only ever called once from __init__, before the
+        store is loaded -- async_load_store_config() re-initializes every
+        module immediately afterwards via update_module_config() once the
+        store's saved config is available, which is the config that actually
+        ends up in effect. (A `store` parameter used to exist here for a
+        stored-config path that was never reached in practice, since the
+        single call site in __init__ always ran before the store existed;
+        removed for clarity -- see async_load_store_config() for the real
+        module-config loading path.)"""
+        stored_modules = {}
         options_modules = self.config_entry.options.get("modules", {})
 
         def _get_config(mid: str) -> dict:
@@ -1526,15 +1290,17 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self.zone_manager.load_sensor_groups(sensor_groups)
             _LOGGER.info("Loaded %d sensor groups from store", len(sensor_groups))
 
-        # v1.4.0: Start presence monitor now that user person_entity fields are available
-        if self._presence_monitor is None:
-            self._presence_monitor = PresenceMonitor(self.hass, self)
-            self._presence_monitor.async_setup()
-
-        # v1.5.0: Start Auto Actions manager (person.* based, per-feature delays)
+        # v1.5.4: Start Auto Actions manager (Secure Me users only, per-feature
+        # delays) -- the sole presence-based automation system now that
+        # PresenceMonitor has been removed (see __init__ comment above).
         if not hasattr(self, "_auto_actions_manager") or self._auto_actions_manager is None:
             self._auto_actions_manager = AutoActionsManager(self.hass, self, store)
             self._auto_actions_manager.async_start()
+        else:
+            # Store re-loaded (e.g. config entry reload) -- refresh the
+            # tracked-user set in case profiles changed since the manager
+            # was first created.
+            self._auto_actions_manager.async_refresh_trackers()
 
     # ── Health ───────────────────────────────────────────────────────────────
 
@@ -1702,11 +1468,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Unregister scheduled test timer
         if hasattr(self, "_scheduled_test_unsub") and self._scheduled_test_unsub:
             self._scheduled_test_unsub()
-
-        # v1.4.0: Teardown presence monitor
-        if self._presence_monitor is not None:
-            self._presence_monitor.async_teardown()
-            self._presence_monitor = None
 
         # v1.5.0: Teardown Auto Actions manager
         if self._auto_actions_manager is not None:

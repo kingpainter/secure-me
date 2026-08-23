@@ -330,11 +330,13 @@ async def ws_save_user(
     config.pop("code_hashed", None)  # strip any frontend-supplied flag
     await store.async_save_user(user_id, config)
 
-    # Refresh presence monitor so tracker_entity edits take effect without
-    # requiring a Home Assistant restart.
+    # Refresh Auto Actions v2's tracked-user set so person_entity edits take
+    # effect without requiring a Home Assistant restart. (v1.5.4: replaces
+    # the old presence-monitor refresh call, now that PresenceMonitor has
+    # been removed and Auto Actions v2 is the sole presence-based system.)
     coordinator = _get_coordinator(hass)
-    if coordinator is not None and getattr(coordinator, "_presence_monitor", None) is not None:
-        coordinator._presence_monitor.async_refresh()
+    if coordinator is not None and getattr(coordinator, "_auto_actions_manager", None) is not None:
+        coordinator._auto_actions_manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
@@ -357,12 +359,13 @@ async def ws_delete_user(
 
     success = await store.async_delete_user(msg["user_id"])
 
-    # Refresh presence monitor so removed users' trackers are unsubscribed
-    # without requiring a Home Assistant restart.
+    # Refresh Auto Actions v2's tracked-user set so removed users' trackers
+    # are unsubscribed without requiring a Home Assistant restart. (v1.5.4:
+    # replaces the old presence-monitor refresh call.)
     if success:
         coordinator = _get_coordinator(hass)
-        if coordinator is not None and getattr(coordinator, "_presence_monitor", None) is not None:
-            coordinator._presence_monitor.async_refresh()
+        if coordinator is not None and getattr(coordinator, "_auto_actions_manager", None) is not None:
+            coordinator._auto_actions_manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": success})
 

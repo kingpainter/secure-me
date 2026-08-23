@@ -273,10 +273,11 @@ ATTR_MARKER_Y_PCT = "y_pct"
 ATTR_MARKER_LABEL = "label"
 ATTR_MARKER_KIND  = "kind"
 
-# Auto-arm (presence-based) - kept for backwards-compat with coordinator.py
-AUTO_ARM_AWAY_DELAY   = 900
-AUTO_ARM_PUSH_TITLE   = "Secure Me: Auto-armed"
-AUTO_ARM_PUSH_MESSAGE = "All residents left home. Alarm, locks and cameras have been secured automatically."
+# v1.5.4: AUTO_ARM_AWAY_DELAY / AUTO_ARM_PUSH_TITLE / AUTO_ARM_PUSH_MESSAGE
+# removed -- they backed the old PresenceMonitor class in coordinator.py
+# (900s fixed delay, no config UI), which has been replaced entirely by
+# Auto Actions v2 below (configurable per-action delays, exposed in the
+# panel's Special Features tab). See CHANGELOG.md for the removal writeup.
 
 # Auto Actions v2
 # Presence-driven per-feature automatic actions with individual delays,
