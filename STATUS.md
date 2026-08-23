@@ -1,10 +1,10 @@
 # Secure Me — Development Status
 
-## Current version: 1.5.3 (released) — 1.5.4 changes below, not yet version-bumped/tagged
+## Current version: 1.5.4 (bumped 2026-08-23, ready to commit)
 
 ---
 
-## What is in 1.5.4 (in progress, 2026-08-23)
+## What is in 1.5.4 (2026-08-23)
 
 ### Presence-system consolidation
 - Removed `PresenceMonitor` (coordinator.py) entirely -- the older, hardcoded-900s, Secure-Me-users-only auto-arm mechanism. `AutoActionsManager` (Auto Actions v2, auto_actions.py) is now the sole presence-based automation system, eliminating the risk of duplicate notifications and inconsistent behaviour between the two.

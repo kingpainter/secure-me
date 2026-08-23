@@ -5,6 +5,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.4] - 2026-08-23
+
+### Changed
+
+#### Presence automation consolidated into Auto Actions v2 -- PresenceMonitor removed
+- Since v1.4.0/v1.5.0, two independent presence-based automation systems ran in parallel: `PresenceMonitor` (coordinator.py -- fixed 900s delay, bundled lock+arm, only watched trackers configured on Secure Me user profiles) and `AutoActionsManager`/"Auto Actions v2" (auto_actions.py -- configurable per-action delays, Fake Presence v2 selective blocking, the system actually exposed in the panel's Special Features tab). Found during an external code audit: this duplication risked two separate push notifications for the same "everyone left" event, and the two systems disagreed on which `person.*` entities even counted (`PresenceMonitor` only watched Secure Me users; `AutoActionsManager` watched every `person.*` entity in the whole HA instance).
+- Removed `PresenceMonitor` entirely (class, `self._presence_monitor` field, and all references in `coordinator.py`'s `__init__`, `async_load_store_config`, `async_set_fake_presence`, `async_shutdown`). `AutoActionsManager` is now the sole presence-based automation system.
+- `AutoActionsManager` re-scoped to only the `person_entity`/`tracker_entity` configured on **enabled Secure Me user profiles** (new `async_refresh_trackers()`), instead of every `person.*` entity in HA -- closing the gap where an unrelated person entity (guest, test account, another integration's tracker) could silently block or delay Auto Actions from ever considering the house empty.
+- New initial-presence check at startup (`_check_initial_presence()`, called from `async_start()`): `hass.bus.async_listen("state_changed", ...)` only fires on *future* state changes, so if the house was already empty and the alarm already disarmed when HA restarted, Auto Actions previously never started its timers at all. This mirrors a fix already identified but not yet implemented for the now-removed `PresenceMonitor` (`projekt_løsninger/secure_me_implementering.md` Fix 1) -- implemented here for the system that actually matters.
+- Fake Presence is now re-checked immediately before an action executes (`_run_action_after_delay()`), not only once when the house was first found empty. Previously, toggling Fake Presence on *during* an action's countdown did not retroactively block it -- the block flags were read once, at scheduling time, and never again.
+- `ws_sensors.py`'s `ws_save_user`/`ws_delete_user` now call `auto_actions_manager.async_refresh_trackers()` instead of the removed `presence_monitor.async_refresh()`, so user-tracker edits still take effect without an HA restart.
+- Removed now-dead code: `notification_dispatcher.send_auto_arm_notification()` and the `AUTO_ARM_AWAY_DELAY`/`AUTO_ARM_PUSH_TITLE`/`AUTO_ARM_PUSH_MESSAGE` constants in `const.py` -- both only ever backed `PresenceMonitor`.
+- New `tests/test_auto_actions.py` (17 tests): Secure Me user scoping (including the legacy `tracker_entity` field fallback and live `async_refresh_trackers()` updates), the initial-presence startup check, the Fake Presence execution-time re-check, and `_all_persons_away()`'s fail-safe behaviour (`unavailable`/`unknown` tracker states never count as "away").
+- **User-facing note:** if you relied on the old `PresenceMonitor`'s 15-minute bundled lock+arm behaviour, Auto Actions v2's defaults are faster (lock after 2 min, alarm after 5 min, cameras immediately) -- adjust the delays in the Special Features tab if you want timing closer to the old behaviour. If you have `person.*` entities in HA that are *not* configured as Secure Me users, they no longer affect Auto Actions at all (previously they could block or delay it).
+
+### Fixed
+
+#### `identify_user_id()` ran bcrypt sequentially on the HA event loop thread
+- `coordinator.identify_user_id()` -- called after every successful `async_arm_*()` -- ran its own loop calling `bcrypt.checkpw()` directly, once per configured user, synchronously on the caller's own thread (in practice always the HA event loop thread). With N configured users that meant up to N sequential bcrypt round-trips (each deliberately ~50-150ms) blocking the entire event loop on every arm operation. `store.authenticate_user()` already did this correctly via a `ThreadPoolExecutor`, parallelising the checks across users, but `identify_user_id()` had its own separate, unparallelised implementation.
+- Added `store.authenticate_user_with_id()`, sharing `authenticate_user()`'s parallel-check logic and additionally returning the matching `user_id`. `identify_user_id()` now delegates to it, bounding worst-case blocking to roughly one bcrypt round-trip regardless of how many users are configured, instead of up to N.
+
+### Refactored
+
+#### Duplicated Lock/Climate entity-search wiring merged into one helper
+- `secure-me-panel.js`'s Lock and Climate module row editors each had their own ~15-line, near-byte-identical block wiring a live-filtering entity search input to a domain `<select>` -- differing only in dataset attribute names and the domain key. Extracted into a single shared `_wireEntitySearchFilter()` helper; both call sites now pass their differing bits as parameters. No behaviour change.
+
+### Documentation
+- `README.md`: version badge 1.5.1 -> 1.5.3 (was never bumped when 1.5.2/1.5.3 shipped); noted the one-time floorplan re-upload needed after upgrading to v1.5.3; merged the previously self-contradictory "Presence-Based Auto-Arm" section (it described a blend of both presence systems) into one accurate "Auto Actions" section reflecting the v1.5.4 scoping change.
+- `STATUS.md`: Auto Actions v2 / Fake Presence v2 marked as covered by tests (was listed as a known gap since 1.5.0); new 1.5.4 summary section.
+- `store.py`: fixed a stale comment still referencing the pre-v1.5.3 floorplan storage path (`custom_components/secure_me/floorplan/` instead of `config/www/secure_me_floorplan/`).
+- `coordinator.py`: removed an unused `store` parameter on `_init_modules()` -- the code path it guarded was unreachable in practice (the method's single call site in `__init__` always ran before the store existed).
+- `instructions_for_claude_secure_me.md`, `indeklima_designer_reference.md`, `secure_me_implementering.md`: brought up to date from a stale v1.2.0-era snapshot (file list still referenced the deleted `module_manager.py`, feature history stopped at v1.2.0, design-token table didn't match the panel's actual violet/blue accent colours); documented the `PresenceMonitor` removal decision and added Fix 1b (Auto Actions initial-presence check) alongside the original Fix 1.
+
+### Notes
+- No functional changes to arm/disarm/trigger logic, module dispatch, or storage schema.
+- All Python changes verified with `ast.parse` + `pyflakes`; `secure-me-panel.js` verified with `node --check`.
+
+---
+
 ## [1.5.3] - 2026-07-29
 
 ### Changed

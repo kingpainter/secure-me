@@ -1,5 +1,5 @@
 """WebSocket API — Module, Notification, Test and Presence commands for Secure Me."""
-# VERSION = "1.5.3"
+# VERSION = "1.5.4"
 from __future__ import annotations
 
 import asyncio
