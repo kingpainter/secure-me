@@ -1,6 +1,6 @@
 # Secure Me — Development Status
 
-## Current version: 1.5.4 (bumped 2026-08-23, ready to commit)
+## Current version: 1.5.4 (committed 2026-08-23)
 
 ---
 
@@ -21,6 +21,9 @@
 
 ### Dead code removed
 - `notification_dispatcher.send_auto_arm_notification()` and the three `AUTO_ARM_*` constants in const.py -- both only ever backed the now-removed `PresenceMonitor`.
+
+### Status
+- Committed 2026-08-23. CI: all green.
 
 ---
 
@@ -123,15 +126,16 @@
 
 ## Test suite status
 
-- **367 tests** across the suite as of 1.5.1 (358 in 1.5.0 + 5 new in `tests/test_coordinator_trigger.py` for the sensor-trigger dispatch fix, plus minor additions)
+- **404 tests** as of 1.5.4 (384 + 20 new in `tests/test_services.py`)
 - All passing on Python 3.13 (CI matrix; see `pytest.yaml`)
 - GitHub Actions: HACS 7/8 (brands expected fail), Hassfest all pass
 - `test_zones_edge_cases.py` rewritten this cycle to test the real `ZoneManager`/`Zone` classes instead of local mirror copies -- the mirror-class pattern had let the `zones.py` aggregate-vs-per-sensor bug above ship undetected, and had also drifted from real behaviour (asserted a notification fires for unavailable sensors, which hasn't been true since v1.4.2)
 
 ### Tests not yet written for 1.5.0 features
 - Floorplan endpoints (`ws_get_floorplan`, `ws_save_floorplan_image`, `ws_save_floorplan_markers`)
-- `secure_me.*` services in `services.py` (registration + schema validation)
 - Floorplan sensor pin rendering in `secure-me-alarm-card.js` (covered so far only by an ad-hoc Node smoke test during development, not a committed test file)
+
+~~`secure_me.*` services in `services.py`~~ -- **covered as of 1.5.4** by `tests/test_services.py` (20 tests: all ten services registered/unregistered, each arm service calling its matching coordinator method with the right arguments, disarm's required-code schema, run_test's test_type validation, enable_module/disable_module saving + normalizing + firing events, and graceful no-op when the coordinator/store isn't ready yet).
 
 ~~Auto Actions v2 timer logic~~ and ~~Fake Presence v2 selective blocking~~ -- **covered as of 1.5.4** by `tests/test_auto_actions.py` (17 tests: Secure Me user scoping, initial-presence startup check, Fake Presence re-check at execution time, and `_all_persons_away()` fail-safe behaviour). See the 1.5.4 section below.
 
