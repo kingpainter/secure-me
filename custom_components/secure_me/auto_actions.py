@@ -247,8 +247,16 @@ class AutoActionsManager:
                 self._mark_all_away_if_needed()
                 self.hass.async_create_task(self._on_home_empty())
         else:
-            # Someone arrived (or state unknown) -- start arrival confirmation
-            if self._home_empty or self._action_tasks:
+            # Someone arrived (or state unknown) -- start arrival confirmation.
+            # v1.5.x: also trigger when a disarm-recheck task is pending --
+            # the house may not be in the normal _home_empty/_action_tasks
+            # state at all (the alarm was armed when the house became empty,
+            # so the ordinary empty-house cycle never started and neither
+            # flag was ever set), but a recheck could still be counting down
+            # in the background and must be cancellable by an arrival just
+            # like an ordinary pending action would be.
+            recheck_pending = self._recheck_task is not None and not self._recheck_task.done()
+            if self._home_empty or self._action_tasks or recheck_pending:
                 self.hass.async_create_task(
                     self._on_person_arrived(entity_id, new_val)
                 )
@@ -671,9 +679,22 @@ class AutoActionsManager:
                 services.append(svc)
 
         if not services:
-            # Fallback to persistent notification
-            self.hass.components.persistent_notification.async_create(
-                message,
+            # Fallback to persistent notification.
+            # v1.5.x fix: hass.components.* is a deprecated/removed access
+            # pattern on modern HA HomeAssistant objects (this line crashed
+            # with AttributeError on every run that hit this fallback --
+            # e.g. Auto Actions enabled with no admin notify_service
+            # configured -- surfaced as a silent "Task exception was never
+            # retrieved" in the log, though the action itself still
+            # completed fine since this only affects the notification).
+            # Matches the import pattern coordinator.py already uses for
+            # Fake Presence notifications.
+            from homeassistant.components.persistent_notification import (
+                async_create as pn_create,
+            )
+            pn_create(
+                self.hass,
+                message=message,
                 title=title,
                 notification_id=NOTIFY_ID_AUTO_ACTIONS,
             )

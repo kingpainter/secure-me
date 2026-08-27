@@ -51,6 +51,8 @@ class TestStoreDefaults:
             "auto_alarm_enabled", "auto_alarm_delay",
             "auto_camera_enabled", "auto_camera_delay",
             "arrival_confirmation_delay", "notify_all_users",
+            "recheck_on_disarm", "recheck_delay", "recheck_min_away_duration",
+            "recheck_include_lock", "recheck_include_alarm", "recheck_include_camera",
         }
         assert set(aa.keys()) == expected
 
@@ -67,6 +69,12 @@ class TestStoreDefaults:
         assert aa["auto_camera_delay"] == 0
         assert aa["arrival_confirmation_delay"] == 60
         assert aa["notify_all_users"] is False
+        assert aa["recheck_on_disarm"] is False
+        assert aa["recheck_delay"] == 30
+        assert aa["recheck_min_away_duration"] == 300
+        assert aa["recheck_include_lock"] is True
+        assert aa["recheck_include_alarm"] is True
+        assert aa["recheck_include_camera"] is True
 
     def test_default_home_alone_cameras_is_empty(self):
         mock_hass = MagicMock()

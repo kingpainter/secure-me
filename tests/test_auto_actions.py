@@ -291,7 +291,7 @@ class TestRecheckGranularControls:
         store = FakeAutoActionsStore(
             users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
             auto_actions=_aa_config(
-                auto_lock_enabled=True,
+                auto_lock_enabled=True, auto_lock_delay=0,
                 recheck_on_disarm=True, recheck_delay=0, recheck_min_away_duration=0,
                 recheck_include_alarm=False,
             ),
