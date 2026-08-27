@@ -1,5 +1,5 @@
 """Home Assistant services for Secure Me.
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 Registers the secure_me.* services documented in services.yaml, wiring each
 one to the same coordinator methods used by the alarm_control_panel entity

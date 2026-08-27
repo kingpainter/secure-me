@@ -1,5 +1,5 @@
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 import asyncio
 import logging

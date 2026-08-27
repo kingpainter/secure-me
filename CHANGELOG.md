@@ -5,6 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.5] - 2026-08-27
+
+### Fixed
+
+#### Auto Actions could still lock/arm/activate cameras while already armed in any mode
+- `AutoActionsManager._on_home_empty()` previously only guarded the alarm sub-action against re-arming while already armed (checking for `STATE_ALARM_DISARMED`) -- lock and camera had no equivalent guard and would still fire even while e.g. `armed_home_alone`. `_on_home_empty()` now returns immediately, before scheduling anything, if the alarm is already armed in any of the 5 modes.
+- New tests: `tests/test_auto_actions.py::TestSkipAllWhenAlreadyArmed` (parametrized over away/home/night/vacation/home_alone), plus a control test confirming actions still run normally once actually disarmed.
+
+#### `_send_summary_notification()` fallback crashed on every no-notify-service run
+- The persistent-notification fallback used `hass.components.persistent_notification.async_create(...)`, a deprecated/removed access pattern on modern HA `HomeAssistant` objects. Every Auto Actions run with no admin `notify_service` configured crashed silently in the background (`Task exception was never retrieved`), though the underlying action itself still completed. Switched to the same modern import pattern `coordinator.py` already uses for Fake Presence notifications (`from homeassistant.components.persistent_notification import async_create as pn_create`).
+
+#### `module_dispatch.py` version comment left at 1.5.5 while the rest of the codebase was still 1.5.4
+- Leftover from an earlier, unfinished ModuleDispatcher-extraction session that was never version-bumped or changelogged at the time. Caught by `validate_version.py` in CI; corrected to match, and now folded into this release along with everything else that session introduced (see "Added" below).
+
+### Added
+
+#### Auto Actions: optional re-check after a remote disarm, with granular controls
+- New opt-in setting (default off): if the alarm is disarmed remotely (e.g. via the app, for a delivery) while everyone tracked is still away, Auto Actions can now restart the empty-house cycle instead of never noticing -- previously it only reacted to a person tracker transitioning to `not_home`, so a remote disarm with nobody's tracker changing left Auto Actions permanently unaware the house was both empty and unarmed.
+- Three further knobs fine-tune the recheck once enabled:
+  - **Wait period** before even checking (default 30s) -- absorbs an ordinary arrival-then-disarm where a tracker's GPS hasn't caught up yet.
+  - **Minimum continuous-away duration** required before honouring the recheck (default 300s) -- guards against treating a moment right after stepping out the same as a long-standing empty house. Tracked independently of alarm state via a new `_all_away_since` timestamp that keeps accruing even while the alarm is armed.
+  - **Per-action include toggles** (lock/alarm/camera) -- the recheck can be scoped to e.g. only re-lock without re-arming; these only narrow what the corresponding global enabled-flag already allows, never widen it.
+- New panel controls in Special Features -> Auto Actions, shown only when the master toggle is on.
+- Fixed during development: arrival detection didn't account for a pending disarm-recheck task, so coming home while a recheck was counting down never cancelled it or reset the away-duration tracker. `_handle_state_changed()` now also checks for a pending `_recheck_task`.
+- New tests: `tests/test_auto_actions.py::TestRecheckOnDisarm` and `::TestRecheckGranularControls` (11 tests total covering delay, minimum-duration, per-action include, and arrival-cancellation behaviour).
+- `tests/test_store.py` updated to expect the 6 new `auto_actions` config keys (`recheck_on_disarm`, `recheck_delay`, `recheck_min_away_duration`, `recheck_include_lock/alarm/camera`).
+
+### Notes
+- No changes to storage schema version or module dispatch beyond the notification-fallback fix above.
+- All Python changes verified with `ast.parse` + `pyflakes`; `secure-me-panel.js` verified with `node --check`.
+
+---
+
 ## [1.5.4] - 2026-08-23
 
 ### Changed

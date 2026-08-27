@@ -1,5 +1,5 @@
 """Diagnostics support for Secure Me."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 from __future__ import annotations
 

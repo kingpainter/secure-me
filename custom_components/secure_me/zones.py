@@ -1,5 +1,5 @@
 """Zone management for Secure Me."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 import asyncio
 import logging

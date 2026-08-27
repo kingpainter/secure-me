@@ -1,5 +1,5 @@
 """WebSocket API — Floorplan commands for Secure Me."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 from __future__ import annotations
 
 import base64

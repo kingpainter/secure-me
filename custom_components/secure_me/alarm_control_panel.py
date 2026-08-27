@@ -1,5 +1,5 @@
 """Alarm Control Panel platform for Secure Me."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 import logging
 from typing import Any
