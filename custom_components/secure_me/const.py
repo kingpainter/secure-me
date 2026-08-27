@@ -1,5 +1,5 @@
 """Constants for Secure Me integration."""
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 from homeassistant.const import Platform
 
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.5.4"
+VERSION = "1.5.5"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
