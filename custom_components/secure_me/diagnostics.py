@@ -217,12 +217,14 @@ async def async_get_config_entry_diagnostics(
     zones_detail: list[dict[str, Any]] = []
     if store:
         zones = store.get_zones()
-        for zone in zones:
+        for zone_id, zone in zones.items():
             zone_detail = {
-                "id": zone.get("id"),
+                "id": zone_id,
                 "name": zone.get("name", "Unknown"),
                 "enabled": zone.get("enabled", True),
-                "zone_type": zone.get("zone_type", "unknown"),
+                # Fallback to legacy "type" key -- see coordinator.py's
+                # async_load_store_config() for the full story.
+                "zone_type": zone.get("zone_type") or zone.get("type", "unknown"),
                 "sensor_count": len(zone.get("sensors", [])),
             }
             zones_detail.append(zone_detail)

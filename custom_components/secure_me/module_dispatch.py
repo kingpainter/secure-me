@@ -44,6 +44,52 @@ _MODULE_CLASSES = {
 }
 
 
+def get_module_entity_ids(module) -> list[str]:
+    """Extract every entity_id a module currently owns, for health/availability checks.
+
+    Single source of truth for this logic -- previously ws_modules.py kept its
+    own separate copy (used by the Testing tab / manual self-tests), which had
+    diverged from this one: it correctly read the siren module's `sirens` list
+    (list of dicts with an `entity_id` key), while this copy did not. That gap
+    meant a siren going unavailable was invisible to the passive health score /
+    System Health panel / secure_me_health_updated event (all driven by
+    ModuleDispatcher.get_health_score()/get_module_health() below), and only
+    ever surfaced if someone manually ran a test -- for the module the project's
+    own MODULE_SEVERITY map rates "critical". ws_modules.py now imports this
+    function instead of defining its own.
+    """
+    entities: list[str] = []
+    for attr in ("poe_switches", "cameras", "recording_entities", "locks", "lights", "climates", "media_players"):
+        val = getattr(module, attr, None)
+        if isinstance(val, list):
+            entities.extend(val)
+    # Siren module: `sirens` is a list of dicts with an entity_id key, not a
+    # flat string list -- needs its own extraction step.
+    sirens_val = getattr(module, "sirens", None)
+    if isinstance(sirens_val, list):
+        for entry in sirens_val:
+            if isinstance(entry, dict) and entry.get("entity_id"):
+                entities.append(entry["entity_id"])
+            elif isinstance(entry, str) and "." in entry:
+                entities.append(entry)
+    for attr in ("door_sensors", "battery_sensors"):
+        val = getattr(module, attr, None)
+        if isinstance(val, dict):
+            entities.extend(val.values())
+    for attr in ("gateway_light",):
+        val = getattr(module, attr, None)
+        if isinstance(val, str) and "." in val:
+            entities.append(val)
+    if not entities and hasattr(module, "config"):
+        for key in ("entities", "cameras", "locks", "climates", "lights", "media_players", "poe_switches"):
+            val = module.config.get(key)
+            if isinstance(val, list):
+                entities.extend(val)
+            elif isinstance(val, dict):
+                entities.extend(val.values())
+    return list({e for e in entities if e and isinstance(e, str) and "." in e})
+
+
 def normalize_module_config(module_id: str, config: dict) -> dict:
     """Normalize panel-saved config (objects) to module class format (flat strings)."""
     normalized = dict(config)
@@ -214,7 +260,7 @@ class ModuleDispatcher:
         for module in self.modules.values():
             if not module.enabled:
                 continue
-            for eid in self._get_module_entity_ids(module):
+            for eid in get_module_entity_ids(module):
                 total += 1
                 state = self.hass.states.get(eid)
                 if state and state.state not in ("unavailable", "unknown"):
@@ -227,7 +273,7 @@ class ModuleDispatcher:
             if not module.enabled:
                 result[mid] = {"enabled": False, "status": "disabled", "total": 0, "available": 0, "unavailable": []}
                 continue
-            entities = self._get_module_entity_ids(module)
+            entities = get_module_entity_ids(module)
             unavail = [
                 eid for eid in entities
                 if not self.hass.states.get(eid)
@@ -244,30 +290,6 @@ class ModuleDispatcher:
 
     def get_enabled_module_count(self) -> int:
         return sum(1 for m in self.modules.values() if m.enabled)
-
-    @staticmethod
-    def _get_module_entity_ids(module) -> list[str]:
-        entities: list[str] = []
-        for attr in ("poe_switches", "cameras", "recording_entities", "locks", "lights", "climates", "media_players"):
-            val = getattr(module, attr, None)
-            if isinstance(val, list):
-                entities.extend(val)
-        for attr in ("door_sensors", "battery_sensors"):
-            val = getattr(module, attr, None)
-            if isinstance(val, dict):
-                entities.extend(val.values())
-        for attr in ("gateway_light",):
-            val = getattr(module, attr, None)
-            if isinstance(val, str) and "." in val:
-                entities.append(val)
-        if not entities and hasattr(module, "config"):
-            for key in ("entities", "cameras", "locks", "climates", "lights", "media_players", "poe_switches"):
-                val = module.config.get(key)
-                if isinstance(val, list):
-                    entities.extend(val)
-                elif isinstance(val, dict):
-                    entities.extend(val.values())
-        return list({e for e in entities if e and isinstance(e, str) and "." in e})
 
     # -------------------------------------------------------------------------
     # Shutdown

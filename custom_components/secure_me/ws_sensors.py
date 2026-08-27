@@ -214,6 +214,13 @@ async def ws_save_zone(
     config = msg["config"]
     # Ensure arm_modes has a valid default
     config.setdefault("arm_modes", ["away"])
+    # Fix (2026-08-27): the panel has always sent the zone type under the
+    # key "type", but every backend reader expects "zone_type". Normalize on
+    # save so newly-saved/edited zones store the canonical key going forward
+    # -- the read-side fallback in coordinator.py/ws_sensors.py still covers
+    # zones that were saved before this fix and never get re-edited.
+    if "zone_type" not in config and "type" in config:
+        config["zone_type"] = config["type"]
     await store.async_save_zone(msg["zone_id"], config)
 
     # Sync with zone manager — reload all zones so arm_modes take effect
@@ -237,7 +244,12 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
     for zone_id, zone_cfg in store.get_zones().items():
         zm.add_zone(
             zone_id=zone_id,
-            zone_type=zone_cfg.get("zone_type", "entry"),
+            # See matching comment in coordinator.py's async_load_store_config():
+            # the panel has always saved the zone type under "type", not
+            # "zone_type" -- fall back to the legacy key so Instant/Perimeter/
+            # Interior zones behave correctly instead of silently acting as
+            # "entry" (delayed) zones.
+            zone_type=zone_cfg.get("zone_type") or zone_cfg.get("type", "entry"),
             sensors=zone_cfg.get("sensors", []),
             enabled=zone_cfg.get("enabled", True),
             arm_modes=zone_cfg.get("arm_modes", ["away"]),

@@ -20,6 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 from .ws_helpers import _get_store, _get_coordinator, _discover_batteries  # noqa: F401
+from .module_dispatch import get_module_entity_ids as _get_module_entity_ids
 
 
 @websocket_api.websocket_command({
@@ -518,51 +519,6 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
             normalized["gateway_light"] = config["gateway_light"]
 
     return normalized
-
-
-def _get_module_entity_ids(module) -> list[str]:
-    """Extract entity IDs from a module."""
-    entities = []
-    
-    # Check module attributes (cameras, locks, etc.)
-    for attr in ("poe_switches", "cameras", "recording_entities",
-                 "locks", "lights", "climates", "media_players"):
-        val = getattr(module, attr, None)
-        if isinstance(val, list):
-            entities.extend(val)
-
-    # Siren module: sirens is a list of dicts with entity_id
-    sirens_val = getattr(module, "sirens", None)
-    if isinstance(sirens_val, list):
-        for entry in sirens_val:
-            if isinstance(entry, dict) and entry.get("entity_id"):
-                entities.append(entry["entity_id"])
-            elif isinstance(entry, str) and "." in entry:
-                entities.append(entry)
-    
-    # Check dict attributes
-    for attr in ("door_sensors", "battery_sensors"):
-        val = getattr(module, attr, None)
-        if isinstance(val, dict):
-            entities.extend(val.values())
-    
-    # Check single string attributes
-    for attr in ("gateway_light",):
-        val = getattr(module, attr, None)
-        if isinstance(val, str) and "." in val:
-            entities.append(val)
-    
-    # FALLBACK: If no entities found, try config dict
-    if not entities and hasattr(module, 'config'):
-        config = module.config
-        # Fix F5: Camera module uses 'entities' key
-        for key in ("entities", "cameras", "locks", "climates", "lights", "media_players"):
-            if key in config and isinstance(config[key], list):
-                entities.extend(config[key])
-    
-    # Remove duplicates and filter out None/empty strings
-    entities = [e for e in entities if e and isinstance(e, str) and "." in e]
-    return list(set(entities))  # Remove duplicates
 
 
 def _classify_module_status(module, unavail: list) -> str:

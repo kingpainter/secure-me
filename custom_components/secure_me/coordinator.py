@@ -1125,7 +1125,19 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         for zone_id, zone_cfg in store.get_zones().items():
             self.zone_manager.add_zone(
                 zone_id=zone_id,
-                zone_type=zone_cfg.get("zone_type", "entry"),
+                # Fix (2026-08-27): the panel's zone-editor has always saved
+                # the zone type under the key "type", never "zone_type" --
+                # meaning every zone loaded here silently defaulted to
+                # "entry" regardless of what the user picked (Instant,
+                # Perimeter, Interior). "entry" is the only branch in
+                # state_machine.trigger_entry_delay() that waits out the
+                # configured entry_delay; every other type (including the
+                # unrecognised default "entry" was masking) triggers
+                # immediately, so this silently gave every zone a delay
+                # window it was never meant to have. Accept the legacy
+                # "type" key as a fallback so already-saved zones behave
+                # correctly without requiring the user to re-save each one.
+                zone_type=zone_cfg.get("zone_type") or zone_cfg.get("type", "entry"),
                 sensors=zone_cfg.get("sensors", []),
                 enabled=zone_cfg.get("enabled", True),
                 arm_modes=zone_cfg.get("arm_modes", ["away"]),
