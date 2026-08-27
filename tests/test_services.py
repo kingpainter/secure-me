@@ -16,7 +16,7 @@ per the project's testing rule: no mirror re-implementation of the
 registration logic under test. The coordinator and store are lightweight
 fakes -- not mirrors of services.py's own logic, just data-layer stand-ins.
 """
-# VERSION = "1.5.4"
+# VERSION = "1.5.5"
 
 from unittest.mock import AsyncMock
 

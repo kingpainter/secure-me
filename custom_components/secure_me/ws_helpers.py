@@ -15,9 +15,17 @@ def _get_store(hass: HomeAssistant):
 def _get_coordinator(hass: HomeAssistant):
     """Return the active SecureMeCoordinator, or None if not found.
 
-    The coordinator is stored per config entry under entry.entry_id.
-    We iterate domain data to find the first valid coordinator dict.
+    Fix 2 (secure_me_implementering.md): prefers entry.runtime_data, the
+    modern HA pattern for per-entry runtime objects (set in
+    async_setup_entry()). Falls back to the legacy hass.data[DOMAIN][entry_id]
+    dict lookup for backwards-compat, in case some entry was set up before
+    runtime_data was introduced and never reloaded since.
     """
+    for config_entry in hass.config_entries.async_entries(DOMAIN):
+        runtime_data = getattr(config_entry, "runtime_data", None)
+        if runtime_data is not None:
+            return runtime_data
+
     domain_data = hass.data.get(DOMAIN, {})
     for value in domain_data.values():
         if isinstance(value, dict) and "coordinator" in value:

@@ -56,9 +56,8 @@ ERROR_RECOVERY_OK_DA = "Secure Me: Modul '{module}' gendannet korrekt efter nyt 
 # v1.5.4: Platform.SWITCH / Platform.SELECT removed. switch.py/select.py were
 # both empty "Phase 1" placeholders (async_setup_entry() did nothing but log
 # and `pass`) -- never wired to any real entity, same situation as the
-# already-deleted module_manager.py. The two files themselves are left in
-# place (Claude does not delete files) and should be removed manually, the
-# same way module_manager.py was.
+# already-deleted module_manager.py. The two files have since been removed
+# from both the repo and the live server.
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.BINARY_SENSOR,

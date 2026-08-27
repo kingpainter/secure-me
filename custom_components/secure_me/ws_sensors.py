@@ -162,6 +162,11 @@ async def ws_save_sensors(
     coordinator = _get_coordinator(hass)
     if coordinator:
         _LOGGER.info("Sensors updated, syncing with zone manager")
+        # Fix 3 (secure_me_implementering.md): a saved sensor set can add or
+        # remove configured entities, which changes the battery-list scope --
+        # without this, a newly added sensor's battery wouldn't show up for
+        # up to 5 minutes (the cache TTL).
+        coordinator.invalidate_battery_cache()
 
     connection.send_result(msg["id"], {"success": True})
 
@@ -216,6 +221,8 @@ async def ws_save_zone(
     if coordinator and hasattr(coordinator, "zone_manager"):
         _reload_zones_into_coordinator(coordinator, store)
         _LOGGER.info("Zone %s saved and reloaded into zone manager", msg["zone_id"])
+        # Fix 3: zone sensor membership can change here too.
+        coordinator.invalidate_battery_cache()
 
     connection.send_result(msg["id"], {"success": True})
 
@@ -274,6 +281,8 @@ async def ws_delete_zone(
         if coordinator and hasattr(coordinator, "zone_manager"):
             _reload_zones_into_coordinator(coordinator, store)
             _LOGGER.info("Zone %s deleted and zone manager reloaded", msg["zone_id"])
+            # Fix 3: deleting a zone can remove sensors from the configured set.
+            coordinator.invalidate_battery_cache()
 
     connection.send_result(msg["id"], {"success": success})
 
@@ -435,6 +444,10 @@ async def ws_hide_sensor(
         cfg.pop("excluded", None)
         sensors[entity_id] = cfg
     await store.async_save_sensors_bulk(sensors)
+    # Fix 3: hiding/unhiding a sensor changes the configured-entity set.
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        coordinator.invalidate_battery_cache()
     connection.send_result(msg["id"], {"success": True})
 
 
@@ -464,6 +477,10 @@ async def ws_unmark_environmental(
         "enabled": False,
     }
     await store.async_save_sensors_bulk(sensors)
+    # Fix 3: this also excludes the sensor, changing the configured-entity set.
+    coordinator = _get_coordinator(hass)
+    if coordinator:
+        coordinator.invalidate_battery_cache()
     connection.send_result(msg["id"], {"success": True})
 
 

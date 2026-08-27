@@ -86,6 +86,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Secure Me setup failed after 3 attempts: %s", _last_err)
         raise ConfigEntryNotReady from _last_err
 
+    # Fix 2 (secure_me_implementering.md): entry.runtime_data is the modern
+    # HA pattern for per-entry runtime objects. hass.data[DOMAIN][entry_id] is
+    # kept alongside it for backwards-compat with any code path not yet
+    # migrated to runtime_data (see ws_helpers._get_coordinator()).
+    entry.runtime_data = coordinator
     hass.data[DOMAIN][entry.entry_id] = {
         COORDINATOR: coordinator,
     }
@@ -122,16 +127,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data[DOMAIN]["_panel_registered"] = True
         except Exception as err:
             _LOGGER.error("Panel registration failed: %s", err)
-
-    # TEMPORARY: ES-module split feasibility test -- see panel.py for full
-    # context and removal instructions. Remove this block (and
-    # async_register_es_module_test_panel in panel.py, and
-    # frontend/test-module-a.js + test-module-b.js) once the panel.js
-    # split decision has been made (chat, 2026-08-23).
-    try:
-        await panel.async_register_es_module_test_panel(hass)
-    except Exception as err:
-        _LOGGER.debug("Secure Me: ES module test panel skipped: %s", err)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
