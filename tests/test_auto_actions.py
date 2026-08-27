@@ -35,6 +35,7 @@ tests.
 # VERSION = "1.5.4"
 
 import asyncio
+import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -43,6 +44,11 @@ from custom_components.secure_me.auto_actions import AutoActionsManager
 from custom_components.secure_me.const import (
     STATE_ALARM_DISARMED,
     STATE_ALARM_ARMED_AWAY,
+    STATE_ALARM_ARMED_HOME,
+    STATE_ALARM_ARMED_NIGHT,
+    STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMED_HOME_ALONE,
+    EVENT_ALARM_DISARMED,
 )
 
 
@@ -88,6 +94,12 @@ def _aa_config(**overrides) -> dict:
         "auto_camera_delay": 0,
         "arrival_confirmation_delay": 60,
         "notify_all_users": False,
+        "recheck_on_disarm": False,
+        "recheck_delay": 0,
+        "recheck_min_away_duration": 0,
+        "recheck_include_lock": True,
+        "recheck_include_alarm": True,
+        "recheck_include_camera": True,
     }
     cfg.update(overrides)
     return cfg
@@ -178,6 +190,190 @@ class TestScopedTracking:
         manager.async_refresh_trackers()
 
         assert manager._tracker_entities == {"person.flemming", "person.kids"}
+
+
+# -----------------------------------------------------------------------------
+# 6. Granular recheck controls (delay, min-away-duration, per-action include)
+# -----------------------------------------------------------------------------
+
+class TestRecheckGranularControls:
+    """Fine-tuning knobs for AA_RECHECK_ON_DISARM: recheck_delay,
+    recheck_min_away_duration, and recheck_include_lock/alarm/camera."""
+
+    @pytest.mark.asyncio
+    async def test_recheck_delay_postpones_execution(self, hass):
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(recheck_on_disarm=True, recheck_delay=1),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+        manager._send_summary_notification = AsyncMock()
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+        assert coordinator.arm_away_calls == 0  # still waiting out recheck_delay
+
+        await asyncio.sleep(1.1)
+        assert coordinator.arm_away_calls == 1
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_min_away_duration_blocks_recently_emptied_house(self, hass):
+        """A house that JUST became empty must not satisfy a long
+        recheck_min_away_duration, even if recheck_delay itself has elapsed."""
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(
+                recheck_on_disarm=True, recheck_delay=0, recheck_min_away_duration=300,
+            ),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+        assert manager._all_away_since is not None  # just set moments ago
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+
+        assert coordinator.arm_away_calls == 0  # 300s minimum not met
+        assert manager._home_empty is False
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_min_away_duration_allows_long_standing_empty_house(self, hass):
+        """A house that's been continuously empty well past the minimum must
+        be honoured -- guards against the min-away check being overzealous."""
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(
+                recheck_on_disarm=True, recheck_delay=0, recheck_min_away_duration=300,
+            ),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+        manager._send_summary_notification = AsyncMock()
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+        # Simulate the house having been empty for a long time already
+        manager._all_away_since = time.monotonic() - 400
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+
+        assert coordinator.arm_away_calls == 1
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_include_flags_restrict_action_types(self, hass):
+        """recheck_include_alarm=False must exclude alarm from THIS recheck
+        cycle even though auto_alarm_enabled is globally True -- the include
+        flags only narrow, they never widen what's globally enabled."""
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(
+                auto_lock_enabled=True,
+                recheck_on_disarm=True, recheck_delay=0, recheck_min_away_duration=0,
+                recheck_include_alarm=False,
+            ),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+        manager._send_summary_notification = AsyncMock()
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+
+        assert coordinator.arm_away_calls == 0
+        assert "lock" in manager._done_actions
+        assert "alarm" not in manager._done_actions
+        assert "alarm_skipped" not in manager._done_actions
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_no_include_flags_selected_does_nothing(self, hass):
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(
+                recheck_on_disarm=True, recheck_delay=0, recheck_min_away_duration=0,
+                recheck_include_lock=False, recheck_include_alarm=False,
+                recheck_include_camera=False,
+            ),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+
+        assert coordinator.arm_away_calls == 0
+        assert manager._home_empty is False  # _on_home_empty() never even called
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_arrival_cancels_pending_recheck(self, hass):
+        """A person confirmed home while the recheck delay is still counting
+        down must cancel the pending recheck task and reset _all_away_since."""
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(
+                recheck_on_disarm=True, recheck_delay=1, recheck_min_away_duration=0,
+                arrival_confirmation_delay=0,
+            ),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.05)  # recheck task now waiting out its 1s delay
+
+        # Person comes home before the recheck delay elapses
+        hass.states.async_set("person.flemming", "home")
+        await asyncio.sleep(0.1)  # arrival confirmation (delay=0) resolves almost immediately
+
+        await asyncio.sleep(1.1)  # wait past what would have been the recheck delay
+        assert coordinator.arm_away_calls == 0
+        assert manager._all_away_since is None
+
+        await manager.async_stop()
 
 
 # -----------------------------------------------------------------------------
@@ -387,3 +583,147 @@ class TestAllPersonsAwayFailSafe:
         manager.async_refresh_trackers()
 
         assert manager._all_persons_away() is False
+
+
+# -----------------------------------------------------------------------------
+# 4. Skip ALL actions when already armed in any mode (not just alarm re-arm)
+# -----------------------------------------------------------------------------
+
+class TestSkipAllWhenAlreadyArmed:
+    """_on_home_empty() must skip scheduling ANY action (lock/alarm/camera) --
+    not just re-arming -- when the alarm is already armed, regardless of
+    which mode. Previously only _do_alarm() itself guarded against
+    re-arming (by checking for STATE_ALARM_DISARMED); lock and camera had
+    no equivalent guard and would still fire even while e.g. armed_home_alone.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("armed_state", [
+        STATE_ALARM_ARMED_AWAY,
+        STATE_ALARM_ARMED_HOME,
+        STATE_ALARM_ARMED_NIGHT,
+        STATE_ALARM_ARMED_VACATION,
+        STATE_ALARM_ARMED_HOME_ALONE,
+    ])
+    async def test_no_actions_scheduled_when_already_armed(self, hass, armed_state):
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(auto_lock_enabled=True, auto_camera_enabled=True),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = armed_state
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.1)  # let the initial-presence check run
+
+        assert manager._home_empty is False
+        assert coordinator.arm_away_calls == 0
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_actions_still_run_normally_once_disarmed(self, hass):
+        """Control case: with the alarm actually disarmed, actions must still
+        schedule and run normally -- guards against the new check being
+        overzealous and blocking everything."""
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.1)
+
+        assert manager._home_empty is True
+        assert coordinator.arm_away_calls == 1
+
+        await manager.async_stop()
+
+
+# -----------------------------------------------------------------------------
+# 5. Re-check after remote disarm (AA_RECHECK_ON_DISARM, opt-in)
+# -----------------------------------------------------------------------------
+
+class TestRecheckOnDisarm:
+    """AA_RECHECK_ON_DISARM (default off): when enabled, disarming while
+    every tracked user is still away re-starts the empty-house cycle,
+    since no tracker transition would otherwise ever notify Auto Actions."""
+
+    @pytest.mark.asyncio
+    async def test_disabled_by_default_ignores_disarm(self, hass):
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(),  # recheck_on_disarm defaults to False
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+        assert manager._home_empty is False  # already armed -- skipped
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.05)
+
+        assert manager._home_empty is False  # recheck disabled -- still nothing
+        assert coordinator.arm_away_calls == 0
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_enabled_reschedules_when_all_still_away(self, hass):
+        hass.states.async_set("person.flemming", "not_home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(recheck_on_disarm=True),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
+        manager = AutoActionsManager(hass, coordinator, store)
+        manager._send_summary_notification = AsyncMock()
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+        assert manager._home_empty is False  # already armed at startup -- skipped
+
+        # Remote disarm (e.g. via the app) -- nobody's tracker changes
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.1)
+
+        assert manager._home_empty is True
+        assert coordinator.arm_away_calls == 1
+
+        await manager.async_stop()
+
+    @pytest.mark.asyncio
+    async def test_enabled_but_someone_home_does_not_reschedule(self, hass):
+        hass.states.async_set("person.flemming", "home")
+        store = FakeAutoActionsStore(
+            users={"u1": {"enabled": True, "person_entity": "person.flemming"}},
+            auto_actions=_aa_config(recheck_on_disarm=True),
+        )
+        coordinator = FakeAutoActionsCoordinator()
+        coordinator.alarm_state = STATE_ALARM_ARMED_HOME
+        manager = AutoActionsManager(hass, coordinator, store)
+
+        manager.async_start()
+        await asyncio.sleep(0.05)
+
+        coordinator.alarm_state = STATE_ALARM_DISARMED
+        hass.bus.async_fire(EVENT_ALARM_DISARMED, {})
+        await asyncio.sleep(0.05)
+
+        assert manager._home_empty is False
+        assert coordinator.arm_away_calls == 0
+
+        await manager.async_stop()

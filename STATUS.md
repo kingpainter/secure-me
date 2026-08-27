@@ -154,7 +154,7 @@
 - [x] Update README feature list (linked `API.md`)
 - [x] Decide on version bump timing now that floorplan etape 3 and the control-API audit are both complete — **shipped as 1.5.0 on 2026-07-19**
 - [x] Delete `module_manager.py` manually (confirmed dead code, zero references -- see CHANGELOG)
-- [ ] Delete `switch.py`/`select.py` platform placeholders if you don't intend to implement them (never wired to any real entities, "Phase 1" scaffolding only) -- optional, lower confidence than `module_manager.py`
+- [x] Remove `Platform.SWITCH`/`Platform.SELECT` from `PLATFORMS` in `const.py` (2026-08-23) and delete `switch.py`/`select.py` manually -- confirmed gone from both the repo and the live server. Both had been empty "Phase 1" placeholders that never registered a single entity.
 
 ---
 

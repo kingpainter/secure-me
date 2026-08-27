@@ -23,6 +23,7 @@ State machine per action:
 
 import asyncio
 import logging
+import time
 from datetime import datetime
 from typing import Any
 
@@ -37,6 +38,18 @@ from .const import (
     AA_CAMERA_DELAY,
     AA_ARRIVAL_DELAY,
     AA_NOTIFY_ALL,
+    AA_RECHECK_ON_DISARM,
+    DEFAULT_AA_RECHECK_ON_DISARM,
+    AA_RECHECK_DELAY,
+    AA_RECHECK_MIN_AWAY_DURATION,
+    AA_RECHECK_INCLUDE_LOCK,
+    AA_RECHECK_INCLUDE_ALARM,
+    AA_RECHECK_INCLUDE_CAMERA,
+    DEFAULT_AA_RECHECK_DELAY,
+    DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
+    DEFAULT_AA_RECHECK_INCLUDE_LOCK,
+    DEFAULT_AA_RECHECK_INCLUDE_ALARM,
+    DEFAULT_AA_RECHECK_INCLUDE_CAMERA,
     FP_ACTIVE,
     FP_BLOCK_ALARM,
     FP_BLOCK_LOCKS,
@@ -48,6 +61,7 @@ from .const import (
     EVENT_HOME_EMPTY,
     EVENT_PERSON_HOME,
     EVENT_AUTO_ACTION_DONE,
+    EVENT_ALARM_DISARMED,
     NOTIFY_ID_AUTO_ACTIONS,
     STATE_ALARM_DISARMED,
 )
@@ -77,14 +91,29 @@ class AutoActionsManager:
         self._action_tasks: dict[str, asyncio.Task] = {}
         # Arrival confirmation task
         self._arrival_task: asyncio.Task | None = None
+        # v1.5.x: Delayed disarm-recheck task (see _handle_alarm_disarmed())
+        self._recheck_task: asyncio.Task | None = None
 
         # Track which actions have already run in this "home empty" cycle
         self._done_actions: set[str] = set()
         # Track whether home is currently considered empty
         self._home_empty: bool = False
+        # v1.5.x: Timestamp (time.monotonic()) of when the house most recently
+        # became continuously empty -- tracked independently of alarm state
+        # and independently of _home_empty, so it keeps accruing even while
+        # _on_home_empty() short-circuits because the alarm is already armed.
+        # Powers AA_RECHECK_MIN_AWAY_DURATION. None while not empty.
+        self._all_away_since: float | None = None
+        # v1.5.x: Restricts which action types the CURRENT empty-house cycle
+        # may schedule/settle on. None means "whatever's globally enabled"
+        # (the normal, presence-triggered cycle). Set to a concrete subset by
+        # _run_recheck_after_delay() so _all_actions_settled() knows not to
+        # wait forever on action types this particular recheck excluded.
+        self._current_only_actions: set[str] | None = None
 
         # HA state listener cancel handle
         self._unsub_listener = None
+        self._unsub_disarm_listener = None
 
         # v1.5.4: Scoped presence tracking -- only person_entity/tracker_entity
         # from enabled Secure Me user profiles, not every person.* entity in
@@ -110,6 +139,12 @@ class AutoActionsManager:
         self.async_refresh_trackers()
         self._unsub_listener = self.hass.bus.async_listen(
             "state_changed", self._handle_state_changed
+        )
+        # v1.5.x: Optional re-check after a remote disarm -- see
+        # _handle_alarm_disarmed() docstring and AA_RECHECK_ON_DISARM in
+        # const.py for why this exists and why it defaults off.
+        self._unsub_disarm_listener = self.hass.bus.async_listen(
+            EVENT_ALARM_DISARMED, self._handle_alarm_disarmed
         )
         _LOGGER.info(
             "AutoActionsManager started -- monitoring %d Secure Me user tracker(s)",
@@ -162,6 +197,7 @@ class AutoActionsManager:
         if not self._all_persons_away():
             _LOGGER.debug("AutoActions: at least one tracked person is home at startup")
             return
+        self._mark_all_away_if_needed()
         _LOGGER.info(
             "AutoActions: all tracked Secure Me users show 'not_home' at startup "
             "-- treating house as already empty"
@@ -173,9 +209,14 @@ class AutoActionsManager:
         if self._unsub_listener:
             self._unsub_listener()
             self._unsub_listener = None
+        if self._unsub_disarm_listener:
+            self._unsub_disarm_listener()
+            self._unsub_disarm_listener = None
         await self._cancel_all_action_tasks()
         if self._arrival_task and not self._arrival_task.done():
             self._arrival_task.cancel()
+        if self._recheck_task and not self._recheck_task.done():
+            self._recheck_task.cancel()
         _LOGGER.info("AutoActionsManager stopped")
 
     # -------------------------------------------------------------------------
@@ -203,6 +244,7 @@ class AutoActionsManager:
         if new_val == "not_home":
             # Check if ALL persons are now away
             if self._all_persons_away():
+                self._mark_all_away_if_needed()
                 self.hass.async_create_task(self._on_home_empty())
         else:
             # Someone arrived (or state unknown) -- start arrival confirmation
@@ -215,12 +257,38 @@ class AutoActionsManager:
     # Home empty / person arrived
     # -------------------------------------------------------------------------
 
-    async def _on_home_empty(self) -> None:
-        """Called when all persons are away. Start pending action timers."""
+    async def _on_home_empty(self, only_actions: set[str] | None = None) -> None:
+        """Called when all persons are away. Start pending action timers.
+
+        v1.5.x: If the alarm is already armed (in ANY mode -- away, home,
+        night, vacation, or the custom home_alone mode), Auto Actions must
+        not attempt anything at all: not just skip re-arming (which
+        _do_alarm() already guarded against by checking for
+        STATE_ALARM_DISARMED), but also skip lock and camera, since an
+        already-armed state is a deliberate, current choice that Auto
+        Actions should never second-guess. Previously only the alarm
+        sub-action checked this; lock/camera would still fire even while
+        e.g. armed_home_alone.
+
+        only_actions: when given, restricts this cycle to just these action
+        types (still ANDed with the corresponding AA_*_ENABLED flag -- this
+        only narrows, never widens what's globally enabled). Used by
+        _run_recheck_after_delay() so a disarm-triggered recheck can be
+        configured to e.g. only re-lock without re-arming. None (the normal,
+        presence-triggered case) means "whatever's globally enabled".
+        """
+        if self.coordinator.alarm_state != STATE_ALARM_DISARMED:
+            _LOGGER.info(
+                "AutoActions: home empty but alarm already armed (state=%s) -- "
+                "skipping all actions (lock/alarm/camera)",
+                self.coordinator.alarm_state,
+            )
+            return
         if self._home_empty:
             return  # Already in empty state
         self._home_empty = True
         self._done_actions.clear()
+        self._current_only_actions = only_actions
 
         self.hass.bus.async_fire(EVENT_HOME_EMPTY, {})
         _LOGGER.info("AutoActions: home is now empty -- scheduling actions")
@@ -228,18 +296,21 @@ class AutoActionsManager:
         cfg = self.store.get_auto_actions()
         fp = self.store.get_fake_presence_v2()
 
+        def _wanted(name: str) -> bool:
+            return only_actions is None or name in only_actions
+
         # Schedule each enabled action independently
-        if cfg.get(AA_LOCK_ENABLED, True):
+        if cfg.get(AA_LOCK_ENABLED, True) and _wanted("lock"):
             delay = int(cfg.get(AA_LOCK_DELAY, DEFAULT_AA_LOCK_DELAY))
             blocked = fp.get(FP_ACTIVE, False) and fp.get(FP_BLOCK_LOCKS, False)
             self._schedule_action("lock", delay, blocked)
 
-        if cfg.get(AA_ALARM_ENABLED, True):
+        if cfg.get(AA_ALARM_ENABLED, True) and _wanted("alarm"):
             delay = int(cfg.get(AA_ALARM_DELAY, DEFAULT_AA_ALARM_DELAY))
             blocked = fp.get(FP_ACTIVE, False) and fp.get(FP_BLOCK_ALARM, True)
             self._schedule_action("alarm", delay, blocked)
 
-        if cfg.get(AA_CAMERA_ENABLED, True):
+        if cfg.get(AA_CAMERA_ENABLED, True) and _wanted("camera"):
             delay = int(cfg.get(AA_CAMERA_DELAY, DEFAULT_AA_CAMERA_DELAY))
             blocked = fp.get(FP_ACTIVE, False) and fp.get(FP_BLOCK_CAMERAS, False)
             self._schedule_action("camera", delay, blocked)
@@ -291,6 +362,108 @@ class AutoActionsManager:
         )
         await self._cancel_all_action_tasks()
         self._home_empty = False
+        self._all_away_since = None
+        if self._recheck_task and not self._recheck_task.done():
+            self._recheck_task.cancel()
+
+    @callback
+    def _handle_alarm_disarmed(self, event: Any) -> None:
+        """Optionally re-check presence after the alarm is disarmed.
+
+        Auto Actions normally only reacts to a person.* tracker transitioning
+        to not_home. If the alarm is disarmed remotely (e.g. via the app,
+        for a delivery or a one-off errand) while everyone is already away,
+        no tracker transition happens -- so without this, Auto Actions would
+        never notice and would never re-schedule lock/alarm/camera, even
+        though the house is (still) empty and now also unarmed.
+
+        Opt-in via AA_RECHECK_ON_DISARM (default off, see const.py). Does not
+        act immediately -- kicks off _run_recheck_after_delay(), which waits
+        AA_RECHECK_DELAY and then additionally requires AA_RECHECK_MIN_AWAY_
+        DURATION of continuous emptiness before doing anything, and even
+        then only schedules the action types selected by AA_RECHECK_INCLUDE_*.
+        """
+        cfg = self.store.get_auto_actions()
+        if not cfg.get(AA_RECHECK_ON_DISARM, DEFAULT_AA_RECHECK_ON_DISARM):
+            return
+        if not self._all_persons_away():
+            return
+        self._mark_all_away_if_needed()
+
+        delay = int(cfg.get(AA_RECHECK_DELAY, DEFAULT_AA_RECHECK_DELAY))
+        _LOGGER.info(
+            "AutoActions: alarm disarmed while all tracked users are away -- "
+            "waiting %ds before re-checking (recheck_on_disarm enabled)",
+            delay,
+        )
+        if self._recheck_task and not self._recheck_task.done():
+            self._recheck_task.cancel()
+        self._recheck_task = self.hass.async_create_task(
+            self._run_recheck_after_delay(delay)
+        )
+
+    async def _run_recheck_after_delay(self, delay: int) -> None:
+        """Wait AA_RECHECK_DELAY, then honour the recheck if still warranted.
+
+        Two additional gates beyond the initial check in
+        _handle_alarm_disarmed():
+          1. Still all-away after the wait (an ordinary arrival-then-disarm
+             may have resolved itself by now).
+          2. The house has been CONTINUOUSLY empty (self._all_away_since,
+             independent of alarm state) for at least
+             AA_RECHECK_MIN_AWAY_DURATION -- guards against a fresh "just
+             stepped out" disarm-adjacent moment being treated the same as
+             a long-standing empty house.
+
+        Only the action types selected by AA_RECHECK_INCLUDE_LOCK/ALARM/
+        CAMERA are passed on to _on_home_empty() as its only_actions filter;
+        these still only narrow what the corresponding AA_*_ENABLED flag
+        already allows, never widen it.
+        """
+        try:
+            if delay > 0:
+                await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+
+        if not self._all_persons_away():
+            _LOGGER.info(
+                "AutoActions: recheck aborted -- someone came home during the wait"
+            )
+            return
+
+        cfg = self.store.get_auto_actions()
+        min_away = int(
+            cfg.get(AA_RECHECK_MIN_AWAY_DURATION, DEFAULT_AA_RECHECK_MIN_AWAY_DURATION)
+        )
+        away_since = self._all_away_since
+        if away_since is None or (time.monotonic() - away_since) < min_away:
+            _LOGGER.info(
+                "AutoActions: recheck skipped -- house not continuously empty "
+                "for the required %ds yet",
+                min_away,
+            )
+            return
+
+        only_actions: set[str] = set()
+        if cfg.get(AA_RECHECK_INCLUDE_LOCK, DEFAULT_AA_RECHECK_INCLUDE_LOCK):
+            only_actions.add("lock")
+        if cfg.get(AA_RECHECK_INCLUDE_ALARM, DEFAULT_AA_RECHECK_INCLUDE_ALARM):
+            only_actions.add("alarm")
+        if cfg.get(AA_RECHECK_INCLUDE_CAMERA, DEFAULT_AA_RECHECK_INCLUDE_CAMERA):
+            only_actions.add("camera")
+        if not only_actions:
+            _LOGGER.info(
+                "AutoActions: recheck has no action types selected -- nothing to do"
+            )
+            return
+
+        _LOGGER.info(
+            "AutoActions: recheck confirmed (away %ds, >= %ds required) -- "
+            "scheduling %s",
+            int(time.monotonic() - away_since), min_away, ", ".join(sorted(only_actions)),
+        )
+        await self._on_home_empty(only_actions=only_actions)
 
     # -------------------------------------------------------------------------
     # Action scheduling
@@ -524,6 +697,19 @@ class AutoActionsManager:
     # Helpers
     # -------------------------------------------------------------------------
 
+    def _mark_all_away_if_needed(self) -> None:
+        """Record the start of the current continuous-empty-house stretch.
+
+        Independent of alarm state and of _home_empty -- called whenever
+        _all_persons_away() first becomes true, whether or not
+        _on_home_empty() actually goes on to schedule anything (e.g. it
+        keeps accruing even while the alarm is already armed and
+        _on_home_empty() short-circuits). Reset to None only on a confirmed
+        arrival (_confirm_arrival()). Powers AA_RECHECK_MIN_AWAY_DURATION.
+        """
+        if self._all_away_since is None:
+            self._all_away_since = time.monotonic()
+
     def _all_persons_away(self) -> bool:
         """Return True if every tracked Secure Me user is currently away.
 
@@ -543,7 +729,14 @@ class AutoActionsManager:
         return True
 
     def _all_actions_settled(self) -> bool:
-        """Return True when all scheduled action tasks have finished or were skipped."""
+        """Return True when all scheduled action tasks have finished or were skipped.
+
+        v1.5.x: When the current cycle was started by a disarm-recheck with
+        a restricted only_actions set (self._current_only_actions), the
+        expected set is intersected with it -- otherwise this would wait
+        forever for an action type the recheck deliberately excluded, since
+        that type never gets scheduled and so never lands in _done_actions.
+        """
         cfg = self.store.get_auto_actions()
         expected: set[str] = set()
         if cfg.get(AA_LOCK_ENABLED, True):
@@ -552,6 +745,8 @@ class AutoActionsManager:
             expected.add("alarm")
         if cfg.get(AA_CAMERA_ENABLED, True):
             expected.add("camera")
+        if self._current_only_actions is not None:
+            expected &= self._current_only_actions
 
         for action in expected:
             if action not in self._done_actions and action + "_skipped" not in self._done_actions:

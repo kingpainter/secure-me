@@ -4006,6 +4006,12 @@ class SecureMePanel extends HTMLElement {
     const aaCamDelay      = aa.auto_camera_delay   !== undefined ? aa.auto_camera_delay   : 0;
     const aaArrivalDelay  = aa.arrival_confirmation_delay !== undefined ? aa.arrival_confirmation_delay : 60;
     const aaNotifyAll     = aa.notify_all_users || false;
+    const aaRecheckOnDisarm = aa.recheck_on_disarm || false;
+    const aaRecheckDelay   = aa.recheck_delay !== undefined ? aa.recheck_delay : 30;
+    const aaRecheckMinAway = aa.recheck_min_away_duration !== undefined ? aa.recheck_min_away_duration : 300;
+    const aaRecheckIncLock   = aa.recheck_include_lock   !== undefined ? aa.recheck_include_lock   : true;
+    const aaRecheckIncAlarm  = aa.recheck_include_alarm  !== undefined ? aa.recheck_include_alarm  : true;
+    const aaRecheckIncCamera = aa.recheck_include_camera !== undefined ? aa.recheck_include_camera : true;
 
     const delayLabel = (s) => s >= 60 ? `${Math.round(s/60)} min` : `${s}s`;
 
@@ -4121,6 +4127,54 @@ class SecureMePanel extends HTMLElement {
               <div class="dot"></div>
             </button>
           </div>
+        </div>
+
+        <!-- RECHECK ON REMOTE DISARM -->
+        <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aaRecheckOnDisarm ? '12px' : '0'}">
+            <div>
+              <div style="font-size:13px;font-weight:600">Genstart tjek ved fjern-disarm</div>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">
+                If the alarm is disarmed remotely (e.g. via the app) while everyone is still away, restart these timers as if everyone had just left.
+              </div>
+            </div>
+            <button class="sm-toggle ${aaRecheckOnDisarm ? 'on' : ''}" data-aa-toggle="recheck_on_disarm">
+              <div class="dot"></div>
+            </button>
+          </div>
+          ${aaRecheckOnDisarm ? `
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Vent efter disarm: ${delayLabel(aaRecheckDelay)}</label>
+              <input type="range" min="0" max="300" step="15" value="${aaRecheckDelay}"
+                     data-aa-range="recheck_delay"
+                     style="flex:1;accent-color:var(--sm-accent)">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Min. tomgangstid: ${delayLabel(aaRecheckMinAway)}</label>
+              <input type="range" min="0" max="1800" step="60" value="${aaRecheckMinAway}"
+                     data-aa-range="recheck_min_away_duration"
+                     style="flex:1;accent-color:var(--sm-accent)">
+            </div>
+            <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">Omfatter:</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:12px">Lås</span>
+              <button class="sm-toggle ${aaRecheckIncLock ? 'on' : ''}" data-aa-toggle="recheck_include_lock">
+                <div class="dot"></div>
+              </button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:12px">Alarm</span>
+              <button class="sm-toggle ${aaRecheckIncAlarm ? 'on' : ''}" data-aa-toggle="recheck_include_alarm">
+                <div class="dot"></div>
+              </button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:12px">Kamera</span>
+              <button class="sm-toggle ${aaRecheckIncCamera ? 'on' : ''}" data-aa-toggle="recheck_include_camera">
+                <div class="dot"></div>
+              </button>
+            </div>
+          ` : ''}
         </div>
 
         <button class="sm-btn primary" data-action="save-auto-actions">Gem auto-handlinger</button>

@@ -123,6 +123,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as err:
             _LOGGER.error("Panel registration failed: %s", err)
 
+    # TEMPORARY: ES-module split feasibility test -- see panel.py for full
+    # context and removal instructions. Remove this block (and
+    # async_register_es_module_test_panel in panel.py, and
+    # frontend/test-module-a.js + test-module-b.js) once the panel.js
+    # split decision has been made (chat, 2026-08-23).
+    try:
+        await panel.async_register_es_module_test_panel(hass)
+    except Exception as err:
+        _LOGGER.debug("Secure Me: ES module test panel skipped: %s", err)
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     undo_listener = entry.add_update_listener(async_update_options)

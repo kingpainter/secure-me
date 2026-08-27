@@ -53,12 +53,16 @@ ERROR_RETRY_EXHAUSTED_DA = "Secure Me: Modul '{module}' fejlede efter {retries} 
 ERROR_RECOVERY_OK_DA = "Secure Me: Modul '{module}' gendannet korrekt efter nyt forsoeg."
 
 # Platforms
+# v1.5.4: Platform.SWITCH / Platform.SELECT removed. switch.py/select.py were
+# both empty "Phase 1" placeholders (async_setup_entry() did nothing but log
+# and `pass`) -- never wired to any real entity, same situation as the
+# already-deleted module_manager.py. The two files themselves are left in
+# place (Claude does not delete files) and should be removed manually, the
+# same way module_manager.py was.
 PLATFORMS = [
     Platform.ALARM_CONTROL_PANEL,
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
-    Platform.SWITCH,
-    Platform.SELECT,
 ]
 
 # Panel / sidebar configuration
@@ -301,8 +305,42 @@ AA_CAMERA_DELAY   = "auto_camera_delay"
 AA_ARRIVAL_DELAY  = "arrival_confirmation_delay"
 AA_NOTIFY_ALL     = "notify_all_users"
 
+# v1.5.x: Re-check presence after a remote disarm. Normally Auto Actions only
+# reacts to a person.* tracker transitioning to not_home. If the alarm is
+# disarmed remotely (e.g. via the app, for a delivery) while everyone is
+# already away, no tracker transition happens, so Auto Actions would
+# otherwise never notice and never re-schedule lock/alarm/camera. Opt-in
+# (default off) since a brief GPS lag between "I disarmed at the door" and
+# "my tracker updated to home" would otherwise briefly (and harmlessly,
+# thanks to arrival_confirmation_delay) schedule actions on every ordinary
+# arrival too -- see auto_actions.py's _handle_alarm_disarmed().
+AA_RECHECK_ON_DISARM = "recheck_on_disarm"
+
+# v1.5.x: Fine-tuning for the recheck-on-disarm feature above.
+# - AA_RECHECK_DELAY: wait this long after the disarm event before even
+#   looking at presence, giving a GPS-lagging tracker a chance to catch up
+#   on an ordinary arrival-then-disarm.
+# - AA_RECHECK_MIN_AWAY_DURATION: additionally require the house to have
+#   been CONTINUOUSLY empty (tracked via AutoActionsManager._all_away_since,
+#   independent of alarm state) for at least this long before the recheck
+#   is honoured -- guards against a loop right after you've just left.
+# - AA_RECHECK_INCLUDE_*: which action types a disarm-triggered recheck may
+#   schedule. Still gated by the corresponding AA_*_ENABLED flag -- these
+#   only narrow further, they never widen what's globally enabled.
+AA_RECHECK_DELAY             = "recheck_delay"
+AA_RECHECK_MIN_AWAY_DURATION = "recheck_min_away_duration"
+AA_RECHECK_INCLUDE_LOCK      = "recheck_include_lock"
+AA_RECHECK_INCLUDE_ALARM     = "recheck_include_alarm"
+AA_RECHECK_INCLUDE_CAMERA    = "recheck_include_camera"
+
 # Defaults (seconds)
 DEFAULT_AA_LOCK_DELAY    = 120
 DEFAULT_AA_ALARM_DELAY   = 300
 DEFAULT_AA_CAMERA_DELAY  = 0
 DEFAULT_AA_ARRIVAL_DELAY = 60
+DEFAULT_AA_RECHECK_ON_DISARM = False
+DEFAULT_AA_RECHECK_DELAY             = 30
+DEFAULT_AA_RECHECK_MIN_AWAY_DURATION = 300
+DEFAULT_AA_RECHECK_INCLUDE_LOCK      = True
+DEFAULT_AA_RECHECK_INCLUDE_ALARM     = True
+DEFAULT_AA_RECHECK_INCLUDE_CAMERA    = True

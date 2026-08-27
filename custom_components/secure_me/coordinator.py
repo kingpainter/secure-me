@@ -33,7 +33,6 @@ from .const import (
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_TRIGGERED,
-    EVENT_MODULE_ERROR,
     # v1.4.3: rich error events
     EVENT_ALARM_ARM_FAILED,
     EVENT_ALARM_INVALID_CODE,
@@ -60,68 +59,9 @@ from .const import (
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
 from .auto_actions import AutoActionsManager
-from .modules import (
-    CameraModule,
-    ClimateModule,
-    LightsModule,
-    LockModule,
-    SirenModule,
-    TTSModule,
-)
+from .module_dispatch import ModuleDispatcher, normalize_module_config
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _normalize_coordinator_config(module_id: str, config: dict) -> dict:
-    """Normalize panel-saved config (objects) to module class format (flat strings)."""
-    normalized = dict(config)
-
-    def extract_ids(items) -> list[str]:
-        if not isinstance(items, list):
-            return []
-        result = []
-        for item in items:
-            if isinstance(item, str):
-                result.append(item)
-            elif isinstance(item, dict) and item.get("entity_id"):
-                result.append(item["entity_id"])
-        return [e for e in result if e and "." in e]
-
-    if module_id == "camera":
-        raw = config.get("cameras", [])
-        normalized["cameras"] = extract_ids(raw)
-        poe = [
-            c["poe_port"] for c in raw
-            if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])
-        ]
-        if poe:
-            normalized["poe_switches"] = poe
-    elif module_id == "lock":
-        normalized["locks"] = extract_ids(config.get("locks", []))
-    elif module_id == "climate":
-        normalized["climates"] = extract_ids(config.get("thermostats", []))
-    elif module_id == "lights":
-        # Frontend saves as 'entities' (flat strings); module class expects 'lights'
-        raw = config.get("entities") or config.get("lights", [])
-        normalized["lights"] = extract_ids(raw) if raw else []
-    elif module_id == "tts":
-        normalized["media_players"] = extract_ids(config.get("entities", []))
-        normalized["tts_service"] = config.get("tts_service", "tts.cloud_say")
-        normalized["language"] = config.get("language", "da")
-        normalized["volume"] = config.get("volume", 0.5)
-        normalized["custom_messages"] = config.get("custom_messages", [])
-        # v1.4.0: speaker profiles passed through from store
-        normalized["speaker_profiles"] = config.get("speaker_profiles", [])
-    elif module_id == "siren":
-        # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)
-        normalized["sirens"] = config.get("sirens", [])
-        # Legacy gateway fields
-        if config.get("gateway_mac"):
-            normalized["gateway_mac"] = config["gateway_mac"]
-        if config.get("gateway_light"):
-            normalized["gateway_light"] = config["gateway_light"]
-
-    return normalized
 
 
 class SecureMeCoordinator(DataUpdateCoordinator):
@@ -141,7 +81,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         )
 
         self.config_entry = config_entry
-        self.modules: dict[str, Any] = {}
         self._armed_by: str | None = None
         self._disarmed_by: str | None = None
         self._armed_by_id: str | None = None
@@ -187,7 +126,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self.zone_manager.register_trigger_callback(self._zone_triggered)
         self.zone_manager.register_arm_on_close_callback(self._arm_on_close_triggered)
 
-        self._init_modules()
+        # v1.5.5: Module instantiation, arm/disarm/trigger dispatch, and
+        # health/battery tracking now live in ModuleDispatcher -- see
+        # module_dispatch.py. `modules` stays available as a property below
+        # (coordinator.modules) so nothing outside this file needs to change.
+        self.module_dispatcher = ModuleDispatcher(hass, config_entry)
 
         self.state_machine.add_state_change_callback(self._state_changed)
         self.state_machine.add_countdown_callback(self._countdown_updated)
@@ -210,9 +153,6 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         self._last_health_event_time: float = 0.0
         self._health_event_interval: float = 30.0   # 30s is sufficient for passive health polling
-        self._battery_cache: list[dict] | None = None
-        self._battery_cache_time: float = 0.0
-        self._battery_cache_ttl: float = 300.0      # 5-minute TTL
         self._last_countdown: int = -1
 
         # v1.5.4: Auto Actions v2 (auto_actions.py) is now the sole
@@ -1138,109 +1078,31 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         trigger_time = config_data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME)
         self.state_machine.update_config(exit_delay, entry_delay, trigger_time)
 
-    # ── Module management ────────────────────────────────────────────────────
-
-    def _init_modules(self) -> None:
-        """Initialize all available modules with config_entry.options as a
-        first-boot default. Only ever called once from __init__, before the
-        store is loaded -- async_load_store_config() re-initializes every
-        module immediately afterwards via update_module_config() once the
-        store's saved config is available, which is the config that actually
-        ends up in effect. (A `store` parameter used to exist here for a
-        stored-config path that was never reached in practice, since the
-        single call site in __init__ always ran before the store existed;
-        removed for clarity -- see async_load_store_config() for the real
-        module-config loading path.)"""
-        stored_modules = {}
-        options_modules = self.config_entry.options.get("modules", {})
-
-        def _get_config(mid: str) -> dict:
-            return stored_modules.get(mid) or options_modules.get(mid, {})
-
-        for mid in ("camera", "lock", "lights", "climate", "siren", "tts"):
-            module_config = _get_config(mid)
-            module_classes = {
-                "camera": CameraModule,
-                "lock": LockModule,
-                "lights": LightsModule,
-                "climate": ClimateModule,
-                "siren": SirenModule,
-                "tts": TTSModule,
-            }
-            self.modules[mid] = module_classes[mid](self.hass, module_config)
-
-        _LOGGER.info("Modules initialized: %s", list(self.modules.keys()))
+    # ── Module management ───────────────────────────────────────────────────
+    # v1.5.5: Delegates to self.module_dispatcher (module_dispatch.py). Kept
+    # as coordinator methods -- same names, same signatures -- purely so
+    # every internal call site below (async_arm_away etc.) and any external
+    # caller (ws_modules.py, diagnostics.py, binary_sensor.py, sensor.py)
+    # needs zero changes.
 
     async def _execute_modules_arm_away(self) -> None:
-        for mid, module in self.modules.items():
-            if module.enabled:
-                try:
-                    await module.async_arm("away")
-                except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_away: %s", mid, err)
-                    self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_away", "error": str(err)}
-                    )
+        await self.module_dispatcher.execute_arm_away()
 
     async def _execute_modules_arm_home(self) -> None:
-        for mid, module in self.modules.items():
-            if module.enabled:
-                try:
-                    await module.async_arm("home")
-                except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_home: %s", mid, err)
-                    self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_home", "error": str(err)}
-                    )
+        await self.module_dispatcher.execute_arm_home()
 
     async def _execute_modules_arm_night(self) -> None:
-        for mid, module in self.modules.items():
-            if module.enabled:
-                try:
-                    await module.async_arm("night")
-                except Exception as err:
-                    _LOGGER.error("Module %s failed on arm_night: %s", mid, err)
-                    self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": "arm_night", "error": str(err)}
-                    )
+        await self.module_dispatcher.execute_arm_night()
 
     async def _execute_modules_disarm(self) -> None:
-        for mid, module in self.modules.items():
-            if module.enabled:
-                try:
-                    await module.async_disarm()
-                except Exception as err:
-                    _LOGGER.error("Module %s failed on disarm: %s", mid, err)
-                    self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": "disarm", "error": str(err)}
-                    )
+        await self.module_dispatcher.execute_disarm()
 
     async def _execute_modules_trigger(self) -> None:
-        for mid, module in self.modules.items():
-            if module.enabled:
-                try:
-                    await module.async_trigger()
-                except Exception as err:
-                    _LOGGER.error("Module %s failed on trigger: %s", mid, err)
-                    self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": "trigger", "error": str(err)}
-                    )
+        await self.module_dispatcher.execute_trigger()
 
     def update_module_config(self, module_id: str, config: dict) -> bool:
         """Re-initialize a module with updated configuration."""
-        module_classes = {
-            "camera": CameraModule, "lock": LockModule, "lights": LightsModule,
-            "climate": ClimateModule, "siren": SirenModule, "tts": TTSModule,
-        }
-        cls = module_classes.get(module_id)
-        if not cls:
-            return False
-        try:
-            self.modules[module_id] = cls(self.hass, config)
-            return True
-        except Exception as err:
-            _LOGGER.error("Failed to re-initialize module %s: %s", module_id, err)
-            return False
+        return self.module_dispatcher.update_module_config(module_id, config)
 
     async def async_load_store_config(self, store) -> None:
         """Load module and sensor configs from store, re-initialize modules."""
@@ -1256,7 +1118,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     if module_id == "tts" and speaker_profiles:
                         config = dict(config)
                         config["speaker_profiles"] = speaker_profiles
-                    normalized = _normalize_coordinator_config(module_id, config)
+                    normalized = normalize_module_config(module_id, config)
                     self.update_module_config(module_id, normalized)
 
         # Load zones into zone manager (with arm_modes)
@@ -1304,82 +1166,32 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # ── Health ───────────────────────────────────────────────────────────────
 
+    @property
+    def modules(self) -> dict[str, Any]:
+        """Kept as a property (rather than a plain dict attribute) so external
+        code -- ws_modules.py, diagnostics.py, binary_sensor.py, sensor.py,
+        auto_actions.py, notification_dispatcher.py -- keeps working with
+        coordinator.modules[...] / .items() / .values() / .get() exactly as
+        before v1.5.5's ModuleDispatcher extraction. See module_dispatch.py.
+        """
+        return self.module_dispatcher.modules
+
     def get_batteries_cached(self, configured_eids: set[str]) -> list[dict]:
         """Return cached battery list; rebuilds every 5 minutes."""
-        now = time.monotonic()
-        if (
-            self._battery_cache is not None
-            and now - self._battery_cache_time < self._battery_cache_ttl
-        ):
-            return self._battery_cache
-        from .ws_helpers import _discover_batteries
-        self._battery_cache = _discover_batteries(self.hass, configured_eids)
-        self._battery_cache_time = now
-        return self._battery_cache
+        return self.module_dispatcher.get_batteries_cached(configured_eids)
 
     def invalidate_battery_cache(self) -> None:
         """Force a battery cache rebuild on next access."""
-        self._battery_cache = None
+        self.module_dispatcher.invalidate_battery_cache()
 
     def get_health_score(self) -> int:
-        total, available = 0, 0
-        for module in self.modules.values():
-            if not module.enabled:
-                continue
-            for eid in self._get_module_entity_ids(module):
-                total += 1
-                state = self.hass.states.get(eid)
-                if state and state.state not in ("unavailable", "unknown"):
-                    available += 1
-        return round((available / total) * 100) if total > 0 else 100
+        return self.module_dispatcher.get_health_score()
 
     def get_module_health(self) -> dict[str, dict]:
-        result = {}
-        for mid, module in self.modules.items():
-            if not module.enabled:
-                result[mid] = {"enabled": False, "status": "disabled", "total": 0, "available": 0, "unavailable": []}
-                continue
-            entities = self._get_module_entity_ids(module)
-            unavail = [
-                eid for eid in entities
-                if not self.hass.states.get(eid)
-                or self.hass.states.get(eid).state in ("unavailable", "unknown")
-            ]
-            result[mid] = {
-                "enabled": True,
-                "status": "degraded" if getattr(module, "degraded", False) else ("error" if unavail else "ok"),
-                "total": len(entities),
-                "available": len(entities) - len(unavail),
-                "unavailable": unavail,
-            }
-        return result
+        return self.module_dispatcher.get_module_health()
 
     def get_enabled_module_count(self) -> int:
-        return sum(1 for m in self.modules.values() if m.enabled)
-
-    @staticmethod
-    def _get_module_entity_ids(module) -> list[str]:
-        entities: list[str] = []
-        for attr in ("poe_switches", "cameras", "recording_entities", "locks", "lights", "climates", "media_players"):
-            val = getattr(module, attr, None)
-            if isinstance(val, list):
-                entities.extend(val)
-        for attr in ("door_sensors", "battery_sensors"):
-            val = getattr(module, attr, None)
-            if isinstance(val, dict):
-                entities.extend(val.values())
-        for attr in ("gateway_light",):
-            val = getattr(module, attr, None)
-            if isinstance(val, str) and "." in val:
-                entities.append(val)
-        if not entities and hasattr(module, "config"):
-            for key in ("entities", "cameras", "locks", "climates", "lights", "media_players", "poe_switches"):
-                val = module.config.get(key)
-                if isinstance(val, list):
-                    entities.extend(val)
-                elif isinstance(val, dict):
-                    entities.extend(val.values())
-        return list({e for e in entities if e and isinstance(e, str) and "." in e})
+        return self.module_dispatcher.get_enabled_module_count()
 
     # ── Presence ──────────────────────────────────────────────────────────────
 
@@ -1474,12 +1286,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             await self._auto_actions_manager.async_stop()
             self._auto_actions_manager = None
 
-        if hasattr(self, "modules"):
-            for mid, module in self.modules.items():
-                try:
-                    await module.async_cleanup()
-                except Exception as err:
-                    _LOGGER.error("Module %s cleanup failed: %s", mid, err)
+        if hasattr(self, "module_dispatcher"):
+            await self.module_dispatcher.async_cleanup()
         if hasattr(self, "zone_manager"):
             try:
                 # v1.4.3: cleanup() also tears down the ready-modes listener
