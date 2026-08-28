@@ -355,11 +355,24 @@ class AutoActionsManager:
             return
 
         # Re-check: is the person (and at least one other) still home?
+        # v1.5.x fix: "unknown"/"unavailable" must NOT count as a confirmed
+        # arrival. _handle_state_changed() starts this confirmation on ANY
+        # transition away from "not_home" -- including a tracker flickering
+        # to "unknown" (common with phone GPS/wifi trackers) while the
+        # person is genuinely still away. Previously only "not_home" was
+        # treated as "still away"; anything else (including "unknown") fell
+        # through to "confirmed home" below and cancelled all pending Auto
+        # Actions -- e.g. the auto-arm -- even though nobody had actually
+        # come home. This mirrors the fail-safe direction already used by
+        # _all_persons_away() (which also treats unknown/unavailable as
+        # "not confirmed away"), but applied here to the arrival side so a
+        # flaky tracker can no longer silently cancel a legitimate
+        # in-progress empty-house cycle.
         state = self.hass.states.get(entity_id)
-        if state is None or state.state == "not_home":
+        if state is None or state.state in ("not_home", "unknown", "unavailable"):
             _LOGGER.info(
-                "AutoActions: arrival confirmation failed for %s (left again) -- timers continue",
-                entity_id,
+                "AutoActions: arrival confirmation failed for %s (state=%s) -- timers continue",
+                entity_id, state.state if state else "missing",
             )
             return
 
