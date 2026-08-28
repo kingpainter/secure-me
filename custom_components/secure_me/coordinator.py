@@ -636,7 +636,13 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if hasattr(self, "store") and self.store:
             result = self.store.authenticate_user(code)
             return result is not None
-        return code == self._code
+        # Legacy fallback: store not loaded yet (very early in startup), so
+        # compare against the single plaintext code from the config entry.
+        # hmac.compare_digest avoids a timing side-channel that a naive `==`
+        # comparison has (early-exit on first mismatched byte) -- low risk on
+        # a local home install, but a free, standard hardening here.
+        import hmac
+        return hmac.compare_digest(code, self._code)
 
     def identify_user(self, code: str | None) -> str:
         """Return the user's name from code, or 'user' as fallback."""

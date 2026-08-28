@@ -47,6 +47,7 @@ async def ws_get_modules(
     vol.Required("module_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_module(
     hass: HomeAssistant,
@@ -121,6 +122,7 @@ async def ws_get_notifications(
     vol.Required("notification_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_notification(
     hass: HomeAssistant,
@@ -142,6 +144,7 @@ async def ws_save_notification(
     vol.Required("type"): f"{DOMAIN}/delete_notification",
     vol.Required("notification_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_notification(
     hass: HomeAssistant,
@@ -162,6 +165,7 @@ async def ws_delete_notification(
     vol.Required("type"): f"{DOMAIN}/test_notification",
     vol.Required("notification_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_notification(
     hass: HomeAssistant,
@@ -299,6 +303,7 @@ async def ws_get_notify_services(
     vol.Required("message"): str,
     vol.Optional("speaker_ids"): list,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_tts(
     hass: HomeAssistant,
@@ -367,6 +372,7 @@ async def ws_get_automations(
     vol.Required("automation_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_automation(
     hass: HomeAssistant,
@@ -388,6 +394,7 @@ async def ws_save_automation(
     vol.Required("type"): f"{DOMAIN}/delete_automation",
     vol.Required("automation_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_automation(
     hass: HomeAssistant,
@@ -408,6 +415,7 @@ async def ws_delete_automation(
     vol.Required("type"): f"{DOMAIN}/test_automation",
     vol.Required("automation_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_automation(
     hass: HomeAssistant,
@@ -633,6 +641,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
         "modules": {},
         "batteries": {},
         "sensors": {},
+        "warnings": [],
         "overall": "pass",
     }
 
@@ -671,14 +680,26 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
         }
 
         if test_type in ("standard", "full") or test_type == mod_id:
+            # Per-module timing -- the functional test (async_test()) is
+            # usually the slow part (e.g. camera's poe_delay can be
+            # 30-300s), and duration_seconds used to only cover the whole
+            # run, giving no way to see which module ate the time.
+            _mod_start = time.time()
             try:
                 test_out = await module.async_test()
                 mod_result["test_result"] = test_out
                 if not test_out.get("success", False):
                     mod_result["status"] = "fail"
+                # Surface per-module warnings (non-fatal issues, e.g. low
+                # battery, unsupported feature) at the top level too, so
+                # they don't only live buried in each module's "message"
+                # string mixed in with real failures.
+                for w in test_out.get("warnings", []):
+                    results["warnings"].append(f"{mod_id}: {w}")
             except Exception as err:
                 mod_result["test_result"] = {"success": False, "message": str(err)}
                 mod_result["status"] = "error"
+            mod_result["duration_seconds"] = round(time.time() - _mod_start, 1)
 
         if test_type not in ("quick", "standard", "full") and test_type != mod_id:
             mod_result["status"] = "skipped"
@@ -711,9 +732,12 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
                 "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
             }
 
-    # --- Environmental sensors: smoke + water leak (standard + full) ---
-    # These are always-on sensors not tied to a module, so we test them explicitly.
-    if test_type in ("standard", "full") and store:
+    # --- Environmental sensors: smoke + water leak (ALL test types) ---
+    # These are safety-critical (smoke/water leak) and the check is just an
+    # availability read -- cheap enough to run every time, including Quick,
+    # rather than leaving them unchecked until someone runs a heavier test.
+    # Previously gated to standard/full only.
+    if store:
         env_sensors = [
             s for s in store.get_available_sensors()
             if s.get("sensor_type") == "environmental" or s.get("is_environmental", False)
@@ -738,33 +762,26 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
             "status": "fail" if any(not s["online"] for s in env_results.values()) else "pass",
         }
 
-    # --- Siren sound test (standard + full) ---
-    # Brief 2s test tone at low volume, mirrors v3.0.3 logic.
-    if test_type in ("standard", "full"):
-        siren_module = coordinator.modules.get("siren") if coordinator else None
-        if siren_module and siren_module.enabled and siren_module.gateway_mac:
-            try:
-                await siren_module.hass.services.async_call(
-                    "xiaomi_aqara", "play_ringtone",
-                    service_data={
-                        "gw_mac": siren_module.gateway_mac,
-                        "ringtone_id": siren_module.ringtone_id,
-                        "ringtone_vol": 30,
-                    },
-                    blocking=True,
-                )
-                await asyncio.sleep(2)
-                await siren_module.hass.services.async_call(
-                    "xiaomi_aqara", "stop_ringtone",
-                    service_data={"gw_mac": siren_module.gateway_mac},
-                    blocking=True,
-                )
-                results["siren_test"] = {"success": True, "message": "2s test tone at 30% volume"}
-            except Exception as err:
-                _LOGGER.warning("Siren sound test failed during standard test: %s", err)
-                results["siren_test"] = {"success": False, "message": str(err)}
-        else:
-            results["siren_test"] = {"success": None, "message": "Siren not configured or not enabled"}
+    # --- Siren test summary ---
+    # Fix: this used to independently re-fire the gateway ringtone as a
+    # second physical test, on top of the one SirenModule.async_test() just
+    # ran a moment ago as part of the per-module loop above -- doubling test
+    # time and (audibly) doubling the siren noise for anyone with a legacy
+    # gateway_mac configured. Derive the same "siren_test" summary key (kept
+    # for frontend compatibility) from the module's own test result instead
+    # of testing twice.
+    siren_mod_result = results["modules"].get("siren")
+    if siren_mod_result and "test_result" in siren_mod_result:
+        siren_test_out = siren_mod_result["test_result"]
+        results["siren_test"] = {
+            "success": siren_test_out.get("success"),
+            "message": siren_test_out.get("message", ""),
+        }
+    else:
+        results["siren_test"] = {
+            "success": None,
+            "message": "Siren not configured, not enabled, or not tested at this test level",
+        }
 
     # --- Battery discovery (standard + full) — use coordinator cache ---
     if test_type in ("standard", "full"):
@@ -782,6 +799,49 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
             "total": len(batteries), "low_count": len(low), "critical_count": len(critical),
             "details": batteries, "note": "Battery status is informational only",
         }
+        if low:
+            results["warnings"].append(
+                f"{len(low)} battery/batteries below 20%"
+                + (f" ({len(critical)} critical, below 10%)" if critical else "")
+            )
+
+    # --- Trend vs. previous test result ---
+    # test_history already retains the last 10 results, but nothing ever
+    # compared a new result against the previous one. This surfaces two
+    # useful, low-noise signals: batteries that dropped since last time, and
+    # entities that were available last test but are unavailable now (newly
+    # flaky) -- both computed from data already being collected here, no
+    # extra storage needed.
+    trend: dict[str, Any] = {"compared_to": None, "battery_declining": [], "newly_unavailable": []}
+    if store:
+        history = store.get_test_history()
+        prev = history[0] if history else None
+        if prev:
+            trend["compared_to"] = prev.get("timestamp")
+
+            prev_levels = {
+                b["entity_id"]: b["level"]
+                for b in prev.get("batteries", {}).get("details", [])
+                if b.get("level") is not None
+            }
+            for b in results.get("batteries", {}).get("details", []):
+                eid = b.get("entity_id")
+                level = b.get("level")
+                if eid in prev_levels and level is not None and level < prev_levels[eid]:
+                    trend["battery_declining"].append({
+                        "entity_id": eid,
+                        "previous": prev_levels[eid],
+                        "current": level,
+                    })
+
+            prev_unavail: set[str] = set()
+            for _mod_id, mod_data in prev.get("modules", {}).items():
+                prev_unavail.update(mod_data.get("unavailable", []) or [])
+            for _mod_id, mod_data in results["modules"].items():
+                for eid in mod_data.get("unavailable", []) or []:
+                    if eid not in prev_unavail:
+                        trend["newly_unavailable"].append(eid)
+    results["trend"] = trend
 
     # --- Overall result ---
     duration = round(time.time() - start_time, 1)
@@ -793,7 +853,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     siren_fail = results.get("siren_test", {}).get("success") is False
     if any_fail or sensor_fail or env_fail or siren_fail:
         results["overall"] = "fail"
-    elif any(m.get("status") == "warning" for m in results["modules"].values()):
+    elif any(m.get("status") == "warning" for m in results["modules"].values()) or results["warnings"]:
         results["overall"] = "warning"
 
     passed  = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
@@ -813,6 +873,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     vol.Required("type"): f"{DOMAIN}/run_test",
     vol.Required("test_type"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_run_test(
     hass: HomeAssistant,
@@ -836,6 +897,7 @@ async def ws_run_test(
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/quick_test_siren",
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_quick_test_siren(
     hass: HomeAssistant,
@@ -881,6 +943,7 @@ async def ws_quick_test_siren(
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/quick_test_lights",
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_quick_test_lights(
     hass: HomeAssistant,
@@ -992,6 +1055,7 @@ async def ws_get_scheduled_tests(
     vol.Optional("test_id", default=""): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_scheduled_test(
     hass: HomeAssistant,
@@ -1012,6 +1076,7 @@ async def ws_save_scheduled_test(
     vol.Required("type"): f"{DOMAIN}/delete_scheduled_test",
     vol.Required("test_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_scheduled_test(
     hass: HomeAssistant,
@@ -1031,6 +1096,7 @@ async def ws_delete_scheduled_test(
     vol.Required("type"): f"{DOMAIN}/run_scheduled_test_now",
     vol.Required("test_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_run_scheduled_test_now(
     hass: HomeAssistant,
@@ -1106,6 +1172,7 @@ async def ws_get_fake_presence(
     vol.Required("type"): f"{DOMAIN}/set_fake_presence",
     vol.Required("active"): vol.Boolean(),
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_set_fake_presence(
     hass: HomeAssistant,
@@ -1156,6 +1223,7 @@ async def ws_get_home_alone_cameras(
     vol.Required("type"): f"{DOMAIN}/save_home_alone_cameras",
     vol.Required("cameras"): list,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_home_alone_cameras(
     hass: HomeAssistant,

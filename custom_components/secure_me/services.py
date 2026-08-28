@@ -167,6 +167,20 @@ def async_register_services(hass: HomeAssistant) -> None:
         await _run_test_internal(hass, call.data[ATTR_TEST_TYPE])
 
     async def _set_module_enabled(call: ServiceCall, enabled: bool) -> None:
+        # Fix: HA services (unlike websocket commands) have no built-in
+        # require_admin concept -- any user/automation with access to call
+        # this service could silently disable a module (e.g. the siren)
+        # with no admin check at all. Mirror websocket_api.require_admin's
+        # behaviour manually via the calling user's HA permissions.
+        if call.context.user_id:
+            user = await hass.auth.async_get_user(call.context.user_id)
+            if user is not None and not user.is_admin:
+                _LOGGER.warning(
+                    "secure_me.%s rejected -- user '%s' is not a HA admin",
+                    SERVICE_ENABLE_MODULE if enabled else SERVICE_DISABLE_MODULE,
+                    user.name,
+                )
+                return
         module_id = call.data[ATTR_MODULE_ID]
         store = _get_store(hass)
         coordinator = _get_coordinator(hass)

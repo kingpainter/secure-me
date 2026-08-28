@@ -124,6 +124,7 @@ class LightsModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "Lights module test passed",
+            "warnings": [],
             "details": {
                 "lights": [],
                 "steady_lights": [],

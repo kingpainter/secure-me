@@ -263,6 +263,7 @@ async def ws_get_floorplan(
     vol.Required("type"): f"{DOMAIN}/save_floorplan_image",
     vol.Required("image_base64"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_image(
     hass: HomeAssistant,
@@ -347,6 +348,7 @@ async def ws_save_floorplan_image(
     vol.Optional("rooms"): dict,
     vol.Optional("openings"): list,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_markers(
     hass: HomeAssistant,
@@ -395,6 +397,7 @@ async def ws_save_floorplan_markers(
 @websocket_api.websocket_command({
     vol.Required("type"): f"{DOMAIN}/delete_floorplan",
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_floorplan(
     hass: HomeAssistant,

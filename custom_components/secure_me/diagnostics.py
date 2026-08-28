@@ -205,12 +205,14 @@ async def async_get_config_entry_diagnostics(
     }
 
     # --- User Configuration (NEW) ---
+    # Fix: diagnostics downloads are meant to be shareable (e.g. attached to
+    # a GitHub issue), so this must not leak real household member names --
+    # only the count is diagnostically useful anyway.
     users_info: dict[str, Any] = {}
     if store:
         users = store.get_users()
         users_info = {
             "total_users": len(users),
-            "user_names": [u.get("name", "Unknown") for u in users],
         }
 
     # --- Zone Details (NEW) ---

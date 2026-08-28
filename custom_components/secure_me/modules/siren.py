@@ -214,6 +214,7 @@ class SirenModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "Siren module test passed",
+            "warnings": [],
             "details": {
                 "gateway_mac": self.gateway_mac,
                 "gateway_light": None,

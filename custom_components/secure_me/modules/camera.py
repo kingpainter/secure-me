@@ -109,6 +109,7 @@ class CameraModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "Camera module test passed",
+            "warnings": [],
             "details": {
                 "poe_switches": [],
                 "cameras": [],

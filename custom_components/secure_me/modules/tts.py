@@ -181,6 +181,7 @@ class TTSModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "TTS module test passed",
+            "warnings": [],
             "details": {
                 "speakers": [],
                 "language": self.language,

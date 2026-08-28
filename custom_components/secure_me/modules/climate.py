@@ -93,6 +93,7 @@ class ClimateModule(AlarmModule):
         results: dict[str, Any] = {
             "success": True,
             "message": "Climate module test passed",
+            "warnings": [],
             "details": {"climates": [], "total_zones": len(self.climates)},
         }
         # Collected instead of overwriting results["message"] each time --
@@ -117,7 +118,7 @@ class ClimateModule(AlarmModule):
                 messages.append(f"Climate {climate} unavailable")
 
             if "away" not in climate_info["preset_modes"] and not self.away_temperature:
-                messages.append(f"Climate {climate} does not support away mode")
+                results["warnings"].append(f"Climate {climate} does not support away mode")
 
             results["details"]["climates"].append(climate_info)
 

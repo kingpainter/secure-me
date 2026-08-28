@@ -562,6 +562,19 @@ class SecureMeStore:
         cfg = dict(config)
         raw_code = cfg.get("code", "")
 
+        # Safety fix: ws_get_users() masks stored codes as "********" before
+        # sending them to the panel (so the real bcrypt hash never leaves the
+        # backend). If an edit-and-save round-trip in the frontend ever echoes
+        # that placeholder back unchanged, we must NOT bcrypt-hash the literal
+        # string "********" and overwrite the user's real PIN with it. Treat
+        # the masked placeholder exactly like "no code field sent" -- keep
+        # whatever hash is already stored for this user.
+        if raw_code == "********":
+            existing = self._data.get("users", {}).get(user_id, {})
+            cfg["code"] = existing.get("code", "")
+            cfg["code_hashed"] = existing.get("code_hashed", False)
+            raw_code = ""
+
         # Hash if a new plaintext code is provided (not already a hash)
         if raw_code and not cfg.get("code_hashed", False):
             cfg["code"] = self._hash_code(raw_code)

@@ -251,14 +251,24 @@ class AlarmStateMachine:
         EDGE CASE FIX: Previously this was a TODO — alarm would stay in
         triggered state forever if never disarmed. Now auto-resets to
         disarmed after trigger_time, matching real alarm panel behaviour.
+
+        RACE FIX: acquires _transition_lock before applying the state change,
+        matching every other path that mutates state. Previously this ran
+        outside the lock -- a manual disarm() landing in the same instant
+        the countdown finished could interleave with this call (disarm()
+        cancels this task via _cancel_countdown(), but cancellation cannot
+        stop a task that has already woken from sleep and is past the
+        cancellation point), so _notify_state_change() callbacks (arm
+        history, sensor sync) could fire twice for the same transition.
         """
         try:
             _LOGGER.info("Alarm will auto-reset after %ds", self._trigger_time)
             await asyncio.sleep(self._trigger_time)
-            if self._current_state == STATE_ALARM_TRIGGERED:
-                _LOGGER.warning("Alarm auto-reset after %ds (not manually disarmed)", self._trigger_time)
-                self._countdown = 0
-                await self._set_state(STATE_ALARM_DISARMED)
+            async with self._transition_lock:
+                if self._current_state == STATE_ALARM_TRIGGERED:
+                    _LOGGER.warning("Alarm auto-reset after %ds (not manually disarmed)", self._trigger_time)
+                    self._countdown = 0
+                    await self._set_state(STATE_ALARM_DISARMED)
         except asyncio.CancelledError:
             pass
 

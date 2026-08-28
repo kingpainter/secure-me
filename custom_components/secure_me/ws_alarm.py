@@ -231,6 +231,7 @@ async def ws_get_speaker_profiles(
     vol.Required("type"): f"{DOMAIN}/save_speaker_profiles",
     vol.Required("profiles"): list,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_speaker_profiles(
     hass: HomeAssistant,
@@ -327,6 +328,7 @@ async def ws_get_auto_actions(
     vol.Required("type"): f"{DOMAIN}/save_auto_actions",
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_auto_actions(
     hass: HomeAssistant,
@@ -363,6 +365,7 @@ async def ws_get_fake_presence_v2(
     vol.Required("type"): f"{DOMAIN}/save_fake_presence_v2",
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_fake_presence_v2(
     hass: HomeAssistant,

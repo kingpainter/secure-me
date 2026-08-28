@@ -43,6 +43,7 @@ async def ws_get_sensor_groups(
     vol.Optional("group_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensor_group(
     hass: HomeAssistant,
@@ -68,6 +69,7 @@ async def ws_save_sensor_group(
     vol.Required("type"): f"{DOMAIN}/delete_sensor_group",
     vol.Required("group_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_sensor_group(
     hass: HomeAssistant,
@@ -144,6 +146,7 @@ async def ws_get_sensors(
     vol.Required("type"): f"{DOMAIN}/save_sensors",
     vol.Required("sensors"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensors(
     hass: HomeAssistant,
@@ -199,6 +202,7 @@ async def ws_get_zones(
     vol.Required("zone_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_zone(
     hass: HomeAssistant,
@@ -270,6 +274,7 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
     vol.Required("type"): f"{DOMAIN}/delete_zone",
     vol.Required("zone_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_zone(
     hass: HomeAssistant,
@@ -331,6 +336,7 @@ async def ws_get_users(
     vol.Required("user_id"): str,
     vol.Required("config"): dict,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_user(
     hass: HomeAssistant,
@@ -366,6 +372,7 @@ async def ws_save_user(
     vol.Required("type"): f"{DOMAIN}/delete_user",
     vol.Required("user_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_user(
     hass: HomeAssistant,
@@ -435,6 +442,7 @@ async def ws_get_persons(
     vol.Required("entity_id"): str,
     vol.Optional("hidden", default=True): bool,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_hide_sensor(
     hass: HomeAssistant,
@@ -467,6 +475,7 @@ async def ws_hide_sensor(
     vol.Required("type"): f"{DOMAIN}/unmark_environmental",
     vol.Required("entity_id"): str,
 })
+@websocket_api.require_admin
 @websocket_api.async_response
 async def ws_unmark_environmental(
     hass: HomeAssistant,

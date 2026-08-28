@@ -286,8 +286,22 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         await self.coordinator.async_arm_home_alone(code)
 
     async def async_alarm_trigger(self, code: str | None = None) -> None:
-        """Send trigger command."""
+        """Send trigger command.
+
+        v1.5.x fix: every other alarm command (arm/disarm) validates the
+        code before acting; trigger was the one exception, so any entity
+        with access to alarm_control_panel.alarm_trigger -- including a
+        non-admin HA user or an automation -- could set off the siren with
+        no PIN at all. Now consistent with the rest of this class.
+        """
         _LOGGER.warning("Alarm panel: Trigger requested")
+        if not self.coordinator.validate_code(code):
+            _LOGGER.warning("Alarm panel: Trigger rejected -- invalid code")
+            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
+                "command": "trigger",
+                "entity_id": self.entity_id,
+            })
+            return
         await self.coordinator.async_trigger("manual")
 
     @callback

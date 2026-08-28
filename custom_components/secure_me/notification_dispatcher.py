@@ -70,8 +70,21 @@ def _get_coordinator(hass: HomeAssistant):
 
     v1.4.3: Used by alarm event handlers to enrich notification template
     context with current state (open_sensors, bypassed_sensors, mode).
-    Single-entry assumption: returns the first coordinator found.
+
+    Fix (kept in sync with ws_helpers._get_coordinator()): prefers
+    entry.runtime_data, the modern HA pattern for per-entry runtime objects,
+    before falling back to the legacy hass.data[DOMAIN][entry_id] dict
+    lookup. This file kept its own separate copy of this helper that never
+    got the entry.runtime_data preference added in v1.5.5's Fix 2 -- harmless
+    today since both lookup paths are always populated together in
+    __init__.py's async_setup_entry(), but a latent trap if that ever
+    changes. Single-entry assumption: returns the first coordinator found.
     """
+    for config_entry in hass.config_entries.async_entries(DOMAIN):
+        runtime_data = getattr(config_entry, "runtime_data", None)
+        if runtime_data is not None:
+            return runtime_data
+
     domain_data = hass.data.get(DOMAIN, {})
     for key, value in domain_data.items():
         if isinstance(value, dict) and "coordinator" in value:
@@ -520,7 +533,23 @@ class NotificationDispatcher:
         self._unsubs.append(hass.bus.async_listen(EVENT_ALARM_DISARMED,  self._on_disarmed))
         self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_arming",    self._on_arming))
         self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_pending",   self._on_pending))
-        self._unsubs.append(hass.bus.async_listen("state_changed",       self._on_sensor_state_change))
+        # Perf fix: this dispatcher only ever cares about binary_sensor
+        # entities (smoke/moisture device_class), but a plain
+        # hass.bus.async_listen("state_changed", ...) with no filter invokes
+        # this callback for every single entity state change anywhere in the
+        # HA instance -- lights, climate, sensors, everything. The optional
+        # event_filter runs before dispatch and is much cheaper than entering
+        # the coroutine, so on an installation with hundreds of entities this
+        # cuts the vast majority of unnecessary callback invocations.
+        @callback
+        def _is_binary_sensor_event(event_data: dict) -> bool:
+            entity_id = event_data.get("entity_id", "")
+            return isinstance(entity_id, str) and entity_id.startswith("binary_sensor.")
+
+        self._unsubs.append(hass.bus.async_listen(
+            "state_changed", self._on_sensor_state_change,
+            event_filter=_is_binary_sensor_event,
+        ))
 
         _LOGGER.info("Secure Me NotificationDispatcher active")
 

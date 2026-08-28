@@ -93,6 +93,7 @@ class LockModule(AlarmModule):
         results = {
             "success": True,
             "message": "Lock module test passed",
+            "warnings": [],
             "details": {
                 "locks": [],
                 "total_locks": len(self.locks),
@@ -104,6 +105,20 @@ class LockModule(AlarmModule):
         # summary, silently hiding earlier ones (details per-lock were always
         # correct, but the one-line summary was misleading).
         messages: list[str] = []
+
+        # v1.5.x safety fix: the functional test below briefly unlocks a
+        # locked door (2s) to verify both directions. That's fine when
+        # someone is home to notice, but a test run ("run_test" full/standard,
+        # or a scheduled test) doesn't check the alarm's armed state or
+        # presence at all -- so a test triggered while the house is genuinely
+        # empty and armed away could briefly unlock the front door with
+        # nobody there to see it relock. Skip the destructive unlock/relock
+        # cycle whenever no person entity currently reports 'home'; the
+        # lock's availability and current state are still reported, just
+        # without a live unlock/relock cycle.
+        anyone_home = any(
+            s.state == "home" for s in self.hass.states.async_all("person")
+        )
 
         for lock in self.locks:
             initial_state = self.get_entity_state(lock)
@@ -133,7 +148,7 @@ class LockModule(AlarmModule):
                     level = int(float(self.get_entity_state(battery_sensor) or ""))
                     lock_info["battery"] = level
                     if level < 20:
-                        messages.append(f"Lock {lock} battery low ({level}%)")
+                        results["warnings"].append(f"Lock {lock} battery low ({level}%)")
                 except (ValueError, TypeError):
                     pass
 
@@ -147,6 +162,14 @@ class LockModule(AlarmModule):
                     lock_info["test_passed"] = True
                     results["details"]["locks"].append(lock_info)
                     continue
+
+            # Nobody home: skip the destructive unlock/relock cycle (see
+            # comment above the messages list).
+            if not anyone_home:
+                lock_info["skip_reason"] = "nobody_home"
+                lock_info["test_passed"] = True
+                results["details"]["locks"].append(lock_info)
+                continue
 
             try:
                 if initial_state == "locked":
