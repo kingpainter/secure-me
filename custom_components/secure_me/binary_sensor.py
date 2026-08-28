@@ -26,6 +26,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import SecureMeCoordinator
+from .module_dispatch import get_module_entity_ids
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,35 +48,15 @@ MODULE_INFO = {
 def _get_module_entities(module) -> list[str]:
     """Extract all configured entity IDs from a module.
 
-    Returns a flat list of entity_id strings found in the module's config attributes.
+    Delegates to module_dispatch.get_module_entity_ids() -- the single,
+    siren-aware implementation -- instead of keeping a separate local copy.
+    This copy previously never read the siren module's `sirens` list (a
+    list of dicts, unlike the flat string lists other modules use), so a
+    dead siren was invisible to System Health / Module Health here even
+    though module_dispatch.py's copy had already been fixed to catch
+    exactly this case.
     """
-    entities: list[str] = []
-
-    # List-type attributes (most modules)
-    for attr_name in (
-        "poe_switches", "cameras", "recording_entities",  # camera
-        "locks",                                            # lock
-        "lights",                                           # lights
-        "climates",                                         # climate
-        "media_players",                                    # tts
-    ):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, list):
-            entities.extend(value)
-
-    # Dict-type attributes (lock module has door_sensors, battery_sensors as dicts)
-    for attr_name in ("door_sensors", "battery_sensors"):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, dict):
-            entities.extend(value.values())
-
-    # Single entity attributes (siren)
-    for attr_name in ("gateway_light",):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, str) and "." in value:
-            entities.append(value)
-
-    return entities
+    return get_module_entity_ids(module)
 
 
 def _check_entity_availability(hass: HomeAssistant, entity_id: str) -> bool:

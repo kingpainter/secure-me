@@ -52,6 +52,7 @@ from .const import (
     EVENT_HOME_ALONE_ACTION_1,
     EVENT_HOME_ALONE_ACTION_2,
 )
+from .ws_helpers import _get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,33 +64,6 @@ CHANNEL_TTS  = "tts"
 
 def _get_store(hass: HomeAssistant):
     return hass.data.get(DOMAIN, {}).get("store")
-
-
-def _get_coordinator(hass: HomeAssistant):
-    """Return the active coordinator instance, or None if not yet ready.
-
-    v1.4.3: Used by alarm event handlers to enrich notification template
-    context with current state (open_sensors, bypassed_sensors, mode).
-
-    Fix (kept in sync with ws_helpers._get_coordinator()): prefers
-    entry.runtime_data, the modern HA pattern for per-entry runtime objects,
-    before falling back to the legacy hass.data[DOMAIN][entry_id] dict
-    lookup. This file kept its own separate copy of this helper that never
-    got the entry.runtime_data preference added in v1.5.5's Fix 2 -- harmless
-    today since both lookup paths are always populated together in
-    __init__.py's async_setup_entry(), but a latent trap if that ever
-    changes. Single-entry assumption: returns the first coordinator found.
-    """
-    for config_entry in hass.config_entries.async_entries(DOMAIN):
-        runtime_data = getattr(config_entry, "runtime_data", None)
-        if runtime_data is not None:
-            return runtime_data
-
-    domain_data = hass.data.get(DOMAIN, {})
-    for key, value in domain_data.items():
-        if isinstance(value, dict) and "coordinator" in value:
-            return value["coordinator"]
-    return None
 
 
 def _get_tts_module(hass: HomeAssistant):

@@ -29,6 +29,8 @@ from .const import (
     VERSION,
 )
 from .coordinator import SecureMeCoordinator
+from .module_dispatch import get_module_entity_ids
+from .ws_helpers import _discover_batteries
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,24 +66,13 @@ STATE_ICONS = {
 
 
 def _get_module_entities(module) -> list[str]:
-    """Extract all configured entity IDs from a module."""
-    entities: list[str] = []
-    for attr_name in (
-        "poe_switches", "cameras", "recording_entities",
-        "locks", "lights", "climates", "media_players",
-    ):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, list):
-            entities.extend(value)
-    for attr_name in ("door_sensors", "battery_sensors"):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, dict):
-            entities.extend(value.values())
-    for attr_name in ("gateway_light",):
-        value = getattr(module, attr_name, None)
-        if isinstance(value, str) and "." in value:
-            entities.append(value)
-    return entities
+    """Extract all configured entity IDs from a module.
+
+    Delegates to module_dispatch.get_module_entity_ids() -- see
+    binary_sensor.py's copy of this same fix for why a diverged local copy
+    (missing siren support) is dangerous here.
+    """
+    return get_module_entity_ids(module)
 
 
 def _check_entity_availability(hass: HomeAssistant, entity_id: str) -> bool:
@@ -90,38 +81,46 @@ def _check_entity_availability(hass: HomeAssistant, entity_id: str) -> bool:
     return state is not None and state.state not in ("unavailable", "unknown")
 
 
-def _discover_battery_sensors(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Auto-discover all battery sensors in Home Assistant.
+def _get_configured_battery_scope(coordinator) -> set[str]:
+    """Return entity_ids of sensors and module entities actually used by
+    Secure Me (enabled alarm sensors + entities from enabled modules).
 
-    Finds all sensor entities with device_class 'battery' and returns
-    a list of dicts with entity_id, friendly_name, and current level.
+    Used to scope battery discovery to devices Secure Me actually cares
+    about, matched by shared HA *device* (not just entity_id) -- a
+    Zigbee/Z-Wave door sensor's battery reading lives on a separate entity
+    on the same physical device as the contact sensor, so entity_id alone
+    wouldn't find it.
     """
-    batteries: list[dict[str, Any]] = []
-    for state in hass.states.async_all("sensor"):
-        device_class = state.attributes.get("device_class", "")
-        if device_class != "battery":
+    configured: set[str] = set()
+
+    store = getattr(coordinator, "store", None)
+    if store:
+        for s in store.get_available_sensors():
+            if s.get("enabled") and s.get("entity_id"):
+                configured.add(s["entity_id"])
+
+    for module in coordinator.modules.values():
+        if not module.enabled:
             continue
-        # Parse battery level
-        level: int | None = None
-        try:
-            level = int(float(state.state))
-        except (ValueError, TypeError):
-            pass
+        configured.update(_get_module_entities(module))
 
-        batteries.append({
-            "entity_id": state.entity_id,
-            "name": state.attributes.get("friendly_name", state.entity_id),
-            "level": level,
-            "available": state.state not in ("unavailable", "unknown", None),
-        })
-    return batteries
+    return configured
 
 
-def _get_battery_summary(hass: HomeAssistant) -> dict[str, Any]:
-    """Get a complete battery summary with levels and status.
+def _get_battery_summary(hass: HomeAssistant, coordinator) -> dict[str, Any]:
+    """Get a complete battery summary, scoped to Secure Me's own sensors.
+
+    Fix: previously scanned every device_class='battery' sensor in the
+    entire Home Assistant instance, regardless of whether it had anything
+    to do with Secure Me (a Sonos remote's battery, an unrelated device's
+    battery, etc. would all show up as "lowest battery" candidates). Now
+    reuses the same device-matched discovery already used by the Testing
+    tab / health summary (ws_helpers._discover_batteries), scoped to
+    entities Secure Me actually has enabled (alarm sensors + module
+    entities) via _get_configured_battery_scope() above.
 
     Returns dict with:
-        batteries: list of all battery sensors with details
+        batteries: list of matched battery sensors with details
         lowest_level: int or None
         lowest_name: str
         lowest_entity: str
@@ -130,7 +129,8 @@ def _get_battery_summary(hass: HomeAssistant) -> dict[str, Any]:
         total: total tracked sensors
         unavailable_count: sensors that can't be read
     """
-    batteries = _discover_battery_sensors(hass)
+    configured_entity_ids = _get_configured_battery_scope(coordinator)
+    batteries = _discover_batteries(hass, configured_entity_ids)
 
     lowest_level: int | None = None
     lowest_name = "none"
@@ -495,7 +495,7 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
     def _get_summary(self) -> dict[str, Any]:
         """Return battery summary, cached for current update cycle."""
         if self._battery_summary_cache is None:
-            self._battery_summary_cache = _get_battery_summary(self.hass)
+            self._battery_summary_cache = _get_battery_summary(self.hass, self.coordinator)
         return self._battery_summary_cache
 
     @callback
@@ -581,7 +581,7 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     def _get_summary(self) -> dict[str, Any]:
         """Return battery summary, cached for current update cycle."""
         if self._battery_summary_cache is None:
-            self._battery_summary_cache = _get_battery_summary(self.hass)
+            self._battery_summary_cache = _get_battery_summary(self.hass, self.coordinator)
         return self._battery_summary_cache
 
     @callback

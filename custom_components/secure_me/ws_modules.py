@@ -509,8 +509,16 @@ def _normalize_module_config(module_id: str, config: dict) -> dict:
             normalized["tts_service"] = config["tts_service"]
         if config.get("language"):
             normalized["language"] = config["language"]
+        # Fix: the frontend's _saveTTSConfig() already converts its 0-100 UI
+        # slider to a 0.0-1.0 value before calling save_module -- this used
+        # to divide by 100 a second time, so the live module instance got a
+        # volume ~100x too quiet immediately after every save (only correct
+        # again after the next HA restart, when module_dispatch.py's copy of
+        # this normalization -- which does not divide -- reloaded the
+        # already-correctly-scaled value from the store). Pass it straight
+        # through, matching module_dispatch.normalize_module_config().
         if config.get("volume") is not None:
-            normalized["volume"] = float(config["volume"]) / 100.0
+            normalized["volume"] = float(config["volume"])
         if config.get("messages"):
             normalized["messages"] = config["messages"]
         # v1.4.0: speaker profiles passed through as-is

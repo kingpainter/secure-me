@@ -7,7 +7,8 @@ from typing import Any
 from homeassistant.components import system_health
 from homeassistant.core import HomeAssistant, callback
 
-from .const import DOMAIN, COORDINATOR
+from .const import DOMAIN
+from .ws_helpers import _get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,12 +45,10 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
     try:
         domain_data = hass.data.get(DOMAIN, {})
 
-        # Find coordinator
-        coordinator = None
-        for key, value in domain_data.items():
-            if isinstance(value, dict) and COORDINATOR in value:
-                coordinator = value[COORDINATOR]
-                break
+        # Find coordinator -- shared helper so this stays in sync with the
+        # entry.runtime_data preference used everywhere else (this used to
+        # be its own inline dict loop with no runtime_data check at all).
+        coordinator = _get_coordinator(hass)
 
         if coordinator is None:
             return {

@@ -789,14 +789,6 @@ class SecureMePanel extends HTMLElement {
     this._render();
   }
 
-  async _toggleNotification(notifId) {
-    const notif = this._data.notifications[notifId];
-    if (!notif) return;
-    notif.enabled = !notif.enabled;
-    await this._callWS("save_notification", { notification_id: notifId, config: notif });
-    this._render();
-  }
-
   async _testNotification(notifId) {
     const result = await this._callWS("test_notification", { notification_id: notifId });
     if (result && result.success) {
@@ -1308,8 +1300,8 @@ class SecureMePanel extends HTMLElement {
             </div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
               ${fakePresenceActive
-                ? 'Active &mdash; automatic arming is blocked'
-                : 'Blocks automatic arming while you are nearby but away from home'}
+                ? 'Aktiv &mdash; automatisk tilkobling er blokeret'
+                : 'Blokerer automatisk tilkobling når du er i nærheden men væk fra hjemmet'}
             </div>
           </div>
           <button class="sm-toggle ${fakePresenceActive ? 'on' : ''}" data-action="toggle-fake-presence">
@@ -1319,8 +1311,8 @@ class SecureMePanel extends HTMLElement {
         ${fakePresenceActive ? `
           <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--sm-warning-dim);
                       border:1px solid rgba(255,159,10,0.2);font-size:12px;color:var(--sm-warning)">
-            Fake Presence is ON. The alarm will not auto-arm while this is active.
-            Remember to turn it off when you leave.
+            Fake Presence er slået TIL. Alarmen tilkobler ikke automatisk så længe dette er aktivt.
+            Husk at slå det fra igen når du forlader hjemmet.
           </div>
         ` : ''}
       </div>
@@ -1361,9 +1353,9 @@ class SecureMePanel extends HTMLElement {
 
         <div class="sm-card no-pad" style="overflow:hidden">
           <div class="sm-list-header" style="display:flex;justify-content:space-between;align-items:center">
-            <span>Inactive (${disabled.length})</span><span>Type / On</span>
+            <span>Inaktive (${disabled.length})</span><span>Type / Til</span>
           </div>
-          ${renderAreaGroup(groupByArea(disabled), "All sensors are active.")}
+          ${renderAreaGroup(groupByArea(disabled), "Alle sensorer er aktive.")}
         </div>
       </div>
 
@@ -1373,7 +1365,7 @@ class SecureMePanel extends HTMLElement {
                data-action="toggle-hidden-sensors"
                style="padding:12px 16px;margin:0">
             <span style="font-size:12px;color:var(--sm-text-secondary)">
-              ${autoHidden.length} auto-hidden irrelevant sensors (network devices, TVs, etc.)
+              ${autoHidden.length} automatisk skjulte irrelevante sensorer (netværksenheder, TV'er osv.)
             </span>
             <span class="chevron">${icon("chevron")}</span>
           </div>
@@ -1388,8 +1380,8 @@ class SecureMePanel extends HTMLElement {
         <div>
           <div class="info-title" style="color:var(--sm-warning)">Minimumskrav</div>
           <div class="info-text">
-            The alarm requires at least 1 contact sensor AND 1 motion sensor to be activated.
-            Presence sensors are optional but recommended.
+            Alarmen kræver mindst 1 kontaktsensor OG 1 bevægelsessensor aktiveret for at kunne tilkobles.
+            Tilstedeværelsessensorer er valgfrie, men anbefales.
           </div>
         </div>
       </div>
@@ -1437,7 +1429,7 @@ class SecureMePanel extends HTMLElement {
               </div>
             </div>
             <div style="margin-top:10px;font-size:12px;color:var(--sm-text-secondary)">
-              ${(z.sensors || []).length} sensors assigned
+              ${(z.sensors || []).length} sensorer tilknyttet
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">
               ${armModes.map(m => `
@@ -1463,11 +1455,11 @@ class SecureMePanel extends HTMLElement {
     const armModes = temp.arm_modes || ['away'];
     const modeColors = { away: 'var(--sm-danger)', home: 'var(--sm-accent)', night: 'var(--sm-blue)', vacation: 'var(--sm-purple)', home_alone: 'var(--sm-green)' };
     const modeDesc = {
-      away: 'All sensors active',
-      home: 'Perimeter only, no interior',
-      night: 'Perimeter + selected interior',
-      vacation: 'Like Away with extra alerts',
-      home_alone: 'Kids home alone — cameras on, doors notify',
+      away: 'Alle sensorer aktive',
+      home: 'Kun perimeter, ikke indendørs',
+      night: 'Perimeter + udvalgt indendørs',
+      vacation: 'Som Borte med ekstra alarmer',
+      home_alone: 'Børn hjemme alene — kameraer til, døre giver besked',
     };
 
     return '<div class="config-dialog-overlay">' +
@@ -1486,10 +1478,10 @@ class SecureMePanel extends HTMLElement {
         '<div class="form-group">' +
           '<label class="form-label">Zonetype</label>' +
           '<select class="form-select" id="zone-type">' +
-            '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Entry/Exit — Doors with delay</option>' +
-            '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Interior — Motion sensors</option>' +
-            '<option value="perimeter"' + (temp.type === 'perimeter' ? ' selected' : '') + '>Perimeter — Instant windows</option>' +
-            '<option value="instant"' + (temp.type === 'instant' ? ' selected' : '') + '>Instant — No delay trigger</option>' +
+            '<option value="entry"' + (temp.type === 'entry' ? ' selected' : '') + '>Indgang/Udgang — Døre med forsinkelse</option>' +
+            '<option value="interior"' + (temp.type === 'interior' ? ' selected' : '') + '>Indendørs — Bevægelsessensorer</option>' +
+            '<option value="perimeter"' + (temp.type === 'perimeter' ? ' selected' : '') + '>Perimeter — Vinduer uden forsinkelse</option>' +
+            '<option value="instant"' + (temp.type === 'instant' ? ' selected' : '') + '>Øjeblikkelig — Ingen forsinkelse</option>' +
           '</select>' +
         '</div>' +
 
@@ -1504,7 +1496,7 @@ class SecureMePanel extends HTMLElement {
                 'border:1px solid ' + (checked ? c + '66' : 'var(--sm-border)') + ';font-size:12px">' +
                 '<input type="checkbox" class="zone-mode-cb" value="' + m + '"' + (checked ? ' checked' : '') + '>' +
                 '<div>' +
-                  '<div style="font-weight:600;color:' + (checked ? c : 'var(--sm-text)') + '">' + (m === 'home_alone' ? 'Home Alone' : m.charAt(0).toUpperCase() + m.slice(1)) + '</div>' +
+                  '<div style="font-weight:600;color:' + (checked ? c : 'var(--sm-text)') + '">' + (m === 'home_alone' ? 'Alene Hjemme' : m === 'away' ? 'Borte' : m === 'home' ? 'Hjemme' : m === 'night' ? 'Nat' : 'Ferie') + '</div>' +
                   '<div style="font-size:10px;color:var(--sm-text-tertiary)">' + modeDesc[m] + '</div>' +
                 '</div>' +
               '</label>';
@@ -1536,9 +1528,9 @@ class SecureMePanel extends HTMLElement {
         // time. Empty = sensor must be closed before that mode can arm.
         ((temp.sensors || []).length > 0 ? (
           '<div class="form-group" style="border-top:1px solid var(--sm-border);padding-top:16px;margin-top:4px">' +
-            '<label class="form-label">' + icon('shield') + ' Auto-Bypass per Sensor' + '</label>' +
+            '<label class="form-label">' + icon('shield') + ' Auto-Bypass pr. Sensor' + '</label>' +
             '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:10px">' +
-              'For each sensor, tick the arm modes where it should silently bypass if open at arm time. Empty = blocks arming. (Saved on the sensor itself, shared across zones.)' +
+              'For hver sensor, markér de tilkoblingstilstande hvor den skal bypasses stille hvis den er åben ved tilkobling. Tomt = blokerer tilkobling. (Gemmes på selve sensoren, delt på tværs af zoner.)' +
             '</div>' +
             (temp.sensors || []).map(eid => {
               const s = (this._data.sensors || []).find(x => x.entity_id === eid);
@@ -1546,7 +1538,7 @@ class SecureMePanel extends HTMLElement {
               const sType = s ? s.sensor_type : '';
               const currentModes = (s && Array.isArray(s.auto_bypass_modes)) ? s.auto_bypass_modes : [];
               const allModes = ['away', 'home', 'night', 'vacation', 'home_alone'];
-              const modeLabel = { away: 'Away', home: 'Home', night: 'Night', vacation: 'Vacation', home_alone: 'Home Alone' };
+              const modeLabel = { away: 'Borte', home: 'Hjemme', night: 'Nat', vacation: 'Ferie', home_alone: 'Alene' };
               return '<div style="padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px;margin-bottom:6px">' +
                 '<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">' +
                   '<span class="badge ' + sType + '" style="font-size:10px">' + sType + '</span>' +
@@ -1574,10 +1566,10 @@ class SecureMePanel extends HTMLElement {
         (armModes.includes('home_alone') && (temp.sensors || []).length > 0 ? (
           '<div class="form-group" style="border-top:1px solid var(--sm-border);padding-top:16px;margin-top:4px">' +
             '<label class="form-label" style="color:var(--sm-green)">' +
-              icon('user') + ' Home Alone — Per-Sensor Config' +
+              icon('user') + ' Alene Hjemme — Konfiguration pr. Sensor' +
             '</label>' +
             '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:10px">' +
-              'Configure camera snapshot and TTS speaker for each door sensor when Home Alone mode is active.' +
+              'Konfigurér kamera-snapshot og TTS-højtaler for hver dørsensor når Alene Hjemme-tilstand er aktiv.' +
             '</div>' +
             (temp.sensors || []).map(eid => {
               const s = (this._data.sensors || []).find(x => x.entity_id === eid);
@@ -1593,29 +1585,29 @@ class SecureMePanel extends HTMLElement {
                 '</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">' +
                   '<div>' +
-                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Camera (snapshot)</div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Kamera (snapshot)</div>' +
                     '<select class="form-select ha-sensor-cam" data-sensor-eid="' + eid + '" style="font-size:12px">' +
-                      '<option value="">-- None --</option>' +
+                      '<option value="">-- Ingen --</option>' +
                       availCams.map(c => '<option value="' + c.entity_id + '"' + (haCfg.home_alone_camera === c.entity_id ? ' selected' : '') + '>' + (c.name || c.entity_id) + '</option>').join('') +
                     '</select>' +
                   '</div>' +
                   '<div>' +
                     '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">TTS-højtaler</div>' +
                     '<select class="form-select ha-sensor-speaker" data-sensor-eid="' + eid + '" style="font-size:12px">' +
-                      '<option value="">-- None --</option>' +
+                      '<option value="">-- Ingen --</option>' +
                       availSpeakers.map(sp => '<option value="' + sp.entity_id + '"' + (haCfg.home_alone_tts_speaker === sp.entity_id ? ' selected' : '') + '>' + (sp.name || sp.entity_id) + '</option>').join('') +
                     '</select>' +
                   '</div>' +
                 '</div>' +
                 '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
                   '<div>' +
-                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Action 1 text</div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Handling 1-tekst</div>' +
                     '<input type="text" class="form-input ha-sensor-action1" data-sensor-eid="' + eid + '"' +
-                      ' style="font-size:12px" placeholder="Where are you going?"' +
+                      ' style="font-size:12px" placeholder="Hvor skal du hen?"' +
                       ' value="' + (haCfg.home_alone_action_1 || '') + '">' +
                   '</div>' +
                   '<div>' +
-                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Action 2 text</div>' +
+                    '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:4px">Handling 2-tekst</div>' +
                     '<input type="text" class="form-input ha-sensor-action2" data-sensor-eid="' + eid + '"' +
                       ' style="font-size:12px" placeholder="Luk venligst døren."' +
                       ' value="' + (haCfg.home_alone_action_2 || '') + '">' +
@@ -1770,9 +1762,9 @@ class SecureMePanel extends HTMLElement {
 
     return `
       <div class="section-header">
-        <h3 class="section-title">Users & Codes</h3>
+        <h3 class="section-title">Brugere & Koder</h3>
         <button class="sm-btn primary sm" data-action="add-user">
-          ${icon("plus")} Add User
+          ${icon("plus")} Tilføj bruger
         </button>
       </div>
 
@@ -1790,16 +1782,16 @@ class SecureMePanel extends HTMLElement {
                   ${u.admin ? '<span class="badge accent" style="margin-left:8px">Admin</span>' : ""}
                 </div>
                 <div style="font-size:12px;color:var(--sm-text-secondary)">
-                  Code: &#8226;&#8226;&#8226;&#8226;
+                  Kode: &#8226;&#8226;&#8226;&#8226;
                 </div>
                 ${u.person_entity ? `
                   <div style="font-size:11px;color:var(--sm-blue);margin-top:4px">
-                    Tracker: <span style="font-family:'DM Mono',monospace">${u.person_entity.replace("person.","")}</span>
+                    Sporing: <span style="font-family:'DM Mono',monospace">${u.person_entity.replace("person.","")}</span>
                   </div>` : ""}
                 <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
                   ${u.notify_service ? `<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${u.notify_service.replace('notify.','')}</span>` : '<span class="badge" style="opacity:0.4;font-size:10px">Ingen push-tjeneste</span>'}
                   ${u.receive_critical !== false ? '<span class="badge" style="background:var(--sm-red-dim);color:var(--sm-red);font-size:10px">Kritisk</span>' : ''}
-                  ${u.tts_quiet_start != null && u.tts_quiet_end != null ? `<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px">Quiet ${u.tts_quiet_start}-${u.tts_quiet_end}h</span>` : ''}
+                  ${u.tts_quiet_start != null && u.tts_quiet_end != null ? `<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px">Stille ${u.tts_quiet_start}-${u.tts_quiet_end}t</span>` : ''}
                 </div>
               </div>
             </div>
@@ -1812,7 +1804,7 @@ class SecureMePanel extends HTMLElement {
             <div class="nfc-tag">
               <span style="color:var(--sm-purple)">${icon("nfc")}</span>
               <span class="nfc-tag-id">${u.nfc_tag}</span>
-              <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:auto">NFC Tag</span>
+              <span style="font-size:11px;color:var(--sm-text-secondary);margin-left:auto">NFC-tag</span>
             </div>
           ` : ""}
           ${u.person_entity ? `
@@ -1840,7 +1832,7 @@ class SecureMePanel extends HTMLElement {
   _renderUserDialog() {
     const temp = this._tempConfig || {};
     const isEdit = !!temp._userId;
-    const title = isEdit ? 'Edit User' : 'Add User';
+    const title = isEdit ? 'Rediger bruger' : 'Tilføj bruger';
     const services = this._availableServices || [];
 
     // Notification settings with defaults
@@ -1876,24 +1868,24 @@ class SecureMePanel extends HTMLElement {
 
         // Code
         '<div class="form-group">' +
-          '<label class="form-label">' + (isEdit ? 'New Access Code (leave blank to keep)' : 'Access Code (4-6 digits)') + '</label>' +
-          '<input type="password" class="form-input" id="user-code" placeholder="' + (isEdit ? 'Leave blank to keep current' : 'e.g. 1234') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<label class="form-label">' + (isEdit ? 'Ny adgangskode (lad stå tom for at beholde)' : 'Adgangskode (4-6 cifre)') + '</label>' +
+          '<input type="password" class="form-input" id="user-code" placeholder="' + (isEdit ? 'Lad stå tom for at beholde nuværende' : 'f.eks. 1234') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
         '<div class="form-group">' +
-          '<label class="form-label">' + (isEdit ? 'Confirm New Code' : 'Confirm Code') + '</label>' +
-          '<input type="password" class="form-input" id="user-code-confirm" placeholder="' + (isEdit ? 'Leave blank to keep current' : 'Repeat code') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
+          '<label class="form-label">' + (isEdit ? 'Bekræft ny kode' : 'Bekræft kode') + '</label>' +
+          '<input type="password" class="form-input" id="user-code-confirm" placeholder="' + (isEdit ? 'Lad stå tom for at beholde nuværende' : 'Gentag kode') + '" maxlength="6" pattern="[0-9]*" inputmode="numeric" value="">' +
         '</div>' +
 
         // Admin
         '<div class="form-group">' +
-          checkRow('user-admin', 'Administrator', temp.admin, 'Full access') +
+          checkRow('user-admin', 'Administrator', temp.admin, 'Fuld adgang') +
         '</div>' +
 
         // Person tracker
         '<div class="form-group">' +
-          '<label class="form-label">Link Person Tracker (optional)</label>' +
+          '<label class="form-label">Tilknyt personsporing (valgfrit)</label>' +
           '<select class="form-select" id="user-person-entity">' +
-            '<option value="">-- None --</option>' +
+            '<option value="">-- Ingen --</option>' +
             (this._availablePersons || []).map(p =>
               '<option value="' + p.entity_id + '"' + (temp.person_entity === p.entity_id ? ' selected' : '') + '>' +
                 p.name + ' (' + p.entity_id + ')' +
@@ -1905,36 +1897,36 @@ class SecureMePanel extends HTMLElement {
         // ── Notification Settings ──
         '<div style="border-top:1px solid var(--sm-border);margin:12px 0 8px;padding-top:12px">' +
           '<div style="font-size:13px;font-weight:600;color:var(--sm-text-secondary);margin-bottom:10px">' +
-            icon('bell') + ' Notification Settings' +
+            icon('bell') + ' Notifikationsindstillinger' +
           '</div>' +
 
           '<div class="form-group">' +
             '<label class="form-label">Push-notifikationstjeneste</label>' +
             '<select class="form-select" id="user-notify-service">' +
-              '<option value="">-- None (use notification default) --</option>' +
+              '<option value="">-- Ingen (brug notifikationens standard) --</option>' +
               services.map(s =>
                 '<option value="' + s + '"' + (notifyService === s ? ' selected' : '') + '>' + s + '</option>'
               ).join('') +
             '</select>' +
             '<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:4px">' +
-              'Personal notify service, e.g. notify.mobile_app_flemming' +
+              'Personlig push-tjeneste, f.eks. notify.mobile_app_flemming' +
             '</div>' +
           '</div>' +
 
-          checkRow('user-recv-critical',   'Receive critical alerts',    recvCritical,   'Triggered / smoke / water / entry delay') +
-          checkRow('user-recv-alerts',      'Receive system alerts',      recvAlerts,     'Low battery, arm failures') +
-          checkRow('user-recv-own-actions', 'Receive own arm/disarm',     recvOwnActions, 'Confirmation when you arm or disarm') +
+          checkRow('user-recv-critical',   'Modtag kritiske alarmer',    recvCritical,   'Udløst / røg / vand / indgangsforsinkelse') +
+          checkRow('user-recv-alerts',      'Modtag systemadvarsler',      recvAlerts,     'Lavt batteri, fejl ved tilkobling') +
+          checkRow('user-recv-own-actions', 'Modtag egne til-/frakoblinger',     recvOwnActions, 'Bekræftelse når du til- eller frakobler') +
 
           // TTS quiet hours
           '<div style="margin-top:10px">' +
-            '<label class="form-label">TTS Quiet Hours (optional)</label>' +
+            '<label class="form-label">TTS-stilletimer (valgfrit)</label>' +
             '<div style="display:flex;align-items:center;gap:8px">' +
               '<input type="number" class="form-input" id="user-tts-quiet-start" min="0" max="23" placeholder="22" ' +
                 'value="' + quietStart + '" style="width:70px;text-align:center">' +
-              '<span style="color:var(--sm-text-tertiary)">to</span>' +
+              '<span style="color:var(--sm-text-tertiary)">til</span>' +
               '<input type="number" class="form-input" id="user-tts-quiet-end" min="0" max="23" placeholder="7" ' +
                 'value="' + quietEnd + '" style="width:70px;text-align:center">' +
-              '<span style="font-size:11px;color:var(--sm-text-tertiary)">hour (0-23). TTS silent during this period.</span>' +
+              '<span style="font-size:11px;color:var(--sm-text-tertiary)">time (0-23). TTS er tavs i denne periode.</span>' +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -2105,280 +2097,6 @@ class SecureMePanel extends HTMLElement {
     return html;
   }
 
-  _renderModuleConfig(moduleKey) {
-    const moduleDef = MODULE_DEFS[moduleKey];
-    const moduleData = this._data.modules[moduleKey] || {};
-    
-    // Camera module gets GUI config dialog
-    if (moduleKey === 'camera') {
-      const cameraCount = moduleData.cameras?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">
-            ${moduleDef.name} Configuration
-          </div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
-            Configure cameras with POE control and recording settings
-          </div>
-          
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div>
-                <div style="font-size:13px;font-weight:600">Kameraer konfigureret</div>
-                <div style="font-size:12px;color:var(--sm-text-secondary)">${cameraCount} camera${cameraCount !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-            ${cameraCount > 0 ? `
-              <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-                ${moduleData.cameras.map(cam => `
-                  <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    ${icon("chevron")}
-                    <span style="font-size:12px">${cam.entity_id || cam}</span>
-                    ${cam.poe_port ? `<span style="font-size:11px;color:var(--sm-text-tertiary)">POE: ${cam.poe_port}</span>` : ''}
-                  </div>
-                `).join('')}
-              </div>
-            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen kameraer konfigureret endnu</div>'}
-          </div>
-          
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-camera-config">
-              ${icon("settings")} Configure Cameras
-            </button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">
-              Close
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-    // Lock module gets GUI config dialog
-    if (moduleKey === 'lock') {
-      const lockCount = moduleData.locks?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">
-            ${moduleDef.name} Configuration
-          </div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
-            Configure smart locks with automatic lock/unlock
-          </div>
-          
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div>
-                <div style="font-size:13px;font-weight:600">Låse konfigureret</div>
-                <div style="font-size:12px;color:var(--sm-text-secondary)">${lockCount} lock${lockCount !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-            ${lockCount > 0 ? `
-              <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-                ${moduleData.locks.map(lock => `
-                  <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                    ${icon("chevron")}
-                    <span style="font-size:12px">${lock.entity_id}</span>
-                  </div>
-                `).join('')}
-              </div>
-            ` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen låse konfigureret endnu</div>'}
-          </div>
-          
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-lock-config">
-              ${icon("settings")} Configure Locks
-            </button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">
-              Close
-            </button>
-          </div>
-        </div>
-      `;
-    }
-    
-        // Climate module gets GUI config dialog
-    if (moduleKey === 'climate') {
-      const thermostatCount = moduleData.thermostats?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér termostater til energibesparelse</div>
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div><div style="font-size:13px;font-weight:600">Termostater konfigureret</div>
-              <div style="font-size:12px;color:var(--sm-text-secondary)">${thermostatCount} thermostat${thermostatCount !== 1 ? 's' : ''}</div></div>
-            </div>
-            ${thermostatCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-              ${moduleData.thermostats.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${t.entity_id}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen termostater konfigureret endnu</div>'}
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-climate-config">${icon("settings")} Konfigurér termostater</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
-          </div>
-        </div>`;
-    }
-    
-    // Siren module
-    if (moduleKey === 'siren') {
-      const sirenCount = moduleData.sirens?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér alarmsirener og mønstre</div>
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div><div style="font-size:13px;font-weight:600">Sirener konfigureret</div>
-              <div style="font-size:12px;color:var(--sm-text-secondary)">${sirenCount} siren${sirenCount !== 1 ? 's' : ''}</div></div>
-            </div>
-            ${sirenCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-              ${moduleData.sirens.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${s.entity_id}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen sirener konfigureret endnu</div>'}
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-siren-config">${icon("settings")} Konfigurér sirener</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
-          </div>
-        </div>`;
-    }
-    
-    // Lights module
-    if (moduleKey === 'lights') {
-      const lightCount = moduleData.entities?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér lysautomatisering og effekter</div>
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div><div style="font-size:13px;font-weight:600">Lys konfigureret</div>
-              <div style="font-size:12px;color:var(--sm-text-secondary)">${lightCount} light${lightCount !== 1 ? 's' : ''}</div></div>
-            </div>
-            ${lightCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-              ${moduleData.entities.slice(0, 5).map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
-              ${lightCount > 5 ? `<div style="text-align:center;padding:6px;color:var(--sm-text-secondary);font-size:11px">+${lightCount - 5} more...</div>` : ''}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen lys konfigureret endnu</div>'}
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-lights-config">${icon("settings")} Konfigurér lys</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
-          </div>
-        </div>`;
-    }
-    
-    // TTS module
-    if (moduleKey === 'tts') {
-      const speakerCount = moduleData.entities?.length || 0;
-      return `
-        <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-          <div style="font-size:14px;font-weight:600;margin-bottom:8px">${moduleDef.name} Configuration</div>
-          <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">Konfigurér talebeskeder</div>
-          <div style="padding:16px;background:var(--sm-surface);border:1px solid var(--sm-border);border-radius:8px;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-              
-              <div><div style="font-size:13px;font-weight:600">Højtalere konfigureret</div>
-              <div style="font-size:12px;color:var(--sm-text-secondary)">${speakerCount} speaker${speakerCount !== 1 ? 's' : ''}</div></div>
-            </div>
-            ${speakerCount > 0 ? `<div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:6px">
-              ${moduleData.entities.map(e => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-                ${icon("chevron")}<span style="font-size:12px">${e}</span></div>`).join('')}
-            </div>` : '<div style="text-align:center;padding:20px;color:var(--sm-text-tertiary);font-size:12px">Ingen højtalere konfigureret endnu</div>'}
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="sm-btn primary" data-action="open-tts-config">${icon("settings")} Konfigurér TTS</button>
-            <button class="sm-btn default" data-cancel-module="${moduleKey}">Luk</button>
-          </div>
-        </div>`;
-    }
-    
-        // Other modules still use JSON for now
-    const configJson = JSON.stringify(moduleData, null, 2);
-    return `
-      <div style="padding:20px;background:rgba(0,0,0,0.2);border-top:1px solid var(--sm-border)">
-        <div style="font-size:14px;font-weight:600;margin-bottom:8px">
-          ${moduleDef.name} Configuration
-        </div>
-        <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:16px">
-          Edit configuration below (JSON format):
-        </div>
-        
-        <textarea id="module-config-${moduleKey}" 
-                  style="width:100%;min-height:200px;padding:12px;background:var(--sm-surface);
-                         border:1px solid var(--sm-border);border-radius:8px;color:var(--sm-text);
-                         font-family:'DM Mono',monospace;font-size:12px;resize:vertical">${configJson}</textarea>
-        
-        <div style="margin-top:16px;display:flex;gap:8px">
-          <button class="sm-btn primary" data-save-module-config="${moduleKey}">
-            Save Changes
-          </button>
-          <button class="sm-btn default" data-cancel-module="${moduleKey}">
-            Cancel
-          </button>
-        </div>
-        
-        <div style="margin-top:16px;padding:12px;background:var(--sm-blue-dim);border-radius:8px;font-size:11px">
-          <strong>Example configuration:</strong>
-          <details style="margin-top:8px">
-            <summary style="cursor:pointer;font-weight:600">Show example for ${moduleDef.name}</summary>
-            <pre style="margin-top:8px;padding:8px;background:rgba(0,0,0,0.3);border-radius:4px;overflow-x:auto;font-size:10px">${this._getModuleExample(moduleKey)}</pre>
-          </details>
-        </div>
-      </div>
-    `;
-  }
-
-  _getModuleExample(moduleKey) {
-    const examples = {
-      camera: `{
-  "enabled": true,
-  "poe_switches": [
-    "switch.vision_port_1_poe",
-    "switch.vision_port_5_poe"
-  ],
-  "cameras": [
-    "camera.hallway_cam_high",
-    "camera.g3_flex_high"
-  ],
-  "poe_delay": 120,
-  "auto_record": false
-}`,
-      lock: `{
-  "enabled": true,
-  "locks": ["lock.front_door"],
-  "retry_attempts": 3
-}`,
-      lights: `{
-  "enabled": true,
-  "lights": ["light.living_room"],
-  "brightness": 100
-}`,
-      climate: `{
-  "enabled": true,
-  "climates": ["climate.living_room"],
-  "away_temperature": 15
-}`,
-      siren: `{
-  "enabled": true,
-  "sirens": ["siren.alarm"]
-}`,
-      tts: `{
-  "enabled": true,
-  "media_players": ["media_player.living_room"],
-  "language": "da"
-}`
-    };
-    return examples[moduleKey] || "{}";
-  }
-
-
   // ===
 // ============================================================
 // FLOORPLAN PATCH — erstat alt mellem linje 2102 og ~2665
@@ -2430,11 +2148,6 @@ class SecureMePanel extends HTMLElement {
 
   _fpNewRoomId() {
     return "room_" + Date.now();
-  }
-
-  _fpSensorsInRoom(roomId) {
-    const rooms = this._data.floorplan?.rooms || {};
-    return (rooms[roomId]?.sensors || []);
   }
 
   _fpAvailableSensors() {
@@ -3893,7 +3606,7 @@ class SecureMePanel extends HTMLElement {
           const notifCardInner = (id, n, buttons) => `
             <div class="sm-card" style="padding:12px 14px;display:flex;align-items:center;gap:8px">
               <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name || 'Notification'}</div>
+                <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${n.name || 'Notifikation'}</div>
                 <div style="display:flex;gap:4px;margin-top:3px;flex-wrap:wrap">
                   ${(n.channels||['push']).includes('push') ? '<span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px;padding:1px 5px">Push</span>' : ''}
                   ${(n.channels||[]).includes('tts') ? '<span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple);font-size:10px;padding:1px 5px">TTS</span>' : ''}
@@ -3908,7 +3621,7 @@ class SecureMePanel extends HTMLElement {
 
           const customNotifCard = ([id, n]) => notifCardInner(id, n,
             `<button class="sm-btn default sm" data-test-notif="${id}" title="Test" style="padding:3px 7px">${icon('play')}</button>
-             <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Edit" style="padding:3px 7px">${icon('edit')}</button>
+             <button class="sm-btn ghost sm" data-edit-notif="${id}" title="Rediger" style="padding:3px 7px">${icon('edit')}</button>
              <button class="sm-btn ghost sm" data-delete-notif="${id}" title="Slet" style="padding:3px 7px">${icon('trash')}</button>`);
 
           return `
@@ -3928,7 +3641,7 @@ class SecureMePanel extends HTMLElement {
               <h3 class="section-title" style="margin:0">Brugerdefinerede notifikationer</h3>
               <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">Brugerdefinerede alarmer og automatiseringer</div>
             </div>
-            <button class="sm-btn primary sm" data-action="add-notification">${icon('plus')} Add</button>
+            <button class="sm-btn primary sm" data-action="add-notification">${icon('plus')} Tilføj</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
             ${customNotifs.map(customNotifCard).join('') || '<div style="grid-column:1/-1;text-align:center;color:var(--sm-text-tertiary);font-size:12px;padding:12px">Ingen brugerdefinerede notifikationer. Klik Tilføj for at oprette en.</div>'}
@@ -4031,7 +3744,7 @@ class SecureMePanel extends HTMLElement {
           <div style="flex:1">
             <div style="font-size:15px;font-weight:600">Auto-handlinger</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-              Automatic actions when all persons leave home
+              Automatiske handlinger når alle personer forlader hjemmet
             </div>
           </div>
         </div>
@@ -4049,7 +3762,7 @@ class SecureMePanel extends HTMLElement {
           </div>
           ${aaLockEnabled ? `
             <div style="display:flex;align-items:center;gap:8px">
-              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Delay: ${delayLabel(aaLockDelay)}</label>
+              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Forsinkelse: ${delayLabel(aaLockDelay)}</label>
               <input type="range" min="0" max="900" step="30" value="${aaLockDelay}"
                      data-aa-range="auto_lock_delay"
                      style="flex:1;accent-color:var(--sm-accent)">
@@ -4062,7 +3775,7 @@ class SecureMePanel extends HTMLElement {
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${aaAlarmEnabled ? '12px' : '0'}">
             <div style="display:flex;align-items:center;gap:8px">
               ${icon("shield")}
-              <span style="font-size:13px;font-weight:600">Arm alarm (away)</span>
+              <span style="font-size:13px;font-weight:600">Tilkobl alarm (Borte)</span>
             </div>
             <button class="sm-toggle ${aaAlarmEnabled ? 'on' : ''}" data-aa-toggle="auto_alarm_enabled">
               <div class="dot"></div>
@@ -4070,7 +3783,7 @@ class SecureMePanel extends HTMLElement {
           </div>
           ${aaAlarmEnabled ? `
             <div style="display:flex;align-items:center;gap:8px">
-              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Delay: ${delayLabel(aaAlarmDelay)}</label>
+              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Forsinkelse: ${delayLabel(aaAlarmDelay)}</label>
               <input type="range" min="0" max="1800" step="30" value="${aaAlarmDelay}"
                      data-aa-range="auto_alarm_delay"
                      style="flex:1;accent-color:var(--sm-accent)">
@@ -4091,7 +3804,7 @@ class SecureMePanel extends HTMLElement {
           </div>
           ${aaCamEnabled ? `
             <div style="display:flex;align-items:center;gap:8px">
-              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Delay: ${delayLabel(aaCamDelay)}</label>
+              <label style="font-size:12px;color:var(--sm-text-secondary);white-space:nowrap">Forsinkelse: ${delayLabel(aaCamDelay)}</label>
               <input type="range" min="0" max="300" step="10" value="${aaCamDelay}"
                      data-aa-range="auto_camera_delay"
                      style="flex:1;accent-color:var(--sm-accent)">
@@ -4107,7 +3820,7 @@ class SecureMePanel extends HTMLElement {
             <span style="font-size:11px;color:var(--sm-text-tertiary);margin-left:auto">${delayLabel(aaArrivalDelay)}</span>
           </div>
           <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">
-            Wait this long after a person arrives before cancelling pending actions. Prevents GPS flicker from resetting timers.
+            Vent så længe efter en person ankommer, før ventende handlinger annulleres. Forhindrer at GPS-udsving nulstiller timerne.
           </div>
           <input type="range" min="0" max="300" step="15" value="${aaArrivalDelay}"
                  data-aa-range="arrival_confirmation_delay"
@@ -4120,7 +3833,7 @@ class SecureMePanel extends HTMLElement {
             <div>
               <div style="font-size:13px;font-weight:600">Giv besked til alle brugere</div>
               <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">
-                ON = all users &nbsp;&bull;&nbsp; OFF = admins only
+                TIL = alle brugere &nbsp;&bull;&nbsp; FRA = kun administratorer
               </div>
             </div>
             <button class="sm-toggle ${aaNotifyAll ? 'on' : ''}" data-aa-toggle="notify_all_users">
@@ -4135,7 +3848,7 @@ class SecureMePanel extends HTMLElement {
             <div>
               <div style="font-size:13px;font-weight:600">Genstart tjek ved fjern-disarm</div>
               <div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:2px">
-                If the alarm is disarmed remotely (e.g. via the app) while everyone is still away, restart these timers as if everyone had just left.
+                Hvis alarmen frakobles fjernt (f.eks. via appen) mens alle stadig er ude, genstartes disse timere som om alle netop var gået.
               </div>
             </div>
             <button class="sm-toggle ${aaRecheckOnDisarm ? 'on' : ''}" data-aa-toggle="recheck_on_disarm">
@@ -4198,7 +3911,7 @@ class SecureMePanel extends HTMLElement {
               Fake Presence
             </div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-              ${fpActive ? 'Active &mdash; selected auto actions are blocked' : 'Simulates presence to block selected automatic actions'}
+              ${fpActive ? 'Aktiv &mdash; valgte auto-handlinger er blokeret' : 'Simulerer tilstedeværelse for at blokere valgte automatiske handlinger'}
             </div>
           </div>
           <button class="sm-toggle ${fpActive ? 'on' : ''}" data-fp-toggle="active">
@@ -4208,7 +3921,7 @@ class SecureMePanel extends HTMLElement {
 
         ${fpActive ? `
           <div style="font-size:12px;color:var(--sm-text-secondary);margin-bottom:12px">
-            Choose which automatic actions Fake Presence blocks:
+            Vælg hvilke automatiske handlinger Fake Presence skal blokere:
           </div>
 
           <!-- BLOCK ALARM -->
@@ -4258,7 +3971,7 @@ class SecureMePanel extends HTMLElement {
 
           <div style="padding:10px 12px;border-radius:8px;background:var(--sm-warning-dim);
                       border:1px solid rgba(255,159,10,0.2);font-size:12px;color:var(--sm-warning);margin-bottom:16px">
-            Fake Presence is ON. Remember to turn it off when you leave for real.
+            Fake Presence er slået TIL. Husk at slå det fra igen når du rent faktisk forlader hjemmet.
           </div>
 
           <button class="sm-btn primary" data-action="save-fake-presence-v2">Gem Fake Presence</button>
@@ -4273,7 +3986,7 @@ class SecureMePanel extends HTMLElement {
   _renderFuture() {
     return `
       <div class="section-header">
-        <h3 class="section-title">Future & Advanced</h3>
+        <h3 class="section-title">Fremtid & Avanceret</h3>
         <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">Roadmap</span>
       </div>
 
@@ -4292,18 +4005,18 @@ class SecureMePanel extends HTMLElement {
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600;color:var(--sm-purple)">Alene-tilstand</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-              Dedicated arm mode for when children are home alone
+              Dedikeret tilkoblingstilstand til når børn er hjemme alene
             </div>
           </div>
           <span class="badge" style="background:var(--sm-purple-dim);color:var(--sm-purple)">v1.4.3</span>
         </div>
         <div style="font-size:12px;color:var(--sm-text-secondary);line-height:1.6;padding:10px 12px;
                     background:rgba(0,0,0,0.2);border-radius:8px">
-          A full alarm mode alongside Away, Home, Night and Vacation.
-          Cameras activate on arm. Door sensors send push notifications with a camera snapshot
-          and action buttons (e.g. &ldquo;Where are you going?&rdquo;).
-          Motion sensors show live movement across rooms &mdash; visual only, no alarm trigger.
-          TTS speaker per door configurable for closest-room voice feedback.
+          En fuld alarmtilstand ved siden af Borte, Hjemme, Nat og Ferie.
+          Kameraer aktiveres ved tilkobling. Dørsensorer sender push-notifikationer med et kamera-snapshot
+          og handlingsknapper (f.eks. &ldquo;Hvor skal du hen?&rdquo;).
+          Bevægelsessensorer viser live bevægelse på tværs af rum &mdash; kun visuelt, udløser ikke alarm.
+          TTS-højtaler pr. dør kan konfigureres til stemmefeedback i det nærmeste rum.
         </div>
       </div>
 
@@ -4321,7 +4034,7 @@ class SecureMePanel extends HTMLElement {
           <div style="flex:1">
             <div style="font-size:14px;font-weight:600">Fake Presence</div>
             <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-              Toggle available under the Sensors tab
+              Til/fra-knap findes under Sensorer-fanen
             </div>
           </div>
         </div>
@@ -4330,22 +4043,10 @@ class SecureMePanel extends HTMLElement {
       <div class="sm-card" style="padding:20px;text-align:center;opacity:0.6">
         <div style="font-size:13px;color:var(--sm-text-secondary);margin-bottom:8px">Kommer snart</div>
         <div style="font-size:12px;color:var(--sm-text-tertiary)">
-          Pet immunity &bull; AI person detection &bull; House map with live motion &bull; Cloud sync &bull; Voice control
+          Kæledyrsimmunitet &bull; AI-persongenkendelse &bull; Husplan med live bevægelse &bull; Cloud-synkronisering &bull; Stemmestyring
         </div>
       </div>
     `;
-  }
-
-  _renderPlaceholder(iconName, title, desc, colorName, badgeText) {
-    return `
-      <div class="placeholder">
-        <div class="placeholder-icon" style="background:var(--sm-${colorName}-dim);color:var(--sm-${colorName})">${icon(iconName)}</div>
-        <h3>${title}</h3>
-        <p>${desc}</p>
-        <span class="badge ${colorName === "warning" ? "entry" : "actions"}">${badgeText}</span>
-      </div>
-    `;
-    this._automationsRenderKey = aCacheKey; this._automationsRenderCache = __ahtml; return __ahtml;
   }
 
   // ===
@@ -4460,12 +4161,12 @@ class SecureMePanel extends HTMLElement {
                 ${weightedLabel}
               </div>
               <div style="font-size:12px;color:var(--sm-text-secondary);margin-top:2px">
-                ${health.available_entities || 0}/${health.total_entities || 0} entities available
-                &middot; ${health.low_battery_count || 0} low batteries
+                ${health.available_entities || 0}/${health.total_entities || 0} enheder tilgængelige
+                &middot; ${health.low_battery_count || 0} lave batterier
               </div>
-              ${health.armed_by ? `<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:3px">Armed by: ${health.armed_by}</div>` : ""}
-              ${health.triggered_by ? `<div style="font-size:11px;color:var(--sm-danger);margin-top:3px">Last triggered by: ${this._hass?.states?.[health.triggered_by]?.attributes?.friendly_name || health.triggered_by}</div>` : ""}
-              ${(health.open_sensors || []).length > 0 ? `<div style="font-size:11px;color:var(--sm-warning);margin-top:3px">Open: ${(health.open_sensors||[]).map(e=>this._hass?.states?.[e]?.attributes?.friendly_name||e.split(".").pop().replace(/_/g," ")).join(", ")}</div>` : ""}
+              ${health.armed_by ? `<div style="font-size:11px;color:var(--sm-text-tertiary);margin-top:3px">Tilkoblet af: ${health.armed_by}</div>` : ""}
+              ${health.triggered_by ? `<div style="font-size:11px;color:var(--sm-danger);margin-top:3px">Sidst udløst af: ${this._hass?.states?.[health.triggered_by]?.attributes?.friendly_name || health.triggered_by}</div>` : ""}
+              ${(health.open_sensors || []).length > 0 ? `<div style="font-size:11px;color:var(--sm-warning);margin-top:3px">Åben: ${(health.open_sensors||[]).map(e=>this._hass?.states?.[e]?.attributes?.friendly_name||e.split(".").pop().replace(/_/g," ")).join(", ")}</div>` : ""}
             </div>
           </div>
 
@@ -4522,7 +4223,7 @@ class SecureMePanel extends HTMLElement {
         <div style="border-top:1px solid var(--sm-border);padding-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none"
                data-action="toggle-test-desc">
-            <span style="font-size:12px;color:var(--sm-text-secondary)">What does each test check?</span>
+            <span style="font-size:12px;color:var(--sm-text-secondary)">Hvad tjekker hver test?</span>
             <span style="font-size:11px;color:var(--sm-text-tertiary)">${this._testDescExpanded ? "Skjul" : "Vis"}</span>
           </div>
           ${this._testDescExpanded ? `
@@ -4569,7 +4270,7 @@ class SecureMePanel extends HTMLElement {
           <div style="flex:1">
             ${lastResult ? this._renderTestResult(lastResult) : `
               <div class="sm-card" style="text-align:center;padding:28px;color:var(--sm-text-tertiary)">
-                No tests run yet.
+                Ingen tests kørt endnu.
               </div>
             `}
           </div>
@@ -4579,7 +4280,7 @@ class SecureMePanel extends HTMLElement {
         <div style="display:flex;flex-direction:column">
           <div class="section-header">
             <h3 class="section-title">Testhistorik</h3>
-            ${results.length > 1 ? `<span class="badge actions">${results.length} results</span>` : ""}
+            ${results.length > 1 ? `<span class="badge actions">${results.length} resultater</span>` : ""}
           </div>
           ${results.length > 1 ? (() => {
             const renderRow = (r, i) => {
@@ -4616,7 +4317,7 @@ class SecureMePanel extends HTMLElement {
                        data-action="toggle-test-history"
                        style="padding:8px 16px;margin:0;border-top:1px solid var(--sm-border);background:rgba(255,255,255,0.02);">
                     <span style="font-size:12px;color:var(--sm-text-secondary)">
-                      ${this._testHistoryExpanded ? 'Hide older results' : `Show ${older.length} older result${older.length > 1 ? 's' : ''}`}
+                      ${this._testHistoryExpanded ? 'Skjul ældre resultater' : `Vis ${older.length} ældre resultat${older.length > 1 ? 'er' : ''}`}
                     </span>
                     <span class="chevron">${icon("chevron")}</span>
                   </div>
@@ -4643,8 +4344,8 @@ class SecureMePanel extends HTMLElement {
   _renderScheduledTests() {
     const scheduled = this._data.scheduledTests || {};
     const entries = Object.entries(scheduled);
-    const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    const TEST_LABELS = { quick: 'Quick', standard: 'Standard', full: 'Full' };
+    const WEEKDAYS = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag','Søndag'];
+    const TEST_LABELS = { quick: 'Hurtig', standard: 'Standard', full: 'Fuld' };
 
     const schedCard = ([id, s]) => {
       const sched = s.schedule || {};
@@ -4655,27 +4356,27 @@ class SecureMePanel extends HTMLElement {
         s.last_result === 'pass' ? 'var(--sm-accent)' :
         s.last_result === 'warning' ? 'var(--sm-warning)' : 'var(--sm-danger)';
       let schedDesc = '';
-      if (mode === 'daily') schedDesc = 'Every day';
-      else if (mode === 'weekly') schedDesc = 'Every ' + (WEEKDAYS[sched.weekday ?? 6] || 'Sunday');
-      else if (mode === 'interval') schedDesc = 'Every ' + (sched.interval_weeks || 2) + ' weeks (Sunday)';
+      if (mode === 'daily') schedDesc = 'Hver dag';
+      else if (mode === 'weekly') schedDesc = 'Hver ' + (WEEKDAYS[sched.weekday ?? 6] || 'Søndag');
+      else if (mode === 'interval') schedDesc = 'Hver ' + (sched.interval_weeks || 2) + '. uge (søndag)';
 
       return `
         <div class="sm-card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;opacity:${s.enabled !== false ? 1 : 0.5}">
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <span style="font-size:13px;font-weight:600">${s.name || 'Scheduled Test'}</span>
+              <span style="font-size:13px;font-weight:600">${s.name || 'Planlagt test'}</span>
               <span class="badge" style="background:var(--sm-blue-dim);color:var(--sm-blue);font-size:10px">${testLabel}</span>
               ${s.notify_on_fail !== false ? '<span class="badge" style="background:var(--sm-warning-dim);color:var(--sm-warning);font-size:10px">Giv besked ved fejl</span>' : ''}
               ${s.enabled === false ? '<span class="badge" style="opacity:0.5;font-size:10px">Deaktiveret</span>' : ''}
             </div>
             <div style="font-size:11px;color:var(--sm-text-secondary);margin-top:3px">
-              ${schedDesc} at ${timeStr}
-              ${s.last_run ? ` &middot; Last: <span style="color:${resultColor};font-weight:600">${(s.last_result || '?').toUpperCase()}</span> (${s.last_run.slice(0,16)})` : ''}
+              ${schedDesc} kl. ${timeStr}
+              ${s.last_run ? ` &middot; Sidst: <span style="color:${resultColor};font-weight:600">${(s.last_result || '?').toUpperCase()}</span> (${s.last_run.slice(0,16)})` : ''}
             </div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0">
             <button class="sm-btn default sm" data-run-sched="${id}" title="Kør nu" style="padding:4px 8px">${icon('play')}</button>
-            <button class="sm-btn ghost sm" data-edit-sched="${id}" title="Edit" style="padding:4px 8px">${icon('edit')}</button>
+            <button class="sm-btn ghost sm" data-edit-sched="${id}" title="Rediger" style="padding:4px 8px">${icon('edit')}</button>
             <button class="sm-btn ghost sm" data-delete-sched="${id}" title="Slet" style="padding:4px 8px">${icon('trash')}</button>
           </div>
         </div>`;
@@ -4684,7 +4385,7 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="section-header" style="margin-top:20px">
         <h3 class="section-title">Planlagte tests</h3>
-        <button class="sm-btn primary sm" data-action="add-sched-test">${icon('plus')} Add</button>
+        <button class="sm-btn primary sm" data-action="add-sched-test">${icon('plus')} Tilføj</button>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${entries.length > 0
@@ -4699,7 +4400,7 @@ class SecureMePanel extends HTMLElement {
     const t = this._schedTemp || {};
     const sched = t.schedule || {};
     const isEdit = !!t._id;
-    const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    const WEEKDAYS = ['Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag','Søndag'];
 
     return `
       <div class="config-dialog-overlay">
@@ -4747,9 +4448,9 @@ class SecureMePanel extends HTMLElement {
             <div class="form-group">
               <label class="form-label">Interval</label>
               <select class="form-select" id="sched-interval-weeks">
-                <option value="2" ${(sched.interval_weeks || 2) === 2 ? 'selected' : ''}>Every 2 weeks</option>
-                <option value="3" ${sched.interval_weeks === 3 ? 'selected' : ''}>Every 3 weeks</option>
-                <option value="4" ${sched.interval_weeks === 4 ? 'selected' : ''}>Every 4 weeks (monthly)</option>
+                <option value="2" ${(sched.interval_weeks || 2) === 2 ? 'selected' : ''}>Hver 2. uge</option>
+                <option value="3" ${sched.interval_weeks === 3 ? 'selected' : ''}>Hver 3. uge</option>
+                <option value="4" ${sched.interval_weeks === 4 ? 'selected' : ''}>Hver 4. uge (månedligt)</option>
               </select>
             </div>
           </div>
@@ -4762,7 +4463,7 @@ class SecureMePanel extends HTMLElement {
               <span style="color:var(--sm-text-secondary)">:</span>
               <input type="number" class="form-input" id="sched-minute"
                 min="0" max="59" step="5" value="${sched.minute ?? 0}" style="width:70px;text-align:center">
-              <span style="font-size:11px;color:var(--sm-text-tertiary)">hour : minute (24h)</span>
+              <span style="font-size:11px;color:var(--sm-text-tertiary)">time : minut (24-timers)</span>
             </div>
           </div>
 
@@ -4784,7 +4485,7 @@ class SecureMePanel extends HTMLElement {
           <div class="dialog-footer">
             <button class="btn-dialog cancel" data-action="close-sched-dialog">Annuller</button>
             <button class="btn-dialog save" data-action="save-sched-test">
-              ${isEdit ? 'Save Changes' : 'Add Schedule'}
+              ${isEdit ? 'Gem ændringer' : 'Tilføj tidsplan'}
             </button>
           </div>
         </div>
@@ -4835,7 +4536,7 @@ class SecureMePanel extends HTMLElement {
       this._render();
       this._toast(isEdit ? 'Tidsplan opdateret' : 'Tidsplan tilføjet', 'success');
     } else {
-      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isEdit ? 'Save Changes' : 'Add Schedule'; }
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = isEdit ? 'Gem ændringer' : 'Tilføj tidsplan'; }
       this._toast('Kunne ikke gemme tidsplan — tjek HA-logs', 'error');
     }
   }
@@ -4917,7 +4618,7 @@ class SecureMePanel extends HTMLElement {
                     <span style="font-size:13px;font-weight:500">${MODULE_DEFS[id]?.name || id}</span>
                     ${m.entities_total != null && m.entities_total > 0 ? `
                       <span style="font-size:11px;color:var(--sm-text-secondary)">
-                        ${m.entities_available}/${m.entities_total} entities
+                        ${m.entities_available}/${m.entities_total} enheder
                       </span>
                     ` : ""}
                   </div>
@@ -4956,7 +4657,7 @@ class SecureMePanel extends HTMLElement {
                 </span>
                 ${sensors.offline > 0 ? `
                   <div style="font-size:11px;color:var(--sm-danger);margin-top:2px">
-                    ${sensors.offline} sensor${sensors.offline > 1 ? "s" : ""} offline — check device connection
+                    ${sensors.offline} sensor${sensors.offline > 1 ? "er" : ""} offline — tjek enhedens forbindelse
                   </div>
                 ` : ""}
               </div>
@@ -4968,21 +4669,21 @@ class SecureMePanel extends HTMLElement {
             <div style="padding:8px 0;margin-top:2px">
               <div style="font-size:10px;font-weight:600;color:var(--sm-text-tertiary);
                    text-transform:uppercase;letter-spacing:0.06em;margin-bottom:5px">
-                Batteries (informational)
+                Batterier (informativt)
               </div>
               <div style="display:flex;gap:14px;font-size:12px;align-items:center">
-                <span>${bats.total} tracked</span>
+                <span>${bats.total} sporet</span>
                 ${bats.low_count > 0 ? `
-                  <span style="color:var(--sm-warning)">${bats.low_count} low</span>
+                  <span style="color:var(--sm-warning)">${bats.low_count} lavt</span>
                 ` : ""}
                 ${bats.critical_count > 0 ? `
-                  <span style="color:var(--sm-danger)">${bats.critical_count} critical</span>
+                  <span style="color:var(--sm-danger)">${bats.critical_count} kritisk</span>
                 ` : ""}
                 ${bats.low_count === 0 && bats.critical_count === 0 ? `
                   <span style="color:var(--sm-accent)">Alt OK</span>
                 ` : ""}
                 <span style="font-size:10px;color:var(--sm-text-tertiary);margin-left:auto">
-                  Does not affect PASS/FAIL
+                  Påvirker ikke PASS/FAIL
                 </span>
               </div>
             </div>
@@ -5056,7 +4757,7 @@ class SecureMePanel extends HTMLElement {
                  data-action="toggle-sensor-status-hidden"
                  style="padding:12px 16px;margin:0">
               <span style="font-size:12px;color:var(--sm-text-secondary)">
-                ${hidden.length} more sensor${hidden.length > 1 ? 's' : ''}
+                ${hidden.length} flere sensor${hidden.length > 1 ? 'er' : ''}
               </span>
               <span class="chevron">${icon("chevron")}</span>
             </div>
@@ -5076,7 +4777,7 @@ class SecureMePanel extends HTMLElement {
           <h3 class="section-title">Batterioversigt</h3>
         </div>
         <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
-          No battery sensors discovered.
+          Ingen batterisensorer fundet.
         </div>
       `;
     }
@@ -5128,7 +4829,7 @@ class SecureMePanel extends HTMLElement {
     return `
       <div class="section-header">
         <h3 class="section-title">Batterioversigt</h3>
-        <span class="badge accent">${batteries.length} tracked</span>
+        <span class="badge accent">${batteries.length} sporet</span>
       </div>
 
       <div class="sm-card" style="padding:0;overflow:hidden">
@@ -5139,7 +4840,7 @@ class SecureMePanel extends HTMLElement {
                  data-action="toggle-battery-ok"
                  style="padding:12px 16px;margin:0">
               <span style="font-size:12px;color:var(--sm-text-secondary)">
-                ${hiddenBat.length} more batteries
+                ${hiddenBat.length} flere batterier
               </span>
               <span class="chevron">${icon("chevron")}</span>
             </div>
@@ -5148,56 +4849,6 @@ class SecureMePanel extends HTMLElement {
             </div>
           </div>
         ` : ''}
-      </div>
-    `;
-  }
-
-  _renderBatteryTable(batteries) {
-    if (!batteries || batteries.length === 0) {
-      return `
-        <div class="sm-card" style="text-align:center;padding:32px;color:var(--sm-text-tertiary)">
-          No battery sensors discovered. Battery sensors with device_class "battery" will appear here.
-        </div>
-      `;
-    }
-
-    const sorted = [...batteries].sort((a, b) => {
-      if (a.level == null) return 1;
-      if (b.level == null) return -1;
-      return a.level - b.level;
-    });
-
-    return `
-      <div class="sm-card" style="padding:0;overflow:hidden">
-        ${sorted.map((bat, i) => {
-          const level = bat.level;
-          const color = level == null ? "var(--sm-text-tertiary)" :
-                        level < 10 ? "var(--sm-danger)" :
-                        level < 20 ? "var(--sm-warning)" : "var(--sm-accent)";
-          const barWidth = level != null ? Math.max(level, 3) : 0;
-          const statusLabel = level == null ? "N/A" :
-                              level < 10 ? "CRITICAL" :
-                              level < 20 ? "LOW" : "OK";
-          return `
-            <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;
-                 ${i > 0 ? "border-top:1px solid var(--sm-border)" : ""}">
-              <div style="min-width:48px;text-align:right;font-size:14px;font-weight:600;color:${color}">
-                ${level != null ? level + "%" : "&mdash;"}
-              </div>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:12px;font-weight:500;white-space:nowrap;
-                     overflow:hidden;text-overflow:ellipsis">${bat.name}</div>
-                <div style="margin-top:4px;height:4px;background:rgba(255,255,255,0.08);
-                     border-radius:2px;overflow:hidden">
-                  <div style="height:100%;width:${barWidth}%;background:${color};
-                       border-radius:2px;transition:width 0.3s"></div>
-                </div>
-              </div>
-              <span style="font-size:10px;font-weight:600;color:${color};min-width:52px;
-                   text-align:right">${statusLabel}</span>
-            </div>
-          `;
-        }).join("")}
       </div>
     `;
   }
@@ -6036,13 +5687,6 @@ class SecureMePanel extends HTMLElement {
     this._render();
   }
 
-  _addLightEntity(entityId) {
-    if (entityId && !this._tempConfig.entities.includes(entityId)) {
-      this._tempConfig.entities.push(entityId);
-      this._render();
-    }
-  }
-
   _removeLightEntity(entityId) {
     this._tempConfig.entities = this._tempConfig.entities.filter(e => e !== entityId);
     this._rebuildDialog();
@@ -6383,13 +6027,6 @@ class SecureMePanel extends HTMLElement {
     const dlgMount = this.shadowRoot?.getElementById('shell-dialog-mount');
     if (dlgMount) dlgMount.dataset.currentDialog = '';
     this._render();
-  }
-
-  _addTTSEntity(entityId) {
-    if (entityId && !this._tempConfig.entities.includes(entityId)) {
-      this._tempConfig.entities.push(entityId);
-      this._patchTTSDialog();
-    }
   }
 
   _removeTTSEntity(entityId) {
@@ -6989,7 +6626,7 @@ class SecureMePanel extends HTMLElement {
           });
           
           if (result && result.success !== false) {
-            this._toast(`${MODULE_DEFS[moduleKey].name} configuration saved! Active immediately.`, 'success');
+            this._toast(`${MODULE_DEFS[moduleKey].name} konfiguration gemt! Aktiv med det samme.`, 'success');
             this._expandedModule = null;
     this._showDialog = null;  // 'camera', 'lock', etc.
     this._tempConfig = null;  // Temporary config during editing
@@ -6999,7 +6636,7 @@ class SecureMePanel extends HTMLElement {
             this._toast(`Kunne ikke gemme: ${result?.error || "Ukendt fejl"}`, 'error');
           }
         } catch (err) {
-          this._toast(`JSON error: ${err.message} - Check syntax in text field.`, 'error');
+          this._toast(`JSON-fejl: ${err.message} - Tjek syntaks i tekstfeltet.`, 'error');
         }
       });
     });
@@ -7101,7 +6738,7 @@ class SecureMePanel extends HTMLElement {
     root.querySelectorAll("[data-delete-sched]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.deleteSched;
-        const name = this._data.scheduledTests[id]?.name || 'this schedule';
+        const name = this._data.scheduledTests[id]?.name || 'denne tidsplan';
         if (!await this._confirm('Fjern "' + name + '"?', 'Slet tidsplan')) return;
         await this._callWS('delete_scheduled_test', { test_id: id });
         await this._loadTestingData();
@@ -7119,7 +6756,7 @@ class SecureMePanel extends HTMLElement {
         await this._loadTestingData();
         this._render();
         const overall = result?.result?.overall || 'unknown';
-        this._toast('"' + name + '" completed: ' + overall.toUpperCase(), overall === 'pass' ? 'success' : 'error');
+        this._toast('"' + name + '" fuldført: ' + overall.toUpperCase(), overall === 'pass' ? 'success' : 'error');
       });
     });
 
