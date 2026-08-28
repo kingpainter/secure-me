@@ -25,7 +25,7 @@ TO_REDACT = {
     "code",
     "pin",
     "password",
-    "nfc_tag_id",
+    "nfc_tag",
 }
 
 

@@ -21,6 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 from .ws_helpers import _get_store, _get_coordinator, _discover_batteries  # noqa: F401
 from .module_dispatch import get_module_entity_ids as _get_module_entity_ids
+from .module_dispatch import normalize_module_config as _normalize_module_config
 
 
 @websocket_api.websocket_command({
@@ -455,87 +456,6 @@ async def ws_test_automation(
 #
 # HEALTH SUMMARY
 #
-
-def _normalize_module_config(module_id: str, config: dict) -> dict:
-    """Normalize panel config format to module class format.
-
-    Panel saves entity lists as objects: [{entity_id, poe_port, ...}]
-    Module classes expect flat string lists: ["entity.id", ...]
-
-    This bridges the two formats so health checks work correctly.
-    """
-    normalized = dict(config)  # copy
-
-    def extract_ids(items) -> list[str]:
-        """Extract entity_id strings from a list of objects or strings."""
-        if not isinstance(items, list):
-            return []
-        result = []
-        for item in items:
-            if isinstance(item, str):
-                result.append(item)
-            elif isinstance(item, dict) and item.get("entity_id"):
-                result.append(item["entity_id"])
-        return [e for e in result if e and "." in e]
-
-    if module_id == "camera":
-        # cameras: [{entity_id, poe_port}] -> cameras: [str], poe_switches: [str]
-        raw_cameras = config.get("cameras", [])
-        normalized["cameras"] = extract_ids(raw_cameras)
-        # Extract POE switches from camera objects
-        poe = [c["poe_port"] for c in raw_cameras
-               if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])]
-        if poe:
-            normalized["poe_switches"] = poe
-
-    elif module_id == "lock":
-        # locks: [{entity_id, ...}] -> locks: [str]
-        normalized["locks"] = extract_ids(config.get("locks", []))
-
-    elif module_id == "climate":
-        # thermostats: [{entity_id, ...}] -> climates: [str]
-        normalized["climates"] = extract_ids(config.get("thermostats", []))
-
-    elif module_id == "lights":
-        # Frontend saves as 'entities' (flat strings); module class expects 'lights'
-        raw = config.get("entities") or config.get("lights", [])
-        normalized["lights"] = extract_ids(raw) if raw else []
-
-    elif module_id == "tts":
-        # entities: already flat strings in TTS - no change needed
-        normalized["media_players"] = extract_ids(config.get("entities", []))
-        # Pass tts_service through so TTSModule can use google_say etc.
-        if config.get("tts_service"):
-            normalized["tts_service"] = config["tts_service"]
-        if config.get("language"):
-            normalized["language"] = config["language"]
-        # Fix: the frontend's _saveTTSConfig() already converts its 0-100 UI
-        # slider to a 0.0-1.0 value before calling save_module -- this used
-        # to divide by 100 a second time, so the live module instance got a
-        # volume ~100x too quiet immediately after every save (only correct
-        # again after the next HA restart, when module_dispatch.py's copy of
-        # this normalization -- which does not divide -- reloaded the
-        # already-correctly-scaled value from the store). Pass it straight
-        # through, matching module_dispatch.normalize_module_config().
-        if config.get("volume") is not None:
-            normalized["volume"] = float(config["volume"])
-        if config.get("messages"):
-            normalized["messages"] = config["messages"]
-        # v1.4.0: speaker profiles passed through as-is
-        normalized["speaker_profiles"] = config.get("speaker_profiles", [])
-        normalized["custom_messages"] = config.get("custom_messages", [])
-
-    elif module_id == "siren":
-        # Pass sirens list through as-is (list of dicts with entity_id, pattern, duration, volume)
-        normalized["sirens"] = config.get("sirens", [])
-        # Legacy gateway fields
-        if config.get("gateway_mac"):
-            normalized["gateway_mac"] = config["gateway_mac"]
-        if config.get("gateway_light"):
-            normalized["gateway_light"] = config["gateway_light"]
-
-    return normalized
-
 
 def _classify_module_status(module, unavail: list) -> str:
     """Classify a module's health badge status for the frontend.
