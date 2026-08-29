@@ -24,10 +24,11 @@ State machine per action:
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     AA_LOCK_ENABLED,
@@ -45,6 +46,8 @@ from .const import (
     AA_RECHECK_INCLUDE_LOCK,
     AA_RECHECK_INCLUDE_ALARM,
     AA_RECHECK_INCLUDE_CAMERA,
+    AA_STALE_TRACKER_TIMEOUT,
+    DEFAULT_AA_STALE_TRACKER_TIMEOUT,
     DEFAULT_AA_RECHECK_DELAY,
     DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
     DEFAULT_AA_RECHECK_INCLUDE_LOCK,
@@ -125,12 +128,20 @@ class AutoActionsManager:
         # HA state listener cancel handle
         self._unsub_listener = None
         self._unsub_disarm_listener = None
+        # v1.5.x: Periodic fallback timer for the stale-tracker timeout (see
+        # _all_persons_away()/_periodic_stale_check()).
+        self._unsub_stale_check = None
 
         # v1.5.4: Scoped presence tracking -- only person_entity/tracker_entity
         # from enabled Secure Me user profiles, not every person.* entity in
         # HA. Rebuilt by async_refresh_trackers(), called from async_start()
         # and whenever a user profile is saved/deleted (see ws_sensors.py).
         self._tracker_entities: set[str] = set()
+        # v1.5.x: monotonic timestamp of when each tracker entity most
+        # recently transitioned INTO "unknown"/"unavailable" (cleared once
+        # it leaves that state). Powers the AA_STALE_TRACKER_TIMEOUT grace
+        # period in _all_persons_away() -- see its docstring.
+        self._tracker_stale_since: dict[str, float] = {}
 
     # -------------------------------------------------------------------------
     # Public lifecycle
@@ -156,6 +167,17 @@ class AutoActionsManager:
         # const.py for why this exists and why it defaults off.
         self._unsub_disarm_listener = self.hass.bus.async_listen(
             EVENT_ALARM_DISARMED, self._handle_alarm_disarmed
+        )
+        # v1.5.x: Periodic fallback re-check (every 5 min) for the
+        # stale-tracker timeout. _all_persons_away() is normally only
+        # re-evaluated on a tracker's state_changed event -- if a tracker's
+        # last transition landed on "unknown"/"unavailable" instead of
+        # cleanly reaching "not_home" (see its docstring), no further event
+        # ever fires on its own once the AA_STALE_TRACKER_TIMEOUT grace
+        # period elapses. This timer is what actually re-evaluates and acts
+        # once that timeout has passed.
+        self._unsub_stale_check = async_track_time_interval(
+            self.hass, self._periodic_stale_check, timedelta(minutes=5)
         )
         _LOGGER.info(
             "AutoActionsManager started -- monitoring %d Secure Me user tracker(s)",
@@ -223,6 +245,9 @@ class AutoActionsManager:
         if self._unsub_disarm_listener:
             self._unsub_disarm_listener()
             self._unsub_disarm_listener = None
+        if self._unsub_stale_check:
+            self._unsub_stale_check()
+            self._unsub_stale_check = None
         await self._cancel_all_action_tasks()
         if self._arrival_task and not self._arrival_task.done():
             self._arrival_task.cancel()
@@ -251,6 +276,15 @@ class AutoActionsManager:
             return
 
         new_val = new_state.state
+
+        # v1.5.x: track how long this tracker has continuously been
+        # "unknown"/"unavailable" -- powers the AA_STALE_TRACKER_TIMEOUT
+        # grace period in _all_persons_away(). Cleared as soon as it lands
+        # on anything else (home or not_home).
+        if new_val in ("unknown", "unavailable"):
+            self._tracker_stale_since.setdefault(entity_id, time.monotonic())
+        else:
+            self._tracker_stale_since.pop(entity_id, None)
 
         if new_val == "not_home":
             # Check if ALL persons are now away
@@ -849,6 +883,26 @@ class AutoActionsManager:
         if self._all_away_since is None:
             self._all_away_since = time.monotonic()
 
+    @callback
+    def _periodic_stale_check(self, now=None) -> None:
+        """Periodic fallback re-evaluation for the stale-tracker timeout.
+
+        See async_start() docstring for why this timer exists: without it,
+        a tracker permanently stuck on "unknown"/"unavailable" would never
+        get re-evaluated once AA_STALE_TRACKER_TIMEOUT elapses, because
+        _all_persons_away() is otherwise only checked from a tracker's own
+        state_changed event.
+        """
+        if self._home_empty:
+            return
+        if self._all_persons_away():
+            self._mark_all_away_if_needed()
+            _LOGGER.info(
+                "AutoActions: periodic check found all tracked users away "
+                "(stale-tracker timeout elapsed) -- treating house as empty"
+            )
+            self.hass.async_create_task(self._on_home_empty())
+
     def _all_persons_away(self) -> bool:
         """Return True if every tracked Secure Me user is currently away.
 
@@ -858,13 +912,48 @@ class AutoActionsManager:
         "unavailable"/"unknown" states count as NOT away (same as
         PresenceMonitor's equivalent _all_away(), which this replaces), so
         a flaky tracker never triggers an unattended arm/lock.
+
+        v1.5.x: that fail-safe has one grace-limited exception. A tracker
+        stuck on "unknown"/"unavailable" for at least AA_STALE_TRACKER_
+        TIMEOUT (configurable, see const.py) stops blocking this check --
+        otherwise a permanently-stuck GPS/wifi tracker (a real failure mode,
+        not just a brief flap) would silently prevent the house from EVER
+        being marked empty again, even when every other tracked user is
+        confirmed not_home. Below the timeout, behaviour is unchanged: an
+        unresolved tracker still blocks. A tracker showing "home" always
+        blocks, regardless of any other tracker's state.
         """
         if not self._tracker_entities:
             return False
+
+        timeout = int(
+            self.store.get_auto_actions().get(
+                AA_STALE_TRACKER_TIMEOUT, DEFAULT_AA_STALE_TRACKER_TIMEOUT
+            )
+        )
+        now = time.monotonic()
+
         for entity_id in self._tracker_entities:
             state = self.hass.states.get(entity_id)
-            if state is None or state.state in ("home", "unavailable", "unknown"):
+            if state is None or state.state == "home":
                 return False
+            if state.state in ("unavailable", "unknown"):
+                stale_since = self._tracker_stale_since.get(entity_id)
+                if stale_since is None:
+                    # Not yet tracked (e.g. already unknown when this
+                    # manager started) -- start the clock now rather than
+                    # assuming it's been stale forever.
+                    self._tracker_stale_since[entity_id] = now
+                    return False
+                if now - stale_since < timeout:
+                    return False
+                _LOGGER.info(
+                    "AutoActions: tracker %s stuck %s for >= %ds -- no longer "
+                    "blocking the 'home empty' check",
+                    entity_id, state.state, timeout,
+                )
+                # Stale long enough -- stop letting it block. Fall through
+                # to check the remaining tracked entities.
         return True
 
     def _all_actions_settled(self) -> bool:

@@ -3725,6 +3725,7 @@ class SecureMePanel extends HTMLElement {
     const aaRecheckIncLock   = aa.recheck_include_lock   !== undefined ? aa.recheck_include_lock   : true;
     const aaRecheckIncAlarm  = aa.recheck_include_alarm  !== undefined ? aa.recheck_include_alarm  : true;
     const aaRecheckIncCamera = aa.recheck_include_camera !== undefined ? aa.recheck_include_camera : true;
+    const aaStaleTimeout = aa.stale_tracker_timeout !== undefined ? aa.stale_tracker_timeout : 1800;
 
     const delayLabel = (s) => s >= 60 ? `${Math.round(s/60)} min` : `${s}s`;
 
@@ -3824,6 +3825,21 @@ class SecureMePanel extends HTMLElement {
           </div>
           <input type="range" min="0" max="300" step="15" value="${aaArrivalDelay}"
                  data-aa-range="arrival_confirmation_delay"
+                 style="width:100%;accent-color:var(--sm-accent)">
+        </div>
+
+        <!-- STALE TRACKER TIMEOUT -->
+        <div style="padding:14px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            ${icon("user")}
+            <span style="font-size:13px;font-weight:600">Fastlåst tracker-timeout</span>
+            <span style="font-size:11px;color:var(--sm-text-tertiary);margin-left:auto">${delayLabel(aaStaleTimeout)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--sm-text-tertiary);margin-bottom:8px">
+            Hvis en persons tracker sidder fast på "ukendt"/"utilgængelig" (fejlende GPS/wifi) i mindst denne tid, mens alle andre er væk, stopper den med at blokere "hjem tomt"-vurderingen. Under denne tid gælder den normale sikre regel: en uafklaret tracker forhindrer auto-arm/lås/kamera.
+          </div>
+          <input type="range" min="300" max="7200" step="300" value="${aaStaleTimeout}"
+                 data-aa-range="stale_tracker_timeout"
                  style="width:100%;accent-color:var(--sm-accent)">
         </div>
 
