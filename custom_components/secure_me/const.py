@@ -332,6 +332,17 @@ AA_RECHECK_INCLUDE_LOCK      = "recheck_include_lock"
 AA_RECHECK_INCLUDE_ALARM     = "recheck_include_alarm"
 AA_RECHECK_INCLUDE_CAMERA    = "recheck_include_camera"
 
+# v1.5.x: Grace timeout for a Secure Me user's person_entity/tracker_entity
+# stuck on "unknown"/"unavailable" (a known GPS/wifi tracker failure mode --
+# see auto_actions.py's _all_persons_away() docstring). Below this timeout,
+# the fail-safe direction is preserved (an unresolved tracker blocks the
+# "home empty" determination, same as before). Once a tracker has been
+# stuck for at least this long AND every other tracked user is not_home,
+# it stops blocking so the house can still be marked empty -- otherwise a
+# permanently-stuck tracker would silently prevent auto-arm/lock/camera
+# forever. Configurable in the panel's Special Features tab.
+AA_STALE_TRACKER_TIMEOUT = "stale_tracker_timeout"
+
 # Defaults (seconds)
 DEFAULT_AA_LOCK_DELAY    = 120
 DEFAULT_AA_ALARM_DELAY   = 300
@@ -343,3 +354,4 @@ DEFAULT_AA_RECHECK_MIN_AWAY_DURATION = 300
 DEFAULT_AA_RECHECK_INCLUDE_LOCK      = True
 DEFAULT_AA_RECHECK_INCLUDE_ALARM     = True
 DEFAULT_AA_RECHECK_INCLUDE_CAMERA    = True
+DEFAULT_AA_STALE_TRACKER_TIMEOUT     = 1800  # 30 minutes

@@ -77,6 +77,12 @@ class AutoActionsManager:
       async_stop()   -- call on integration unload
     """
 
+    # v1.5.x: One-shot retry delay (seconds) after a failed auto-arm attempt
+    # (e.g. blocked by an open sensor). Not exposed as a config option --
+    # internal safety-net retry, same category as zones.py's
+    # _debounce_interval. See _retry_alarm_after_delay().
+    _ALARM_RETRY_DELAY = 120
+
     def __init__(
         self,
         hass: HomeAssistant,
@@ -96,6 +102,11 @@ class AutoActionsManager:
 
         # Track which actions have already run in this "home empty" cycle
         self._done_actions: set[str] = set()
+        # v1.5.x: Result text per action (for accurate summary notifications --
+        # see _run_action_after_delay()/_send_summary_notification()). Keyed
+        # by base action name ("lock"/"alarm"/"camera"), cleared alongside
+        # _done_actions at the start of each home-empty cycle.
+        self._action_results: dict[str, str] = {}
         # Track whether home is currently considered empty
         self._home_empty: bool = False
         # v1.5.x: Timestamp (time.monotonic()) of when the house most recently
@@ -296,6 +307,7 @@ class AutoActionsManager:
             return  # Already in empty state
         self._home_empty = True
         self._done_actions.clear()
+        self._action_results.clear()
         self._current_only_actions = only_actions
 
         self.hass.bus.async_fire(EVENT_HOME_EMPTY, {})
@@ -543,43 +555,121 @@ class AutoActionsManager:
                     action,
                 )
                 self._done_actions.add(action + "_skipped")
+                self._action_results[action] = "Fake Presence blocked it"
                 if self._all_actions_settled():
                     await self._send_summary_notification()
                 return
 
         _LOGGER.info("AutoActions: executing action '%s'", action)
-        result = await self._execute_action(action)
-        self._done_actions.add(action)
-        self.hass.bus.async_fire(EVENT_AUTO_ACTION_DONE, {"action": action, "result": result})
+        success, result = await self._execute_action(action)
+        self._action_results[action] = result
+
+        # v1.5.x bugfix: previously self._done_actions.add(action) happened
+        # unconditionally here, so a real arm/lock/camera FAILURE (e.g.
+        # auto-arm blocked by an open sensor) was reported to the user as
+        # "completed" in the summary notification -- the failure was only
+        # visible in the HA log, never in the push. A failed action is now
+        # tracked separately (action + "_failed") so the notification can
+        # say FAILED with the actual reason instead of silently looking fine.
+        if success:
+            self._done_actions.add(action)
+        else:
+            self._done_actions.add(action + "_failed")
+            _LOGGER.warning(
+                "AutoActions: action '%s' FAILED -- %s", action, result
+            )
+            # v1.5.x: a failed auto-arm is safety-relevant (house left
+            # unarmed while empty) -- give it one automatic retry after a
+            # short delay in case the blocking condition (e.g. an open
+            # sensor) resolves itself, instead of only surfacing the
+            # failure and waiting for the next presence-change event.
+            if action == "alarm":
+                self._action_tasks["alarm_retry"] = self.hass.async_create_task(
+                    self._retry_alarm_after_delay(self._ALARM_RETRY_DELAY)
+                )
+
+        self.hass.bus.async_fire(
+            EVENT_AUTO_ACTION_DONE,
+            {"action": action, "result": result, "success": success},
+        )
 
         # If all scheduled actions are done, send summary notification
         if self._all_actions_settled():
             await self._send_summary_notification()
 
-    async def _execute_action(self, action: str) -> str:
-        """Execute the given action. Returns a short result string."""
+    async def _retry_alarm_after_delay(self, delay: int) -> None:
+        """One-shot retry for a failed auto-arm.
+
+        Scheduled from _run_action_after_delay() when the initial auto-arm
+        attempt fails (e.g. an open, non-bypassed sensor). Waits `delay`
+        seconds, then tries once more if the house is still empty and still
+        disarmed. Does not reschedule itself again on a second failure --
+        the FAILED summary notification (already sent for the first
+        failure) is the fallback in that case.
+        """
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            return
+
+        if not self._home_empty:
+            _LOGGER.info("AutoActions: alarm retry aborted -- home no longer empty")
+            return
+        if self.coordinator.alarm_state != STATE_ALARM_DISARMED:
+            _LOGGER.info(
+                "AutoActions: alarm retry skipped -- already %s",
+                self.coordinator.alarm_state,
+            )
+            return
+
+        _LOGGER.info("AutoActions: retrying auto-arm after earlier failure")
+        success, result = await self._do_alarm()
+        self._action_results["alarm"] = result
+        if success:
+            self._done_actions.discard("alarm_failed")
+            self._done_actions.add("alarm")
+            _LOGGER.info("AutoActions: alarm retry succeeded -- %s", result)
+        else:
+            _LOGGER.warning("AutoActions: alarm retry also failed -- %s", result)
+
+        self.hass.bus.async_fire(
+            EVENT_AUTO_ACTION_DONE,
+            {"action": "alarm", "result": result, "success": success},
+        )
+        if self._all_actions_settled():
+            await self._send_summary_notification()
+
+    async def _execute_action(self, action: str) -> tuple[bool, str]:
+        """Execute the given action. Returns (success, short result string).
+
+        success=False means the action was genuinely attempted and failed
+        (e.g. arm blocked by an open sensor, a lock command errored) -- not
+        when it was deliberately skipped (module disabled, nothing to do,
+        already in the desired state), which is success=True with a
+        descriptive result string.
+        """
         if action == "lock":
             return await self._do_lock()
         if action == "alarm":
             return await self._do_alarm()
         if action == "camera":
             return await self._do_camera()
-        return "unknown"
+        return True, "unknown"
 
     # -------------------------------------------------------------------------
     # Individual actions
     # -------------------------------------------------------------------------
 
-    async def _do_lock(self) -> str:
+    async def _do_lock(self) -> tuple[bool, str]:
         """Lock all configured lock entities."""
         lock_module = self.coordinator.modules.get("lock")
         if not lock_module or not lock_module.enabled:
             _LOGGER.info("AutoActions lock: lock module disabled or not configured")
-            return "skipped (module disabled)"
+            return True, "skipped (module disabled)"
 
         locks = getattr(lock_module, "locks", [])
         if not locks:
-            return "skipped (no locks configured)"
+            return True, "skipped (no locks configured)"
 
         locked = []
         failed = []
@@ -610,34 +700,46 @@ class AutoActionsManager:
                 failed.append(lock_entity)
 
         if failed:
-            return f"locked {len(locked)}, failed {len(failed)}: {', '.join(failed)}"
-        return f"locked {len(locked)}: {', '.join(locked)}"
+            return False, f"locked {len(locked)}, failed {len(failed)}: {', '.join(failed)}"
+        return True, f"locked {len(locked)}: {', '.join(locked)}"
 
-    async def _do_alarm(self) -> str:
-        """Arm the alarm in away mode (skip exit delay)."""
+    async def _do_alarm(self) -> tuple[bool, str]:
+        """Arm the alarm in away mode (skip exit delay).
+
+        Returns (success, result). success=False only when arming was
+        actually attempted and rejected (e.g. an open, non-bypassed sensor)
+        -- not when it was skipped because the alarm was already armed by
+        something else in the meantime (that's a benign race, not a
+        failure). v1.5.x: also reports which sensor(s) blocked the arm so
+        the summary notification can say why instead of just "failed".
+        """
         current_state = self.coordinator.alarm_state
         if current_state != STATE_ALARM_DISARMED:
             _LOGGER.info(
                 "AutoActions alarm: skipping arm -- state is %s", current_state
             )
-            return f"skipped (state={current_state})"
+            return True, f"skipped (state={current_state})"
 
         ok = await self.coordinator.async_arm_away(skip_delay=True)
         if ok:
-            return "armed away"
-        return "arm failed"
+            return True, "armed away"
 
-    async def _do_camera(self) -> str:
+        open_sensors = self.coordinator.zone_manager.get_all_open_sensors()
+        if open_sensors:
+            return False, f"blocked by open sensor(s): {', '.join(open_sensors)}"
+        return False, "arm rejected"
+
+    async def _do_camera(self) -> tuple[bool, str]:
         """Activate camera module (start recording)."""
         camera_module = self.coordinator.modules.get("camera")
         if not camera_module or not camera_module.enabled:
-            return "skipped (module disabled)"
+            return True, "skipped (module disabled)"
 
         # Trigger camera module as if arming -- this activates recording
         ok = await camera_module.async_arm("away")
         if ok:
-            return "cameras activated"
-        return "camera activation failed"
+            return True, "cameras activated"
+        return False, "camera activation failed"
 
     # -------------------------------------------------------------------------
     # Notification
@@ -659,6 +761,9 @@ class AutoActionsManager:
         for action, label in action_labels.items():
             if action in self._done_actions:
                 lines.append(f"  {label}: completed")
+            elif action + "_failed" in self._done_actions:
+                reason = self._action_results.get(action, "unknown reason")
+                lines.append(f"  {label}: FAILED -- {reason}")
             elif action + "_skipped" in self._done_actions:
                 lines.append(f"  {label}: skipped (Fake Presence active)")
             # Actions still pending are not included (notification only fires when all settled)
@@ -783,7 +888,11 @@ class AutoActionsManager:
             expected &= self._current_only_actions
 
         for action in expected:
-            if action not in self._done_actions and action + "_skipped" not in self._done_actions:
+            if (
+                action not in self._done_actions
+                and action + "_skipped" not in self._done_actions
+                and action + "_failed" not in self._done_actions
+            ):
                 return False
         return True
 
