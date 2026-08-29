@@ -188,9 +188,9 @@ class TestSelectiveBlockingSummaryNotification:
         manager._send_summary_notification = _capture
 
         manager.async_start()
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
         await asyncio.sleep(0.1)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert len(notified) == 1
         final = notified[0]

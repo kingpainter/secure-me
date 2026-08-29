@@ -102,7 +102,7 @@ async def _call_ws_handler(handler, hass, connection, msg):
     loop does) and then let hass's task tracking settle before asserting.
     """
     handler(hass, connection, msg)
-    await hass.async_block_till_done()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 # ---------------------------------------------------------------------------
