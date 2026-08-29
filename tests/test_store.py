@@ -53,6 +53,10 @@ class TestStoreDefaults:
             "arrival_confirmation_delay", "notify_all_users",
             "recheck_on_disarm", "recheck_delay", "recheck_min_away_duration",
             "recheck_include_lock", "recheck_include_alarm", "recheck_include_camera",
+            # Added 2026-08-29: grace period before a tracker stuck on
+            # unknown/unavailable stops blocking the "home empty" check --
+            # see auto_actions.py's _all_persons_away() docstring.
+            "stale_tracker_timeout",
         }
         assert set(aa.keys()) == expected
 
@@ -75,6 +79,7 @@ class TestStoreDefaults:
         assert aa["recheck_include_lock"] is True
         assert aa["recheck_include_alarm"] is True
         assert aa["recheck_include_camera"] is True
+        assert aa["stale_tracker_timeout"] == 1800
 
     def test_default_home_alone_cameras_is_empty(self):
         mock_hass = MagicMock()

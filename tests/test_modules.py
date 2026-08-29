@@ -187,6 +187,7 @@ class TestLockModuleFunctional:
     @pytest.mark.asyncio
     async def test_lock_functional_test_passes(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
+        mock_hass.set_state("person.flemming", "home")
         self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -202,6 +203,7 @@ class TestLockModuleFunctional:
         """Regression test for the bug this class used to hide: starting unlocked
         must still end locked, not be relocked-then-unlocked-again."""
         mock_hass.set_state("lock.front", "unlocked")
+        mock_hass.set_state("person.flemming", "home")
         self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -215,6 +217,7 @@ class TestLockModuleFunctional:
         """Regression test: a lock that starts locked must be functionally tested
         (unlock -> verify -> relock -> verify), not rubber-stamped as passed."""
         mock_hass.set_state("lock.front", "locked")
+        mock_hass.set_state("person.flemming", "home")
         self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -222,6 +225,28 @@ class TestLockModuleFunctional:
         lock_info = result["details"]["locks"][0]
         assert lock_info["unlock_ok"] is True
         assert lock_info["relock_ok"] is True
+
+    @pytest.mark.asyncio
+    async def test_lock_functional_test_skipped_when_nobody_home(self, mock_hass):
+        """Safety feature: the destructive unlock/relock cycle briefly leaves a
+        real door unlocked for ~4s. If no tracked person currently reports
+        'home', the functional test is skipped entirely rather than doing that
+        unattended -- see LockModule.async_test()'s own docstring/comment for
+        the full rationale. Availability/current-state reporting still happens;
+        only the destructive cycle is skipped.
+        """
+        mock_hass.set_state("lock.front", "locked")
+        # No person.* entity set to "home" at all.
+        self._wire_service_calls(mock_hass)
+        mod = self._make_lock_module(mock_hass, locks=["lock.front"])
+        result = await mod.async_test()
+        assert result["success"] is True
+        lock_info = result["details"]["locks"][0]
+        assert lock_info["skip_reason"] == "nobody_home"
+        assert lock_info["test_passed"] is True
+        assert lock_info["unlock_ok"] is None
+        assert lock_info["relock_ok"] is None
+        mock_hass.services.async_call.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_lock_skipped_when_door_open(self, mock_hass):
@@ -255,6 +280,7 @@ class TestLockModuleFunctional:
     async def test_lock_battery_low_warning(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
         mock_hass.set_state("sensor.front_battery", "15")
+        mock_hass.set_state("person.flemming", "home")
         self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(
             mock_hass,
@@ -263,11 +289,16 @@ class TestLockModuleFunctional:
         )
         result = await mod.async_test()
         assert result["details"]["locks"][0]["battery"] == 15
-        assert "battery low" in result["message"]
+        # Low-battery is a non-fatal warning -- it lives in results["warnings"],
+        # not results["message"] (that field is reserved for real failures; see
+        # ws_modules.py's _run_test_internal(), which surfaces per-module
+        # warnings at the top level of a Standard/Full test run instead).
+        assert any("battery low" in w for w in result["warnings"])
 
     @pytest.mark.asyncio
     async def test_lock_reports_unlock_and_relock_separately(self, mock_hass):
         mock_hass.set_state("lock.front", "locked")
+        mock_hass.set_state("person.flemming", "home")
         self._wire_service_calls(mock_hass)
         mod = self._make_lock_module(mock_hass, locks=["lock.front"])
         result = await mod.async_test()
@@ -931,12 +962,15 @@ class TestClimateModule:
     @pytest.mark.asyncio
     async def test_climate_without_away_support_or_temperature_is_informational_only(self, mock_hass):
         """No 'away' preset and no away_temperature configured -- this is a
-        warning-style note in the message, not a test failure."""
+        non-fatal note, surfaced via results["warnings"] (like lock.py's
+        battery-low warning), not a test failure and not part of
+        results["message"] (which is reserved for real failures).
+        """
         mock_hass.set_state("climate.living", "heat", {"preset_modes": ["home"]})
         mod = self._make_climate(mock_hass, climates=["climate.living"])
         result = await mod.async_test()
         assert result["success"] is True
-        assert "does not support away mode" in result["message"]
+        assert any("does not support away mode" in w for w in result["warnings"])
 
     @pytest.mark.asyncio
     async def test_climate_with_away_temperature_configured_no_warning(self, mock_hass):

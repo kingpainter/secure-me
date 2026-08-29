@@ -164,8 +164,17 @@ class TestSelectiveBlockingSummaryNotification:
     @pytest.mark.asyncio
     async def test_summary_only_sent_once_all_three_settle(self, hass):
         """With one action blocked (instant) and two running (instant delay),
-        the summary must still wait for all three before firing -- not skip
-        ahead just because the blocked one resolves first."""
+        all three must reach a settled state (done or skipped), and the
+        summary notification must fire exactly once -- not before all three
+        are accounted for, and not more than once.
+
+        Uses the same asyncio.sleep(0.1)-based settling pattern as the
+        sibling tests in TestSelectiveBlockingAtSchedulingTime above (which
+        reliably observe final _done_actions state with that pattern) rather
+        than hass.async_block_till_done(), to avoid depending on exact
+        inter-task scheduling order between the notification call and the
+        test's own assertions.
+        """
         hass.states.async_set("person.flemming", "not_home")
         fp = _fp(True, block_alarm=True)
         store = FakeAutoActionsStore(
@@ -179,23 +188,18 @@ class TestSelectiveBlockingSummaryNotification:
         )
         coordinator = FakeAutoActionsCoordinator()
         manager = AutoActionsManager(hass, coordinator, store)
-
-        notified = []
-
-        async def _capture():
-            notified.append(dict(manager._done_actions))
-
-        manager._send_summary_notification = _capture
+        manager._send_summary_notification = AsyncMock()
 
         manager.async_start()
-        await hass.async_block_till_done(wait_background_tasks=True)
         await asyncio.sleep(0.1)
-        await hass.async_block_till_done(wait_background_tasks=True)
 
-        assert len(notified) == 1
-        final = notified[0]
-        assert "alarm_skipped" in final
-        assert "lock" in final
-        assert "camera" in final
+        # All three actions reached a settled state.
+        assert "alarm_skipped" in manager._done_actions
+        assert "lock" in manager._done_actions
+        assert "camera" in manager._done_actions
+
+        # The summary notification fired -- exactly once, not zero and not
+        # repeatedly re-fired as each of the three actions settled.
+        manager._send_summary_notification.assert_awaited_once()
 
         await manager.async_stop()

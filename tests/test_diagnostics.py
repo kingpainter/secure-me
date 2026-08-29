@@ -23,8 +23,13 @@ class TestDiagnosticsRedaction:
         assert "pin" in TO_REDACT
 
     def test_nfc_tag_in_redact_list(self):
+        """Redaction key is 'nfc_tag' -- renamed from the original
+        'nfc_tag_id' in v1.5.5 (see instructions_for_claude_secure_me.md
+        section 13 for the fix writeup). This test previously checked the
+        old pre-rename key name and never got updated alongside the fix.
+        """
         from custom_components.secure_me.diagnostics import TO_REDACT
-        assert "nfc_tag_id" in TO_REDACT
+        assert "nfc_tag" in TO_REDACT
 
 
 class TestDiagnosticsVersion:
