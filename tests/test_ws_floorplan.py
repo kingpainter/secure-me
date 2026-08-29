@@ -90,6 +90,21 @@ class FakeFloorplanStore:
         return self._floorplan
 
 
+async def _call_ws_handler(handler, hass, connection, msg):
+    """Call a @websocket_api.async_response-decorated handler and wait for
+    it to actually finish.
+
+    async_response wraps the real coroutine in a plain (non-async) function
+    that schedules it via hass.async_create_task() and returns None --
+    calling the decorated handler directly is NOT awaitable (awaiting the
+    None it returns raises TypeError). The correct way to drive it from a
+    test is to call it (fire-and-forget, as the real websocket_api dispatch
+    loop does) and then let hass's task tracking settle before asserting.
+    """
+    handler(hass, connection, msg)
+    await hass.async_block_till_done()
+
+
 # ---------------------------------------------------------------------------
 # _read_png_dimensions()
 # ---------------------------------------------------------------------------
@@ -219,7 +234,7 @@ class TestWsGetFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: None)
         connection = FakeConnection()
 
-        await ws_get_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_get_floorplan, hass, connection, {"id": 1})
 
         connection.send_result.assert_called_once()
         result = connection.send_result.call_args.args[1]
@@ -241,7 +256,7 @@ class TestWsGetFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_get_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_get_floorplan, hass, connection, {"id": 1})
 
         connection.send_result.assert_called_once()
         result = connection.send_result.call_args.args[1]
@@ -263,7 +278,7 @@ class TestWsGetFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_get_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_get_floorplan, hass, connection, {"id": 1})
 
         store.async_clear_floorplan_image.assert_called_once()
         connection.send_result.assert_called_once()
@@ -283,7 +298,7 @@ class TestWsGetFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_get_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_get_floorplan, hass, connection, {"id": 1})
 
         store.async_clear_floorplan_image.assert_called_once()
         connection.send_result.assert_called_once()
@@ -301,7 +316,7 @@ class TestWsSaveFloorplanImage:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": "not-valid-base64!!"})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": "not-valid-base64!!"})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "invalid_base64"
@@ -314,7 +329,7 @@ class TestWsSaveFloorplanImage:
 
         oversized = base64.b64encode(b"\x00" * (FLOORPLAN_MAX_BYTES + 1)).decode()
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": oversized})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": oversized})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "image_too_large"
@@ -327,7 +342,7 @@ class TestWsSaveFloorplanImage:
 
         not_png = base64.b64encode(b"this is definitely not a png").decode()
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": not_png})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": not_png})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "invalid_png"
@@ -342,7 +357,7 @@ class TestWsSaveFloorplanImage:
         b64 = base64.b64encode(png_bytes).decode()
         data_url = f"data:image/png;base64,{b64}"
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": data_url})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": data_url})
 
         connection.send_result.assert_called_once()
         result = connection.send_result.call_args.args[1]
@@ -359,7 +374,7 @@ class TestWsSaveFloorplanImage:
         png_bytes = _make_png_bytes(1024, 768)
         b64 = base64.b64encode(png_bytes).decode()
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": b64})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
 
         store.async_save_floorplan_image.assert_awaited_once()
         call_args = store.async_save_floorplan_image.call_args
@@ -372,7 +387,7 @@ class TestWsSaveFloorplanImage:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: None)
         connection = FakeConnection()
 
-        await ws_save_floorplan_image(hass, connection, {"id": 1, "image_base64": "AAAA"})
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": "AAAA"})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "store_not_ready"
@@ -390,7 +405,7 @@ class TestWsSaveFloorplanMarkers:
         connection = FakeConnection()
 
         rooms = {"room1": {"name": "Living Room", "color": "#fff", "points": [], "sensors": []}}
-        await ws_save_floorplan_markers(hass, connection, {"id": 1, "rooms": rooms, "openings": []})
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": rooms, "openings": []})
 
         store.async_save_floorplan_rooms.assert_awaited_once_with(rooms, [])
         store.async_save_floorplan_markers.assert_not_awaited()
@@ -401,7 +416,7 @@ class TestWsSaveFloorplanMarkers:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_save_floorplan_markers(hass, connection, {"id": 1, "rooms": ["not", "a", "dict"]})
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": ["not", "a", "dict"]})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "invalid_format"
@@ -412,8 +427,8 @@ class TestWsSaveFloorplanMarkers:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_save_floorplan_markers(
-            hass, connection, {"id": 1, "rooms": {}, "openings": "not_a_list"}
+        await _call_ws_handler(
+            ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": {}, "openings": "not_a_list"}
         )
 
         connection.send_error.assert_called_once()
@@ -425,8 +440,8 @@ class TestWsSaveFloorplanMarkers:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_save_floorplan_markers(
-            hass, connection,
+        await _call_ws_handler(
+            ws_save_floorplan_markers, hass, connection,
             {"id": 1, "markers": {"binary_sensor.a": {"x_pct": 10, "y_pct": 10}}},
         )
 
@@ -438,7 +453,7 @@ class TestWsSaveFloorplanMarkers:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: None)
         connection = FakeConnection()
 
-        await ws_save_floorplan_markers(hass, connection, {"id": 1, "markers": {}})
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "markers": {}})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "store_not_ready"
@@ -461,7 +476,7 @@ class TestWsDeleteFloorplan:
         with open(floorplan_file, "wb") as fh:
             fh.write(b"fake png bytes")
 
-        await ws_delete_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
 
         store.async_delete_floorplan.assert_awaited_once()
         result = connection.send_result.call_args.args[1]
@@ -475,7 +490,7 @@ class TestWsDeleteFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        await ws_delete_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
 
         store.async_delete_floorplan.assert_awaited_once()
         result = connection.send_result.call_args.args[1]
@@ -487,7 +502,7 @@ class TestWsDeleteFloorplan:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: None)
         connection = FakeConnection()
 
-        await ws_delete_floorplan(hass, connection, {"id": 1})
+        await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "store_not_ready"

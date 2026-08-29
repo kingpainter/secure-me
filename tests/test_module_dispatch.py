@@ -313,17 +313,17 @@ class TestModuleDispatcherDispatch:
         dispatcher.modules["lock"].async_arm.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_module_error_fires_event_with_module_and_action(self, dispatcher):
+    async def test_module_error_fires_event_with_module_and_action(self, dispatcher, hass):
         dispatcher.modules["camera"].async_arm = AsyncMock(side_effect=Exception("camera offline"))
 
-        await dispatcher.execute_arm_away()
+        captured = []
+        hass.bus.async_listen(EVENT_MODULE_ERROR, lambda event: captured.append(event))
 
-        fired = [
-            call for call in dispatcher.hass.bus.async_fire.call_args_list
-            if call.args[0] == EVENT_MODULE_ERROR
-        ]
-        assert len(fired) == 1
-        payload = fired[0].args[1]
+        await dispatcher.execute_arm_away()
+        await hass.async_block_till_done()
+
+        assert len(captured) == 1
+        payload = captured[0].data
         assert payload["module"] == "camera"
         assert payload["action"] == "arm_away"
 

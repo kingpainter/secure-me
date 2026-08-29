@@ -41,6 +41,22 @@ CUSTOM_COMPONENTS = "custom_components"
 CARD_URL      = f"/api/{DOMAIN}-alarm-card"
 CARD_FILENAME = "secure-me-alarm-card.js"
 
+# v1.5.6 (pilot): ES-module split of secure-me-panel.js. secure-me-panel.js
+# imports these two files as native ES modules (no bundler) via relative
+# specifiers "./secure-me-panel-shared.js" / "./secure-me-panel-floorplan.js".
+# The browser resolves a relative import against the *path* of the importing
+# module's own URL (PANEL_URL, minus its query string) -- since PANEL_URL is
+# "/api/secure_me-panel" (no trailing slash), the resolved directory is
+# "/api/", so each extra module's static URL below MUST be the literal
+# hyphenated "/api/secure-me-panel-<name>.js" -- NOT f"/api/{DOMAIN}-..."
+# (DOMAIN has an underscore, which would silently produce a URL the browser
+# never actually requests, since the import specifier itself is a fixed
+# string in the JS source, not templated from DOMAIN at runtime).
+SHARED_MODULE_URL      = "/api/secure-me-panel-shared.js"
+SHARED_MODULE_FILENAME = "secure-me-panel-shared.js"
+FLOORPLAN_MODULE_URL      = "/api/secure-me-panel-floorplan.js"
+FLOORPLAN_MODULE_FILENAME = "secure-me-panel-floorplan.js"
+
 
 async def async_register_panel(
     hass: HomeAssistant,
@@ -60,6 +76,10 @@ async def async_register_panel(
     panel_file = os.path.join(panel_dir, PANEL_FILENAME)
 
     card_file = os.path.join(panel_dir, CARD_FILENAME)
+
+    # v1.5.6 (pilot): ES-module split -- secure-me-panel.js imports these.
+    shared_module_file = os.path.join(panel_dir, SHARED_MODULE_FILENAME)
+    floorplan_module_file = os.path.join(panel_dir, FLOORPLAN_MODULE_FILENAME)
 
     if not os.path.isfile(panel_file):
         _LOGGER.error(
@@ -86,6 +106,26 @@ async def async_register_panel(
             _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
         else:
             _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
+
+        # v1.5.6 (pilot): ES-module split sub-modules -- must be servable at
+        # the exact URL the browser resolves from secure-me-panel.js's own
+        # relative import specifiers (see SHARED_MODULE_URL comment above).
+        if os.path.isfile(shared_module_file):
+            paths.append(StaticPathConfig(SHARED_MODULE_URL, shared_module_file, cache_headers=False))
+            _LOGGER.info("Secure Me: panel shared module registered at %s", SHARED_MODULE_URL)
+        else:
+            _LOGGER.warning(
+                "Secure Me: panel shared module not found at %s -- panel will fail to load "
+                "if secure-me-panel.js imports from it", shared_module_file,
+            )
+        if os.path.isfile(floorplan_module_file):
+            paths.append(StaticPathConfig(FLOORPLAN_MODULE_URL, floorplan_module_file, cache_headers=False))
+            _LOGGER.info("Secure Me: panel floorplan module registered at %s", FLOORPLAN_MODULE_URL)
+        else:
+            _LOGGER.warning(
+                "Secure Me: panel floorplan module not found at %s -- panel will fail to load "
+                "if secure-me-panel.js imports from it", floorplan_module_file,
+            )
 
         # v1.5.3: the floorplan image no longer gets a custom static path here.
         # It now lives under config/www/secure_me_floorplan/ and is served
