@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Constants for Secure Me integration."""
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 from homeassistant.const import Platform
 
@@ -9,7 +9,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "1.5.5"
+VERSION = "2.0.1"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 

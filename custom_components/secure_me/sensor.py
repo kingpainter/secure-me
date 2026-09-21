@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 import logging
 from typing import Any

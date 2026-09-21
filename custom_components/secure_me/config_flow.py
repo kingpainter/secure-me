@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Config flow for Secure Me integration."""
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 import voluptuous as vol
 from homeassistant import config_entries

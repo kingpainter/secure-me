@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Data storage for Secure Me panel configuration."""
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 import base64
 import concurrent.futures

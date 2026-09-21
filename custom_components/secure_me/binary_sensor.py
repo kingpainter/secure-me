@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Binary sensor platform for Secure Me - Health Monitoring & Battery Alerts."""
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 import logging
 from typing import Any

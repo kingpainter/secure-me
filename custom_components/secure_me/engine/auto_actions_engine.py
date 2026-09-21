@@ -14,7 +14,7 @@ State machine per action:
   DONE    -> IDLE  (a person comes home -- reset for next cycle)
 """
 
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 
 import asyncio
 import logging

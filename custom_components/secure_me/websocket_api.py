@@ -13,7 +13,7 @@ longer duplicates their logic):
 This file just imports and registers them, and starts the notification
 dispatcher.
 """
-# VERSION = "1.5.5"
+# VERSION = "2.0.1"
 from __future__ import annotations
 
 import logging
