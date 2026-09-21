@@ -55,7 +55,7 @@ from ..const import (
     EVENT_HOME_ALONE_ACTION_1,
     EVENT_HOME_ALONE_ACTION_2,
 )
-from .ws_helpers import _get_coordinator
+from ..ws_helpers import _get_coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
