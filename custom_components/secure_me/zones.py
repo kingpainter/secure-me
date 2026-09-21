@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Zone management for Secure Me."""
 # VERSION = "1.5.5"
 
@@ -543,7 +545,7 @@ class ZoneManager:
         from homeassistant.helpers.event import async_track_state_change_event
 
         @callback
-        def _on_state_change(event):
+        def _on_state_change(event) -> None:
             self._check_ready_modes_changed()
 
         self._ready_modes_unsub = async_track_state_change_event(
@@ -674,7 +676,7 @@ class ZoneManager:
             return
 
         @callback
-        def _sensor_state_changed(event):
+        def _sensor_state_changed(event) -> None:
             """Handle sensor state change event."""
             entity_id = event.data.get("entity_id")
             new_state = event.data.get("new_state")

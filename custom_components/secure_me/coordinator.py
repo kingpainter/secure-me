@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
 # VERSION = "1.5.5"
 
@@ -58,7 +60,7 @@ from .const import (
 )
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
-from .auto_actions import AutoActionsManager
+from .engine import AutoActionsEngine
 from .module_dispatch import ModuleDispatcher, normalize_module_config
 
 _LOGGER = logging.getLogger(__name__)
@@ -161,7 +163,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # already covered everything it did, with configurable per-action
         # delays and Fake Presence v2 selective blocking, and is the system
         # actually exposed in the panel's Special Features tab.
-        self._auto_actions_manager: AutoActionsManager | None = None
+        self._auto_actions_manager: AutoActionsEngine | None = None
 
         # Ring buffer of recent arm/disarm/trigger events (max 20, newest first).
         # Must be initialized here so _state_changed() can safely insert on the
@@ -1174,7 +1176,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # delays) -- the sole presence-based automation system now that
         # PresenceMonitor has been removed (see __init__ comment above).
         if not hasattr(self, "_auto_actions_manager") or self._auto_actions_manager is None:
-            self._auto_actions_manager = AutoActionsManager(self.hass, self, store)
+            self._auto_actions_manager = AutoActionsEngine(self.hass, self, store)
             self._auto_actions_manager.async_start()
         else:
             # Store re-loaded (e.g. config entry reload) -- refresh the

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """TTS module for Secure Me alarm system — v1.4.0 multi-speaker engine."""
 # VERSION = "1.5.5"
 

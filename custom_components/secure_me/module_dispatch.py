@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Module dispatch and health/battery tracking for Secure Me.
 
 Extracted from coordinator.py (v1.5.5) following the same composition

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Lock module for Secure Me alarm system."""
 # VERSION = "1.5.5"
 

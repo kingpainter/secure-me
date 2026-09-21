@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Alarm Control Panel platform for Secure Me."""
 # VERSION = "1.5.5"
 

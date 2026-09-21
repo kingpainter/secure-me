@@ -39,6 +39,8 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant, Event, callback
 
+from .base_engine import BaseEngine
+
 from .const import (
     DOMAIN,
     EVENT_ALARM_ARMED,
@@ -464,7 +466,7 @@ async def handle_home_alone_quick_response(hass: HomeAssistant, action: str) -> 
         _LOGGER.error("Home Alone quick response TTS failed: %s", err)
 
 
-class NotificationDispatcher:
+class NotificationEngine(BaseEngine):
     """Secure Me notification dispatcher.
 
     Routing rules:
@@ -476,8 +478,9 @@ class NotificationDispatcher:
     Always-on: smoke/water_leak fire regardless of notification toggle.
     """
 
-    def __init__(self, hass: HomeAssistant) -> None:
-        self.hass = hass
+    def __init__(self, hass: HomeAssistant, config: dict | None = None) -> None:
+        """Initialize NotificationEngine."""
+        super().__init__(hass, config or {})
         self._unsubs: list = []
         self._smoke_sensors: set[str] = set()
         self._moisture_sensors: set[str] = set()

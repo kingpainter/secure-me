@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Data storage for Secure Me panel configuration."""
 # VERSION = "1.5.5"
 

@@ -20,6 +20,7 @@ to trigger the one genuinely non-standard mode -- instead of only the
 frontend websocket command `secure_me/arm_home_alone`.
 """
 from __future__ import annotations
+from __future__ import annotations
 
 import logging
 

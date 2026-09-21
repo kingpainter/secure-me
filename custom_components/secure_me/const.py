@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Constants for Secure Me integration."""
 # VERSION = "1.5.5"
 

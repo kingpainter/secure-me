@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
 # VERSION = "1.5.5"
 
