@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "1.5.6"
+# VERSION = "2.0.0"
 
 import asyncio
 import logging
