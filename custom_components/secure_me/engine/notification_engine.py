@@ -41,7 +41,7 @@ from homeassistant.core import HomeAssistant, Event, callback
 
 from .base_engine import BaseEngine
 
-from .const import (
+from ..const import (
     DOMAIN,
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,

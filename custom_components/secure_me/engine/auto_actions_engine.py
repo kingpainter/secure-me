@@ -25,7 +25,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 
-from .const import (
+from ..const import (
     AA_LOCK_ENABLED,
     AA_LOCK_DELAY,
     AA_ALARM_ENABLED,
