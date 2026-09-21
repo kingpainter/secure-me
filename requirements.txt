@@ -16,3 +16,7 @@ pytest
 # 0.13.316 bundles HA Core 2026.2.3, requires Python >=3.13 (confirmed).
 pytest-homeassistant-custom-component==0.13.316
 pytest-asyncio
+
+# Code quality / type checking
+ruff
+mypy

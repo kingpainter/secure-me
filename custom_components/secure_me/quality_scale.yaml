@@ -1,0 +1,58 @@
+# Home Assistant Integration Quality Scale
+# https://developers.home-assistant.io/docs/integration_quality_scale/
+
+tier: silver
+
+# Bronze requirements — ALL DONE ✅
+requirements:
+  config_flow_only:
+    status: done
+  unique_ids:
+    status: done
+    description: All entities have unique IDs for state restoration
+  has_entity_name:
+    status: done
+    description: Entities use entity_registry_enabled_by_default pattern
+  config_validation:
+    status: done
+    description: ConfigFlow validates all config entries
+  ConfigEntryNotReady:
+    status: done
+    description: Coordinator raises ConfigEntryNotReady on unavailable
+
+# Silver requirements — IN PROGRESS ✅
+  service_validation:
+    status: done
+    description: All service handlers validate inputs via vol.Schema
+  diagnostic_entities:
+    status: done
+    description: Battery sensors and diagnostic data tagged with EntityCategory.DIAGNOSTIC
+  repair_issues:
+    status: exempt
+    description: Large floorplan system supports graceful degradation
+  entity_categories:
+    status: done
+    description: Entities properly categorized (config, diagnostic, system)
+
+# Gold requirements — FUTURE 🎯
+  full_translations:
+    status: todo
+    description: Complete translations via Lokalise integration
+  device_classes:
+    status: todo
+    description: All binary sensors use device_class for proper UI rendering
+  analytics:
+    status: todo
+    description: Integration submits analytics data to Home Assistant analytics
+
+# Code quality
+code_quality:
+  type_checking:
+    status: done
+    description: "PEP 563 + return type hints across all 34 files"
+  testing:
+    status: in_progress
+    description: "Engine unit tests targeting 80%+ coverage"
+  ci_enforcement:
+    status: in_progress
+    description: "ruff + mypy checks in GitHub Actions"

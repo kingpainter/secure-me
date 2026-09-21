@@ -39,3 +39,39 @@ jobs:
 
       - name: Check version consistency
         run: python3 custom_components/secure_me/tools/validate_version.py
+
+  quality-scale:
+    runs-on: ubuntu-latest
+    name: Quality Scale Requirement
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify quality_scale.yaml exists
+        run: |
+          if [ ! -f "custom_components/secure_me/quality_scale.yaml" ]; then
+            echo "❌ quality_scale.yaml not found"
+            exit 1
+          fi
+          echo "✓ quality_scale.yaml present"
+
+  pep563:
+    runs-on: ubuntu-latest
+    name: PEP 563 Annotations Check
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify PEP 563 imports in all .py files
+        run: |
+          missing=$(find custom_components/secure_me -name "*.py" | while read f; do
+            if ! grep -q "from __future__ import annotations" "$f"; then
+              echo "$f"
+            fi
+          done)
+          if [ -n "$missing" ]; then
+            echo "❌ Missing 'from __future__ import annotations' in:"
+            echo "$missing"
+            exit 1
+          fi
+          echo "✓ All .py files have PEP 563 annotations"
