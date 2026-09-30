@@ -13,6 +13,7 @@ State machine per action:
   PENDING -> DONE  (delay elapsed, action ran)
   DONE    -> IDLE  (a person comes home -- reset for next cycle)
 """
+from __future__ import annotations
 
 # VERSION = "2.0.1"
 

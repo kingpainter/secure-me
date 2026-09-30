@@ -7,6 +7,7 @@ Engines are testable, standalone state machines that:
 
 Engines follow the Heat Manager pattern for clean separation of concerns.
 """
+from __future__ import annotations
 
 from .base_engine import BaseEngine
 from .auto_actions_engine import AutoActionsEngine
