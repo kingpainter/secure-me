@@ -79,7 +79,7 @@ class SpeakerQueue:
                     )
                 finally:
                     self._queue.task_done()
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break  # idle -- stop worker, restart on next message
 
     def stop(self) -> None:

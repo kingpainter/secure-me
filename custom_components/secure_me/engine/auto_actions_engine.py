@@ -1006,6 +1006,6 @@ class AutoActionsEngine(BaseEngine):
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):  # noqa: S110
+                except (asyncio.CancelledError, Exception):
                     pass
         self._action_tasks.clear()

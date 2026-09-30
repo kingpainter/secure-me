@@ -8,7 +8,6 @@ import asyncio
 import logging
 import time
 from datetime import UTC, timedelta
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -17,6 +16,7 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
+from .auto_actions import AutoActionsManager
 from .const import (
     CONF_CODE,
     CONF_ENTRY_DELAY,
@@ -59,7 +59,6 @@ from .const import (
     STATE_ALARM_TRIGGERED,
     STATE_MACHINE_UPDATE_INTERVAL,
 )
-from .auto_actions import AutoActionsManager
 from .module_dispatch import ModuleDispatcher, normalize_module_config
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -1403,7 +1402,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     asyncio.gather(*pending, return_exceptions=True),
                     timeout=2.0,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 _LOGGER.warning("Push action(s) did not finish in 2s, cancelling")
                 for task in pending:
                     if not task.done():

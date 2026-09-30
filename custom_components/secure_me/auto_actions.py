@@ -65,6 +65,9 @@ from .const import (
     NOTIFY_ID_AUTO_ACTIONS,
     STATE_ALARM_DISARMED,
 )
+from .engine import BaseEngine
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AutoActionsManager(BaseEngine):
@@ -240,19 +243,19 @@ class AutoActionsManager(BaseEngine):
         if self._unsub_listener:
             try:
                 self._unsub_listener()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_listener = None
         if self._unsub_disarm_listener:
             try:
                 self._unsub_disarm_listener()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_disarm_listener = None
         if self._unsub_stale_check:
             try:
                 self._unsub_stale_check()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_stale_check = None
         await self._cancel_all_action_tasks()
@@ -1013,6 +1016,6 @@ class AutoActionsManager(BaseEngine):
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):  # noqa: S110
+                except (asyncio.CancelledError, Exception):
                     pass
         self._action_tasks.clear()

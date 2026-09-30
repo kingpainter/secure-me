@@ -28,7 +28,7 @@ from .websocket_api import async_register_websocket_api
 
 try:
     from . import panel
-except Exception:  # noqa: BLE001
+except Exception:
     # panel imports HA HTTP components unavailable in test environments.
     # Provide a minimal stub so tests can patch custom_components.secure_me.panel.*
     import types as _types
@@ -180,13 +180,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not remaining:
             try:
                 panel.async_unregister_panel(hass)
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False
 
             try:
                 async_unregister_services(hass)
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
             hass.data[DOMAIN]["_services_registered"] = False
 

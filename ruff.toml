@@ -1,0 +1,8 @@
+line-length = 88
+target-version = "py313"
+
+[lint]
+ignore = [
+    "BLE001",  # Blind exception: intentional in HA for error recovery
+    "S110",    # try-except-pass: intentional for cleanup operations
+]

@@ -71,7 +71,7 @@ def _discover_batteries(
                 entry = ent_reg.async_get(state.entity_id)
                 if not entry or entry.device_id not in device_ids:
                     continue
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
         level = None
         try:

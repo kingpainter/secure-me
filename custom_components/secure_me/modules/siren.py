@@ -349,7 +349,7 @@ class SirenModule(AlarmModule):
                     service_data={"gw_mac": self.gateway_mac},
                     blocking=False,
                 )
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
         await super().async_shutdown()
 

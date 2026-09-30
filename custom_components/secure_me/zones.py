@@ -557,7 +557,7 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe ready modes listener: %s", err)
             self._ready_modes_unsub = None
 
@@ -624,7 +624,7 @@ class ZoneManager:
                         f"{NOTIFY_ID_MODULE_ERROR}_sensor_{entity_id.replace('.', '_')}"
                     ),
                 )
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
@@ -930,7 +930,7 @@ class ZoneManager:
         for unsub in self._unsubscribe_callbacks:
             try:
                 unsub()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe sensor listener: %s", err)
         self._unsubscribe_callbacks.clear()
         _LOGGER.info("Stopped monitoring sensors")
@@ -947,7 +947,7 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception as err:  # noqa: S110
+            except Exception as err:
                 _LOGGER.error("Failed to unsubscribe ready modes listener: %s", err)
             self._ready_modes_unsub = None
 

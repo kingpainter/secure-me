@@ -236,14 +236,14 @@ async def _async_register_lovelace_resources(
         # Load existing resources so we can check for duplicates
         try:
             await resources.async_load()
-        except Exception:  # noqa: S110
+        except Exception:
             pass
 
         existing_urls: set[str] = set()
         try:
             for item in resources.async_items():
                 existing_urls.add(item.get("url", "").split("?")[0])
-        except Exception:  # noqa: S110
+        except Exception:
             pass
 
         for url, fpath, label in cards:

@@ -200,7 +200,7 @@ class LightsModule(AlarmModule):
                     "light", "turn_off", target={"entity_id": self.lights[0]}
                 )
                 results["details"]["emergency_flash"] = True
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
 
         if messages:

@@ -575,7 +575,7 @@ class NotificationDispatcher:
         for unsub in self._unsubs:
             try:
                 unsub()
-            except Exception:  # noqa: S110
+            except Exception:
                 pass
         self._unsubs.clear()
 
