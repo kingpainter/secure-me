@@ -208,7 +208,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             last_run = cfg.get("last_run", "")
             if last_run:
                 try:
-                    last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
+                    last_dt = datetime.strptime(
+                        last_run, "%Y-%m-%d %H:%M:%S"
+                    ).replace(tzinfo=UTC)
                     if (now_dt - last_dt).total_seconds() < 60:
                         continue
                 except ValueError:

@@ -16,8 +16,6 @@
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/kingpainter/secure-me/issues",
-  "requirements": [
-    "bcrypt>=4.0.0"
-  ],
+  "requirements": [],
   "version": "2.0.1"
 }

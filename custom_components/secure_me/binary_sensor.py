@@ -522,8 +522,12 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     def is_on(self) -> bool:
         """Return True if any battery is critically low."""
         for bat in self._get_batteries():
-            if bat["available"] and bat["level"] is not None and bat["level"] < BATTERY_THRESHOLD_CRITICAL:
-                    return True
+            if (
+                bat["available"]
+                and bat["level"] is not None
+                and bat["level"] < BATTERY_THRESHOLD_CRITICAL
+            ):
+                return True
         return False
 
     @property
