@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
-from __future__ import annotations
+"""Auto Actions Engine for Secure Me.
 
-"""Auto Actions manager for Secure Me.
-
-Monitors person_entity/tracker_entity from enabled Secure Me user profiles
-(v1.5.4 -- previously watched every person.* entity in HA; see
-async_refresh_trackers() below for why that changed). When the home
-becomes empty (all tracked users not_home) it schedules three independent
-delayed actions:
-  1. Lock all configured locks (unless Fake Presence blocks locks).
-  2. Arm the alarm in away mode (unless Fake Presence blocks alarm).
-  3. Activate cameras / start recording (unless Fake Presence blocks cameras).
-
-Each action has its own configurable delay. An arrival confirmation window
-prevents a brief GPS flicker from cancelling actions mid-flight.
+Pure state machine for presence-based automatic actions:
+  - Monitors person/tracker entities
+  - Schedules delayed lock/alarm/camera actions
+  - Manages arrival confirmation window
+  - No direct HA dependencies (only hass for callbacks/tasks)
 
 State machine per action:
   IDLE -> PENDING (home empty, timer started)
        -> DONE    (action executed)
-  PENDING -> IDLE  (person confirmed home after arrival_confirmation_delay)
+  PENDING -> IDLE  (person confirmed home)
   PENDING -> DONE  (delay elapsed, action ran)
   DONE    -> IDLE  (a person comes home -- reset for next cycle)
 """
-# VERSION = "2.0.1"
 
+from __future__ import annotations
+
+# VERSION = "2.0.1"
 import asyncio
 import logging
 import time
@@ -75,7 +69,10 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class AutoActionsManager:
+
+
+
+class AutoActionsManager(BaseEngine):
     """Manages presence-based automatic actions for Secure Me.
 
     Lifecycle:
@@ -94,8 +91,10 @@ class AutoActionsManager:
         hass: HomeAssistant,
         coordinator: Any,
         store: Any,
+        config: dict[str, Any] | None = None,
     ) -> None:
-        self.hass = hass
+        """Initialize AutoActionsManager."""
+        super().__init__(hass, config or {})
         self.coordinator = coordinator
         self.store = store
 

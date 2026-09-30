@@ -23,7 +23,7 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 import pytest
 from freezegun import freeze_time
 
-from custom_components.secure_me.engine.auto_actions_engine import AutoActionsEngine
+from custom_components.secure_me.auto_actions import AutoActionsManager
 from custom_components.secure_me.const import (
     AA_LOCK_DELAY,
     AA_ALARM_DELAY,
@@ -64,8 +64,8 @@ def mock_store():
 
 @pytest.fixture
 def engine(mock_hass, mock_coordinator, mock_store):
-    """Create AutoActionsEngine instance with mocked dependencies."""
-    engine = AutoActionsEngine(mock_hass, mock_coordinator, mock_store)
+    """Create AutoActionsManager instance with mocked dependencies."""
+    engine = AutoActionsManager(mock_hass, mock_coordinator, mock_store)
     # Mock service call methods
     engine._call_lock_service = AsyncMock(return_value=True)
     engine._call_alarm_service = AsyncMock(return_value=True)

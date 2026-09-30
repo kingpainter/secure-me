@@ -1,13 +1,13 @@
-"""Extended unit tests for AutoActionsEngine logic."""
+"""Extended unit tests for AutoActionsManager logic."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from custom_components.secure_me.engine.auto_actions_engine import AutoActionsEngine
+from custom_components.secure_me.auto_actions import AutoActionsManager
 
 
-class TestAutoActionsEngineLogic:
-    """Test AutoActionsEngine state machine logic."""
+class TestAutoActionsManagerLogic:
+    """Test AutoActionsManager state machine logic."""
 
     @pytest.fixture
     def mock_hass(self):
@@ -29,8 +29,8 @@ class TestAutoActionsEngineLogic:
 
     @pytest.fixture
     def engine(self, mock_hass, mock_coordinator, mock_store):
-        """Create AutoActionsEngine instance for testing."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance for testing."""
+        return AutoActionsManager(
             mock_hass,
             mock_coordinator,
             mock_store,

@@ -1,14 +1,14 @@
-"""Comprehensive unit tests for AutoActionsEngine - 80%+ coverage."""
+"""Comprehensive unit tests for AutoActionsManager - 80%+ coverage."""
 
 import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
-from custom_components.secure_me.engine.auto_actions_engine import AutoActionsEngine
+from custom_components.secure_me.auto_actions import AutoActionsManager
 
 
-class TestAutoActionsEngineInitialization:
-    """Test AutoActionsEngine initialization."""
+class TestAutoActionsManagerInitialization:
+    """Test AutoActionsManager initialization."""
 
     @pytest.fixture
     def fixtures(self):
@@ -21,44 +21,44 @@ class TestAutoActionsEngineInitialization:
 
     def test_init_stores_dependencies(self, fixtures):
         """Test __init__ stores hass, coordinator, store."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine.hass == fixtures["hass"]
         assert engine.coordinator == fixtures["coordinator"]
         assert engine.store == fixtures["store"]
 
     def test_init_sets_home_empty_false(self, fixtures):
         """Test __init__ initializes home_empty to False."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine._home_empty is False
 
     def test_init_sets_done_actions_empty(self, fixtures):
         """Test __init__ initializes done_actions as empty set."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine._done_actions == set()
 
     def test_init_sets_action_results_empty(self, fixtures):
         """Test __init__ initializes action_results dict."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine._action_results == {}
 
     def test_init_sets_tracker_states_empty(self, fixtures):
         """Test __init__ initializes tracker states."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine._tracker_states == {}
 
     def test_init_sets_all_away_since_none(self, fixtures):
         """Test __init__ initializes all_away_since to None."""
-        engine = AutoActionsEngine(**fixtures)
+        engine = AutoActionsManager(**fixtures)
         assert engine._all_away_since is None
 
 
-class TestAutoActionsEnginePersonTracking:
+class TestAutoActionsManagerPersonTracking:
     """Test person tracking logic."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 
@@ -104,13 +104,13 @@ class TestAutoActionsEnginePersonTracking:
         assert "lock" in engine._done_actions
 
 
-class TestAutoActionsEngineStateTracking:
+class TestAutoActionsManagerStateTracking:
     """Test action state tracking."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 
@@ -148,13 +148,13 @@ class TestAutoActionsEngineStateTracking:
         assert "alarm" not in engine._done_actions
 
 
-class TestAutoActionsEngineTimerLogic:
+class TestAutoActionsManagerTimerLogic:
     """Test timer and delay logic."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 
@@ -193,13 +193,13 @@ class TestAutoActionsEngineTimerLogic:
         assert should_recheck is False
 
 
-class TestAutoActionsEngineStaleTrackerDetection:
+class TestAutoActionsManagerStaleTrackerDetection:
     """Test stale tracker detection."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 
@@ -264,13 +264,13 @@ class TestAutoActionsEngineStaleTrackerDetection:
         assert len(stale) == 2
 
 
-class TestAutoActionsEngineGPSFlickerProtection:
+class TestAutoActionsManagerGPSFlickerProtection:
     """Test GPS flicker protection logic."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 
@@ -291,13 +291,13 @@ class TestAutoActionsEngineGPSFlickerProtection:
         assert "lock" in engine._done_actions  # Still marked as done
 
 
-class TestAutoActionsEngineIntegration:
-    """Integration tests for AutoActionsEngine."""
+class TestAutoActionsManagerIntegration:
+    """Integration tests for AutoActionsManager."""
 
     @pytest.fixture
     def engine(self):
-        """Create AutoActionsEngine instance."""
-        return AutoActionsEngine(
+        """Create AutoActionsManager instance."""
+        return AutoActionsManager(
             MagicMock(), MagicMock(), MagicMock()
         )
 

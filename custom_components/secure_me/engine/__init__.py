@@ -11,13 +11,11 @@ Engines follow the Heat Manager pattern for clean separation of concerns.
 
 from __future__ import annotations
 
-from .auto_actions_engine import AutoActionsEngine
 from .base_engine import BaseEngine
 from .floorplan_engine import FloorplanEngine
 from .notification_engine import NotificationEngine
 
 __all__ = [
-    "AutoActionsEngine",
     "BaseEngine",
     "FloorplanEngine",
     "NotificationEngine",

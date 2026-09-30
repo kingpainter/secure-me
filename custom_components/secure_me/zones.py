@@ -919,6 +919,14 @@ class ZoneManager:
         self._unsubscribe_callbacks.append(unsub)
         _LOGGER.info("Started monitoring %d sensors", len(all_sensors))
 
+    def is_monitoring(self) -> bool:
+        """Return True if zone monitoring is currently active.
+        
+        Used by coordinator to avoid redundant start_monitoring() calls
+        and to maintain cleaner public API than checking private fields.
+        """
+        return len(self._unsubscribe_callbacks) > 0
+
     def stop_monitoring(self) -> None:
         for unsub in self._unsubscribe_callbacks:
             try:

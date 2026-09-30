@@ -59,7 +59,7 @@ from .const import (
     STATE_ALARM_TRIGGERED,
     STATE_MACHINE_UPDATE_INTERVAL,
 )
-from .engine import AutoActionsEngine
+from .auto_actions import AutoActionsManager
 from .module_dispatch import ModuleDispatcher, normalize_module_config
 from .state_machine import AlarmStateMachine
 from .zones import ZoneManager
@@ -166,7 +166,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # already covered everything it did, with configurable per-action
         # delays and Fake Presence v2 selective blocking, and is the system
         # actually exposed in the panel's Special Features tab.
-        self._auto_actions_manager: AutoActionsEngine | None = None
+        self._auto_actions_manager: AutoActionsManager | None = None
 
         # Ring buffer of recent arm/disarm/trigger events (max 20, newest first).
         # Must be initialized here so _state_changed() can safely insert on the
@@ -460,7 +460,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             STATE_ALARM_ARMED_HOME_ALONE,
         ):
             self._last_arm_mode = new_state
-            if len(self.zone_manager._unsubscribe_callbacks) == 0:
+            if not self.zone_manager.is_monitoring():
                 # Derive short mode string from state constant
                 _mode_map = {
                     STATE_ALARM_ARMED_AWAY: "away",
@@ -1279,7 +1279,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             not hasattr(self, "_auto_actions_manager")
             or self._auto_actions_manager is None
         ):
-            self._auto_actions_manager = AutoActionsEngine(self.hass, self, store)
+            self._auto_actions_manager = AutoActionsManager(self.hass, self, store)
             self._auto_actions_manager.async_start()
         else:
             # Store re-loaded (e.g. config entry reload) -- refresh the
