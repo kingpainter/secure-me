@@ -960,6 +960,9 @@ class AutoActionsManager:
                     return False
                 if now - stale_since < timeout:
                     return False
+                # v1.5.6 bugfix: Remove stale entry after timeout to prevent
+                # accumulation in _tracker_stale_since dict
+                self._tracker_stale_since.pop(entity_id, None)
                 _LOGGER.info(
                     "AutoActions: tracker %s stuck %s for >= %ds -- no longer "
                     "blocking the 'home empty' check",

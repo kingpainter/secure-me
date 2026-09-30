@@ -557,8 +557,8 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception:  # noqa: S110
-                pass
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe ready modes listener: %s", err)
             self._ready_modes_unsub = None
 
         # Build the watched set from all enabled-zone sensors
@@ -821,13 +821,25 @@ class ZoneManager:
                     # it belongs to. Mobile-app action-button taps only echo
                     # back the action id, not the original notification
                     # payload, so this has to be tracked out-of-band.
-                    self.hass.data.setdefault(DOMAIN, {})[
+                    # v1.5.6 bugfix: Implement TTL to prevent accumulation
+                    last_trigger = self.hass.data.setdefault(DOMAIN, {}).get(
                         "_last_home_alone_trigger"
-                    ] = {
-                        "entity_id": entity_id,
-                        "sensor_cfg": sensor_cfg,
-                        "timestamp": time.monotonic(),
-                    }
+                    )
+                    if last_trigger:
+                        age = time.monotonic() - last_trigger.get("timestamp", 0)
+                        if age > 300:  # 5 minutes TTL
+                            last_trigger = None
+                    if last_trigger is None:
+                        self.hass.data.setdefault(DOMAIN, {})[
+                            "_last_home_alone_trigger"
+                        ] = {
+                            "entity_id": entity_id,
+                            "sensor_cfg": sensor_cfg,
+                            "timestamp": time.monotonic(),
+                        }
+                    else:
+                        # Update timestamp if still recent
+                        last_trigger["timestamp"] = time.monotonic()
                     from .notification_dispatcher import (
                         dispatch_home_alone_door_trigger,
                     )
@@ -909,7 +921,10 @@ class ZoneManager:
 
     def stop_monitoring(self) -> None:
         for unsub in self._unsubscribe_callbacks:
-            unsub()
+            try:
+                unsub()
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe sensor listener: %s", err)
         self._unsubscribe_callbacks.clear()
         _LOGGER.info("Stopped monitoring sensors")
 
@@ -925,8 +940,8 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception:  # noqa: S110
-                pass
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe ready modes listener: %s", err)
             self._ready_modes_unsub = None
 
     def clear_all_triggers(self) -> None:
