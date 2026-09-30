@@ -243,13 +243,22 @@ class AutoActionsManager(BaseEngine):
     async def async_stop(self) -> None:
         """Cancel all pending tasks and unregister listener."""
         if self._unsub_listener:
-            self._unsub_listener()
+            try:
+                self._unsub_listener()
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_listener = None
         if self._unsub_disarm_listener:
-            self._unsub_disarm_listener()
+            try:
+                self._unsub_disarm_listener()
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_disarm_listener = None
         if self._unsub_stale_check:
-            self._unsub_stale_check()
+            try:
+                self._unsub_stale_check()
+            except Exception as err:  # noqa: S110
+                _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_stale_check = None
         await self._cancel_all_action_tasks()
         if self._arrival_task and not self._arrival_task.done():

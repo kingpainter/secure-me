@@ -827,7 +827,7 @@ class ZoneManager:
                     )
                     if last_trigger:
                         age = time.monotonic() - last_trigger.get("timestamp", 0)
-                        if age > 300:  # 5 minutes TTL
+                        if age > self._HOME_ALONE_TRIGGER_TTL:  # 5 minutes TTL
                             last_trigger = None
                     if last_trigger is None:
                         self.hass.data.setdefault(DOMAIN, {})[

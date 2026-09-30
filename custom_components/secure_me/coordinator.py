@@ -547,7 +547,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         await self.state_machine.trigger_entry_delay(zone.zone_type)
 
-    async def _async_update_data(self) -> dict[str, Any]:
+    async def _async_update_data(self) -> dict[str, bool | str]:
         """Update data via library."""
         try:
             data = {
@@ -587,10 +587,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     @property
     def alarm_state(self) -> str:
+        """Return the current alarm state."""
         return self.state_machine.current_state
 
     @property
     def delay_countdown(self) -> int:
+        """Return the countdown in seconds (0 if no active delay)."""
         return self.state_machine.countdown
 
     @property
@@ -603,30 +605,37 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     @property
     def exit_delay(self) -> int:
+        """Return the exit delay in seconds."""
         return self.state_machine.exit_delay
 
     @property
     def entry_delay(self) -> int:
+        """Return the entry delay in seconds."""
         return self.state_machine.entry_delay
 
     @property
     def code(self) -> str:
+        """Return the code/PIN used to arm/disarm."""
         return self._code
 
     @property
     def armed_by(self) -> str | None:
+        """Return who armed the alarm (None if not armed)."""
         return self._armed_by
 
     @property
     def disarmed_by(self) -> str | None:
+        """Return who disarmed the alarm (None if armed)."""
         return self._disarmed_by
 
     @property
     def triggered_by(self) -> str | None:
+        """Return the zone/sensor that triggered the alarm."""
         return self._triggered_by
 
     @property
     def open_sensors(self) -> list[str]:
+        """Return list of currently open sensor entity IDs."""
         return self.zone_manager.get_all_open_sensors()
 
     @property
@@ -654,10 +663,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     @property
     def bypassed_zones(self) -> list[str]:
+        """Return the bypassed_zones."""
         return []
 
     @property
     def fake_presence(self) -> bool:
+        """Return the fake_presence."""
         if hasattr(self, "store") and self.store:
             return self.store.get_fake_presence()
         return False
@@ -1178,7 +1189,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # ── Config ───────────────────────────────────────────────────────────────
 
-    def update_config(self, config_data: dict[str, Any]) -> None:
+    def update_config(self, config_data: dict[str, str | bool | int]) -> None:
         """Update configuration."""
         self._code = config_data.get(CONF_CODE, self._code)
         exit_delay = config_data.get(CONF_EXIT_DELAY, self.state_machine.exit_delay)
@@ -1290,7 +1301,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     # ── Health ───────────────────────────────────────────────────────────────
 
     @property
-    def modules(self) -> dict[str, Any]:
+    def modules(self) -> dict[str, object]:
         """Kept as a property (rather than a plain dict attribute) so external
         code -- ws_modules.py, diagnostics.py, binary_sensor.py, sensor.py,
         auto_actions.py, notification_dispatcher.py -- keeps working with
@@ -1318,7 +1329,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # ── Presence ──────────────────────────────────────────────────────────────
 
-    def get_presence_status(self) -> dict[str, Any]:
+    def get_presence_status(self) -> dict[str, bool | str]:
         """Return presence status derived from user tracker entities.
 
         Reads `person_entity` (canonical) or `tracker_entity` (legacy fallback)
