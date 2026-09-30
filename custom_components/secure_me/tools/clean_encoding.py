@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 """Clean corrupted UTF-8 encoding in files."""

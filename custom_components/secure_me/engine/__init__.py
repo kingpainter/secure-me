@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Secure Me engine modules.
 
 Engines are testable, standalone state machines that:

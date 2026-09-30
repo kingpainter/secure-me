@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """WebSocket API — Module, Notification, Test and Presence commands for Secure Me."""
 
 # VERSION = "2.0.1"

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """WebSocket API for Secure Me panel.
 
 This module is the registration entry point only. All command handlers

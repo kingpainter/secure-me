@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 """Binary sensor platform for Secure Me - Health Monitoring & Battery Alerts."""

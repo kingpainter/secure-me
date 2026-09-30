@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 from __future__ import annotations
 
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""

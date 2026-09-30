@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Home Assistant services for Secure Me.
 # VERSION = "2.0.1"
 

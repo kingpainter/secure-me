@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Base engine class for Secure Me engines.
 
 All engines inherit from BaseEngine to provide:

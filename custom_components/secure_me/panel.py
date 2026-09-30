@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # VERSION = "2.0.1"
 """Panel registration for Secure Me.
 

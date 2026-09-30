@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Notification Dispatcher for Secure Me.
 
 SYSTEM NOTIFICATION ARCHITECTURE

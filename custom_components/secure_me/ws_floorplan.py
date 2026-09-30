@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """WebSocket API — Floorplan commands for Secure Me."""
 
 # VERSION = "2.0.1"

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Auto Actions Engine for Secure Me.
 
 Pure state machine for presence-based automatic actions:
