@@ -75,19 +75,23 @@ class SirenModule(AlarmModule):
         domain = self._domain(entity_id)
         if domain == "siren":
             return await self.async_call_service_with_retry(
-                "siren", "turn_on",
+                "siren",
+                "turn_on",
                 target={"entity_id": entity_id},
                 service_data={"volume_level": volume / 100.0},
                 action=f"siren_on_{entity_id}",
             )
         elif domain in ONOFF_DOMAINS:
             return await self.async_call_service_with_retry(
-                "homeassistant", "turn_on",
+                "homeassistant",
+                "turn_on",
                 target={"entity_id": entity_id},
                 action=f"onoff_siren_on_{entity_id}",
             )
         else:
-            _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+            _LOGGER.warning(
+                "Siren module: unsupported domain '%s' for entity %s", domain, entity_id
+            )
             self._on_failure(f"unsupported_domain:{entity_id}")
             return False
 
@@ -99,18 +103,22 @@ class SirenModule(AlarmModule):
         domain = self._domain(entity_id)
         if domain == "siren":
             return await self.async_call_service_with_retry(
-                "siren", "turn_off",
+                "siren",
+                "turn_off",
                 target={"entity_id": entity_id},
                 action=f"siren_off_{entity_id}",
             )
         elif domain in ONOFF_DOMAINS:
             return await self.async_call_service_with_retry(
-                "homeassistant", "turn_off",
+                "homeassistant",
+                "turn_off",
                 target={"entity_id": entity_id},
                 action=f"onoff_siren_off_{entity_id}",
             )
         else:
-            _LOGGER.warning("Siren module: unsupported domain '%s' for entity %s", domain, entity_id)
+            _LOGGER.warning(
+                "Siren module: unsupported domain '%s' for entity %s", domain, entity_id
+            )
             self._on_failure(f"unsupported_domain:{entity_id}")
             return False
 
@@ -155,7 +163,8 @@ class SirenModule(AlarmModule):
         # Legacy Xiaomi Gateway
         if self.gateway_mac:
             await self.async_call_service_with_retry(
-                "xiaomi_aqara", "stop_ringtone",
+                "xiaomi_aqara",
+                "stop_ringtone",
                 service_data={"gw_mac": self.gateway_mac},
                 action="siren_stop",
             )
@@ -166,7 +175,8 @@ class SirenModule(AlarmModule):
 
         if self.gateway_light:
             await self.async_call_service_with_retry(
-                "light", "turn_off",
+                "light",
+                "turn_off",
                 target={"entity_id": self.gateway_light},
                 action="siren_light_off",
             )
@@ -195,7 +205,8 @@ class SirenModule(AlarmModule):
         # Legacy Xiaomi Gateway
         if self.sound_on_trigger and self.gateway_mac:
             await self.async_call_service_with_retry(
-                "xiaomi_aqara", "play_ringtone",
+                "xiaomi_aqara",
+                "play_ringtone",
                 service_data={
                     "gw_mac": self.gateway_mac,
                     "ringtone_id": self.ringtone_id,
@@ -207,8 +218,11 @@ class SirenModule(AlarmModule):
         if self.light_on_trigger and self.gateway_light:
             self._flash_task = asyncio.create_task(self._flash_gateway_light())
 
-        _LOGGER.info("Siren module: alarm triggered (%d entity sirens, gateway=%s)",
-                     len(self.sirens), bool(self.gateway_mac))
+        _LOGGER.info(
+            "Siren module: alarm triggered (%d entity sirens, gateway=%s)",
+            len(self.sirens),
+            bool(self.gateway_mac),
+        )
         return True
 
     async def async_test(self) -> dict[str, Any]:
@@ -251,7 +265,9 @@ class SirenModule(AlarmModule):
                     entity_result["test_fired"] = bool(turned_on and turned_off)
                     if not entity_result["test_fired"]:
                         results["success"] = False
-                        messages.append(f"Test failed for {entity_id} (unsupported domain or service call failed)")
+                        messages.append(
+                            f"Test failed for {entity_id} (unsupported domain or service call failed)"
+                        )
                 except Exception as err:
                     _LOGGER.error("Siren entity test failed for %s: %s", entity_id, err)
                     results["success"] = False
@@ -276,12 +292,18 @@ class SirenModule(AlarmModule):
         if self.gateway_mac:
             try:
                 await self.async_call_service(
-                    "xiaomi_aqara", "play_ringtone",
-                    service_data={"gw_mac": self.gateway_mac, "ringtone_id": self.ringtone_id, "ringtone_vol": 30},
+                    "xiaomi_aqara",
+                    "play_ringtone",
+                    service_data={
+                        "gw_mac": self.gateway_mac,
+                        "ringtone_id": self.ringtone_id,
+                        "ringtone_vol": 30,
+                    },
                 )
                 await asyncio.sleep(2)
                 await self.async_call_service(
-                    "xiaomi_aqara", "stop_ringtone",
+                    "xiaomi_aqara",
+                    "stop_ringtone",
                     service_data={"gw_mac": self.gateway_mac},
                 )
                 results["details"]["sound_test"] = True
@@ -294,12 +316,15 @@ class SirenModule(AlarmModule):
             try:
                 for color in ([255, 0, 0], [0, 0, 255]):
                     await self.async_call_service(
-                        "light", "turn_on",
+                        "light",
+                        "turn_on",
                         service_data={"brightness": 255, "rgb_color": color},
                         target={"entity_id": self.gateway_light},
                     )
                     await asyncio.sleep(1)
-                await self.async_call_service("light", "turn_off", target={"entity_id": self.gateway_light})
+                await self.async_call_service(
+                    "light", "turn_off", target={"entity_id": self.gateway_light}
+                )
                 results["details"]["light_test"] = True
             except Exception as err:
                 _LOGGER.error("Siren light test failed: %s", err)
@@ -318,7 +343,8 @@ class SirenModule(AlarmModule):
         if self.gateway_mac:
             try:
                 await self.hass.services.async_call(
-                    "xiaomi_aqara", "stop_ringtone",
+                    "xiaomi_aqara",
+                    "stop_ringtone",
                     service_data={"gw_mac": self.gateway_mac},
                     blocking=False,
                 )
@@ -335,12 +361,15 @@ class SirenModule(AlarmModule):
             while asyncio.get_event_loop().time() < end_time:
                 for color in ([255, 0, 0], [0, 0, 255]):
                     await self.async_call_service(
-                        "light", "turn_on",
+                        "light",
+                        "turn_on",
                         service_data={"brightness": 255, "rgb_color": color},
                         target={"entity_id": self.gateway_light},
                     )
                     await asyncio.sleep(0.5)
-                    await self.async_call_service("light", "turn_off", target={"entity_id": self.gateway_light})
+                    await self.async_call_service(
+                        "light", "turn_off", target={"entity_id": self.gateway_light}
+                    )
                     await asyncio.sleep(0.5)
         except asyncio.CancelledError:
             pass

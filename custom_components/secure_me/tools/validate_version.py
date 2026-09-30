@@ -34,7 +34,9 @@ def fix_file(path: Path, version: str, replacements: list[tuple]) -> bool:
     content = original = path.read_text(encoding="utf-8")
     for pattern, replacement in replacements:
         flags = re.MULTILINE if pattern.startswith("^") else 0
-        content = re.sub(pattern, replacement.replace("VERSION", version), content, flags=flags)
+        content = re.sub(
+            pattern, replacement.replace("VERSION", version), content, flags=flags
+        )
 
     if content != original:
         path.write_text(content, encoding="utf-8")
@@ -102,15 +104,18 @@ FILES = [
 
 # All .py files in secure_me/ and secure_me/modules/ get version comment check
 PY_COMMENT_FILES = [
-    f for f in list(ROOT.glob("*.py")) + list((ROOT / "modules").glob("*.py"))
+    f
+    for f in list(ROOT.glob("*.py")) + list((ROOT / "modules").glob("*.py"))
     if f.name not in ("const.py", "panel.py", "validate_version.py")
 ]
 for py_file in PY_COMMENT_FILES:
-    FILES.append({
-        "path": py_file,
-        "check": [(r'^# VERSION = "([\d.]+)"', "version comment")],
-        "fix": [(r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"')],
-    })
+    FILES.append(
+        {
+            "path": py_file,
+            "check": [(r'^# VERSION = "([\d.]+)"', "version comment")],
+            "fix": [(r'^# VERSION = "[\d.]+"', '# VERSION = "VERSION"')],
+        }
+    )
 
 
 def main():

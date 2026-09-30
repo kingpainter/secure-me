@@ -1,4 +1,5 @@
 """WebSocket API — Module, Notification, Test and Presence commands for Secure Me."""
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -24,9 +25,11 @@ from .module_dispatch import get_module_entity_ids as _get_module_entity_ids
 from .module_dispatch import normalize_module_config as _normalize_module_config
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_modules",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_modules",
+    }
+)
 @websocket_api.async_response
 async def ws_get_modules(
     hass: HomeAssistant,
@@ -43,11 +46,13 @@ async def ws_get_modules(
     connection.send_result(msg["id"], {"modules": modules})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_module",
-    vol.Required("module_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_module",
+        vol.Required("module_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_module(
@@ -75,10 +80,12 @@ async def ws_save_module(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_module_entities",
-    vol.Required("domain"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_module_entities",
+        vol.Required("domain"): str,
+    }
+)
 @websocket_api.async_response
 async def ws_get_module_entities(
     hass: HomeAssistant,
@@ -99,9 +106,12 @@ async def ws_get_module_entities(
 # NOTIFICATIONS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_notifications",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_notifications",
+    }
+)
 @websocket_api.async_response
 async def ws_get_notifications(
     hass: HomeAssistant,
@@ -118,11 +128,13 @@ async def ws_get_notifications(
     connection.send_result(msg["id"], {"notifications": notifications})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_notification",
-    vol.Required("notification_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_notification",
+        vol.Required("notification_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_notification(
@@ -141,10 +153,12 @@ async def ws_save_notification(
     connection.send_result(msg["id"], {"success": True, "notification_id": notif_id})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_notification",
-    vol.Required("notification_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_notification",
+        vol.Required("notification_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_notification(
@@ -162,10 +176,12 @@ async def ws_delete_notification(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/test_notification",
-    vol.Required("notification_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/test_notification",
+        vol.Required("notification_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_notification(
@@ -198,18 +214,27 @@ async def ws_test_notification(
                 _LOGGER.error("Failed to test low_battery notification: %s", err)
                 connection.send_result(msg["id"], {"success": False, "error": str(err)})
         else:
-            connection.send_result(msg["id"], {"success": False, "error": "Dispatcher not ready"})
+            connection.send_result(
+                msg["id"], {"success": False, "error": "Dispatcher not ready"}
+            )
         return
 
     # --- Smoke: inject a fake sensor name, send only to admins ---
     if trigger == "smoke":
         from .notification_dispatcher import _build_message, _send_push
+
         raw = notif.get("message", "")
-        message = _build_message(raw, {"sensor": "Test Smoke Detector", "entity_id": "binary_sensor.test_smoke"})
+        message = _build_message(
+            raw,
+            {"sensor": "Test Smoke Detector", "entity_id": "binary_sensor.test_smoke"},
+        )
         title = "TEST - FIRE ALERT: Test Smoke Detector"
         try:
-            admin_services = [u.get("notify_service") for u in store.get_users().values()
-                              if u.get("enabled", True) and u.get("admin") and u.get("notify_service")]
+            admin_services = [
+                u.get("notify_service")
+                for u in store.get_users().values()
+                if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
+            ]
             if not admin_services:
                 admin_services = [notif.get("service", "notify.notify")]
             for svc in admin_services:
@@ -222,12 +247,22 @@ async def ws_test_notification(
     # --- Water leak: inject a fake sensor name, send only to admins ---
     if trigger == "water_leak":
         from .notification_dispatcher import _build_message, _send_push
+
         raw = notif.get("message", "")
-        message = _build_message(raw, {"sensor": "Test Moisture Sensor", "entity_id": "binary_sensor.test_moisture"})
+        message = _build_message(
+            raw,
+            {
+                "sensor": "Test Moisture Sensor",
+                "entity_id": "binary_sensor.test_moisture",
+            },
+        )
         title = "TEST - WATER LEAK: Test Moisture Sensor"
         try:
-            admin_services = [u.get("notify_service") for u in store.get_users().values()
-                              if u.get("enabled", True) and u.get("admin") and u.get("notify_service")]
+            admin_services = [
+                u.get("notify_service")
+                for u in store.get_users().values()
+                if u.get("enabled", True) and u.get("admin") and u.get("notify_service")
+            ]
             if not admin_services:
                 admin_services = [notif.get("service", "notify.notify")]
             for svc in admin_services:
@@ -241,11 +276,18 @@ async def ws_test_notification(
     try:
         title = f"TEST: {notif.get('name', 'Secure Me Test')}"
         context_map = {
-            "state": "test", "armed_by": "Test", "disarmed_by": "Test",
-            "triggered_by": "Test", "sensor_list": "Test sensor", "count": "1",
+            "state": "test",
+            "armed_by": "Test",
+            "disarmed_by": "Test",
+            "triggered_by": "Test",
+            "sensor_list": "Test sensor",
+            "count": "1",
         }
         from .notification_dispatcher import _build_message, _send_push, _get_tts_module
-        message = _build_message(notif.get("message", "Test notification from Secure Me"), context_map)
+
+        message = _build_message(
+            notif.get("message", "Test notification from Secure Me"), context_map
+        )
         channels = notif.get("channels", ["push"])
         if isinstance(channels, str):
             channels = [channels]
@@ -266,7 +308,9 @@ async def ws_test_notification(
             speaker_ids = notif.get("tts_speakers") or None
             tts = _get_tts_module(hass)
             if tts:
-                await tts.announce_system(message, urgent=False, speaker_ids=speaker_ids)
+                await tts.announce_system(
+                    message, urgent=False, speaker_ids=speaker_ids
+                )
             else:
                 _LOGGER.warning("TTS test: TTS module not enabled or not configured")
 
@@ -276,9 +320,11 @@ async def ws_test_notification(
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_notify_services",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_notify_services",
+    }
+)
 @websocket_api.async_response
 async def ws_get_notify_services(
     hass: HomeAssistant,
@@ -299,11 +345,13 @@ async def ws_get_notify_services(
     connection.send_result(msg["id"], {"services": services})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/test_tts",
-    vol.Required("message"): str,
-    vol.Optional("speaker_ids"): list,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/test_tts",
+        vol.Required("message"): str,
+        vol.Optional("speaker_ids"): list,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_tts(
@@ -318,7 +366,9 @@ async def ws_test_tts(
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
 
     tts_module = coordinator.modules.get("tts")
@@ -330,13 +380,18 @@ async def ws_test_tts(
 
     try:
         from .notification_dispatcher import _is_tts_quiet_now
+
         store = _get_store(hass)
         admins = [
-            u for u in (store.get_users().values() if store else [])
+            u
+            for u in (store.get_users().values() if store else [])
             if u.get("enabled", True) and u.get("admin")
         ]
         if admins and all(_is_tts_quiet_now(u) for u in admins):
-            connection.send_result(msg["id"], {"success": False, "error": "TTS quiet hours active for all admins"})
+            connection.send_result(
+                msg["id"],
+                {"success": False, "error": "TTS quiet hours active for all admins"},
+            )
             return
         await tts_module.announce_system(msg["message"], speaker_ids=speaker_ids)
         connection.send_result(msg["id"], {"success": True})
@@ -349,9 +404,12 @@ async def ws_test_tts(
 # AUTOMATIONS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_automations",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_automations",
+    }
+)
 @websocket_api.async_response
 async def ws_get_automations(
     hass: HomeAssistant,
@@ -368,11 +426,13 @@ async def ws_get_automations(
     connection.send_result(msg["id"], {"automations": automations})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_automation",
-    vol.Required("automation_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_automation",
+        vol.Required("automation_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_automation(
@@ -391,10 +451,12 @@ async def ws_save_automation(
     connection.send_result(msg["id"], {"success": True, "automation_id": auto_id})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_automation",
-    vol.Required("automation_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_automation",
+        vol.Required("automation_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_automation(
@@ -412,10 +474,12 @@ async def ws_delete_automation(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/test_automation",
-    vol.Required("automation_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/test_automation",
+        vol.Required("automation_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_test_automation(
@@ -457,6 +521,7 @@ async def ws_test_automation(
 # HEALTH SUMMARY
 #
 
+
 def _classify_module_status(module, unavail: list) -> str:
     """Classify a module's health badge status for the frontend.
 
@@ -473,9 +538,11 @@ def _classify_module_status(module, unavail: list) -> str:
     return "ok"
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_health_summary",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_health_summary",
+    }
+)
 @websocket_api.async_response
 async def ws_get_health_summary(
     hass: HomeAssistant,
@@ -513,45 +580,67 @@ async def ws_get_health_summary(
                 "status": _classify_module_status(module, unavail),
             }
 
-    health_score = round((available_entities / total_entities) * 100) if total_entities > 0 else 100
+    health_score = (
+        round((available_entities / total_entities) * 100)
+        if total_entities > 0
+        else 100
+    )
 
     # Battery summary — cached via coordinator (5-minute TTL) to avoid
     # scanning all HA entities on every health poll.
     store = _get_store(hass)
     configured_eids: set[str] = set()
     if store:
-        configured_eids = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+        configured_eids = {
+            s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")
+        }
     if coordinator and hasattr(coordinator, "get_batteries_cached"):
         batteries = coordinator.get_batteries_cached(configured_eids)
     else:
         batteries = _discover_batteries(hass, configured_eids)
-    low_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
-    critical_batteries = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
+    low_batteries = [
+        b
+        for b in batteries
+        if b["available"] and b["level"] is not None and b["level"] < 20
+    ]
+    critical_batteries = [
+        b
+        for b in batteries
+        if b["available"] and b["level"] is not None and b["level"] < 10
+    ]
 
     # Alarm state
     alarm_state = coordinator.alarm_state if coordinator else "unknown"
 
-    connection.send_result(msg["id"], {
-        "health_score": health_score,
-        "total_entities": total_entities,
-        "available_entities": available_entities,
-        "modules": modules_health,
-        "alarm_state": alarm_state,
-        "batteries": batteries,
-        "low_battery_count": len(low_batteries),
-        "critical_battery_count": len(critical_batteries),
-        "armed_by": coordinator.armed_by if coordinator else None,
-        "triggered_by": coordinator.triggered_by if coordinator else None,
-        "last_triggered": getattr(coordinator, "_last_triggered", None) if coordinator else None,
-        "bypassed_sensors": getattr(coordinator, "_bypassed_sensors", []) if coordinator else [],
-        "open_sensors": coordinator.open_sensors if coordinator else [],
-        "arm_history": coordinator.arm_history[:10] if coordinator else [],
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "health_score": health_score,
+            "total_entities": total_entities,
+            "available_entities": available_entities,
+            "modules": modules_health,
+            "alarm_state": alarm_state,
+            "batteries": batteries,
+            "low_battery_count": len(low_batteries),
+            "critical_battery_count": len(critical_batteries),
+            "armed_by": coordinator.armed_by if coordinator else None,
+            "triggered_by": coordinator.triggered_by if coordinator else None,
+            "last_triggered": getattr(coordinator, "_last_triggered", None)
+            if coordinator
+            else None,
+            "bypassed_sensors": getattr(coordinator, "_bypassed_sensors", [])
+            if coordinator
+            else [],
+            "open_sensors": coordinator.open_sensors if coordinator else [],
+            "arm_history": coordinator.arm_history[:10] if coordinator else [],
+        },
+    )
 
 
 #
 # RUN TEST
 #
+
 
 async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, Any]:
     """Run a system test and return results dict.
@@ -560,6 +649,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     test_type: "quick" | "standard" | "full" | "<module_id>"
     """
     import time
+
     coordinator = _get_coordinator(hass)
     store = _get_store(hass)
 
@@ -590,15 +680,20 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
 
         if len(entities) == 0:
             results["modules"][mod_id] = {
-                "status": "warning", "reason": "no_entities",
+                "status": "warning",
+                "reason": "no_entities",
                 "message": "Module is enabled but has no entities configured",
-                "entities_total": 0, "entities_available": 0, "unavailable": [],
+                "entities_total": 0,
+                "entities_available": 0,
+                "unavailable": [],
             }
             continue
 
         unavail = [
-            eid for eid in entities
-            if not hass.states.get(eid) or hass.states.get(eid).state in ("unavailable", "unknown")
+            eid
+            for eid in entities
+            if not hass.states.get(eid)
+            or hass.states.get(eid).state in ("unavailable", "unknown")
         ]
         mod_result = {
             "status": "pass" if not unavail else "fail",
@@ -657,7 +752,9 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
                 "online": sum(1 for s in sensor_results.values() if s["online"]),
                 "offline": sum(1 for s in sensor_results.values() if not s["online"]),
                 "details": sensor_results,
-                "status": "fail" if any(not s["online"] for s in sensor_results.values()) else "pass",
+                "status": "fail"
+                if any(not s["online"] for s in sensor_results.values())
+                else "pass",
             }
 
     # --- Environmental sensors: smoke + water leak (ALL test types) ---
@@ -667,8 +764,10 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     # Previously gated to standard/full only.
     if store:
         env_sensors = [
-            s for s in store.get_available_sensors()
-            if s.get("sensor_type") == "environmental" or s.get("is_environmental", False)
+            s
+            for s in store.get_available_sensors()
+            if s.get("sensor_type") == "environmental"
+            or s.get("is_environmental", False)
         ]
         env_results = {}
         for sensor in env_sensors:
@@ -687,7 +786,9 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
             "online": sum(1 for s in env_results.values() if s["online"]),
             "offline": sum(1 for s in env_results.values() if not s["online"]),
             "details": env_results,
-            "status": "fail" if any(not s["online"] for s in env_results.values()) else "pass",
+            "status": "fail"
+            if any(not s["online"] for s in env_results.values())
+            else "pass",
         }
 
     # --- Siren test summary ---
@@ -715,17 +816,32 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     if test_type in ("standard", "full"):
         configured_eids_bat: set[str] = set()
         if store:
-            configured_eids_bat = {s["entity_id"] for s in store.get_available_sensors() if s.get("entity_id")}
+            configured_eids_bat = {
+                s["entity_id"]
+                for s in store.get_available_sensors()
+                if s.get("entity_id")
+            }
         if coordinator and hasattr(coordinator, "get_batteries_cached"):
             coordinator.invalidate_battery_cache()  # force fresh data during explicit test
             batteries = coordinator.get_batteries_cached(configured_eids_bat)
         else:
             batteries = _discover_batteries(hass, configured_eids_bat)
-        low = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 20]
-        critical = [b for b in batteries if b["available"] and b["level"] is not None and b["level"] < 10]
+        low = [
+            b
+            for b in batteries
+            if b["available"] and b["level"] is not None and b["level"] < 20
+        ]
+        critical = [
+            b
+            for b in batteries
+            if b["available"] and b["level"] is not None and b["level"] < 10
+        ]
         results["batteries"] = {
-            "total": len(batteries), "low_count": len(low), "critical_count": len(critical),
-            "details": batteries, "note": "Battery status is informational only",
+            "total": len(batteries),
+            "low_count": len(low),
+            "critical_count": len(critical),
+            "details": batteries,
+            "note": "Battery status is informational only",
         }
         if low:
             results["warnings"].append(
@@ -740,7 +856,11 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     # entities that were available last test but are unavailable now (newly
     # flaky) -- both computed from data already being collected here, no
     # extra storage needed.
-    trend: dict[str, Any] = {"compared_to": None, "battery_declining": [], "newly_unavailable": []}
+    trend: dict[str, Any] = {
+        "compared_to": None,
+        "battery_declining": [],
+        "newly_unavailable": [],
+    }
     if store:
         history = store.get_test_history()
         prev = history[0] if history else None
@@ -755,12 +875,18 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
             for b in results.get("batteries", {}).get("details", []):
                 eid = b.get("entity_id")
                 level = b.get("level")
-                if eid in prev_levels and level is not None and level < prev_levels[eid]:
-                    trend["battery_declining"].append({
-                        "entity_id": eid,
-                        "previous": prev_levels[eid],
-                        "current": level,
-                    })
+                if (
+                    eid in prev_levels
+                    and level is not None
+                    and level < prev_levels[eid]
+                ):
+                    trend["battery_declining"].append(
+                        {
+                            "entity_id": eid,
+                            "previous": prev_levels[eid],
+                            "current": level,
+                        }
+                    )
 
             prev_unavail: set[str] = set()
             for _mod_id, mod_data in prev.get("modules", {}).items():
@@ -775,20 +901,34 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     duration = round(time.time() - start_time, 1)
     results["duration_seconds"] = duration
 
-    any_fail = any(m.get("status") in ("fail", "error") for m in results["modules"].values())
+    any_fail = any(
+        m.get("status") in ("fail", "error") for m in results["modules"].values()
+    )
     sensor_fail = results.get("sensors", {}).get("status") == "fail"
     env_fail = results.get("environmental", {}).get("status") == "fail"
     siren_fail = results.get("siren_test", {}).get("success") is False
     if any_fail or sensor_fail or env_fail or siren_fail:
         results["overall"] = "fail"
-    elif any(m.get("status") == "warning" for m in results["modules"].values()) or results["warnings"]:
+    elif (
+        any(m.get("status") == "warning" for m in results["modules"].values())
+        or results["warnings"]
+    ):
         results["overall"] = "warning"
 
-    passed  = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
-    failed  = sum(1 for m in results["modules"].values() if m.get("status") in ("fail", "error"))
-    warned  = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
-    skipped = sum(1 for m in results["modules"].values() if m.get("status") == "skipped")
-    results["summary"] = {"passed": passed, "failed": failed, "warned": warned, "skipped": skipped}
+    passed = sum(1 for m in results["modules"].values() if m.get("status") == "pass")
+    failed = sum(
+        1 for m in results["modules"].values() if m.get("status") in ("fail", "error")
+    )
+    warned = sum(1 for m in results["modules"].values() if m.get("status") == "warning")
+    skipped = sum(
+        1 for m in results["modules"].values() if m.get("status") == "skipped"
+    )
+    results["summary"] = {
+        "passed": passed,
+        "failed": failed,
+        "warned": warned,
+        "skipped": skipped,
+    }
 
     # --- Persist to test history (via store method — no direct _data access) ---
     if store:
@@ -797,10 +937,12 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     return results
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/run_test",
-    vol.Required("test_type"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/run_test",
+        vol.Required("test_type"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_run_test(
@@ -822,9 +964,12 @@ async def ws_run_test(
 # QUICK SIREN TEST
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/quick_test_siren",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/quick_test_siren",
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_quick_test_siren(
@@ -840,17 +985,23 @@ async def ws_quick_test_siren(
 
     siren_module = coordinator.modules.get("siren")
     if not siren_module or not siren_module.enabled:
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": "Siren module is not enabled",
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": "Siren module is not enabled",
+            },
+        )
         return
 
     if not siren_module.sirens and not siren_module.gateway_mac:
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": "No siren entities configured",
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": "No siren entities configured",
+            },
+        )
         return
 
     try:
@@ -858,19 +1009,25 @@ async def ws_quick_test_siren(
         connection.send_result(msg["id"], result)
     except Exception as err:
         _LOGGER.error("Quick siren test failed: %s", err)
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": str(err),
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": str(err),
+            },
+        )
 
 
 #
 # QUICK LIGHTS TEST
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/quick_test_lights",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/quick_test_lights",
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_quick_test_lights(
@@ -886,17 +1043,23 @@ async def ws_quick_test_lights(
 
     lights_module = coordinator.modules.get("lights")
     if not lights_module or not lights_module.enabled:
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": "Lights module is not enabled",
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": "Lights module is not enabled",
+            },
+        )
         return
 
     if not lights_module.lights:
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": "No lights configured",
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": "No lights configured",
+            },
+        )
         return
 
     try:
@@ -907,7 +1070,8 @@ async def ws_quick_test_lights(
 
         for color in ([255, 0, 0], [0, 0, 255], [255, 0, 0], [0, 0, 255]):
             await hass.services.async_call(
-                "light", "turn_on",
+                "light",
+                "turn_on",
                 service_data={"brightness": 255, "rgb_color": color},
                 target={"entity_id": lights_module.lights},
                 blocking=True,
@@ -915,7 +1079,8 @@ async def ws_quick_test_lights(
             await asyncio.sleep(0.5)
 
         await hass.services.async_call(
-            "light", "turn_off",
+            "light",
+            "turn_off",
             target={"entity_id": lights_module.lights},
             blocking=True,
         )
@@ -926,16 +1091,22 @@ async def ws_quick_test_lights(
             if backup:
                 if backup["state"] == "on":
                     attrs = backup.get("attributes", {})
-                    svc_data = {k: attrs[k] for k in ("brightness", "rgb_color", "color_temp") if k in attrs}
+                    svc_data = {
+                        k: attrs[k]
+                        for k in ("brightness", "rgb_color", "color_temp")
+                        if k in attrs
+                    }
                     await hass.services.async_call(
-                        "light", "turn_on",
+                        "light",
+                        "turn_on",
                         service_data=svc_data or None,
                         target={"entity_id": light},
                         blocking=True,
                     )
                 else:
                     await hass.services.async_call(
-                        "light", "turn_off",
+                        "light",
+                        "turn_off",
                         target={"entity_id": light},
                         blocking=True,
                     )
@@ -943,27 +1114,36 @@ async def ws_quick_test_lights(
 
         lights_module.clear_backup()
 
-        connection.send_result(msg["id"], {
-            "success": True,
-            "message": "2s flash test completed",
-            "details": {"lights_tested": tested},
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": True,
+                "message": "2s flash test completed",
+                "details": {"lights_tested": tested},
+            },
+        )
     except Exception as err:
         _LOGGER.error("Quick lights test failed: %s", err)
         lights_module.clear_backup()
-        connection.send_result(msg["id"], {
-            "success": False,
-            "message": str(err),
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": False,
+                "message": str(err),
+            },
+        )
 
 
 #
 # SCHEDULED TESTS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_scheduled_tests",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_scheduled_tests",
+    }
+)
 @websocket_api.async_response
 async def ws_get_scheduled_tests(
     hass: HomeAssistant,
@@ -978,11 +1158,13 @@ async def ws_get_scheduled_tests(
     connection.send_result(msg["id"], {"scheduled_tests": store.get_scheduled_tests()})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_scheduled_test",
-    vol.Optional("test_id", default=""): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_scheduled_test",
+        vol.Optional("test_id", default=""): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_scheduled_test(
@@ -1000,10 +1182,12 @@ async def ws_save_scheduled_test(
     connection.send_result(msg["id"], {"success": True, "test_id": saved_id})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_scheduled_test",
-    vol.Required("test_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_scheduled_test",
+        vol.Required("test_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_scheduled_test(
@@ -1020,10 +1204,12 @@ async def ws_delete_scheduled_test(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/run_scheduled_test_now",
-    vol.Required("test_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/run_scheduled_test_now",
+        vol.Required("test_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_run_scheduled_test_now(
@@ -1044,6 +1230,7 @@ async def ws_run_scheduled_test_now(
     result = await _run_test_internal(hass, test_type)
     overall = result.get("overall", "unknown")
     import time
+
     await store.async_update_scheduled_test_result(
         msg["test_id"], time.strftime("%Y-%m-%d %H:%M:%S"), overall
     )
@@ -1054,9 +1241,12 @@ async def ws_run_scheduled_test_now(
 # TEST RESULTS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_test_results",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_test_results",
+    }
+)
 @websocket_api.async_response
 async def ws_get_test_results(
     hass: HomeAssistant,
@@ -1077,9 +1267,12 @@ async def ws_get_test_results(
 # FAKE PRESENCE
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_fake_presence",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_fake_presence",
+    }
+)
 @websocket_api.async_response
 async def ws_get_fake_presence(
     hass: HomeAssistant,
@@ -1090,16 +1283,21 @@ async def ws_get_fake_presence(
     store = _get_store(hass)
     active = store.get_fake_presence() if store else False
     cameras = store.get_home_alone_cameras() if store else []
-    connection.send_result(msg["id"], {
-        "active": active,
-        "home_alone_cameras": cameras,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "active": active,
+            "home_alone_cameras": cameras,
+        },
+    )
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/set_fake_presence",
-    vol.Required("active"): vol.Boolean(),
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/set_fake_presence",
+        vol.Required("active"): vol.Boolean(),
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_set_fake_presence(
@@ -1121,9 +1319,12 @@ async def ws_set_fake_presence(
 # HOME ALONE CAMERAS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_home_alone_cameras",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_home_alone_cameras",
+    }
+)
 @websocket_api.async_response
 async def ws_get_home_alone_cameras(
     hass: HomeAssistant,
@@ -1140,17 +1341,23 @@ async def ws_get_home_alone_cameras(
     cameras = []
     for entity_id in store.get_home_alone_cameras():
         state = hass.states.get(entity_id)
-        cameras.append({
-            "entity_id": entity_id,
-            "name": state.attributes.get("friendly_name", entity_id) if state else entity_id,
-        })
+        cameras.append(
+            {
+                "entity_id": entity_id,
+                "name": state.attributes.get("friendly_name", entity_id)
+                if state
+                else entity_id,
+            }
+        )
     connection.send_result(msg["id"], {"cameras": cameras})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_home_alone_cameras",
-    vol.Required("cameras"): list,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_home_alone_cameras",
+        vol.Required("cameras"): list,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_home_alone_cameras(

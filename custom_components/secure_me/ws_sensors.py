@@ -1,4 +1,5 @@
 """WebSocket API — Sensor, Zone and User commands for Secure Me."""
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -21,9 +22,12 @@ from .ws_helpers import _get_store, _get_coordinator
 # SENSOR GROUPS (anti-masking) — v1.2.0
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
+    }
+)
 @websocket_api.async_response
 async def ws_get_sensor_groups(
     hass: HomeAssistant,
@@ -38,11 +42,13 @@ async def ws_get_sensor_groups(
     connection.send_result(msg["id"], {"sensor_groups": store.get_sensor_groups()})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_sensor_group",
-    vol.Optional("group_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_sensor_group",
+        vol.Optional("group_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensor_group(
@@ -55,9 +61,7 @@ async def ws_save_sensor_group(
     if not store:
         connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
         return
-    group_id = await store.async_save_sensor_group(
-        msg.get("group_id"), msg["config"]
-    )
+    group_id = await store.async_save_sensor_group(msg.get("group_id"), msg["config"])
     # Reload sensor groups into active zone manager
     coordinator = _get_coordinator(hass)
     if coordinator:
@@ -65,10 +69,12 @@ async def ws_save_sensor_group(
     connection.send_result(msg["id"], {"success": True, "group_id": group_id})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_sensor_group",
-    vol.Required("group_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_sensor_group",
+        vol.Required("group_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_sensor_group(
@@ -90,11 +96,14 @@ async def ws_delete_sensor_group(
 
 #
 # ALARM STATE
-# 
+#
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_alarm_state",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_alarm_state",
+    }
+)
 @websocket_api.async_response
 async def ws_get_alarm_state(
     hass: HomeAssistant,
@@ -104,28 +113,37 @@ async def ws_get_alarm_state(
     """Get current alarm state."""
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_result(msg["id"], {
-            "state": "unknown",
-            "countdown": 0,
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "state": "unknown",
+                "countdown": 0,
+            },
+        )
         return
 
-    connection.send_result(msg["id"], {
-        "state": coordinator.alarm_state,
-        "countdown": coordinator.delay_countdown,
-        "armed_by": coordinator.armed_by,
-        "disarmed_by": coordinator.disarmed_by,
-        "open_sensors": coordinator.open_sensors,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "state": coordinator.alarm_state,
+            "countdown": coordinator.delay_countdown,
+            "armed_by": coordinator.armed_by,
+            "disarmed_by": coordinator.disarmed_by,
+            "open_sensors": coordinator.open_sensors,
+        },
+    )
 
 
-# 
+#
 # SENSORS
-# 
+#
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_sensors",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_sensors",
+    }
+)
 @websocket_api.async_response
 async def ws_get_sensors(
     hass: HomeAssistant,
@@ -142,10 +160,12 @@ async def ws_get_sensors(
     connection.send_result(msg["id"], {"sensors": sensors})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_sensors",
-    vol.Required("sensors"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_sensors",
+        vol.Required("sensors"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensors(
@@ -178,9 +198,12 @@ async def ws_save_sensors(
 # ZONES
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_zones",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_zones",
+    }
+)
 @websocket_api.async_response
 async def ws_get_zones(
     hass: HomeAssistant,
@@ -197,11 +220,13 @@ async def ws_get_zones(
     connection.send_result(msg["id"], {"zones": zones})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_zone",
-    vol.Required("zone_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_zone",
+        vol.Required("zone_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_zone(
@@ -270,10 +295,12 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
     zm.load_sensor_configs(sensor_configs)
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_zone",
-    vol.Required("zone_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_zone",
+        vol.Required("zone_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_zone(
@@ -308,9 +335,12 @@ async def ws_delete_zone(
 # USERS
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_users",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_users",
+    }
+)
 @websocket_api.async_response
 async def ws_get_users(
     hass: HomeAssistant,
@@ -331,11 +361,13 @@ async def ws_get_users(
     connection.send_result(msg["id"], {"users": masked})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_user",
-    vol.Required("user_id"): str,
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_user",
+        vol.Required("user_id"): str,
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_user(
@@ -362,16 +394,21 @@ async def ws_save_user(
     # the old presence-monitor refresh call, now that PresenceMonitor has
     # been removed and Auto Actions v2 is the sole presence-based system.)
     coordinator = _get_coordinator(hass)
-    if coordinator is not None and getattr(coordinator, "_auto_actions_manager", None) is not None:
+    if (
+        coordinator is not None
+        and getattr(coordinator, "_auto_actions_manager", None) is not None
+    ):
         coordinator._auto_actions_manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_user",
-    vol.Required("user_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_user",
+        vol.Required("user_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_user(
@@ -392,15 +429,20 @@ async def ws_delete_user(
     # replaces the old presence-monitor refresh call.)
     if success:
         coordinator = _get_coordinator(hass)
-        if coordinator is not None and getattr(coordinator, "_auto_actions_manager", None) is not None:
+        if (
+            coordinator is not None
+            and getattr(coordinator, "_auto_actions_manager", None) is not None
+        ):
             coordinator._auto_actions_manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
+    }
+)
 @websocket_api.async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
@@ -417,9 +459,11 @@ async def ws_get_nfc_tags(
     connection.send_result(msg["id"], {"tags": tags})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_persons",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_persons",
+    }
+)
 @websocket_api.async_response
 async def ws_get_persons(
     hass: HomeAssistant,
@@ -429,19 +473,23 @@ async def ws_get_persons(
     """Get all person entities from HA for user-tracker binding."""
     persons = []
     for state in hass.states.async_all("person"):
-        persons.append({
-            "entity_id": state.entity_id,
-            "name": state.attributes.get("friendly_name", state.entity_id),
-            "state": state.state,
-        })
+        persons.append(
+            {
+                "entity_id": state.entity_id,
+                "name": state.attributes.get("friendly_name", state.entity_id),
+                "state": state.state,
+            }
+        )
     connection.send_result(msg["id"], {"persons": persons})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/hide_sensor",
-    vol.Required("entity_id"): str,
-    vol.Optional("hidden", default=True): bool,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/hide_sensor",
+        vol.Required("entity_id"): str,
+        vol.Optional("hidden", default=True): bool,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_hide_sensor(
@@ -458,7 +506,11 @@ async def ws_hide_sensor(
     entity_id = msg["entity_id"]
     sensors = dict(store.get_sensors())
     if msg["hidden"]:
-        sensors[entity_id] = {**sensors.get(entity_id, {}), "excluded": True, "enabled": False}
+        sensors[entity_id] = {
+            **sensors.get(entity_id, {}),
+            "excluded": True,
+            "enabled": False,
+        }
     else:
         cfg = dict(sensors.get(entity_id, {}))
         cfg.pop("excluded", None)
@@ -471,10 +523,12 @@ async def ws_hide_sensor(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/unmark_environmental",
-    vol.Required("entity_id"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/unmark_environmental",
+        vol.Required("entity_id"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_unmark_environmental(
@@ -508,4 +562,3 @@ async def ws_unmark_environmental(
 #
 # MODULES
 #
-

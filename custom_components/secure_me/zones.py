@@ -37,9 +37,16 @@ DEFAULT_ARM_MODES = ["away"]
 # occupancy/presence/mmWave sensors fall through and trigger the alarm.
 # Empty/None device_class also defaults to visual-only in home_alone --
 # safer to over-suppress motion-style sensors than to false-trigger.
-_HOME_ALONE_MOTION_LIKE_CLASSES = frozenset({
-    "motion", "occupancy", "presence", "moving", "vibration", "sound",
-})
+_HOME_ALONE_MOTION_LIKE_CLASSES = frozenset(
+    {
+        "motion",
+        "occupancy",
+        "presence",
+        "moving",
+        "vibration",
+        "sound",
+    }
+)
 
 # Door/window/opening device_classes that should dispatch a notification
 # (instead of triggering the alarm) in home_alone mode.
@@ -154,14 +161,16 @@ class SensorGroup:
             # Remove activations outside the time window
             cutoff = now - self.timeout
             self._activations = {
-                eid: ts for eid, ts in self._activations.items()
-                if ts >= cutoff
+                eid: ts for eid, ts in self._activations.items() if ts >= cutoff
             }
 
         active_count = len(self._activations)
         _LOGGER.debug(
             "Sensor group '%s': %d/%d activations (timeout=%ds)",
-            self.group_id, active_count, self.event_count, self.timeout,
+            self.group_id,
+            active_count,
+            self.event_count,
+            self.timeout,
         )
         return active_count >= self.event_count
 
@@ -282,12 +291,17 @@ class ZoneManager:
             HOME_ALONE_DEFAULT_ACTION_1,
             HOME_ALONE_DEFAULT_ACTION_2,
         )
+
         cfg = self._sensor_configs.get(entity_id, {})
         return {
-            CONF_HOME_ALONE_CAMERA:  cfg.get(CONF_HOME_ALONE_CAMERA),
+            CONF_HOME_ALONE_CAMERA: cfg.get(CONF_HOME_ALONE_CAMERA),
             CONF_HOME_ALONE_SPEAKER: cfg.get(CONF_HOME_ALONE_SPEAKER),
-            CONF_HOME_ALONE_ACTION_1: cfg.get(CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1),
-            CONF_HOME_ALONE_ACTION_2: cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2),
+            CONF_HOME_ALONE_ACTION_1: cfg.get(
+                CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1
+            ),
+            CONF_HOME_ALONE_ACTION_2: cfg.get(
+                CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2
+            ),
         }
 
     def get_auto_bypass_sensors(
@@ -344,7 +358,8 @@ class ZoneManager:
                 bypassed.append(entity_id)
                 _LOGGER.info(
                     "Auto-bypassing open sensor at arm time (mode=%s): %s",
-                    arm_mode or "<any>", entity_id,
+                    arm_mode or "<any>",
+                    entity_id,
                 )
         return bypassed
 
@@ -392,7 +407,11 @@ class ZoneManager:
                 self._sensor_to_zone[sensor] = zone_id
         _LOGGER.info(
             "Added zone: %s (type=%s, sensors=%d, enabled=%s, arm_modes=%s)",
-            zone_id, zone_type, len(sensors or []), enabled, zone.arm_modes,
+            zone_id,
+            zone_type,
+            len(sensors or []),
+            enabled,
+            zone.arm_modes,
         )
 
     def remove_zone(self, zone_id: str) -> None:
@@ -450,7 +469,8 @@ class ZoneManager:
 
         for mode in self._ALL_ARM_MODES:
             mode_sensors = [
-                s for z in self._zones.values()
+                s
+                for z in self._zones.values()
                 if z.enabled and z.is_active_for_mode(mode)
                 for s in z.sensors
             ]
@@ -463,7 +483,8 @@ class ZoneManager:
             bypass_set = set(self.get_auto_bypass_sensors(mode_sensors, arm_mode=mode))
             # allow_open sensorer er altid bypassed -- tilfoej dem til bypass_set
             allow_open_set = {
-                s for s in mode_sensors
+                s
+                for s in mode_sensors
                 if self._sensor_configs.get(s, {}).get("allow_open", False)
             }
             bypass_set |= allow_open_set
@@ -508,14 +529,19 @@ class ZoneManager:
         removed = sorted(self._ready_modes_cache - new_ready)
         _LOGGER.debug(
             "Ready modes changed: +%s -%s (now %s)",
-            added, removed, sorted(new_ready),
+            added,
+            removed,
+            sorted(new_ready),
         )
         self._ready_modes_cache = new_ready
 
-        self.hass.bus.async_fire(EVENT_READY_TO_ARM_MODES_CHANGED, {
-            "ready_modes": sorted(new_ready),
-            "blocked_modes": new_blocked,
-        })
+        self.hass.bus.async_fire(
+            EVENT_READY_TO_ARM_MODES_CHANGED,
+            {
+                "ready_modes": sorted(new_ready),
+                "blocked_modes": new_blocked,
+            },
+        )
 
     def _setup_ready_modes_listener(self) -> None:
         """Subscribe to state changes for all sensors used in any zone.
@@ -559,9 +585,7 @@ class ZoneManager:
         except Exception:
             self._ready_modes_cache = set()
 
-        _LOGGER.debug(
-            "Ready-modes listener subscribed to %d sensors", len(watched)
-        )
+        _LOGGER.debug("Ready-modes listener subscribed to %d sensors", len(watched))
 
     # ── State update ────────────────────────────────────────────────────────────────────
 
@@ -587,6 +611,7 @@ class ZoneManager:
                 from homeassistant.components.persistent_notification import (
                     async_create as pn_create,
                 )
+
                 pn_create(
                     self.hass,
                     message=(
@@ -618,7 +643,8 @@ class ZoneManager:
         if state.state in ("unavailable", "unknown"):
             _LOGGER.debug(
                 "Sensor %s is %s while monitoring active -- treating as closed",
-                entity_id, state.state,
+                entity_id,
+                state.state,
             )
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
@@ -629,7 +655,10 @@ class ZoneManager:
         if changed:
             _LOGGER.info(
                 "Zone %s state changed: triggered=%s (sensor=%s, state=%s)",
-                zone.zone_id, zone.is_triggered, entity_id, state.state,
+                zone.zone_id,
+                zone.is_triggered,
+                entity_id,
+                state.state,
             )
 
         return changed, zone
@@ -656,14 +685,17 @@ class ZoneManager:
             if not zone.is_active_for_mode(arm_mode):
                 _LOGGER.debug(
                     "Zone %s skipped — not active for mode '%s' (arm_modes=%s)",
-                    zone.zone_id, arm_mode, zone.arm_modes,
+                    zone.zone_id,
+                    arm_mode,
+                    zone.arm_modes,
                 )
                 continue
             all_sensors.update(zone.sensors)
 
         _LOGGER.info(
             "Monitoring %d sensors for arm_mode='%s'",
-            len(all_sensors), arm_mode,
+            len(all_sensors),
+            arm_mode,
         )
 
         # Also monitor arm_on_close sensors even if not yet in a zone
@@ -691,17 +723,27 @@ class ZoneManager:
             new_raw = new_state.state if new_state else None
             old_raw = old_state.state if old_state else None
 
-            if new_raw in ("unavailable", "unknown") and old_raw not in ("unavailable", "unknown", None):
+            if new_raw in ("unavailable", "unknown") and old_raw not in (
+                "unavailable",
+                "unknown",
+                None,
+            ):
                 # Sensor is going offline -- remember where it was.
                 self._unavailable_state_mem[entity_id] = old_raw
-            elif entity_id in self._unavailable_state_mem and old_raw in ("unavailable", "unknown"):
+            elif entity_id in self._unavailable_state_mem and old_raw in (
+                "unavailable",
+                "unknown",
+            ):
                 # Sensor is coming back online -- check if it landed on its
                 # prior state. If so, swallow this transition entirely.
                 prior = self._unavailable_state_mem.pop(entity_id)
                 if prior == new_raw:
                     _LOGGER.debug(
                         "Sensor %s flapped %s -> %s -> %s, ignoring",
-                        entity_id, prior, old_raw, new_raw,
+                        entity_id,
+                        prior,
+                        old_raw,
+                        new_raw,
                     )
                     return
 
@@ -709,8 +751,9 @@ class ZoneManager:
             cfg = self._sensor_configs.get(entity_id, {})
             if cfg.get("arm_on_close", False) and old_state and new_state:
                 was_open = old_state.state in _OPEN_STATES
-                is_closed = new_state.state not in _OPEN_STATES and new_state.state not in (
-                    "unavailable", "unknown"
+                is_closed = (
+                    new_state.state not in _OPEN_STATES
+                    and new_state.state not in ("unavailable", "unknown")
                 )
                 if was_open and is_closed and self._arm_on_close_callback:
                     _LOGGER.info(
@@ -739,10 +782,13 @@ class ZoneManager:
                 ha_state = self.hass.states.get(entity_id)
                 device_class = (
                     (ha_state.attributes.get("device_class") or "").lower()
-                    if ha_state else ""
+                    if ha_state
+                    else ""
                 )
                 sensor_name = (
-                    ha_state.attributes.get("friendly_name", entity_id) if ha_state else entity_id
+                    ha_state.attributes.get("friendly_name", entity_id)
+                    if ha_state
+                    else entity_id
                 )
 
                 # Door / window / opening: dispatch the action notification
@@ -761,7 +807,8 @@ class ZoneManager:
                     if now - last < self._debounce_interval:
                         _LOGGER.debug(
                             "Home Alone: door sensor %s debounced (%.3fs since last dispatch)",
-                            entity_id, now - last,
+                            entity_id,
+                            now - last,
                         )
                         return
                     self._last_trigger_time[entity_id] = now
@@ -773,12 +820,17 @@ class ZoneManager:
                     # it belongs to. Mobile-app action-button taps only echo
                     # back the action id, not the original notification
                     # payload, so this has to be tracked out-of-band.
-                    self.hass.data.setdefault(DOMAIN, {})["_last_home_alone_trigger"] = {
+                    self.hass.data.setdefault(DOMAIN, {})[
+                        "_last_home_alone_trigger"
+                    ] = {
                         "entity_id": entity_id,
                         "sensor_cfg": sensor_cfg,
                         "timestamp": time.monotonic(),
                     }
-                    from .notification_dispatcher import dispatch_home_alone_door_trigger
+                    from .notification_dispatcher import (
+                        dispatch_home_alone_door_trigger,
+                    )
+
                     self.hass.async_create_task(
                         dispatch_home_alone_door_trigger(
                             self.hass, entity_id, sensor_name, sensor_cfg
@@ -786,7 +838,8 @@ class ZoneManager:
                     )
                     _LOGGER.info(
                         "Home Alone: door sensor %s (device_class=%s) opened -- notification dispatched, no alarm",
-                        entity_id, device_class or "<none>",
+                        entity_id,
+                        device_class or "<none>",
                     )
                     return
 
@@ -796,7 +849,8 @@ class ZoneManager:
                 if device_class in _HOME_ALONE_MOTION_LIKE_CLASSES or not device_class:
                     _LOGGER.info(
                         "Home Alone: %s (device_class=%s) activated -- visual only, no alarm trigger",
-                        entity_id, device_class or "<none>",
+                        entity_id,
+                        device_class or "<none>",
                     )
                     return
 
@@ -805,7 +859,8 @@ class ZoneManager:
                 # Fall through to the normal trigger path below.
                 _LOGGER.info(
                     "Home Alone: %s (device_class=%s) is not motion/door -- falling through to alarm trigger",
-                    entity_id, device_class,
+                    entity_id,
+                    device_class,
                 )
             # ── End Home Alone special handling ───────────────────────────
 
@@ -817,8 +872,11 @@ class ZoneManager:
                     _LOGGER.info(
                         "Sensor group '%s': activation from %s recorded but threshold "
                         "not yet met (%d/%d within %ds)",
-                        group.group_id, entity_id,
-                        len(group._activations), group.event_count, group.timeout,
+                        group.group_id,
+                        entity_id,
+                        len(group._activations),
+                        group.event_count,
+                        group.timeout,
                     )
                     return  # do not fire trigger yet
 
@@ -828,7 +886,8 @@ class ZoneManager:
             if now - last < self._debounce_interval:
                 _LOGGER.debug(
                     "Sensor %s debounced (%.3fs since last trigger)",
-                    entity_id, now - last,
+                    entity_id,
+                    now - last,
                 )
                 return
             self._last_trigger_time[entity_id] = now
@@ -899,10 +958,14 @@ class ZoneManager:
                     continue
                 state = self.hass.states.get(sensor)
                 if not state:
-                    _LOGGER.warning("Sensor %s not found in HA during open sensor check", sensor)
+                    _LOGGER.warning(
+                        "Sensor %s not found in HA during open sensor check", sensor
+                    )
                     continue
                 if state.state in ("unavailable", "unknown"):
-                    _LOGGER.debug("Sensor %s is %s — skipping in open check", sensor, state.state)
+                    _LOGGER.debug(
+                        "Sensor %s is %s — skipping in open check", sensor, state.state
+                    )
                     continue
                 if state.state in _OPEN_STATES:
                     zone.update_sensor_state(sensor, True)

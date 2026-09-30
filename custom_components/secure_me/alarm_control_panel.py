@@ -42,15 +42,19 @@ async def async_setup_entry(
 ) -> None:
     """Set up Secure Me alarm control panel."""
     _LOGGER.info("Setting up Secure Me alarm control panel")
-    
+
     # Get coordinator
-    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
-    
+    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][
+        COORDINATOR
+    ]
+
     # Create alarm panel entity
     async_add_entities([SecureMeAlarmPanel(coordinator, config_entry)])
 
 
-class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, AlarmControlPanelEntity):
+class SecureMeAlarmPanel(
+    CoordinatorEntity[SecureMeCoordinator], RestoreEntity, AlarmControlPanelEntity
+):
     """Representation of a Secure Me alarm control panel."""
 
     _attr_has_entity_name = True
@@ -73,7 +77,7 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
     ) -> None:
         """Initialize the alarm panel."""
         super().__init__(coordinator)
-        
+
         self._config_entry = config_entry
         self._attr_unique_id = f"{config_entry.entry_id}_alarm"
         self._attr_device_info = {
@@ -112,6 +116,7 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         untouched and continue to use HA's native enum values.
         """
         from homeassistant.components.alarm_control_panel import AlarmControlPanelState
+
         state = self.coordinator.alarm_state
 
         # Home Alone: raw custom string, not part of HA's enum (see above).
@@ -119,14 +124,14 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
             return "armed_home_alone"
 
         _MAP = {
-            "disarmed":       AlarmControlPanelState.DISARMED,
-            "arming":         AlarmControlPanelState.ARMING,
-            "armed_away":     AlarmControlPanelState.ARMED_AWAY,
-            "armed_home":     AlarmControlPanelState.ARMED_HOME,
-            "armed_night":    AlarmControlPanelState.ARMED_NIGHT,
+            "disarmed": AlarmControlPanelState.DISARMED,
+            "arming": AlarmControlPanelState.ARMING,
+            "armed_away": AlarmControlPanelState.ARMED_AWAY,
+            "armed_home": AlarmControlPanelState.ARMED_HOME,
+            "armed_night": AlarmControlPanelState.ARMED_NIGHT,
             "armed_vacation": AlarmControlPanelState.ARMED_VACATION,
-            "pending":        AlarmControlPanelState.PENDING,
-            "triggered":      AlarmControlPanelState.TRIGGERED,
+            "pending": AlarmControlPanelState.PENDING,
+            "triggered": AlarmControlPanelState.TRIGGERED,
         }
         return _MAP.get(state, AlarmControlPanelState.DISARMED)
 
@@ -212,10 +217,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Disarm requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Disarm rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "disarm",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "disarm",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         success = await self.coordinator.async_disarm(code)
         if success:
@@ -228,10 +236,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Arm away requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Arm away rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "arm_away",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "arm_away",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_arm_away(code)
 
@@ -240,10 +251,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Arm home requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Arm home rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "arm_home",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "arm_home",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_arm_home(code)
 
@@ -252,10 +266,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Arm night requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Arm night rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "arm_night",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "arm_night",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_arm_night(code)
 
@@ -268,10 +285,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Arm vacation requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Arm vacation rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "arm_vacation",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "arm_vacation",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_arm_vacation(code)
 
@@ -280,10 +300,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.info("Alarm panel: Arm home alone requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Arm home alone rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "arm_home_alone",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "arm_home_alone",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_arm_home_alone(code)
 
@@ -299,10 +322,13 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
         _LOGGER.warning("Alarm panel: Trigger requested")
         if not self.coordinator.validate_code(code):
             _LOGGER.warning("Alarm panel: Trigger rejected -- invalid code")
-            self.hass.bus.async_fire(EVENT_ALARM_INVALID_CODE, {
-                "command": "trigger",
-                "entity_id": self.entity_id,
-            })
+            self.hass.bus.async_fire(
+                EVENT_ALARM_INVALID_CODE,
+                {
+                    "command": "trigger",
+                    "entity_id": self.entity_id,
+                },
+            )
             return
         await self.coordinator.async_trigger("manual")
 
@@ -356,7 +382,8 @@ class SecureMeAlarmPanel(CoordinatorEntity[SecureMeCoordinator], RestoreEntity, 
             "last_triggered=%s, bypassed=%d)",
             restored_state,
             "secure_me_mode attr" if secure_me_mode else "last.state fallback",
-            armed_by, last_triggered,
+            armed_by,
+            last_triggered,
             len(bypassed_sensors) if bypassed_sensors else 0,
         )
         await self.coordinator.async_restore_state(

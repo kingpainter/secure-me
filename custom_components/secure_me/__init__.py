@@ -1,5 +1,6 @@
 # VERSION = "2.0.1"
 """The Secure Me integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -29,6 +30,7 @@ except Exception:  # noqa: BLE001
     # panel imports HA HTTP components unavailable in test environments.
     # Provide a minimal stub so tests can patch custom_components.secure_me.panel.*
     import types as _types
+
     panel = _types.ModuleType("secure_me.panel")  # type: ignore[assignment]
     panel.async_register_panel = None  # type: ignore[assignment]
     panel.async_unregister_panel = None  # type: ignore[assignment]
@@ -162,11 +164,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             undo_listener()
 
         # Unregister panel if last entry
-        remaining = [k for k in hass.data[DOMAIN] if k not in (
-            entry.entry_id, "store", "_websocket_registered",
-            "_panel_registered", "_notification_dispatcher",
-            "_services_registered",
-        )]
+        remaining = [
+            k
+            for k in hass.data[DOMAIN]
+            if k
+            not in (
+                entry.entry_id,
+                "store",
+                "_websocket_registered",
+                "_panel_registered",
+                "_notification_dispatcher",
+                "_services_registered",
+            )
+        ]
         if not remaining:
             try:
                 panel.async_unregister_panel(hass)

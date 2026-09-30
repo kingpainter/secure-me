@@ -26,13 +26,15 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 # Armed states for quick lookup
-_ARMED_STATES = frozenset({
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_ARMED_VACATION,
-    STATE_ALARM_ARMED_HOME_ALONE,
-})
+_ARMED_STATES = frozenset(
+    {
+        STATE_ALARM_ARMED_AWAY,
+        STATE_ALARM_ARMED_HOME,
+        STATE_ALARM_ARMED_NIGHT,
+        STATE_ALARM_ARMED_VACATION,
+        STATE_ALARM_ARMED_HOME_ALONE,
+    }
+)
 
 
 class AlarmStateMachine:
@@ -72,7 +74,9 @@ class AlarmStateMachine:
 
         _LOGGER.info(
             "State machine initialized (exit=%ds, entry=%ds, trigger=%ds)",
-            exit_delay, entry_delay, trigger_time,
+            exit_delay,
+            entry_delay,
+            trigger_time,
         )
 
     # ── Properties ──────────────────────────────────────────────────────────
@@ -119,12 +123,18 @@ class AlarmStateMachine:
     def is_triggered(self) -> bool:
         return self._current_state == STATE_ALARM_TRIGGERED
 
-    def update_config(self, exit_delay: int, entry_delay: int, trigger_time: int = 300) -> None:
+    def update_config(
+        self, exit_delay: int, entry_delay: int, trigger_time: int = 300
+    ) -> None:
         """Update delays."""
         self._exit_delay = exit_delay
         self._entry_delay = entry_delay
         self._trigger_time = trigger_time
-        _LOGGER.info("State machine delays updated (exit=%ds, entry=%ds)", exit_delay, entry_delay)
+        _LOGGER.info(
+            "State machine delays updated (exit=%ds, entry=%ds)",
+            exit_delay,
+            entry_delay,
+        )
 
     def add_state_change_callback(self, callback: Callable) -> None:
         self._state_change_callbacks.append(callback)
@@ -210,7 +220,8 @@ class AlarmStateMachine:
 
             _LOGGER.info(
                 "Skipping countdown (%ds remaining) -> %s",
-                self._countdown, target,
+                self._countdown,
+                target,
             )
             # Cancel timer task and await it so we don't race with its
             # natural completion.
@@ -268,7 +279,10 @@ class AlarmStateMachine:
             await asyncio.sleep(self._trigger_time)
             async with self._transition_lock:
                 if self._current_state == STATE_ALARM_TRIGGERED:
-                    _LOGGER.warning("Alarm auto-reset after %ds (not manually disarmed)", self._trigger_time)
+                    _LOGGER.warning(
+                        "Alarm auto-reset after %ds (not manually disarmed)",
+                        self._trigger_time,
+                    )
                     self._countdown = 0
                     await self._set_state(STATE_ALARM_DISARMED)
         except asyncio.CancelledError:
@@ -285,7 +299,9 @@ class AlarmStateMachine:
         """
         async with self._transition_lock:
             if self.is_armed:
-                _LOGGER.warning("Cannot arm - already armed in state %s", self._current_state)
+                _LOGGER.warning(
+                    "Cannot arm - already armed in state %s", self._current_state
+                )
                 return False
             await self._cancel_countdown()
             if skip_delay or self._exit_delay == 0:
@@ -338,7 +354,10 @@ class AlarmStateMachine:
         """
         async with self._transition_lock:
             if not self.is_armed:
-                _LOGGER.warning("Cannot trigger entry delay - not armed (state=%s)", self._current_state)
+                _LOGGER.warning(
+                    "Cannot trigger entry delay - not armed (state=%s)",
+                    self._current_state,
+                )
                 return False
 
             if zone_type == ZONE_TYPE_INSTANT:
@@ -347,7 +366,9 @@ class AlarmStateMachine:
                 return True
 
             if zone_type == ZONE_TYPE_ENTRY and self._entry_delay > 0:
-                _LOGGER.warning("Entry zone triggered - starting %ds entry delay", self._entry_delay)
+                _LOGGER.warning(
+                    "Entry zone triggered - starting %ds entry delay", self._entry_delay
+                )
                 await self._cancel_countdown()
                 await self._set_state(STATE_ALARM_PENDING)
                 self._countdown_task = asyncio.create_task(
@@ -371,9 +392,7 @@ class AlarmStateMachine:
 
         # EDGE CASE FIX: Auto-reset after trigger_time (was TODO in v0.3.x)
         if self._trigger_time > 0:
-            self._trigger_reset_task = asyncio.create_task(
-                self._trigger_reset_timer()
-            )
+            self._trigger_reset_task = asyncio.create_task(self._trigger_reset_timer())
 
         return True
 
@@ -419,7 +438,8 @@ class AlarmStateMachine:
         }
         if state not in restorable:
             _LOGGER.warning(
-                "State '%s' is not restorable (transient) — defaulting to disarmed", state
+                "State '%s' is not restorable (transient) — defaulting to disarmed",
+                state,
             )
             self._current_state = STATE_ALARM_DISARMED
         else:

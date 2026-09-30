@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class FloorplanEngine(BaseEngine):
     """Manages floorplan state: rooms, openings, markers.
-    
+
     Pure state machine that can be tested without Home Assistant.
     Coordinator persists state to store.py.
     """
@@ -34,12 +34,12 @@ class FloorplanEngine(BaseEngine):
     ) -> None:
         """Initialize FloorplanEngine."""
         super().__init__(hass, config or {})
-        
+
         # In-memory state
         self.rooms: dict[str, dict[str, Any]] = {}
         self.openings: dict[str, dict[str, Any]] = {}
         self.markers: dict[str, dict[str, Any]] = {}
-        
+
         # Metadata
         self.floorplan_image_url: str | None = None
         self.floorplan_width: int = 0
@@ -57,7 +57,7 @@ class FloorplanEngine(BaseEngine):
 
     def load_state(self, state: dict[str, Any]) -> None:
         """Load floorplan state from store config.
-        
+
         Args:
             state: Dict with rooms, openings, markers from store
         """
@@ -67,11 +67,13 @@ class FloorplanEngine(BaseEngine):
         self.floorplan_image_url = state.get("image_url")
         self.floorplan_width = state.get("width", 0)
         self.floorplan_height = state.get("height", 0)
-        self.logger.debug(f"Loaded floorplan state: {len(self.rooms)} rooms, {len(self.openings)} openings")
+        self.logger.debug(
+            f"Loaded floorplan state: {len(self.rooms)} rooms, {len(self.openings)} openings"
+        )
 
     def get_state(self) -> dict[str, Any]:
         """Get current floorplan state for persistence.
-        
+
         Returns:
             Dict ready for store.py
         """
@@ -84,11 +86,9 @@ class FloorplanEngine(BaseEngine):
             "height": self.floorplan_height,
         }
 
-    def set_floorplan_image(
-        self, image_url: str, width: int, height: int
-    ) -> None:
+    def set_floorplan_image(self, image_url: str, width: int, height: int) -> None:
         """Update floorplan image metadata.
-        
+
         Args:
             image_url: URL to the floorplan image
             width: Image width in pixels
@@ -108,7 +108,7 @@ class FloorplanEngine(BaseEngine):
 
     def add_room(self, room_id: str, room_data: dict[str, Any]) -> None:
         """Add or update a room.
-        
+
         Args:
             room_id: Unique room identifier
             room_data: Room metadata (name, position, etc.)
@@ -124,7 +124,7 @@ class FloorplanEngine(BaseEngine):
 
     def add_opening(self, opening_id: str, opening_data: dict[str, Any]) -> None:
         """Add or update an opening (door/window).
-        
+
         Args:
             opening_id: Unique opening identifier
             opening_data: Opening metadata (name, room_id, type, state, etc.)
@@ -140,7 +140,7 @@ class FloorplanEngine(BaseEngine):
 
     def update_opening_state(self, opening_id: str, state: str) -> None:
         """Update an opening's state (open/closed).
-        
+
         Args:
             opening_id: Opening identifier
             state: New state (open/closed)
@@ -151,10 +151,10 @@ class FloorplanEngine(BaseEngine):
 
     def get_room_status(self, room_id: str) -> dict[str, Any]:
         """Calculate room status from opening states.
-        
+
         Args:
             room_id: Room identifier
-            
+
         Returns:
             Dict with room metadata and opening status summary
         """
@@ -163,8 +163,7 @@ class FloorplanEngine(BaseEngine):
 
         room = self.rooms[room_id]
         room_openings = [
-            o for o in self.openings.values()
-            if o.get("room_id") == room_id
+            o for o in self.openings.values() if o.get("room_id") == room_id
         ]
 
         any_open = any(o.get("state") == "open" for o in room_openings)
@@ -181,7 +180,7 @@ class FloorplanEngine(BaseEngine):
 
     def set_markers(self, markers: dict[str, Any]) -> None:
         """Update floorplan markers.
-        
+
         Args:
             markers: Dict of marker data
         """
@@ -190,12 +189,12 @@ class FloorplanEngine(BaseEngine):
 
     def get_summary(self) -> dict[str, Any]:
         """Get summary of floorplan state.
-        
+
         Returns:
             Summary dict for WebSocket client
         """
         open_count = sum(1 for o in self.openings.values() if o.get("state") == "open")
-        
+
         return {
             "image_url": self.floorplan_image_url,
             "image_width": self.floorplan_width,

@@ -217,7 +217,8 @@ class AutoActionsManager:
         self._tracker_entities = trackers
         _LOGGER.debug(
             "AutoActions: tracking %d Secure Me user(s): %s",
-            len(trackers), ", ".join(sorted(trackers)) or "<none>",
+            len(trackers),
+            ", ".join(sorted(trackers)) or "<none>",
         )
 
     async def _check_initial_presence(self) -> None:
@@ -302,11 +303,11 @@ class AutoActionsManager:
             # flag was ever set), but a recheck could still be counting down
             # in the background and must be cancellable by an arrival just
             # like an ordinary pending action would be.
-            recheck_pending = self._recheck_task is not None and not self._recheck_task.done()
+            recheck_pending = (
+                self._recheck_task is not None and not self._recheck_task.done()
+            )
             if self._home_empty or self._action_tasks or recheck_pending:
-                self.hass.async_create_task(
-                    self._on_person_arrived(entity_id, new_val)
-                )
+                self.hass.async_create_task(self._on_person_arrived(entity_id, new_val))
 
     # -------------------------------------------------------------------------
     # Home empty / person arrived
@@ -383,11 +384,15 @@ class AutoActionsManager:
             self._arrival_task.cancel()
 
         arrival_delay = int(
-            self.store.get_auto_actions().get(AA_ARRIVAL_DELAY, DEFAULT_AA_ARRIVAL_DELAY)
+            self.store.get_auto_actions().get(
+                AA_ARRIVAL_DELAY, DEFAULT_AA_ARRIVAL_DELAY
+            )
         )
         _LOGGER.info(
             "AutoActions: %s arrived (state=%s) -- waiting %ds for arrival confirmation",
-            entity_id, state, arrival_delay,
+            entity_id,
+            state,
+            arrival_delay,
         )
         self.hass.bus.async_fire(EVENT_PERSON_HOME, {"entity_id": entity_id})
 
@@ -420,14 +425,16 @@ class AutoActionsManager:
         if state is None or state.state in ("not_home", "unknown", "unavailable"):
             _LOGGER.info(
                 "AutoActions: arrival confirmation failed for %s (state=%s) -- timers continue",
-                entity_id, state.state if state else "missing",
+                entity_id,
+                state.state if state else "missing",
             )
             return
 
         # Confirmed home -- cancel all pending action tasks
         _LOGGER.info(
             "AutoActions: %s confirmed home after %ds -- cancelling pending timers",
-            entity_id, delay,
+            entity_id,
+            delay,
         )
         await self._cancel_all_action_tasks()
         self._home_empty = False
@@ -530,7 +537,9 @@ class AutoActionsManager:
         _LOGGER.info(
             "AutoActions: recheck confirmed (away %ds, >= %ds required) -- "
             "scheduling %s",
-            int(time.monotonic() - away_since), min_away, ", ".join(sorted(only_actions)),
+            int(time.monotonic() - away_since),
+            min_away,
+            ", ".join(sorted(only_actions)),
         )
         await self._on_home_empty(only_actions=only_actions)
 
@@ -544,15 +553,11 @@ class AutoActionsManager:
             return  # Already scheduled
 
         if blocked:
-            _LOGGER.info(
-                "AutoActions: %s skipped -- blocked by Fake Presence", action
-            )
+            _LOGGER.info("AutoActions: %s skipped -- blocked by Fake Presence", action)
             self._done_actions.add(action + "_skipped")
             return
 
-        task = self.hass.async_create_task(
-            self._run_action_after_delay(action, delay)
-        )
+        task = self.hass.async_create_task(self._run_action_after_delay(action, delay))
         self._action_tasks[action] = task
 
     async def _run_action_after_delay(self, action: str, delay: int) -> None:
@@ -611,9 +616,7 @@ class AutoActionsManager:
             self._done_actions.add(action)
         else:
             self._done_actions.add(action + "_failed")
-            _LOGGER.warning(
-                "AutoActions: action '%s' FAILED -- %s", action, result
-            )
+            _LOGGER.warning("AutoActions: action '%s' FAILED -- %s", action, result)
             # v1.5.x: a failed auto-arm is safety-relevant (house left
             # unarmed while empty) -- give it one automatic retry after a
             # short delay in case the blocking condition (e.g. an open
@@ -726,7 +729,8 @@ class AutoActionsManager:
                 continue  # Already locked
 
             ok = await lock_module.async_call_service_with_retry(
-                "lock", "lock",
+                "lock",
+                "lock",
                 target={"entity_id": lock_entity},
                 action=f"auto_lock:{lock_entity}",
             )
@@ -736,7 +740,10 @@ class AutoActionsManager:
                 failed.append(lock_entity)
 
         if failed:
-            return False, f"locked {len(locked)}, failed {len(failed)}: {', '.join(failed)}"
+            return (
+                False,
+                f"locked {len(locked)}, failed {len(failed)}: {', '.join(failed)}",
+            )
         return True, f"locked {len(locked)}: {', '.join(locked)}"
 
     async def _do_alarm(self) -> tuple[bool, str]:
@@ -846,6 +853,7 @@ class AutoActionsManager:
             from homeassistant.components.persistent_notification import (
                 async_create as pn_create,
             )
+
             pn_create(
                 self.hass,
                 message=message,
@@ -858,15 +866,17 @@ class AutoActionsManager:
             domain, service_name = svc.split(".", 1) if "." in svc else (svc, "notify")
             try:
                 await self.hass.services.async_call(
-                    domain, service_name,
+                    domain,
+                    service_name,
                     {"title": title, "message": message},
                 )
             except Exception as err:
-                _LOGGER.warning(
-                    "AutoActions: failed to notify via %s: %s", svc, err
-                )
+                _LOGGER.warning("AutoActions: failed to notify via %s: %s", svc, err)
 
-        _LOGGER.info("AutoActions: summary notification sent to %d service(s)", len(set(services)))
+        _LOGGER.info(
+            "AutoActions: summary notification sent to %d service(s)",
+            len(set(services)),
+        )
 
     # -------------------------------------------------------------------------
     # Helpers
@@ -952,7 +962,9 @@ class AutoActionsManager:
                 _LOGGER.info(
                     "AutoActions: tracker %s stuck %s for >= %ds -- no longer "
                     "blocking the 'home empty' check",
-                    entity_id, state.state, timeout,
+                    entity_id,
+                    state.state,
+                    timeout,
                 )
                 # Stale long enough -- stop letting it block. Fall through
                 # to check the remaining tracked entities.

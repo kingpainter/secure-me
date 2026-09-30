@@ -37,7 +37,7 @@ from .ws_helpers import _discover_batteries
 _LOGGER = logging.getLogger(__name__)
 
 # Battery thresholds
-BATTERY_THRESHOLD_LOW = 20       # Warning level (%)
+BATTERY_THRESHOLD_LOW = 20  # Warning level (%)
 BATTERY_THRESHOLD_CRITICAL = 10  # Critical level (%)
 
 # Human-readable state names
@@ -175,7 +175,9 @@ async def async_setup_entry(
     """Set up Secure Me sensors for health metrics, status, and battery tracking."""
     _LOGGER.info("Setting up Secure Me health metric and battery sensors")
 
-    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
+    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][
+        COORDINATOR
+    ]
 
     entities: list[SensorEntity] = [
         # Health & status sensors
@@ -355,10 +357,7 @@ class SecureMeActiveModules(SecureMeBaseSensor):
     @property
     def native_value(self) -> int:
         """Return count of enabled modules."""
-        return sum(
-            1 for module in self.coordinator.modules.values()
-            if module.enabled
-        )
+        return sum(1 for module in self.coordinator.modules.values() if module.enabled)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -463,7 +462,11 @@ class SecureMeLastTriggeredBy(SecureMeBaseSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return trigger details."""
         attrs: dict[str, Any] = {}
-        triggered_zones = self.coordinator.data.get("triggered_zones", 0) if self.coordinator.data else 0
+        triggered_zones = (
+            self.coordinator.data.get("triggered_zones", 0)
+            if self.coordinator.data
+            else 0
+        )
         if triggered_zones > 0:
             attrs["triggered_zones"] = triggered_zones
         return attrs
@@ -497,7 +500,9 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
     def _get_summary(self) -> dict[str, Any]:
         """Return battery summary, cached for current update cycle."""
         if self._battery_summary_cache is None:
-            self._battery_summary_cache = _get_battery_summary(self.hass, self.coordinator)
+            self._battery_summary_cache = _get_battery_summary(
+                self.hass, self.coordinator
+            )
         return self._battery_summary_cache
 
     @callback
@@ -583,7 +588,9 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     def _get_summary(self) -> dict[str, Any]:
         """Return battery summary, cached for current update cycle."""
         if self._battery_summary_cache is None:
-            self._battery_summary_cache = _get_battery_summary(self.hass, self.coordinator)
+            self._battery_summary_cache = _get_battery_summary(
+                self.hass, self.coordinator
+            )
         return self._battery_summary_cache
 
     @callback
@@ -615,17 +622,21 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
             if level is None or not bat["available"]:
                 continue
             if level < BATTERY_THRESHOLD_CRITICAL:
-                critical_sensors.append({
-                    "entity_id": bat["entity_id"],
-                    "name": bat["name"],
-                    "level": level,
-                })
+                critical_sensors.append(
+                    {
+                        "entity_id": bat["entity_id"],
+                        "name": bat["name"],
+                        "level": level,
+                    }
+                )
             elif level < BATTERY_THRESHOLD_LOW:
-                low_sensors.append({
-                    "entity_id": bat["entity_id"],
-                    "name": bat["name"],
-                    "level": level,
-                })
+                low_sensors.append(
+                    {
+                        "entity_id": bat["entity_id"],
+                        "name": bat["name"],
+                        "level": level,
+                    }
+                )
 
         return {
             "low_sensors": low_sensors if low_sensors else "none",

@@ -53,7 +53,8 @@ class LightsModule(AlarmModule):
         if self.turn_off_on_arm:
             if all_lights:
                 await self.async_call_service_with_retry(
-                    "light", "turn_off",
+                    "light",
+                    "turn_off",
                     target={"entity_id": all_lights},
                     action="lights_off_on_arm",
                 )
@@ -80,7 +81,8 @@ class LightsModule(AlarmModule):
         else:
             if all_lights:
                 await self.async_call_service_with_retry(
-                    "light", "turn_off",
+                    "light",
+                    "turn_off",
                     target={"entity_id": all_lights},
                     action="lights_off_on_disarm",
                 )
@@ -97,7 +99,8 @@ class LightsModule(AlarmModule):
         # Steady white lights: turn on immediately at full white brightness
         if self.steady_lights:
             await self.async_call_service_with_retry(
-                "light", "turn_on",
+                "light",
+                "turn_on",
                 service_data={
                     "brightness": EMERGENCY_BRIGHTNESS,
                     "rgb_color": [255, 255, 255],
@@ -105,12 +108,16 @@ class LightsModule(AlarmModule):
                 target={"entity_id": self.steady_lights},
                 action="steady_lights_on_trigger",
             )
-            _LOGGER.info("Lights module: %d steady white light(s) activated", len(self.steady_lights))
+            _LOGGER.info(
+                "Lights module: %d steady white light(s) activated",
+                len(self.steady_lights),
+            )
 
         # Flash lights: initial full brightness then start flash loop
         if self.lights:
             await self.async_call_service_with_retry(
-                "light", "turn_on",
+                "light",
+                "turn_on",
                 service_data={"brightness": EMERGENCY_BRIGHTNESS},
                 target={"entity_id": self.lights},
                 action="lights_on_trigger",
@@ -179,12 +186,18 @@ class LightsModule(AlarmModule):
         if self.lights:
             try:
                 await self.async_call_service(
-                    "light", "turn_on",
-                    service_data={"brightness": EMERGENCY_BRIGHTNESS, "rgb_color": [255, 0, 0]},
+                    "light",
+                    "turn_on",
+                    service_data={
+                        "brightness": EMERGENCY_BRIGHTNESS,
+                        "rgb_color": [255, 0, 0],
+                    },
                     target={"entity_id": self.lights[0]},
                 )
                 await asyncio.sleep(0.5)
-                await self.async_call_service("light", "turn_off", target={"entity_id": self.lights[0]})
+                await self.async_call_service(
+                    "light", "turn_off", target={"entity_id": self.lights[0]}
+                )
                 results["details"]["emergency_flash"] = True
             except Exception:
                 pass
@@ -208,7 +221,9 @@ class LightsModule(AlarmModule):
             return
 
         if backup["state"] == "off":
-            await self.async_call_service("light", "turn_off", target={"entity_id": light})
+            await self.async_call_service(
+                "light", "turn_off", target={"entity_id": light}
+            )
         else:
             attrs = backup.get("attributes", {})
             service_data: dict[str, Any] = {}
@@ -217,7 +232,8 @@ class LightsModule(AlarmModule):
                     service_data[key] = attrs[key]
             # Pass service_data only if non-empty to avoid HA rejecting empty dict
             await self.async_call_service(
-                "light", "turn_on",
+                "light",
+                "turn_on",
                 service_data=service_data if service_data else None,
                 target={"entity_id": light},
             )
@@ -229,12 +245,18 @@ class LightsModule(AlarmModule):
             while asyncio.get_event_loop().time() < end_time:
                 for color, label in (([255, 0, 0], "red"), ([0, 0, 255], "blue")):
                     await self.async_call_service(
-                        "light", "turn_on",
-                        service_data={"brightness": EMERGENCY_BRIGHTNESS, "rgb_color": color},
+                        "light",
+                        "turn_on",
+                        service_data={
+                            "brightness": EMERGENCY_BRIGHTNESS,
+                            "rgb_color": color,
+                        },
                         target={"entity_id": self.lights},
                     )
                     await asyncio.sleep(FLASH_DELAY_MS / 1000)
-                    await self.async_call_service("light", "turn_off", target={"entity_id": self.lights})
+                    await self.async_call_service(
+                        "light", "turn_off", target={"entity_id": self.lights}
+                    )
                     await asyncio.sleep(FLASH_DELAY_MS / 1000)
         except asyncio.CancelledError:
             pass

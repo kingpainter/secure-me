@@ -33,17 +33,41 @@ from .module_dispatch import get_module_entity_ids
 _LOGGER = logging.getLogger(__name__)
 
 # Battery thresholds (must match sensor.py)
-BATTERY_THRESHOLD_LOW = 20       # Warning level (%)
+BATTERY_THRESHOLD_LOW = 20  # Warning level (%)
 BATTERY_THRESHOLD_CRITICAL = 10  # Critical level (%)
 
 # Module display names and icons
 MODULE_INFO = {
-    MODULE_CAMERA: {"name": "Camera Module", "icon_ok": "mdi:camera", "icon_problem": "mdi:camera-off"},
-    MODULE_LOCK: {"name": "Lock Module", "icon_ok": "mdi:lock", "icon_problem": "mdi:lock-alert"},
-    MODULE_LIGHTS: {"name": "Lights Module", "icon_ok": "mdi:lightbulb", "icon_problem": "mdi:lightbulb-alert"},
-    MODULE_CLIMATE: {"name": "Climate Module", "icon_ok": "mdi:thermostat", "icon_problem": "mdi:thermostat-alert"},
-    MODULE_SIREN: {"name": "Siren Module", "icon_ok": "mdi:alarm-bell", "icon_problem": "mdi:alarm-light-off"},
-    MODULE_TTS: {"name": "TTS Module", "icon_ok": "mdi:text-to-speech", "icon_problem": "mdi:text-to-speech-off"},
+    MODULE_CAMERA: {
+        "name": "Camera Module",
+        "icon_ok": "mdi:camera",
+        "icon_problem": "mdi:camera-off",
+    },
+    MODULE_LOCK: {
+        "name": "Lock Module",
+        "icon_ok": "mdi:lock",
+        "icon_problem": "mdi:lock-alert",
+    },
+    MODULE_LIGHTS: {
+        "name": "Lights Module",
+        "icon_ok": "mdi:lightbulb",
+        "icon_problem": "mdi:lightbulb-alert",
+    },
+    MODULE_CLIMATE: {
+        "name": "Climate Module",
+        "icon_ok": "mdi:thermostat",
+        "icon_problem": "mdi:thermostat-alert",
+    },
+    MODULE_SIREN: {
+        "name": "Siren Module",
+        "icon_ok": "mdi:alarm-bell",
+        "icon_problem": "mdi:alarm-light-off",
+    },
+    MODULE_TTS: {
+        "name": "TTS Module",
+        "icon_ok": "mdi:text-to-speech",
+        "icon_problem": "mdi:text-to-speech-off",
+    },
 }
 
 
@@ -75,7 +99,9 @@ async def async_setup_entry(
     """Set up Secure Me binary sensors for health monitoring and battery alerts."""
     _LOGGER.info("Setting up Secure Me health monitoring binary sensors")
 
-    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
+    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][
+        COORDINATOR
+    ]
 
     entities: list[BinarySensorEntity] = []
 
@@ -84,9 +110,7 @@ async def async_setup_entry(
 
     # Per-module health sensors
     for module_id in MODULE_INFO:
-        entities.append(
-            SecureMeModuleHealth(coordinator, config_entry, module_id)
-        )
+        entities.append(SecureMeModuleHealth(coordinator, config_entry, module_id))
 
     # Battery alert sensor
     entities.append(SecureMeBatteryAlert(coordinator, config_entry))
@@ -158,8 +182,7 @@ class SecureMeSystemHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
 
             entities = _get_module_entities(module)
             unavailable = [
-                e for e in entities
-                if not _check_entity_availability(self.hass, e)
+                e for e in entities if not _check_entity_availability(self.hass, e)
             ]
 
             if unavailable:
@@ -170,7 +193,9 @@ class SecureMeSystemHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
                 modules_ok += 1
 
         total_checked = modules_ok + modules_problem
-        health_score = round((modules_ok / total_checked) * 100) if total_checked > 0 else 100
+        health_score = (
+            round((modules_ok / total_checked) * 100) if total_checked > 0 else 100
+        )
 
         return {
             "health_score": health_score,
@@ -272,7 +297,8 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
         self._tracker_unsubs.append(unsub)
         _LOGGER.debug(
             "SecureMePresence: subscribed to %d tracker entities: %s",
-            len(trackers), trackers,
+            len(trackers),
+            trackers,
         )
 
     def _unsubscribe_trackers(self) -> None:
@@ -332,7 +358,10 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
         current_trackers = self._get_tracker_entities()
         # Detect if the tracked set has changed (user added/removed/edited)
         # by comparing count against number of active subscriptions.
-        if len(current_trackers) != len(self._tracker_unsubs) or not self._tracker_unsubs:
+        if (
+            len(current_trackers) != len(self._tracker_unsubs)
+            or not self._tracker_unsubs
+        ):
             self._subscribe_trackers()
         self.async_write_ha_state()
 
@@ -386,10 +415,7 @@ class SecureMeModuleHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
         if not entities:
             return False  # No entities configured = nothing to check
 
-        return any(
-            not _check_entity_availability(self.hass, e)
-            for e in entities
-        )
+        return any(not _check_entity_availability(self.hass, e) for e in entities)
 
     @property
     def icon(self) -> str:
@@ -418,7 +444,9 @@ class SecureMeModuleHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
             }
 
         available = [e for e in entities if _check_entity_availability(self.hass, e)]
-        unavailable = [e for e in entities if not _check_entity_availability(self.hass, e)]
+        unavailable = [
+            e for e in entities if not _check_entity_availability(self.hass, e)
+        ]
 
         return {
             "status": "problem" if unavailable else "ok",
@@ -450,12 +478,14 @@ def _discover_battery_levels(hass: HomeAssistant) -> list[dict[str, Any]]:
             level = int(float(state.state))
         except (ValueError, TypeError):
             pass
-        batteries.append({
-            "entity_id": state.entity_id,
-            "name": state.attributes.get("friendly_name", state.entity_id),
-            "level": level,
-            "available": state.state not in ("unavailable", "unknown", None),
-        })
+        batteries.append(
+            {
+                "entity_id": state.entity_id,
+                "name": state.attributes.get("friendly_name", state.entity_id),
+                "level": level,
+                "available": state.state not in ("unavailable", "unknown", None),
+            }
+        )
     return batteries
 
 
@@ -499,7 +529,11 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     @property
     def icon(self) -> str:
         """Return icon based on battery alert state."""
-        return "mdi:battery-alert-variant-outline" if self.is_on else "mdi:battery-check-outline"
+        return (
+            "mdi:battery-alert-variant-outline"
+            if self.is_on
+            else "mdi:battery-check-outline"
+        )
 
     def _get_batteries(self) -> list[dict[str, Any]]:
         """Get batteries from cache — discover once per update cycle.
@@ -533,17 +567,21 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
                 unavailable_count += 1
                 continue
             if level < BATTERY_THRESHOLD_CRITICAL:
-                critical.append({
-                    "entity_id": bat["entity_id"],
-                    "name": bat["name"],
-                    "level": level,
-                })
+                critical.append(
+                    {
+                        "entity_id": bat["entity_id"],
+                        "name": bat["name"],
+                        "level": level,
+                    }
+                )
             elif level < BATTERY_THRESHOLD_LOW:
-                low.append({
-                    "entity_id": bat["entity_id"],
-                    "name": bat["name"],
-                    "level": level,
-                })
+                low.append(
+                    {
+                        "entity_id": bat["entity_id"],
+                        "name": bat["name"],
+                        "level": level,
+                    }
+                )
             else:
                 ok_count += 1
 

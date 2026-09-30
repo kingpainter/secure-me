@@ -61,7 +61,15 @@ def get_module_entity_ids(module) -> list[str]:
     function instead of defining its own.
     """
     entities: list[str] = []
-    for attr in ("poe_switches", "cameras", "recording_entities", "locks", "lights", "climates", "media_players"):
+    for attr in (
+        "poe_switches",
+        "cameras",
+        "recording_entities",
+        "locks",
+        "lights",
+        "climates",
+        "media_players",
+    ):
         val = getattr(module, attr, None)
         if isinstance(val, list):
             entities.extend(val)
@@ -83,7 +91,15 @@ def get_module_entity_ids(module) -> list[str]:
         if isinstance(val, str) and "." in val:
             entities.append(val)
     if not entities and hasattr(module, "config"):
-        for key in ("entities", "cameras", "locks", "climates", "lights", "media_players", "poe_switches"):
+        for key in (
+            "entities",
+            "cameras",
+            "locks",
+            "climates",
+            "lights",
+            "media_players",
+            "poe_switches",
+        ):
             val = module.config.get(key)
             if isinstance(val, list):
                 entities.extend(val)
@@ -111,7 +127,8 @@ def normalize_module_config(module_id: str, config: dict) -> dict:
         raw = config.get("cameras", [])
         normalized["cameras"] = extract_ids(raw)
         poe = [
-            c["poe_port"] for c in raw
+            c["poe_port"]
+            for c in raw
             if isinstance(c, dict) and c.get("poe_port") and "." in str(c["poe_port"])
         ]
         if poe:
@@ -218,7 +235,8 @@ class ModuleDispatcher:
                 except Exception as err:
                     _LOGGER.error("Module %s failed on %s: %s", mid, action, err)
                     self.hass.bus.async_fire(
-                        EVENT_MODULE_ERROR, {"module": mid, "action": action, "error": str(err)}
+                        EVENT_MODULE_ERROR,
+                        {"module": mid, "action": action, "error": str(err)},
                     )
 
     async def execute_arm_away(self) -> None:
@@ -249,6 +267,7 @@ class ModuleDispatcher:
         ):
             return self._battery_cache
         from .ws_helpers import _discover_batteries
+
         self._battery_cache = _discover_batteries(self.hass, configured_eids)
         self._battery_cache_time = now
         return self._battery_cache
@@ -273,17 +292,26 @@ class ModuleDispatcher:
         result = {}
         for mid, module in self.modules.items():
             if not module.enabled:
-                result[mid] = {"enabled": False, "status": "disabled", "total": 0, "available": 0, "unavailable": []}
+                result[mid] = {
+                    "enabled": False,
+                    "status": "disabled",
+                    "total": 0,
+                    "available": 0,
+                    "unavailable": [],
+                }
                 continue
             entities = get_module_entity_ids(module)
             unavail = [
-                eid for eid in entities
+                eid
+                for eid in entities
                 if not self.hass.states.get(eid)
                 or self.hass.states.get(eid).state in ("unavailable", "unknown")
             ]
             result[mid] = {
                 "enabled": True,
-                "status": "degraded" if getattr(module, "degraded", False) else ("error" if unavail else "ok"),
+                "status": "degraded"
+                if getattr(module, "degraded", False)
+                else ("error" if unavail else "ok"),
                 "total": len(entities),
                 "available": len(entities) - len(unavail),
                 "unavailable": unavail,

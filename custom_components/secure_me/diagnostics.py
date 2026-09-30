@@ -59,7 +59,9 @@ async def async_get_config_entry_diagnostics(
             "disarmed_by": coordinator.disarmed_by,
             "triggered_by": coordinator.triggered_by,
             "last_triggered": getattr(coordinator, "_last_triggered", None),
-            "bypassed_sensors_count": len(getattr(coordinator, "_bypassed_sensors", [])),
+            "bypassed_sensors_count": len(
+                getattr(coordinator, "_bypassed_sensors", [])
+            ),
             "open_sensors_count": len(coordinator.open_sensors),
             "bypassed_zones": coordinator.bypassed_zones,
             "arm_history_count": len(getattr(coordinator, "_arm_history", [])),
@@ -166,25 +168,26 @@ async def async_get_config_entry_diagnostics(
     # --- Entity Registry Info ---
     entity_info: dict[str, Any] = {}
     from homeassistant.helpers import entity_registry as er
+
     entity_registry = er.async_get(hass)
     entities = [
         e
         for e in entity_registry.entities.values()
         if e.config_entry_id == config_entry.entry_id
     ]
-    
+
     entities_by_platform: dict[str, list[str]] = {}
     disabled_entities: list[str] = []
-    
+
     for entity in entities:
         platform = entity.domain
         if platform not in entities_by_platform:
             entities_by_platform[platform] = []
         entities_by_platform[platform].append(entity.entity_id)
-        
+
         if entity.disabled:
             disabled_entities.append(entity.entity_id)
-    
+
     entity_info = {
         "total_entities": len(entities),
         "enabled_entities": len(entities) - len(disabled_entities),

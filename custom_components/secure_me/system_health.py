@@ -74,11 +74,13 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
         module_health = coordinator.get_module_health()
         enabled_count = sum(1 for m in module_health.values() if m.get("enabled"))
         healthy_count = sum(
-            1 for m in module_health.values()
+            1
+            for m in module_health.values()
             if m.get("enabled") and m.get("status") == "ok"
         )
         problem_modules = [
-            mid for mid, m in module_health.items()
+            mid
+            for mid, m in module_health.items()
             if m.get("enabled") and m.get("status") != "ok"
         ]
         info["modules_enabled"] = enabled_count
@@ -100,11 +102,12 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
 
         # Zone monitoring active — critical: if False while armed, sensors aren't watched
         zone_mgr = coordinator.zone_manager
-        monitoring_active = bool(
-            getattr(zone_mgr, "_unsubscribe_callbacks", None)
-        )
+        monitoring_active = bool(getattr(zone_mgr, "_unsubscribe_callbacks", None))
         info["zone_monitoring_active"] = monitoring_active
-        if coordinator.alarm_state not in ("disarmed", "arming") and not monitoring_active:
+        if (
+            coordinator.alarm_state not in ("disarmed", "arming")
+            and not monitoring_active
+        ):
             info["zone_monitoring_warning"] = "Armed but zone monitoring is NOT active!"
 
         # Open sensors right now
@@ -122,7 +125,8 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
         if hasattr(coordinator, "get_batteries_cached"):
             batteries = coordinator.get_batteries_cached(configured_eids)
             low_batteries = [
-                b for b in batteries
+                b
+                for b in batteries
                 if b.get("available") and b.get("level") is not None and b["level"] < 20
             ]
             info["low_battery_count"] = len(low_batteries)

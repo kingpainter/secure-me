@@ -1,4 +1,5 @@
 """WebSocket API — Arm, Disarm and Special Feature commands for Secure Me."""
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -20,11 +21,13 @@ _LOGGER = logging.getLogger(__name__)
 from .ws_helpers import _get_store, _get_coordinator  # noqa: F401
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/arm_away",
-    vol.Optional("code"): str,
-    vol.Optional("force", default=False): bool,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/arm_away",
+        vol.Optional("code"): str,
+        vol.Optional("force", default=False): bool,
+    }
+)
 @websocket_api.async_response
 async def ws_arm_away(
     hass: HomeAssistant,
@@ -37,7 +40,9 @@ async def ws_arm_away(
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     if not coordinator.validate_code(code):
@@ -46,17 +51,22 @@ async def ws_arm_away(
     force = bool(msg.get("force", False))
     success = await coordinator.async_arm_away(code=code, force=force)
     bypassed = coordinator.bypassed_sensors if success and not force else []
-    connection.send_result(msg["id"], {
-        "success": success,
-        "bypassed_sensors": bypassed,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "success": success,
+            "bypassed_sensors": bypassed,
+        },
+    )
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/arm_home",
-    vol.Optional("code"): str,
-    vol.Optional("force", default=False): bool,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/arm_home",
+        vol.Optional("code"): str,
+        vol.Optional("force", default=False): bool,
+    }
+)
 @websocket_api.async_response
 async def ws_arm_home(
     hass: HomeAssistant,
@@ -69,7 +79,9 @@ async def ws_arm_home(
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     if not coordinator.validate_code(code):
@@ -78,16 +90,21 @@ async def ws_arm_home(
     force = bool(msg.get("force", False))
     success = await coordinator.async_arm_home(code=code, force=force)
     bypassed = coordinator.bypassed_sensors if success and not force else []
-    connection.send_result(msg["id"], {
-        "success": success,
-        "bypassed_sensors": bypassed,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "success": success,
+            "bypassed_sensors": bypassed,
+        },
+    )
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/arm_night",
-    vol.Optional("code"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/arm_night",
+        vol.Optional("code"): str,
+    }
+)
 @websocket_api.async_response
 async def ws_arm_night(
     hass: HomeAssistant,
@@ -97,7 +114,9 @@ async def ws_arm_night(
     """Arm in night mode via WebSocket."""
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     if not coordinator.validate_code(code):
@@ -107,10 +126,12 @@ async def ws_arm_night(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/arm_vacation",
-    vol.Optional("code"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/arm_vacation",
+        vol.Optional("code"): str,
+    }
+)
 @websocket_api.async_response
 async def ws_arm_vacation(
     hass: HomeAssistant,
@@ -120,7 +141,9 @@ async def ws_arm_vacation(
     """Arm in vacation mode via WebSocket."""
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     if not coordinator.validate_code(code):
@@ -130,10 +153,12 @@ async def ws_arm_vacation(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/arm_home_alone",
-    vol.Optional("code"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/arm_home_alone",
+        vol.Optional("code"): str,
+    }
+)
 @websocket_api.async_response
 async def ws_arm_home_alone(
     hass: HomeAssistant,
@@ -143,7 +168,9 @@ async def ws_arm_home_alone(
     """Arm in home alone mode via WebSocket."""
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     if not coordinator.validate_code(code):
@@ -153,10 +180,12 @@ async def ws_arm_home_alone(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/disarm",
-    vol.Optional("code"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/disarm",
+        vol.Optional("code"): str,
+    }
+)
 @websocket_api.async_response
 async def ws_disarm(
     hass: HomeAssistant,
@@ -166,16 +195,20 @@ async def ws_disarm(
     """Disarm via WebSocket."""
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     code = msg.get("code")
     success = await coordinator.async_disarm(code=code)
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/skip_delay",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/skip_delay",
+    }
+)
 @websocket_api.async_response
 async def ws_skip_delay(
     hass: HomeAssistant,
@@ -189,7 +222,9 @@ async def ws_skip_delay(
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
-        connection.send_error(msg["id"], "coordinator_not_ready", "Coordinator not initialized")
+        connection.send_error(
+            msg["id"], "coordinator_not_ready", "Coordinator not initialized"
+        )
         return
     success = await coordinator.async_skip_delay()
     connection.send_result(msg["id"], {"success": success})
@@ -199,9 +234,12 @@ async def ws_skip_delay(
 # SPEAKER PROFILES (v1.4.0)
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
+    }
+)
 @websocket_api.async_response
 async def ws_get_speaker_profiles(
     hass: HomeAssistant,
@@ -219,18 +257,25 @@ async def ws_get_speaker_profiles(
     for p in profiles:
         eid = p.get("entity_id", "")
         state = hass.states.get(eid)
-        enriched.append({
-            **p,
-            "available": state is not None and state.state not in ("unavailable", "unknown"),
-            "current_volume": state.attributes.get("volume_level") if state else None,
-        })
+        enriched.append(
+            {
+                **p,
+                "available": state is not None
+                and state.state not in ("unavailable", "unknown"),
+                "current_volume": state.attributes.get("volume_level")
+                if state
+                else None,
+            }
+        )
     connection.send_result(msg["id"], {"profiles": enriched})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_speaker_profiles",
-    vol.Required("profiles"): list,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_speaker_profiles",
+        vol.Required("profiles"): list,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_speaker_profiles(
@@ -248,7 +293,9 @@ async def ws_save_speaker_profiles(
     # Validate each profile has required fields
     for p in profiles:
         if not p.get("entity_id"):
-            connection.send_error(msg["id"], "invalid_profile", "Each profile needs entity_id")
+            connection.send_error(
+                msg["id"], "invalid_profile", "Each profile needs entity_id"
+            )
             return
         p.setdefault("name", p["entity_id"])
         p.setdefault("volume", 0.5)
@@ -268,9 +315,11 @@ async def ws_save_speaker_profiles(
     connection.send_result(msg["id"], {"success": True, "count": len(profiles)})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
+    }
+)
 @websocket_api.async_response
 async def ws_get_home_alone_messages(
     hass: HomeAssistant,
@@ -294,11 +343,13 @@ async def ws_get_home_alone_messages(
             continue
         if notif.get("trigger") != "home_alone_action":
             continue
-        messages.append({
-            "label": notif.get("name", ""),
-            "message": notif.get("message", ""),
-            "speakers": notif.get("tts_speakers", []),
-        })
+        messages.append(
+            {
+                "label": notif.get("name", ""),
+                "message": notif.get("message", ""),
+                "speakers": notif.get("tts_speakers", []),
+            }
+        )
 
     connection.send_result(msg["id"], {"messages": messages})
 
@@ -307,9 +358,12 @@ async def ws_get_home_alone_messages(
 # AUTO ACTIONS v2
 #
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_auto_actions",
-})
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_auto_actions",
+    }
+)
 @websocket_api.async_response
 async def ws_get_auto_actions(
     hass: HomeAssistant,
@@ -324,10 +378,12 @@ async def ws_get_auto_actions(
     connection.send_result(msg["id"], {"config": store.get_auto_actions()})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_auto_actions",
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_auto_actions",
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_auto_actions(
@@ -344,9 +400,11 @@ async def ws_save_auto_actions(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
+    }
+)
 @websocket_api.async_response
 async def ws_get_fake_presence_v2(
     hass: HomeAssistant,
@@ -361,10 +419,12 @@ async def ws_get_fake_presence_v2(
     connection.send_result(msg["id"], {"config": store.get_fake_presence_v2()})
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_fake_presence_v2",
-    vol.Required("config"): dict,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_fake_presence_v2",
+        vol.Required("config"): dict,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_fake_presence_v2(
@@ -384,4 +444,6 @@ async def ws_save_fake_presence_v2(
     if coordinator:
         await coordinator.async_set_fake_presence(msg["config"].get("active", False))
 
-    connection.send_result(msg["id"], {"success": True, "config": store.get_fake_presence_v2()})
+    connection.send_result(
+        msg["id"], {"success": True, "config": store.get_fake_presence_v2()}
+    )

@@ -30,29 +30,49 @@ CONF_HOME_ALONE_CAMERAS = "home_alone_cameras"
 
 FAKE_PRESENCE_ON_EN = "Secure Me: Fake Presence activated. Automatic arming is blocked."
 FAKE_PRESENCE_OFF_EN = "Secure Me: Fake Presence deactivated. Automatic arming resumed."
-FAKE_PRESENCE_ON_DA = "Secure Me: Fake Presence aktiveret. Automatisk aktivering er blokeret."
-FAKE_PRESENCE_OFF_DA = "Secure Me: Fake Presence deaktiveret. Automatisk aktivering genoptaget."
+FAKE_PRESENCE_ON_DA = (
+    "Secure Me: Fake Presence aktiveret. Automatisk aktivering er blokeret."
+)
+FAKE_PRESENCE_OFF_DA = (
+    "Secure Me: Fake Presence deaktiveret. Automatisk aktivering genoptaget."
+)
 
 EVENT_FAKE_PRESENCE_CHANGED = f"{DOMAIN}_fake_presence_changed"
 EVENT_PRESENCE_CHANGED = f"{DOMAIN}_presence_changed"
 
 # Fake Presence v2 config field names (stored under 'fake_presence' store key)
-FP_ACTIVE        = "active"
-FP_BLOCK_ALARM   = "block_alarm"
-FP_BLOCK_LOCKS   = "block_locks"
+FP_ACTIVE = "active"
+FP_BLOCK_ALARM = "block_alarm"
+FP_BLOCK_LOCKS = "block_locks"
 FP_BLOCK_CAMERAS = "block_cameras"
 
 # -- Error messages - English ------------------------------------------------
-ERROR_MODULE_FAILED_EN = "Secure Me: Module '{module}' failed during '{action}'. Check logs."
-ERROR_ENTITY_UNAVAILABLE_EN = "Secure Me: Entity '{entity}' is unavailable. Check device connection."
-ERROR_RETRY_EXHAUSTED_EN = "Secure Me: Module '{module}' failed after {retries} retries for '{action}'."
-ERROR_RECOVERY_OK_EN = "Secure Me: Module '{module}' recovered successfully after retry."
+ERROR_MODULE_FAILED_EN = (
+    "Secure Me: Module '{module}' failed during '{action}'. Check logs."
+)
+ERROR_ENTITY_UNAVAILABLE_EN = (
+    "Secure Me: Entity '{entity}' is unavailable. Check device connection."
+)
+ERROR_RETRY_EXHAUSTED_EN = (
+    "Secure Me: Module '{module}' failed after {retries} retries for '{action}'."
+)
+ERROR_RECOVERY_OK_EN = (
+    "Secure Me: Module '{module}' recovered successfully after retry."
+)
 
 # -- Error messages - Danish -------------------------------------------------
-ERROR_MODULE_FAILED_DA = "Secure Me: Modul '{module}' fejlede under '{action}'. Tjek loggen."
-ERROR_ENTITY_UNAVAILABLE_DA = "Secure Me: Enhed '{entity}' er ikke tilgaengelig. Tjek enhedens forbindelse."
-ERROR_RETRY_EXHAUSTED_DA = "Secure Me: Modul '{module}' fejlede efter {retries} forsoeg paa '{action}'."
-ERROR_RECOVERY_OK_DA = "Secure Me: Modul '{module}' gendannet korrekt efter nyt forsoeg."
+ERROR_MODULE_FAILED_DA = (
+    "Secure Me: Modul '{module}' fejlede under '{action}'. Tjek loggen."
+)
+ERROR_ENTITY_UNAVAILABLE_DA = (
+    "Secure Me: Enhed '{entity}' er ikke tilgaengelig. Tjek enhedens forbindelse."
+)
+ERROR_RETRY_EXHAUSTED_DA = (
+    "Secure Me: Modul '{module}' fejlede efter {retries} forsoeg paa '{action}'."
+)
+ERROR_RECOVERY_OK_DA = (
+    "Secure Me: Modul '{module}' gendannet korrekt efter nyt forsoeg."
+)
 
 # Platforms
 # v1.5.4: Platform.SWITCH / Platform.SELECT removed. switch.py/select.py were
@@ -68,12 +88,12 @@ PLATFORMS = [
 
 # Panel / sidebar configuration
 CONF_SIDEBAR_TITLE = "sidebar_title"
-CONF_SIDEBAR_ICON  = "sidebar_icon"
+CONF_SIDEBAR_ICON = "sidebar_icon"
 CONF_PANEL_ENABLED = "panel_enabled"
 CONF_REQUIRE_ADMIN = "require_admin"
 
 DEFAULT_SIDEBAR_TITLE = "Secure Me"
-DEFAULT_SIDEBAR_ICON  = "mdi:shield-lock"
+DEFAULT_SIDEBAR_ICON = "mdi:shield-lock"
 DEFAULT_PANEL_ENABLED = True
 DEFAULT_REQUIRE_ADMIN = False
 
@@ -111,8 +131,8 @@ EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
 EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
 
 # v1.4.3 rich error events
-EVENT_ALARM_ARM_FAILED       = f"{DOMAIN}_arm_failed"
-EVENT_ALARM_INVALID_CODE     = f"{DOMAIN}_invalid_code"
+EVENT_ALARM_ARM_FAILED = f"{DOMAIN}_arm_failed"
+EVENT_ALARM_INVALID_CODE = f"{DOMAIN}_invalid_code"
 EVENT_ALARM_COMMAND_REJECTED = f"{DOMAIN}_command_rejected"
 
 EVENT_READY_TO_ARM_MODES_CHANGED = f"{DOMAIN}_ready_to_arm_modes_changed"
@@ -120,13 +140,13 @@ EVENT_READY_TO_ARM_MODES_CHANGED = f"{DOMAIN}_ready_to_arm_modes_changed"
 # Mobile push notification action events
 PUSH_EVENT = "mobile_app_notification_action"
 
-EVENT_ACTION_FORCE_ARM      = "SECURE_ME_FORCE_ARM"
-EVENT_ACTION_RETRY_ARM      = "SECURE_ME_RETRY_ARM"
-EVENT_ACTION_DISARM         = "SECURE_ME_DISARM"
-EVENT_ACTION_ARM_AWAY       = "SECURE_ME_ARM_AWAY"
-EVENT_ACTION_ARM_HOME       = "SECURE_ME_ARM_HOME"
-EVENT_ACTION_ARM_NIGHT      = "SECURE_ME_ARM_NIGHT"
-EVENT_ACTION_ARM_VACATION   = "SECURE_ME_ARM_VACATION"
+EVENT_ACTION_FORCE_ARM = "SECURE_ME_FORCE_ARM"
+EVENT_ACTION_RETRY_ARM = "SECURE_ME_RETRY_ARM"
+EVENT_ACTION_DISARM = "SECURE_ME_DISARM"
+EVENT_ACTION_ARM_AWAY = "SECURE_ME_ARM_AWAY"
+EVENT_ACTION_ARM_HOME = "SECURE_ME_ARM_HOME"
+EVENT_ACTION_ARM_NIGHT = "SECURE_ME_ARM_NIGHT"
+EVENT_ACTION_ARM_VACATION = "SECURE_ME_ARM_VACATION"
 EVENT_ACTION_ARM_HOME_ALONE = "SECURE_ME_ARM_HOME_ALONE"
 
 PUSH_EVENT_ACTIONS = [
@@ -141,14 +161,14 @@ PUSH_EVENT_ACTIONS = [
 ]
 
 # Services
-SERVICE_ARM_AWAY       = "arm_away"
-SERVICE_ARM_HOME       = "arm_home"
-SERVICE_ARM_NIGHT      = "arm_night"
-SERVICE_ARM_VACATION   = "arm_vacation"
+SERVICE_ARM_AWAY = "arm_away"
+SERVICE_ARM_HOME = "arm_home"
+SERVICE_ARM_NIGHT = "arm_night"
+SERVICE_ARM_VACATION = "arm_vacation"
 SERVICE_ARM_HOME_ALONE = "arm_home_alone"
-SERVICE_DISARM         = "disarm"
-SERVICE_TRIGGER        = "trigger"
-SERVICE_RUN_TEST       = "run_test"
+SERVICE_DISARM = "disarm"
+SERVICE_TRIGGER = "trigger"
+SERVICE_RUN_TEST = "run_test"
 
 # Attributes
 ATTR_CODE = "code"
@@ -166,7 +186,7 @@ ATTR_MODULE_STATUS = "module_status"
 ATTR_MODULE_CONFIG = "module_config"
 
 ATTR_BYPASSED_SENSORS = "bypassed_sensors"
-ATTR_LAST_TRIGGERED   = "last_triggered"
+ATTR_LAST_TRIGGERED = "last_triggered"
 
 # Update intervals
 SCAN_INTERVAL = 30
@@ -234,11 +254,13 @@ ATTR_SENSOR_ENTRY_DELAY = "entry_delay"
 ATTR_SENSOR_AUTO_BYPASS = "auto_bypass"
 ATTR_SENSOR_AUTO_BYPASS_MODES = "auto_bypass_modes"
 ATTR_SENSOR_ARM_ON_CLOSE = "arm_on_close"
-ATTR_SENSOR_ALLOW_OPEN   = "allow_open"    # permanent bypass — sensor ignoreres ved al arming
+ATTR_SENSOR_ALLOW_OPEN = (
+    "allow_open"  # permanent bypass — sensor ignoreres ved al arming
+)
 
 # Home Alone mode constants
-CONF_HOME_ALONE_CAMERA   = "home_alone_camera"
-CONF_HOME_ALONE_SPEAKER  = "home_alone_tts_speaker"
+CONF_HOME_ALONE_CAMERA = "home_alone_camera"
+CONF_HOME_ALONE_SPEAKER = "home_alone_tts_speaker"
 CONF_HOME_ALONE_ACTION_1 = "home_alone_action_1"
 CONF_HOME_ALONE_ACTION_2 = "home_alone_action_2"
 
@@ -263,20 +285,22 @@ PUSH_EVENT_ACTIONS.append(EVENT_HOME_ALONE_ACTION_2)
 # image_b64 backup/restore mechanism in store.py a safety net rather than
 # the only thing standing between an update and a lost floorplan.
 FLOORPLAN_WWW_DIR_NAME = "secure_me_floorplan"
-FLOORPLAN_DIR_NAME   = "floorplan"  # legacy custom_components path (migration source only)
+FLOORPLAN_DIR_NAME = (
+    "floorplan"  # legacy custom_components path (migration source only)
+)
 FLOORPLAN_IMAGE_NAME = "floorplan.png"
-FLOORPLAN_URL_PATH   = f"/local/{FLOORPLAN_WWW_DIR_NAME}/{FLOORPLAN_IMAGE_NAME}"
-FLOORPLAN_MAX_BYTES  = 4 * 1024 * 1024
+FLOORPLAN_URL_PATH = f"/local/{FLOORPLAN_WWW_DIR_NAME}/{FLOORPLAN_IMAGE_NAME}"
+FLOORPLAN_MAX_BYTES = 4 * 1024 * 1024
 
 ATTR_FLOORPLAN_IMAGE_URL = "image_url"
-ATTR_FLOORPLAN_WIDTH     = "width"
-ATTR_FLOORPLAN_HEIGHT    = "height"
-ATTR_FLOORPLAN_MARKERS   = "markers"
+ATTR_FLOORPLAN_WIDTH = "width"
+ATTR_FLOORPLAN_HEIGHT = "height"
+ATTR_FLOORPLAN_MARKERS = "markers"
 
 ATTR_MARKER_X_PCT = "x_pct"
 ATTR_MARKER_Y_PCT = "y_pct"
 ATTR_MARKER_LABEL = "label"
-ATTR_MARKER_KIND  = "kind"
+ATTR_MARKER_KIND = "kind"
 
 # v1.5.4: AUTO_ARM_AWAY_DELAY / AUTO_ARM_PUSH_TITLE / AUTO_ARM_PUSH_MESSAGE
 # removed -- they backed the old PresenceMonitor class in coordinator.py
@@ -289,22 +313,22 @@ ATTR_MARKER_KIND  = "kind"
 # arrival confirmation, and Fake Presence v2 selective blocking.
 
 # HA events
-EVENT_HOME_EMPTY       = f"{DOMAIN}_home_empty"
-EVENT_PERSON_HOME      = f"{DOMAIN}_person_home"
+EVENT_HOME_EMPTY = f"{DOMAIN}_home_empty"
+EVENT_PERSON_HOME = f"{DOMAIN}_person_home"
 EVENT_AUTO_ACTION_DONE = f"{DOMAIN}_auto_action_done"
 
 # Store key
 CONF_AUTO_ACTIONS = "auto_actions"
 
 # Config field names
-AA_LOCK_ENABLED   = "auto_lock_enabled"
-AA_LOCK_DELAY     = "auto_lock_delay"
-AA_ALARM_ENABLED  = "auto_alarm_enabled"
-AA_ALARM_DELAY    = "auto_alarm_delay"
+AA_LOCK_ENABLED = "auto_lock_enabled"
+AA_LOCK_DELAY = "auto_lock_delay"
+AA_ALARM_ENABLED = "auto_alarm_enabled"
+AA_ALARM_DELAY = "auto_alarm_delay"
 AA_CAMERA_ENABLED = "auto_camera_enabled"
-AA_CAMERA_DELAY   = "auto_camera_delay"
-AA_ARRIVAL_DELAY  = "arrival_confirmation_delay"
-AA_NOTIFY_ALL     = "notify_all_users"
+AA_CAMERA_DELAY = "auto_camera_delay"
+AA_ARRIVAL_DELAY = "arrival_confirmation_delay"
+AA_NOTIFY_ALL = "notify_all_users"
 
 # v1.5.x: Re-check presence after a remote disarm. Normally Auto Actions only
 # reacts to a person.* tracker transitioning to not_home. If the alarm is
@@ -328,11 +352,11 @@ AA_RECHECK_ON_DISARM = "recheck_on_disarm"
 # - AA_RECHECK_INCLUDE_*: which action types a disarm-triggered recheck may
 #   schedule. Still gated by the corresponding AA_*_ENABLED flag -- these
 #   only narrow further, they never widen what's globally enabled.
-AA_RECHECK_DELAY             = "recheck_delay"
+AA_RECHECK_DELAY = "recheck_delay"
 AA_RECHECK_MIN_AWAY_DURATION = "recheck_min_away_duration"
-AA_RECHECK_INCLUDE_LOCK      = "recheck_include_lock"
-AA_RECHECK_INCLUDE_ALARM     = "recheck_include_alarm"
-AA_RECHECK_INCLUDE_CAMERA    = "recheck_include_camera"
+AA_RECHECK_INCLUDE_LOCK = "recheck_include_lock"
+AA_RECHECK_INCLUDE_ALARM = "recheck_include_alarm"
+AA_RECHECK_INCLUDE_CAMERA = "recheck_include_camera"
 
 # v1.5.x: Grace timeout for a Secure Me user's person_entity/tracker_entity
 # stuck on "unknown"/"unavailable" (a known GPS/wifi tracker failure mode --
@@ -346,14 +370,14 @@ AA_RECHECK_INCLUDE_CAMERA    = "recheck_include_camera"
 AA_STALE_TRACKER_TIMEOUT = "stale_tracker_timeout"
 
 # Defaults (seconds)
-DEFAULT_AA_LOCK_DELAY    = 120
-DEFAULT_AA_ALARM_DELAY   = 300
-DEFAULT_AA_CAMERA_DELAY  = 0
+DEFAULT_AA_LOCK_DELAY = 120
+DEFAULT_AA_ALARM_DELAY = 300
+DEFAULT_AA_CAMERA_DELAY = 0
 DEFAULT_AA_ARRIVAL_DELAY = 60
 DEFAULT_AA_RECHECK_ON_DISARM = False
-DEFAULT_AA_RECHECK_DELAY             = 30
+DEFAULT_AA_RECHECK_DELAY = 30
 DEFAULT_AA_RECHECK_MIN_AWAY_DURATION = 300
-DEFAULT_AA_RECHECK_INCLUDE_LOCK      = True
-DEFAULT_AA_RECHECK_INCLUDE_ALARM     = True
-DEFAULT_AA_RECHECK_INCLUDE_CAMERA    = True
-DEFAULT_AA_STALE_TRACKER_TIMEOUT     = 1800  # 30 minutes
+DEFAULT_AA_RECHECK_INCLUDE_LOCK = True
+DEFAULT_AA_RECHECK_INCLUDE_ALARM = True
+DEFAULT_AA_RECHECK_INCLUDE_CAMERA = True
+DEFAULT_AA_STALE_TRACKER_TIMEOUT = 1800  # 30 minutes

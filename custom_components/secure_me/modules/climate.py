@@ -46,14 +46,16 @@ class ClimateModule(AlarmModule):
             preset_modes = state.attributes.get("preset_modes", [])
             if "away" in preset_modes:
                 await self.async_call_service_with_retry(
-                    "climate", "set_preset_mode",
+                    "climate",
+                    "set_preset_mode",
                     service_data={"preset_mode": "away"},
                     target={"entity_id": climate},
                     action=f"climate_away:{climate}",
                 )
             elif self.away_temperature:
                 await self.async_call_service_with_retry(
-                    "climate", "set_temperature",
+                    "climate",
+                    "set_temperature",
                     service_data={"temperature": self.away_temperature},
                     target={"entity_id": climate},
                     action=f"climate_temp:{climate}",
@@ -76,7 +78,8 @@ class ClimateModule(AlarmModule):
                 state = self.hass.states.get(climate)
                 if state and "home" in state.attributes.get("preset_modes", []):
                     await self.async_call_service_with_retry(
-                        "climate", "set_preset_mode",
+                        "climate",
+                        "set_preset_mode",
                         service_data={"preset_mode": "home"},
                         target={"entity_id": climate},
                         action=f"climate_home:{climate}",
@@ -108,10 +111,16 @@ class ClimateModule(AlarmModule):
             climate_info: dict[str, Any] = {
                 "entity_id": climate,
                 "available": self.is_entity_available(climate),
-                "current_temperature": state.attributes.get("current_temperature") if state else None,
-                "target_temperature": state.attributes.get("temperature") if state else None,
+                "current_temperature": state.attributes.get("current_temperature")
+                if state
+                else None,
+                "target_temperature": state.attributes.get("temperature")
+                if state
+                else None,
                 "preset_mode": state.attributes.get("preset_mode") if state else None,
-                "preset_modes": state.attributes.get("preset_modes", []) if state else [],
+                "preset_modes": state.attributes.get("preset_modes", [])
+                if state
+                else [],
                 "hvac_mode": state.state if state else None,
             }
 
@@ -120,7 +129,9 @@ class ClimateModule(AlarmModule):
                 messages.append(f"Climate {climate} unavailable")
 
             if "away" not in climate_info["preset_modes"] and not self.away_temperature:
-                results["warnings"].append(f"Climate {climate} does not support away mode")
+                results["warnings"].append(
+                    f"Climate {climate} does not support away mode"
+                )
 
             results["details"]["climates"].append(climate_info)
 
@@ -139,14 +150,16 @@ class ClimateModule(AlarmModule):
         preset_mode = attrs.get("preset_mode")
         if preset_mode and preset_mode != "away":
             await self.async_call_service_with_retry(
-                "climate", "set_preset_mode",
+                "climate",
+                "set_preset_mode",
                 service_data={"preset_mode": preset_mode},
                 target={"entity_id": climate},
                 action=f"climate_restore_preset:{climate}",
             )
         elif attrs.get("temperature"):
             await self.async_call_service_with_retry(
-                "climate", "set_temperature",
+                "climate",
+                "set_temperature",
                 service_data={"temperature": attrs["temperature"]},
                 target={"entity_id": climate},
                 action=f"climate_restore_temp:{climate}",

@@ -54,7 +54,8 @@ class LockModule(AlarmModule):
                 continue
 
             if not await self.async_call_service_with_retry(
-                "lock", "lock",
+                "lock",
+                "lock",
                 target={"entity_id": lock},
                 action=f"lock:{lock}",
             ):
@@ -70,7 +71,8 @@ class LockModule(AlarmModule):
         success = True
         for lock in self.locks:
             if not await self.async_call_service_with_retry(
-                "lock", "unlock",
+                "lock",
+                "unlock",
                 target={"entity_id": lock},
                 action=f"unlock:{lock}",
             ):
@@ -150,7 +152,9 @@ class LockModule(AlarmModule):
                     level = int(float(self.get_entity_state(battery_sensor) or ""))
                     lock_info["battery"] = level
                     if level < 20:
-                        results["warnings"].append(f"Lock {lock} battery low ({level}%)")
+                        results["warnings"].append(
+                            f"Lock {lock} battery low ({level}%)"
+                        )
                 except (ValueError, TypeError):
                     pass
 
@@ -158,7 +162,10 @@ class LockModule(AlarmModule):
             door_sensor = self.door_sensors.get(lock)
             if door_sensor:
                 door_state = self.get_entity_state(door_sensor)
-                lock_info["door_sensor"] = {"entity_id": door_sensor, "state": door_state}
+                lock_info["door_sensor"] = {
+                    "entity_id": door_sensor,
+                    "state": door_state,
+                }
                 if door_state == "on":
                     lock_info["skip_reason"] = "door_open"
                     lock_info["test_passed"] = True
@@ -176,21 +183,29 @@ class LockModule(AlarmModule):
             try:
                 if initial_state == "locked":
                     # Test both directions, always end locked.
-                    await self.async_call_service("lock", "unlock", target={"entity_id": lock})
+                    await self.async_call_service(
+                        "lock", "unlock", target={"entity_id": lock}
+                    )
                     await asyncio.sleep(2)
                     lock_info["unlock_ok"] = self.get_entity_state(lock) == "unlocked"
 
-                    await self.async_call_service("lock", "lock", target={"entity_id": lock})
+                    await self.async_call_service(
+                        "lock", "lock", target={"entity_id": lock}
+                    )
                     await asyncio.sleep(2)
                     lock_info["relock_ok"] = self.get_entity_state(lock) == "locked"
 
-                    lock_info["test_passed"] = lock_info["unlock_ok"] and lock_info["relock_ok"]
+                    lock_info["test_passed"] = (
+                        lock_info["unlock_ok"] and lock_info["relock_ok"]
+                    )
                     if not lock_info["test_passed"]:
                         results["success"] = False
                         messages.append(f"Lock {lock} failed unlock/relock cycle")
                 else:
                     # Unlocked (or any other non-locked state): lock and verify.
-                    await self.async_call_service("lock", "lock", target={"entity_id": lock})
+                    await self.async_call_service(
+                        "lock", "lock", target={"entity_id": lock}
+                    )
                     await asyncio.sleep(2)
                     lock_info["relock_ok"] = self.get_entity_state(lock) == "locked"
                     lock_info["test_passed"] = lock_info["relock_ok"]

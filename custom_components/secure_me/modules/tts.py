@@ -16,20 +16,33 @@ _LOGGER = logging.getLogger(__name__)
 DEFAULT_LANGUAGE = "da"
 DEFAULT_VOLUME = 0.5
 
-MSG_TYPE_TTS   = "tts"
+MSG_TYPE_TTS = "tts"
 MSG_TYPE_MEDIA = "media"
 
 VALID_TRIGGERS = {
-    "armed_away", "armed_home", "armed_night", "armed_vacation",
+    "armed_away",
+    "armed_home",
+    "armed_night",
+    "armed_vacation",
     "armed_home_alone",
-    "disarmed", "triggered", "arming", "pending",
+    "disarmed",
+    "triggered",
+    "arming",
+    "pending",
 }
 
 _LANG_MAP = {
-    "da": "da-DK", "en": "en-US", "de": "de-DE",
-    "sv": "sv-SE", "nb": "nb-NO", "nl": "nl-NL",
-    "fr": "fr-FR", "es": "es-ES", "it": "it-IT",
-    "fi": "fi-FI", "pl": "pl-PL",
+    "da": "da-DK",
+    "en": "en-US",
+    "de": "de-DE",
+    "sv": "sv-SE",
+    "nb": "nb-NO",
+    "nl": "nl-NL",
+    "fr": "fr-FR",
+    "es": "es-ES",
+    "it": "it-IT",
+    "fi": "fi-FI",
+    "pl": "pl-PL",
 }
 
 
@@ -60,7 +73,8 @@ class SpeakerQueue:
                 except Exception as err:
                     _LOGGER.error(
                         "SpeakerQueue error on %s: %s",
-                        self.profile.get("entity_id", "?"), err,
+                        self.profile.get("entity_id", "?"),
+                        err,
                     )
                 finally:
                     self._queue.task_done()
@@ -84,15 +98,17 @@ class TTSModule(AlarmModule):
         super().__init__(hass, config)
 
         # v1.4.0: speaker profiles from store (list of dicts)
-        self._speaker_profiles: list[dict[str, Any]] = config.get("speaker_profiles", [])
+        self._speaker_profiles: list[dict[str, Any]] = config.get(
+            "speaker_profiles", []
+        )
 
         # Legacy flat config -- used if no speaker_profiles defined
         self._legacy_players: list[str] = config.get("media_players", [])
-        self._legacy_service: str       = config.get("tts_service", "tts.cloud_say")
-        self._legacy_entity: str        = config.get("tts_entity", "tts.home_assistant_cloud")
-        self._legacy_volume: float      = float(config.get("volume", DEFAULT_VOLUME))
+        self._legacy_service: str = config.get("tts_service", "tts.cloud_say")
+        self._legacy_entity: str = config.get("tts_entity", "tts.home_assistant_cloud")
+        self._legacy_volume: float = float(config.get("volume", DEFAULT_VOLUME))
 
-        self.language: str              = config.get("language", DEFAULT_LANGUAGE)
+        self.language: str = config.get("language", DEFAULT_LANGUAGE)
         self.custom_messages: list[dict[str, Any]] = config.get("custom_messages", [])
 
         # Per-speaker queue map: entity_id -> SpeakerQueue
@@ -141,10 +157,7 @@ class TTSModule(AlarmModule):
         urgent: bool = False,
     ) -> None:
         """Play a message on speakers matched by profile name."""
-        speakers = [
-            s for s in self.get_speakers()
-            if s.get("name") in profile_names
-        ]
+        speakers = [s for s in self.get_speakers() if s.get("name") in profile_names]
         if not speakers:
             _LOGGER.debug("TTS: no speakers matched profiles %s", profile_names)
             return
@@ -155,9 +168,11 @@ class TTSModule(AlarmModule):
     async def async_arm(self, mode: str) -> bool:
         if not self.enabled:
             return True
-        trigger = f"armed_{mode}" if mode in (
-            "away", "home", "night", "vacation", "home_alone"
-        ) else mode
+        trigger = (
+            f"armed_{mode}"
+            if mode in ("away", "home", "night", "vacation", "home_alone")
+            else mode
+        )
         await self._fire_custom_messages(trigger)
         return True
 
@@ -212,7 +227,9 @@ class TTSModule(AlarmModule):
                 messages.append(f"Speaker {eid} unavailable")
             results["details"]["speakers"].append(info)
 
-        test_msg = next((m for m in self.custom_messages if m.get("enabled", True)), None)
+        test_msg = next(
+            (m for m in self.custom_messages if m.get("enabled", True)), None
+        )
         if test_msg:
             try:
                 await self._play_message(test_msg, test_mode=True)
@@ -242,6 +259,7 @@ class TTSModule(AlarmModule):
         test_mode: bool = False,
     ) -> None:
         """Parallel across speakers, queued per speaker."""
+
         async def _speak_on(profile: dict) -> None:
             volume = float(profile.get("volume", DEFAULT_VOLUME))
             if urgent:
@@ -268,7 +286,7 @@ class TTSModule(AlarmModule):
         volume: float,
     ) -> None:
         """Execute a single TTS announcement on one speaker."""
-        entity_id   = profile.get("entity_id", "")
+        entity_id = profile.get("entity_id", "")
         tts_service = profile.get("tts_service", "tts.cloud_say")
 
         if not entity_id:
@@ -282,7 +300,8 @@ class TTSModule(AlarmModule):
 
         # Set volume
         await self.async_call_service(
-            "media_player", "volume_set",
+            "media_player",
+            "volume_set",
             service_data={"volume_level": volume},
             target={"entity_id": entity_id},
         )
@@ -290,13 +309,16 @@ class TTSModule(AlarmModule):
 
         if service_domain == "tts":
             language = self.language or "da-DK"
-            if service_name in (
-                "cloud_say", "google_say", "google_translate_say", "piper"
-            ) and language in _LANG_MAP:
+            if (
+                service_name
+                in ("cloud_say", "google_say", "google_translate_say", "piper")
+                and language in _LANG_MAP
+            ):
                 language = _LANG_MAP[language]
 
             await self.async_call_service(
-                service_domain, service_name,
+                service_domain,
+                service_name,
                 service_data={
                     "message": message,
                     "language": language,
@@ -307,7 +329,8 @@ class TTSModule(AlarmModule):
 
         elif service_domain == "notify":
             await self.async_call_service(
-                service_domain, service_name,
+                service_domain,
+                service_name,
                 service_data={"message": message, "title": "Secure Me"},
             )
 
@@ -316,7 +339,8 @@ class TTSModule(AlarmModule):
                 self._warned_incompatible = True
                 _LOGGER.warning(
                     "TTS: '%s' not supported (use tts.* or notify.*). Speaker: %s",
-                    tts_service, entity_id,
+                    tts_service,
+                    entity_id,
                 )
             return
 
@@ -333,7 +357,8 @@ class TTSModule(AlarmModule):
             except Exception as err:
                 _LOGGER.error(
                     "TTS custom message '%s' failed: %s",
-                    msg.get("name", "?"), err,
+                    msg.get("name", "?"),
+                    err,
                 )
 
     async def _play_message(self, msg: dict[str, Any], test_mode: bool = False) -> None:
@@ -358,7 +383,8 @@ class TTSModule(AlarmModule):
                 _LOGGER.warning(
                     "TTS message '%s' targets speakers %s but none are currently "
                     "configured -- skipping",
-                    msg.get("name", "?"), msg_speaker_ids,
+                    msg.get("name", "?"),
+                    msg_speaker_ids,
                 )
                 return
 
@@ -385,7 +411,8 @@ class TTSModule(AlarmModule):
             if test_mode:
                 volume = volume * 0.5
             await self.async_call_service(
-                "media_player", "volume_set",
+                "media_player",
+                "volume_set",
                 service_data={"volume_level": volume},
                 target={"entity_id": eid},
             )
@@ -395,7 +422,8 @@ class TTSModule(AlarmModule):
         for sp in speakers:
             eid = sp.get("entity_id", "")
             await self.async_call_service(
-                "media_player", "play_media",
+                "media_player",
+                "play_media",
                 service_data={
                     "media_content_id": media_url,
                     "media_content_type": content_type,

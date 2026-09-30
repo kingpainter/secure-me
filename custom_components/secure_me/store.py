@@ -87,8 +87,10 @@ class _MigratableStore(Store):
         """
         _LOGGER.info(
             "Migrating Secure Me storage from v%d.%d to v%d.%d",
-            old_major_version, old_minor_version,
-            STORAGE_VERSION_MAJOR, STORAGE_VERSION_MINOR,
+            old_major_version,
+            old_minor_version,
+            STORAGE_VERSION_MAJOR,
+            STORAGE_VERSION_MINOR,
         )
 
         if old_major_version == 1:
@@ -101,7 +103,7 @@ class _MigratableStore(Store):
                 sensor_cfg.setdefault("entry_delay", None)
                 sensor_cfg.setdefault("auto_bypass", False)
                 sensor_cfg.setdefault("arm_on_close", False)
-                sensor_cfg.setdefault("allow_open",   False)
+                sensor_cfg.setdefault("allow_open", False)
 
             # Add arm_modes to existing zones (default: away)
             for zone_cfg in data.get("zones", {}).values():
@@ -228,12 +230,21 @@ class SecureMeStore:
             "zones": {},
             "users": {},
             "modules": {
-                "camera":  {"enabled": False, "entities": [], "config": {}},
-                "lock":    {"enabled": False, "entities": [], "config": {}},
-                "lights":  {"enabled": False, "entities": [], "config": {}},
+                "camera": {"enabled": False, "entities": [], "config": {}},
+                "lock": {"enabled": False, "entities": [], "config": {}},
+                "lights": {"enabled": False, "entities": [], "config": {}},
                 "climate": {"enabled": False, "entities": [], "config": {}},
-                "siren":   {"enabled": False, "entities": [], "config": {}},
-                "tts":     {"enabled": False, "entities": [], "config": {"tts_service": "tts.cloud_say", "language": "da", "volume": 0.5, "custom_messages": []}},
+                "siren": {"enabled": False, "entities": [], "config": {}},
+                "tts": {
+                    "enabled": False,
+                    "entities": [],
+                    "config": {
+                        "tts_service": "tts.cloud_say",
+                        "language": "da",
+                        "volume": 0.5,
+                        "custom_messages": [],
+                    },
+                },
             },
             "notifications": {},
             "automations": {},
@@ -258,14 +269,14 @@ class SecureMeStore:
     def _default_auto_actions() -> dict:
         """Return default Auto Actions v2 configuration."""
         return {
-            AA_LOCK_ENABLED:   True,
-            AA_LOCK_DELAY:     DEFAULT_AA_LOCK_DELAY,
-            AA_ALARM_ENABLED:  True,
-            AA_ALARM_DELAY:    DEFAULT_AA_ALARM_DELAY,
+            AA_LOCK_ENABLED: True,
+            AA_LOCK_DELAY: DEFAULT_AA_LOCK_DELAY,
+            AA_ALARM_ENABLED: True,
+            AA_ALARM_DELAY: DEFAULT_AA_ALARM_DELAY,
             AA_CAMERA_ENABLED: True,
-            AA_CAMERA_DELAY:   DEFAULT_AA_CAMERA_DELAY,
-            AA_ARRIVAL_DELAY:  DEFAULT_AA_ARRIVAL_DELAY,
-            AA_NOTIFY_ALL:     False,
+            AA_CAMERA_DELAY: DEFAULT_AA_CAMERA_DELAY,
+            AA_ARRIVAL_DELAY: DEFAULT_AA_ARRIVAL_DELAY,
+            AA_NOTIFY_ALL: False,
             AA_RECHECK_ON_DISARM: DEFAULT_AA_RECHECK_ON_DISARM,
             AA_RECHECK_DELAY: DEFAULT_AA_RECHECK_DELAY,
             AA_RECHECK_MIN_AWAY_DURATION: DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
@@ -279,9 +290,9 @@ class SecureMeStore:
     def _default_fake_presence_v2() -> dict:
         """Return default Fake Presence v2 configuration."""
         return {
-            FP_ACTIVE:        False,
-            FP_BLOCK_ALARM:   True,
-            FP_BLOCK_LOCKS:   False,
+            FP_ACTIVE: False,
+            FP_BLOCK_ALARM: True,
+            FP_BLOCK_LOCKS: False,
             FP_BLOCK_CAMERAS: False,
         }
 
@@ -324,7 +335,11 @@ class SecureMeStore:
         room-grouping in the panel never breaks if a registry entry is missing.
         """
         try:
-            from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
+            from homeassistant.helpers import (
+                area_registry as ar,
+                device_registry as dr,
+                entity_registry as er,
+            )
 
             ent_reg = er.async_get(self.hass)
             entry = ent_reg.async_get(entity_id)
@@ -348,9 +363,17 @@ class SecureMeStore:
         for state in self.hass.states.async_all("binary_sensor"):
             device_class = state.attributes.get("device_class", "")
             if device_class not in (
-                "door", "window", "garage_door", "opening",
-                "motion", "occupancy", "presence",
-                "vibration", "smoke", "gas", "moisture",
+                "door",
+                "window",
+                "garage_door",
+                "opening",
+                "motion",
+                "occupancy",
+                "presence",
+                "vibration",
+                "smoke",
+                "gas",
+                "moisture",
             ):
                 continue
             configured = self._data.get("sensors", {}).get(state.entity_id, {})
@@ -360,49 +383,60 @@ class SecureMeStore:
                 device_class in self._ENV_CLASSES
                 and not configured.get("env_unmarked", False)
             ) or configured.get("is_environmental", False)
-            sensors.append({
-                "entity_id": state.entity_id,
-                "name": state.attributes.get("friendly_name", state.entity_id),
-                "device_class": device_class,
-                "state": state.state,
-                "is_environmental": is_env,
-                "enabled": True if is_env else configured.get("enabled", False),
-                "sensor_type": "environmental" if is_env else configured.get(
-                    "sensor_type", self._infer_type(device_class)
-                ),
-                "env_unmarked": configured.get("env_unmarked", False),
-                "area": self._get_area_name(state.entity_id),
-                # v1.2.0 per-sensor fields
-                "entry_delay": configured.get("entry_delay", None),
-                "auto_bypass": configured.get("auto_bypass", False),
-                "auto_bypass_modes": configured.get("auto_bypass_modes", []),
-                "arm_on_close": configured.get("arm_on_close", False),
-                "allow_open":   configured.get("allow_open",   False),
-            })
+            sensors.append(
+                {
+                    "entity_id": state.entity_id,
+                    "name": state.attributes.get("friendly_name", state.entity_id),
+                    "device_class": device_class,
+                    "state": state.state,
+                    "is_environmental": is_env,
+                    "enabled": True if is_env else configured.get("enabled", False),
+                    "sensor_type": "environmental"
+                    if is_env
+                    else configured.get("sensor_type", self._infer_type(device_class)),
+                    "env_unmarked": configured.get("env_unmarked", False),
+                    "area": self._get_area_name(state.entity_id),
+                    # v1.2.0 per-sensor fields
+                    "entry_delay": configured.get("entry_delay", None),
+                    "auto_bypass": configured.get("auto_bypass", False),
+                    "auto_bypass_modes": configured.get("auto_bypass_modes", []),
+                    "arm_on_close": configured.get("arm_on_close", False),
+                    "allow_open": configured.get("allow_open", False),
+                }
+            )
 
         # person entities
         for state in self.hass.states.async_all("person"):
             configured = self._data.get("sensors", {}).get(state.entity_id, {})
             if configured.get("excluded", False):
                 continue
-            sensors.append({
-                "entity_id": state.entity_id,
-                "name": state.attributes.get("friendly_name", state.entity_id),
-                "device_class": "presence",
-                "state": state.state,
-                "enabled": configured.get("enabled", False),
-                "sensor_type": "presence",
-                "excluded": False,
-                "area": self._get_area_name(state.entity_id),
-                "entry_delay": None,
-                "auto_bypass": False,
-                "auto_bypass_modes": [],
-                "arm_on_close": False,
-            })
+            sensors.append(
+                {
+                    "entity_id": state.entity_id,
+                    "name": state.attributes.get("friendly_name", state.entity_id),
+                    "device_class": "presence",
+                    "state": state.state,
+                    "enabled": configured.get("enabled", False),
+                    "sensor_type": "presence",
+                    "excluded": False,
+                    "area": self._get_area_name(state.entity_id),
+                    "entry_delay": None,
+                    "auto_bypass": False,
+                    "auto_bypass_modes": [],
+                    "arm_on_close": False,
+                }
+            )
 
         _IRRELEVANT_PATTERNS = (
-            "unifi_", "dlna_", "_tv_", "_samsung_", "_lg_", "_roku_",
-            "skraldespands", "printer", "_sonos_",
+            "unifi_",
+            "dlna_",
+            "_tv_",
+            "_samsung_",
+            "_lg_",
+            "_roku_",
+            "skraldespands",
+            "printer",
+            "_sonos_",
         )
         for state in self.hass.states.async_all("device_tracker"):
             configured = self._data.get("sensors", {}).get(state.entity_id, {})
@@ -410,20 +444,22 @@ class SecureMeStore:
                 continue
             eid_lower = state.entity_id.lower()
             auto_hidden = any(p in eid_lower for p in _IRRELEVANT_PATTERNS)
-            sensors.append({
-                "entity_id": state.entity_id,
-                "name": state.attributes.get("friendly_name", state.entity_id),
-                "device_class": "presence",
-                "state": state.state,
-                "enabled": configured.get("enabled", False),
-                "sensor_type": "presence",
-                "auto_hidden": auto_hidden and not configured.get("enabled", False),
-                "area": self._get_area_name(state.entity_id),
-                "entry_delay": None,
-                "auto_bypass": False,
-                "auto_bypass_modes": [],
-                "arm_on_close": False,
-            })
+            sensors.append(
+                {
+                    "entity_id": state.entity_id,
+                    "name": state.attributes.get("friendly_name", state.entity_id),
+                    "device_class": "presence",
+                    "state": state.state,
+                    "enabled": configured.get("enabled", False),
+                    "sensor_type": "presence",
+                    "auto_hidden": auto_hidden and not configured.get("enabled", False),
+                    "area": self._get_area_name(state.entity_id),
+                    "entry_delay": None,
+                    "auto_bypass": False,
+                    "auto_bypass_modes": [],
+                    "arm_on_close": False,
+                }
+            )
         return sensors
 
     def _infer_type(self, device_class: str) -> str:
@@ -548,10 +584,7 @@ class SecureMeStore:
 
         # Parallel check across all users (matches Alarmo approach)
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {
-                executor.submit(_check, item): item
-                for item in users.items()
-            }
+            futures = {executor.submit(_check, item): item for item in users.items()}
             for future in concurrent.futures.as_completed(futures):
                 result = future.result()
                 if result is not None:
@@ -613,7 +646,9 @@ class SecureMeStore:
 
     async def async_save_module(self, module_id: str, config: dict[str, Any]) -> None:
         """Save module configuration."""
-        self._data.setdefault("modules", self._default_data()["modules"])[module_id] = config
+        self._data.setdefault("modules", self._default_data()["modules"])[module_id] = (
+            config
+        )
         self._schedule_save()
 
     def get_available_entities(self, domain: str) -> list[dict[str, Any]]:
@@ -644,7 +679,9 @@ class SecureMeStore:
         """Get all notification configurations."""
         return self._data.get("notifications", {})
 
-    async def async_save_notification(self, notif_id: str, config: dict[str, Any]) -> None:
+    async def async_save_notification(
+        self, notif_id: str, config: dict[str, Any]
+    ) -> None:
         """Save notification configuration."""
         self._data.setdefault("notifications", {})[notif_id] = config
         self._schedule_save()
@@ -682,7 +719,9 @@ class SecureMeStore:
         """Get all scheduled test configurations."""
         return self._data.get("scheduled_tests", {})
 
-    async def async_save_scheduled_test(self, test_id: str | None, config: dict[str, Any]) -> str:
+    async def async_save_scheduled_test(
+        self, test_id: str | None, config: dict[str, Any]
+    ) -> str:
         """Save a scheduled test. Creates new ID if test_id is None."""
         if not test_id:
             test_id = "sched_" + str(uuid.uuid4())[:8]
@@ -895,7 +934,9 @@ class SecureMeStore:
         await self.async_save()
         _LOGGER.info(
             "Floorplan restored from base64 backup (%dx%d, %d bytes)",
-            width, height, len(image_bytes),
+            width,
+            height,
+            len(image_bytes),
         )
         return image_bytes, width, height
 

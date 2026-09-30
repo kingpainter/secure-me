@@ -19,6 +19,7 @@ standard command for it, so automations have one documented, versioned way
 to trigger the one genuinely non-standard mode -- instead of only the
 frontend websocket command `secure_me/arm_home_alone`.
 """
+
 from __future__ import annotations
 from __future__ import annotations
 
@@ -58,27 +59,37 @@ ATTR_MODULE_ID = "module_id"
 
 _MODULE_IDS = ("camera", "lock", "lights", "climate", "siren", "tts")
 
-_ARM_SCHEMA = vol.Schema({
-    vol.Optional(ATTR_CODE): cv.string,
-    vol.Optional(ATTR_SKIP_DELAY, default=False): cv.boolean,
-    vol.Optional(ATTR_FORCE, default=False): cv.boolean,
-})
+_ARM_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CODE): cv.string,
+        vol.Optional(ATTR_SKIP_DELAY, default=False): cv.boolean,
+        vol.Optional(ATTR_FORCE, default=False): cv.boolean,
+    }
+)
 
-_DISARM_SCHEMA = vol.Schema({
-    vol.Required(ATTR_CODE): cv.string,
-})
+_DISARM_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_CODE): cv.string,
+    }
+)
 
-_TRIGGER_SCHEMA = vol.Schema({
-    vol.Optional(ATTR_SOURCE, default="manual"): cv.string,
-})
+_TRIGGER_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_SOURCE, default="manual"): cv.string,
+    }
+)
 
-_RUN_TEST_SCHEMA = vol.Schema({
-    vol.Required(ATTR_TEST_TYPE): vol.In(["quick", "standard", "full"]),
-})
+_RUN_TEST_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_TEST_TYPE): vol.In(["quick", "standard", "full"]),
+    }
+)
 
-_MODULE_SCHEMA = vol.Schema({
-    vol.Required(ATTR_MODULE_ID): vol.In(_MODULE_IDS),
-})
+_MODULE_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MODULE_ID): vol.In(_MODULE_IDS),
+    }
+)
 
 
 def async_register_services(hass: HomeAssistant) -> None:
@@ -165,6 +176,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         # Imported inline (mirrors coordinator.py's own scheduled-test call)
         # to avoid a circular import at module load time.
         from .ws_modules import _run_test_internal
+
         await _run_test_internal(hass, call.data[ATTR_TEST_TYPE])
 
     async def _set_module_enabled(call: ServiceCall, enabled: bool) -> None:
@@ -199,6 +211,7 @@ def async_register_services(hass: HomeAssistant) -> None:
         # time it's used, since update_module_config() re-instantiates the
         # module class directly from whatever config it's given.
         from .ws_modules import _normalize_module_config
+
         normalized = _normalize_module_config(module_id, config)
         coordinator.update_module_config(module_id, normalized)
         hass.bus.async_fire(
@@ -207,7 +220,8 @@ def async_register_services(hass: HomeAssistant) -> None:
         )
         _LOGGER.info(
             "Module '%s' %s via secure_me.%s service",
-            module_id, "enabled" if enabled else "disabled",
+            module_id,
+            "enabled" if enabled else "disabled",
             SERVICE_ENABLE_MODULE if enabled else SERVICE_DISABLE_MODULE,
         )
 
@@ -217,16 +231,36 @@ def async_register_services(hass: HomeAssistant) -> None:
     async def _handle_disable_module(call: ServiceCall) -> None:
         await _set_module_enabled(call, False)
 
-    hass.services.async_register(DOMAIN, SERVICE_ARM_AWAY, _handle_arm_away, schema=_ARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_ARM_HOME, _handle_arm_home, schema=_ARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_ARM_NIGHT, _handle_arm_night, schema=_ARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_ARM_VACATION, _handle_arm_vacation, schema=_ARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_ARM_HOME_ALONE, _handle_arm_home_alone, schema=_ARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_DISARM, _handle_disarm, schema=_DISARM_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_TRIGGER, _handle_trigger, schema=_TRIGGER_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_RUN_TEST, _handle_run_test, schema=_RUN_TEST_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_ENABLE_MODULE, _handle_enable_module, schema=_MODULE_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_DISABLE_MODULE, _handle_disable_module, schema=_MODULE_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_ARM_AWAY, _handle_arm_away, schema=_ARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ARM_HOME, _handle_arm_home, schema=_ARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ARM_NIGHT, _handle_arm_night, schema=_ARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ARM_VACATION, _handle_arm_vacation, schema=_ARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ARM_HOME_ALONE, _handle_arm_home_alone, schema=_ARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DISARM, _handle_disarm, schema=_DISARM_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_TRIGGER, _handle_trigger, schema=_TRIGGER_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RUN_TEST, _handle_run_test, schema=_RUN_TEST_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ENABLE_MODULE, _handle_enable_module, schema=_MODULE_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_DISABLE_MODULE, _handle_disable_module, schema=_MODULE_SCHEMA
+    )
 
     _LOGGER.info("Secure Me services registered (%d services)", 10)
 
@@ -234,9 +268,16 @@ def async_register_services(hass: HomeAssistant) -> None:
 def async_unregister_services(hass: HomeAssistant) -> None:
     """Remove all secure_me.* services (called when the last config entry unloads)."""
     for service in (
-        SERVICE_ARM_AWAY, SERVICE_ARM_HOME, SERVICE_ARM_NIGHT, SERVICE_ARM_VACATION,
-        SERVICE_ARM_HOME_ALONE, SERVICE_DISARM, SERVICE_TRIGGER, SERVICE_RUN_TEST,
-        SERVICE_ENABLE_MODULE, SERVICE_DISABLE_MODULE,
+        SERVICE_ARM_AWAY,
+        SERVICE_ARM_HOME,
+        SERVICE_ARM_NIGHT,
+        SERVICE_ARM_VACATION,
+        SERVICE_ARM_HOME_ALONE,
+        SERVICE_DISARM,
+        SERVICE_TRIGGER,
+        SERVICE_RUN_TEST,
+        SERVICE_ENABLE_MODULE,
+        SERVICE_DISABLE_MODULE,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

@@ -19,12 +19,12 @@ _LOGGER = logging.getLogger(__name__)
 
 class BaseEngine:
     """Base class for Secure Me state machine engines.
-    
+
     Engines are testable, HA-agnostic state machines that handle:
     - State tracking
     - Delayed actions
     - Event callback registration
-    
+
     Coordinator orchestrates engine lifecycle and event delivery.
     """
 
@@ -35,7 +35,7 @@ class BaseEngine:
         logger: logging.Logger | None = None,
     ) -> None:
         """Initialize engine.
-        
+
         Args:
             hass: Home Assistant instance (used for callbacks/tasks)
             config: Configuration dict for this engine
@@ -49,7 +49,7 @@ class BaseEngine:
 
     async def async_start(self) -> None:
         """Start the engine.
-        
+
         Called once by coordinator after all initialization complete.
         Override in subclass to set up event listeners, timers, etc.
         """
@@ -58,12 +58,12 @@ class BaseEngine:
 
     async def async_stop(self) -> None:
         """Stop the engine.
-        
+
         Called on integration unload. Cleans up all tasks and listeners.
         Override in subclass to add custom cleanup.
         """
         self._running = False
-        
+
         # Cancel all registered cleanup tasks
         for cleanup in self._cleanup_tasks:
             try:
@@ -72,13 +72,13 @@ class BaseEngine:
                     task.cancel()
             except Exception as e:
                 self.logger.warning(f"Error during cleanup: {e}")
-        
+
         self._cleanup_tasks.clear()
         self.logger.debug(f"{self.__class__.__name__} stopped")
 
     def register_cleanup(self, cleanup_fn: Callable[[], asyncio.Task]) -> None:
         """Register a cleanup function to call on async_stop().
-        
+
         Usage:
             unsub = async_track_state_change(...)
             self.register_cleanup(unsub)

@@ -27,6 +27,7 @@ User notification settings (on each user object):
   tts_quiet_start: int|None  — hour (0-23) start of TTS quiet period
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
+
 from __future__ import annotations
 # VERSION = "2.0.1"
 
@@ -60,7 +61,7 @@ _LOGGER = logging.getLogger(__name__)
 NOTIF_BATTERY_THRESHOLD = 15
 
 CHANNEL_PUSH = "push"
-CHANNEL_TTS  = "tts"
+CHANNEL_TTS = "tts"
 
 
 def _get_store(hass: HomeAssistant):
@@ -80,7 +81,7 @@ def _get_tts_module(hass: HomeAssistant):
 def _is_tts_quiet_now(user: dict) -> bool:
     """Return True if current time is within the user's TTS quiet hours."""
     start = user.get("tts_quiet_start")
-    end   = user.get("tts_quiet_end")
+    end = user.get("tts_quiet_end")
     if start is None or end is None:
         return False
     now_hour = datetime.now().hour
@@ -132,7 +133,9 @@ async def _send_push(
         service_data["data"] = {"actions": actions}
 
     try:
-        await hass.services.async_call(svc_domain, svc_name, service_data, blocking=False)
+        await hass.services.async_call(
+            svc_domain, svc_name, service_data, blocking=False
+        )
         _LOGGER.debug("Push sent via %s (critical=%s): %s", service, critical, title)
     except Exception as err:
         _LOGGER.error("Failed to send push via %s: %s", service, err)
@@ -159,7 +162,9 @@ async def _send_tts_to_user(
         _LOGGER.debug("TTS channel requested but TTS module not enabled")
         return
     try:
-        await tts.announce_system(message, urgent=urgent, speaker_ids=speaker_ids or None)
+        await tts.announce_system(
+            message, urgent=urgent, speaker_ids=speaker_ids or None
+        )
     except Exception as err:
         _LOGGER.error("TTS system announcement failed: %s", err)
 
@@ -182,21 +187,25 @@ async def _dispatch_to_user(
         channels = [channels]
 
     # Determine push service — user's personal service takes priority
-    push_service = (
-        (user.get("notify_service") if user else None)
-        or notif.get("service", "notify.notify")
+    push_service = (user.get("notify_service") if user else None) or notif.get(
+        "service", "notify.notify"
     )
 
     if CHANNEL_PUSH in channels:
         await _send_push(
-            hass, push_service, title, message,
+            hass,
+            push_service,
+            title,
+            message,
             critical=critical,
             actions=notif.get("actions"),
         )
 
     if CHANNEL_TTS in channels and message:
         speaker_ids = notif.get("tts_speakers") or None
-        await _send_tts_to_user(hass, user or {}, message, urgent=critical, speaker_ids=speaker_ids)
+        await _send_tts_to_user(
+            hass, user or {}, message, urgent=critical, speaker_ids=speaker_ids
+        )
 
 
 async def _dispatch_for_trigger(
@@ -238,17 +247,25 @@ async def _dispatch_for_trigger(
                     continue
                 if not user.get("receive_critical", True):
                     continue
-                await _dispatch_to_user(hass, notif, user, title, message, critical=urgent)
+                await _dispatch_to_user(
+                    hass, notif, user, title, message, critical=urgent
+                )
                 sent_to_any = True
 
             # Fallback if no users configured
             if not sent_to_any:
-                await _dispatch_to_user(hass, notif, None, title, message, critical=urgent)
+                await _dispatch_to_user(
+                    hass, notif, None, title, message, critical=urgent
+                )
 
         elif acting_user_id:
             # Send only to the user who performed the action
             user = users.get(acting_user_id)
-            if user and user.get("enabled", True) and user.get("receive_own_actions", True):
+            if (
+                user
+                and user.get("enabled", True)
+                and user.get("receive_own_actions", True)
+            ):
                 await _dispatch_to_user(hass, notif, user, title, message)
             else:
                 # Fallback to notification service if user not found or disabled
@@ -293,11 +310,13 @@ def _get_low_batteries(hass: HomeAssistant) -> list[dict[str, Any]]:
         except (ValueError, TypeError):
             continue
         if level < NOTIF_BATTERY_THRESHOLD:
-            low.append({
-                "name": state.attributes.get("friendly_name", state.entity_id),
-                "level": level,
-                "entity_id": state.entity_id,
-            })
+            low.append(
+                {
+                    "name": state.attributes.get("friendly_name", state.entity_id),
+                    "level": level,
+                    "entity_id": state.entity_id,
+                }
+            )
     low.sort(key=lambda x: x["level"])
     return low
 
@@ -339,8 +358,12 @@ async def dispatch_home_alone_door_trigger(
 
     camera_entity = sensor_cfg.get(CONF_HOME_ALONE_CAMERA)
     speaker_entity = sensor_cfg.get(CONF_HOME_ALONE_SPEAKER)
-    action_1_text = sensor_cfg.get(CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1)
-    action_2_text = sensor_cfg.get(CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2)
+    action_1_text = sensor_cfg.get(
+        CONF_HOME_ALONE_ACTION_1, HOME_ALONE_DEFAULT_ACTION_1
+    )
+    action_2_text = sensor_cfg.get(
+        CONF_HOME_ALONE_ACTION_2, HOME_ALONE_DEFAULT_ACTION_2
+    )
 
     title = "Home Alone Alert"
     message = f"{sensor_name} was opened."
@@ -370,18 +393,18 @@ async def dispatch_home_alone_door_trigger(
             continue
         try:
             await hass.services.async_call(
-                svc_domain, svc_name,
+                svc_domain,
+                svc_name,
                 {"title": title, "message": message, "data": push_data},
                 blocking=False,
             )
             _LOGGER.debug(
                 "Home Alone push sent to %s for sensor %s",
-                notify_service, entity_id,
+                notify_service,
+                entity_id,
             )
         except Exception as err:
-            _LOGGER.error(
-                "Home Alone push failed for %s: %s", notify_service, err
-            )
+            _LOGGER.error("Home Alone push failed for %s: %s", notify_service, err)
 
     # TTS announcement on configured speaker
     if speaker_entity:
@@ -426,14 +449,17 @@ async def handle_home_alone_quick_response(hass: HomeAssistant, action: str) -> 
     """
     ctx = hass.data.get(DOMAIN, {}).get("_last_home_alone_trigger")
     if not ctx:
-        _LOGGER.debug("Home Alone quick response '%s' ignored -- no trigger context", action)
+        _LOGGER.debug(
+            "Home Alone quick response '%s' ignored -- no trigger context", action
+        )
         return
 
     age = time.monotonic() - ctx.get("timestamp", 0)
     if age > 300:
         _LOGGER.debug(
             "Home Alone quick response '%s' ignored -- context is %.0fs old (stale)",
-            action, age,
+            action,
+            age,
         )
         return
 
@@ -456,10 +482,16 @@ async def handle_home_alone_quick_response(hass: HomeAssistant, action: str) -> 
     try:
         tts_module = _get_tts_module(hass)
         if tts_module:
-            await tts_module.announce_system(message, urgent=False, speaker_ids=[speaker_entity])
-            _LOGGER.info("Home Alone quick response spoken on %s: %s", speaker_entity, message)
+            await tts_module.announce_system(
+                message, urgent=False, speaker_ids=[speaker_entity]
+            )
+            _LOGGER.info(
+                "Home Alone quick response spoken on %s: %s", speaker_entity, message
+            )
         else:
-            _LOGGER.debug("Home Alone quick response TTS skipped -- TTS module not enabled")
+            _LOGGER.debug(
+                "Home Alone quick response TTS skipped -- TTS module not enabled"
+            )
     except Exception as err:
         _LOGGER.error("Home Alone quick response TTS failed: %s", err)
 
@@ -493,21 +525,30 @@ class NotificationDispatcher:
         if self._smoke_sensors:
             _LOGGER.info(
                 "Secure Me: %d smoke sensor(s) monitored (critical): %s",
-                len(self._smoke_sensors), ", ".join(sorted(self._smoke_sensors)),
+                len(self._smoke_sensors),
+                ", ".join(sorted(self._smoke_sensors)),
             )
         if self._moisture_sensors:
             _LOGGER.info(
                 "Secure Me: %d moisture sensor(s) monitored (critical): %s",
-                len(self._moisture_sensors), ", ".join(sorted(self._moisture_sensors)),
+                len(self._moisture_sensors),
+                ", ".join(sorted(self._moisture_sensors)),
             )
         if not self._smoke_sensors and not self._moisture_sensors:
             _LOGGER.info("Secure Me: No smoke/moisture sensors found at startup")
 
-        self._unsubs.append(hass.bus.async_listen(EVENT_ALARM_TRIGGERED, self._on_triggered))
-        self._unsubs.append(hass.bus.async_listen(EVENT_ALARM_ARMED,     self._on_armed))
-        self._unsubs.append(hass.bus.async_listen(EVENT_ALARM_DISARMED,  self._on_disarmed))
-        self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_arming",    self._on_arming))
-        self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_pending",   self._on_pending))
+        self._unsubs.append(
+            hass.bus.async_listen(EVENT_ALARM_TRIGGERED, self._on_triggered)
+        )
+        self._unsubs.append(hass.bus.async_listen(EVENT_ALARM_ARMED, self._on_armed))
+        self._unsubs.append(
+            hass.bus.async_listen(EVENT_ALARM_DISARMED, self._on_disarmed)
+        )
+        self._unsubs.append(hass.bus.async_listen(f"{DOMAIN}_arming", self._on_arming))
+        self._unsubs.append(
+            hass.bus.async_listen(f"{DOMAIN}_pending", self._on_pending)
+        )
+
         # Perf fix: this dispatcher only ever cares about binary_sensor
         # entities (smoke/moisture device_class), but a plain
         # hass.bus.async_listen("state_changed", ...) with no filter invokes
@@ -521,10 +562,13 @@ class NotificationDispatcher:
             entity_id = event_data.get("entity_id", "")
             return isinstance(entity_id, str) and entity_id.startswith("binary_sensor.")
 
-        self._unsubs.append(hass.bus.async_listen(
-            "state_changed", self._on_sensor_state_change,
-            event_filter=_is_binary_sensor_event,
-        ))
+        self._unsubs.append(
+            hass.bus.async_listen(
+                "state_changed",
+                self._on_sensor_state_change,
+                event_filter=_is_binary_sensor_event,
+            )
+        )
 
         _LOGGER.info("Secure Me NotificationDispatcher active")
 
@@ -547,7 +591,8 @@ class NotificationDispatcher:
         open_sensors = coord.open_sensors if coord else []
         mode = coord.alarm_state if coord else "triggered"
         await _dispatch_for_trigger(
-            self.hass, "triggered",
+            self.hass,
+            "triggered",
             {
                 "state": "triggered",
                 "triggered_by": triggered_by,
@@ -562,14 +607,15 @@ class NotificationDispatcher:
         )
 
     async def _on_armed(self, event: Event) -> None:
-        armed_by     = event.data.get("armed_by") or "system"
-        armed_by_id  = event.data.get("armed_by_id")
-        mode         = event.data.get("mode", "armed")
+        armed_by = event.data.get("armed_by") or "system"
+        armed_by_id = event.data.get("armed_by_id")
+        mode = event.data.get("mode", "armed")
         # v1.4.3: Add bypassed_sensors / mode placeholders
         coord = _get_coordinator(self.hass)
         bypassed = coord.bypassed_sensors if coord else []
         await _dispatch_for_trigger(
-            self.hass, "armed",
+            self.hass,
+            "armed",
             {
                 "state": mode,
                 "armed_by": armed_by,
@@ -581,10 +627,11 @@ class NotificationDispatcher:
         )
 
     async def _on_disarmed(self, event: Event) -> None:
-        disarmed_by    = event.data.get("disarmed_by") or "system"
+        disarmed_by = event.data.get("disarmed_by") or "system"
         disarmed_by_id = event.data.get("disarmed_by_id")
         await _dispatch_for_trigger(
-            self.hass, "disarmed",
+            self.hass,
+            "disarmed",
             {
                 "state": "disarmed",
                 "disarmed_by": disarmed_by,
@@ -599,7 +646,8 @@ class NotificationDispatcher:
     async def _on_arming(self, event: Event) -> None:
         armed_by_id = event.data.get("armed_by_id")
         await _dispatch_for_trigger(
-            self.hass, "arming",
+            self.hass,
+            "arming",
             {"state": "arming"},
             acting_user_id=armed_by_id,
         )
@@ -607,7 +655,8 @@ class NotificationDispatcher:
     async def _on_pending(self, event: Event) -> None:
         """Entry delay — broadcast to all critical users."""
         await _dispatch_for_trigger(
-            self.hass, "pending",
+            self.hass,
+            "pending",
             {"state": "pending"},
             broadcast=True,
             urgent=True,
@@ -621,17 +670,21 @@ class NotificationDispatcher:
         if new_state is None:
             return
 
-        entity_id   = new_state.entity_id
+        entity_id = new_state.entity_id
         device_class = new_state.attributes.get("device_class", "")
-        new_val     = new_state.state
-        old_val     = old_state.state if old_state else None
+        new_val = new_state.state
+        old_val = old_state.state if old_state else None
 
         if device_class == "smoke" and entity_id not in self._smoke_sensors:
             self._smoke_sensors.add(entity_id)
-            _LOGGER.info("Secure Me: New smoke sensor registered (critical): %s", entity_id)
+            _LOGGER.info(
+                "Secure Me: New smoke sensor registered (critical): %s", entity_id
+            )
         elif device_class == "moisture" and entity_id not in self._moisture_sensors:
             self._moisture_sensors.add(entity_id)
-            _LOGGER.info("Secure Me: New moisture sensor registered (critical): %s", entity_id)
+            _LOGGER.info(
+                "Secure Me: New moisture sensor registered (critical): %s", entity_id
+            )
 
         if new_val != "on" or old_val == "on":
             return
@@ -649,13 +702,16 @@ class NotificationDispatcher:
         """Always-on critical alert — ignores notification toggle."""
         store = _get_store(self.hass)
         title = f"FIRE ALERT: {sensor_name}"
-        default_message = f"FIRE ALERT: Smoke detected by {sensor_name}. Evacuate immediately!"
+        default_message = (
+            f"FIRE ALERT: Smoke detected by {sensor_name}. Evacuate immediately!"
+        )
         context = {"sensor": sensor_name, "entity_id": entity_id}
 
         _LOGGER.critical("Secure Me FIRE ALERT: %s (%s)", sensor_name, entity_id)
 
         user_notifs = [
-            n for n in (store.get_notifications().values() if store else [])
+            n
+            for n in (store.get_notifications().values() if store else [])
             if n.get("trigger") == "smoke"
         ]
 
@@ -667,16 +723,28 @@ class NotificationDispatcher:
                 users = store.get_users() if store else {}
                 sent = False
                 for user in users.values():
-                    if not user.get("enabled", True) or not user.get("receive_critical", True):
+                    if not user.get("enabled", True) or not user.get(
+                        "receive_critical", True
+                    ):
                         continue
-                    svc = user.get("notify_service") or notif.get("service", "notify.notify")
+                    svc = user.get("notify_service") or notif.get(
+                        "service", "notify.notify"
+                    )
                     await _send_push(self.hass, svc, title, msg, critical=True)
                     if CHANNEL_TTS in channels:
                         sp_ids = notif.get("tts_speakers") or None
-                        await _send_tts_to_user(self.hass, user, msg, urgent=True, speaker_ids=sp_ids)
+                        await _send_tts_to_user(
+                            self.hass, user, msg, urgent=True, speaker_ids=sp_ids
+                        )
                     sent = True
                 if not sent:
-                    await _send_push(self.hass, notif.get("service", "notify.notify"), title, msg, critical=True)
+                    await _send_push(
+                        self.hass,
+                        notif.get("service", "notify.notify"),
+                        title,
+                        msg,
+                        critical=True,
+                    )
         else:
             await _send_critical_to_all_users(self.hass, store, title, default_message)
 
@@ -684,13 +752,16 @@ class NotificationDispatcher:
         """Always-on critical alert — ignores notification toggle."""
         store = _get_store(self.hass)
         title = f"WATER LEAK: {sensor_name}"
-        default_message = f"WATER LEAK detected by {sensor_name}. Shut off water supply immediately!"
+        default_message = (
+            f"WATER LEAK detected by {sensor_name}. Shut off water supply immediately!"
+        )
         context = {"sensor": sensor_name, "entity_id": entity_id}
 
         _LOGGER.critical("Secure Me WATER LEAK: %s (%s)", sensor_name, entity_id)
 
         user_notifs = [
-            n for n in (store.get_notifications().values() if store else [])
+            n
+            for n in (store.get_notifications().values() if store else [])
             if n.get("trigger") == "water_leak"
         ]
 
@@ -701,15 +772,25 @@ class NotificationDispatcher:
                 users = store.get_users() if store else {}
                 sent = False
                 for user in users.values():
-                    if not user.get("enabled", True) or not user.get("receive_critical", True):
+                    if not user.get("enabled", True) or not user.get(
+                        "receive_critical", True
+                    ):
                         continue
-                    svc = user.get("notify_service") or notif.get("service", "notify.notify")
+                    svc = user.get("notify_service") or notif.get(
+                        "service", "notify.notify"
+                    )
                     await _send_push(self.hass, svc, title, msg, critical=True)
                     if CHANNEL_TTS in channels:
                         await _send_tts_to_user(self.hass, user, msg, urgent=True)
                     sent = True
                 if not sent:
-                    await _send_push(self.hass, notif.get("service", "notify.notify"), title, msg, critical=True)
+                    await _send_push(
+                        self.hass,
+                        notif.get("service", "notify.notify"),
+                        title,
+                        msg,
+                        critical=True,
+                    )
         else:
             await _send_critical_to_all_users(self.hass, store, title, default_message)
 
@@ -721,7 +802,11 @@ class NotificationDispatcher:
             return
 
         low = _get_low_batteries(self.hass)
-        sensor_list = "\n".join(f"  {b['name']}: {b['level']}%" for b in low) if low else "No sensors below threshold."
+        sensor_list = (
+            "\n".join(f"  {b['name']}: {b['level']}%" for b in low)
+            if low
+            else "No sensors below threshold."
+        )
         count = str(len(low))
 
         users = store.get_users()
@@ -732,7 +817,9 @@ class NotificationDispatcher:
             if notif.get("trigger") != "low_battery":
                 continue
 
-            msg = _build_message(notif.get("message", ""), {"sensor_list": sensor_list, "count": count})
+            msg = _build_message(
+                notif.get("message", ""), {"sensor_list": sensor_list, "count": count}
+            )
             title = f"Secure Me: {notif.get('name', 'Low Battery Alert')}"
             channels = notif.get("channels", [CHANNEL_PUSH])
 
@@ -743,7 +830,9 @@ class NotificationDispatcher:
                     continue
                 if not user.get("receive_alerts", True):
                     continue
-                svc = user.get("notify_service") or notif.get("service", "notify.notify")
+                svc = user.get("notify_service") or notif.get(
+                    "service", "notify.notify"
+                )
                 if CHANNEL_PUSH in channels:
                     await _send_push(self.hass, svc, title, msg)
                 if CHANNEL_TTS in channels and msg:
@@ -752,7 +841,9 @@ class NotificationDispatcher:
 
             if not sent:
                 if CHANNEL_PUSH in channels:
-                    await _send_push(self.hass, notif.get("service", "notify.notify"), title, msg)
+                    await _send_push(
+                        self.hass, notif.get("service", "notify.notify"), title, msg
+                    )
 
 
 def async_setup_dispatcher(hass: HomeAssistant) -> NotificationDispatcher:

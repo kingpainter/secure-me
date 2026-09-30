@@ -1,4 +1,5 @@
 """Shared helpers for Secure Me WebSocket sub-modules."""
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -48,6 +49,7 @@ def _discover_batteries(
     device_ids: set[str] = set()
     try:
         from homeassistant.helpers import entity_registry as er
+
         ent_reg = er.async_get(hass)
         for eid in configured_entity_ids:
             entry = ent_reg.async_get(eid)
@@ -63,6 +65,7 @@ def _discover_batteries(
         if device_ids:
             try:
                 from homeassistant.helpers import entity_registry as er
+
                 ent_reg = er.async_get(hass)
                 entry = ent_reg.async_get(state.entity_id)
                 if not entry or entry.device_id not in device_ids:
@@ -74,10 +77,12 @@ def _discover_batteries(
             level = int(float(state.state))
         except (ValueError, TypeError):
             pass
-        batteries.append({
-            "entity_id": state.entity_id,
-            "name": state.attributes.get("friendly_name", state.entity_id),
-            "level": level,
-            "available": state.state not in ("unavailable", "unknown", None),
-        })
+        batteries.append(
+            {
+                "entity_id": state.entity_id,
+                "name": state.attributes.get("friendly_name", state.entity_id),
+                "level": level,
+                "available": state.state not in ("unavailable", "unknown", None),
+            }
+        )
     return sorted(batteries, key=lambda b: (b["level"] is None, b["level"] or 0))

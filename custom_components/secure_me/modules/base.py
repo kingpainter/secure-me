@@ -125,7 +125,10 @@ class AlarmModule(ABC):
                 if attempt > 1:
                     _LOGGER.info(
                         "%s: %s succeeded on attempt %d/%d",
-                        self.module_name, action, attempt, self._retry_max,
+                        self.module_name,
+                        action,
+                        attempt,
+                        self._retry_max,
                     )
                 self._on_success(action)
                 return True
@@ -133,7 +136,11 @@ class AlarmModule(ABC):
             except Exception as err:
                 _LOGGER.warning(
                     "%s: %s failed (attempt %d/%d): %s",
-                    self.module_name, action, attempt, self._retry_max, err,
+                    self.module_name,
+                    action,
+                    attempt,
+                    self._retry_max,
+                    err,
                 )
                 if attempt < self._retry_max:
                     await asyncio.sleep(delay)
@@ -167,7 +174,10 @@ class AlarmModule(ABC):
         except Exception as err:
             _LOGGER.error(
                 "%s module failed to call service %s.%s: %s",
-                self.module_name, domain, service, err,
+                self.module_name,
+                domain,
+                service,
+                err,
             )
             return False
 
@@ -178,10 +188,15 @@ class AlarmModule(ABC):
         self._degraded = False
 
         if previously_degraded:
-            _LOGGER.info("%s: recovered from degraded state after '%s'", self.module_name, action)
+            _LOGGER.info(
+                "%s: recovered from degraded state after '%s'", self.module_name, action
+            )
             msg = ERROR_RECOVERY_OK_EN.format(module=self.module_name)
             try:
-                from homeassistant.components.persistent_notification import async_create
+                from homeassistant.components.persistent_notification import (
+                    async_create,
+                )
+
                 async_create(
                     self.hass,
                     message=msg,
@@ -203,10 +218,13 @@ class AlarmModule(ABC):
         )
         _LOGGER.error(
             "%s: all %d retries exhausted for '%s' — module set to degraded",
-            self.module_name, self._retry_max, action,
+            self.module_name,
+            self._retry_max,
+            action,
         )
         try:
             from homeassistant.components.persistent_notification import async_create
+
             async_create(
                 self.hass,
                 message=msg,
@@ -262,4 +280,3 @@ class AlarmModule(ABC):
         """Disable the module."""
         self._enabled = False
         _LOGGER.info("%s module disabled", self.module_name)
-

@@ -8,6 +8,7 @@ Follows the Energy Hub pattern:
 - sidebar_title and sidebar_icon are passed in from the caller so they can
   be driven by config-entry options in a future Options Flow.
 """
+
 from __future__ import annotations
 
 import os
@@ -38,7 +39,7 @@ PANEL_FILENAME = "secure-me-panel.js"
 CUSTOM_COMPONENTS = "custom_components"
 
 # Alarm card (custom Lovelace card bundled with the integration)
-CARD_URL      = f"/api/{DOMAIN}-alarm-card"
+CARD_URL = f"/api/{DOMAIN}-alarm-card"
 CARD_FILENAME = "secure-me-alarm-card.js"
 
 # v1.5.6 (pilot): ES-module split of secure-me-panel.js. secure-me-panel.js
@@ -52,9 +53,9 @@ CARD_FILENAME = "secure-me-alarm-card.js"
 # (DOMAIN has an underscore, which would silently produce a URL the browser
 # never actually requests, since the import specifier itself is a fixed
 # string in the JS source, not templated from DOMAIN at runtime).
-SHARED_MODULE_URL      = "/api/secure-me-panel-shared.js"
+SHARED_MODULE_URL = "/api/secure-me-panel-shared.js"
 SHARED_MODULE_FILENAME = "secure-me-panel-shared.js"
-FLOORPLAN_MODULE_URL      = "/api/secure-me-panel-floorplan.js"
+FLOORPLAN_MODULE_URL = "/api/secure-me-panel-floorplan.js"
 FLOORPLAN_MODULE_FILENAME = "secure-me-panel-floorplan.js"
 
 
@@ -105,26 +106,43 @@ async def async_register_panel(
             paths.append(StaticPathConfig(CARD_URL, card_file, cache_headers=False))
             _LOGGER.info("Secure Me: alarm card registered at %s", CARD_URL)
         else:
-            _LOGGER.debug("Secure Me: alarm card JS not found at %s, skipping", card_file)
+            _LOGGER.debug(
+                "Secure Me: alarm card JS not found at %s, skipping", card_file
+            )
 
         # v1.5.6 (pilot): ES-module split sub-modules -- must be servable at
         # the exact URL the browser resolves from secure-me-panel.js's own
         # relative import specifiers (see SHARED_MODULE_URL comment above).
         if os.path.isfile(shared_module_file):
-            paths.append(StaticPathConfig(SHARED_MODULE_URL, shared_module_file, cache_headers=False))
-            _LOGGER.info("Secure Me: panel shared module registered at %s", SHARED_MODULE_URL)
+            paths.append(
+                StaticPathConfig(
+                    SHARED_MODULE_URL, shared_module_file, cache_headers=False
+                )
+            )
+            _LOGGER.info(
+                "Secure Me: panel shared module registered at %s", SHARED_MODULE_URL
+            )
         else:
             _LOGGER.warning(
                 "Secure Me: panel shared module not found at %s -- panel will fail to load "
-                "if secure-me-panel.js imports from it", shared_module_file,
+                "if secure-me-panel.js imports from it",
+                shared_module_file,
             )
         if os.path.isfile(floorplan_module_file):
-            paths.append(StaticPathConfig(FLOORPLAN_MODULE_URL, floorplan_module_file, cache_headers=False))
-            _LOGGER.info("Secure Me: panel floorplan module registered at %s", FLOORPLAN_MODULE_URL)
+            paths.append(
+                StaticPathConfig(
+                    FLOORPLAN_MODULE_URL, floorplan_module_file, cache_headers=False
+                )
+            )
+            _LOGGER.info(
+                "Secure Me: panel floorplan module registered at %s",
+                FLOORPLAN_MODULE_URL,
+            )
         else:
             _LOGGER.warning(
                 "Secure Me: panel floorplan module not found at %s -- panel will fail to load "
-                "if secure-me-panel.js imports from it", floorplan_module_file,
+                "if secure-me-panel.js imports from it",
+                floorplan_module_file,
             )
 
         # v1.5.3: the floorplan image no longer gets a custom static path here.
@@ -141,9 +159,12 @@ async def async_register_panel(
         )
 
         # Register alarm card as a Lovelace resource
-        await _async_register_lovelace_resources(hass, [
-            (f"{CARD_URL}?v={VERSION}", card_file, "alarm card"),
-        ])
+        await _async_register_lovelace_resources(
+            hass,
+            [
+                (f"{CARD_URL}?v={VERSION}", card_file, "alarm card"),
+            ],
+        )
     else:
         _LOGGER.debug(
             "Secure Me: static path %s already registered, skipping", PANEL_URL
@@ -198,7 +219,9 @@ async def _async_register_lovelace_resources(
     try:
         ll = hass.data.get("lovelace")
         if ll is None:
-            _LOGGER.debug("Secure Me: lovelace not yet loaded, skipping resource registration")
+            _LOGGER.debug(
+                "Secure Me: lovelace not yet loaded, skipping resource registration"
+            )
             return
 
         # LovelaceData is an object, not a dict — access .resources directly
@@ -227,14 +250,20 @@ async def _async_register_lovelace_resources(
 
             base_url = url.split("?")[0]
             if base_url in existing_urls:
-                _LOGGER.debug("Secure Me: %s already in Lovelace resources, skipping", label)
+                _LOGGER.debug(
+                    "Secure Me: %s already in Lovelace resources, skipping", label
+                )
                 continue
 
             try:
                 await resources.async_create_item({"res_type": "module", "url": url})
-                _LOGGER.info("Secure Me: %s added to Lovelace resources at %s", label, url)
+                _LOGGER.info(
+                    "Secure Me: %s added to Lovelace resources at %s", label, url
+                )
             except Exception as err:
-                _LOGGER.warning("Secure Me: could not add %s to Lovelace resources: %s", label, err)
+                _LOGGER.warning(
+                    "Secure Me: could not add %s to Lovelace resources: %s", label, err
+                )
 
     except Exception as err:
         _LOGGER.warning(

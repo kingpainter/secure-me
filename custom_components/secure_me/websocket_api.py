@@ -13,6 +13,7 @@ longer duplicates their logic):
 This file just imports and registers them, and starts the notification
 dispatcher.
 """
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -115,7 +116,11 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
         """
         websocket_api.async_register_command(hass, handler)
         cmd_type = getattr(handler, "_ws_command", None)
-        _registered_types.append(cmd_type if isinstance(cmd_type, str) else getattr(handler, "__name__", "unknown"))
+        _registered_types.append(
+            cmd_type
+            if isinstance(cmd_type, str)
+            else getattr(handler, "__name__", "unknown")
+        )
 
     _register(ws_get_sensors)
     _register(ws_save_sensors)
@@ -190,4 +195,6 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     dispatcher = async_setup_dispatcher(hass)
     hass.data.setdefault(DOMAIN, {})["_notification_dispatcher"] = dispatcher
 
-    _LOGGER.info("Secure Me WebSocket API registered (%d commands)", len(_registered_types))
+    _LOGGER.info(
+        "Secure Me WebSocket API registered (%d commands)", len(_registered_types)
+    )

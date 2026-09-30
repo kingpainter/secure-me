@@ -1,4 +1,5 @@
 """WebSocket API — Floorplan commands for Secure Me."""
+
 # VERSION = "2.0.1"
 from __future__ import annotations
 
@@ -87,12 +88,15 @@ def _migrate_legacy_floorplan_file(hass: HomeAssistant) -> bool:
     except OSError as err:
         _LOGGER.warning(
             "Secure Me: failed to migrate legacy floorplan file %s -> %s (%s)",
-            legacy_file, floorplan_file, err,
+            legacy_file,
+            floorplan_file,
+            err,
         )
         return False
     _LOGGER.info(
         "Secure Me: migrated legacy floorplan image %s -> %s",
-        legacy_file, floorplan_file,
+        legacy_file,
+        floorplan_file,
     )
     return True
 
@@ -161,9 +165,11 @@ def _normalise_markers(
     return out
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/get_floorplan",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_floorplan",
+    }
+)
 @websocket_api.async_response
 async def ws_get_floorplan(
     hass: HomeAssistant,
@@ -176,12 +182,15 @@ async def ws_get_floorplan(
     """
     store = _get_store(hass)
     if not store:
-        connection.send_result(msg["id"], {
-            ATTR_FLOORPLAN_IMAGE_URL: None,
-            ATTR_FLOORPLAN_WIDTH: 0,
-            ATTR_FLOORPLAN_HEIGHT: 0,
-            ATTR_FLOORPLAN_MARKERS: {},
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                ATTR_FLOORPLAN_IMAGE_URL: None,
+                ATTR_FLOORPLAN_WIDTH: 0,
+                ATTR_FLOORPLAN_HEIGHT: 0,
+                ATTR_FLOORPLAN_MARKERS: {},
+            },
+        )
         return
 
     fp = store.get_floorplan()
@@ -240,7 +249,8 @@ async def ws_get_floorplan(
                     await hass.async_add_executor_job(_write_restore)
                     _LOGGER.info(
                         "Floorplan auto-restored from backup -- %d bytes written to %s",
-                        len(image_bytes), floorplan_file,
+                        len(image_bytes),
+                        floorplan_file,
                     )
                 except OSError as err:
                     _LOGGER.warning(
@@ -259,10 +269,12 @@ async def ws_get_floorplan(
     connection.send_result(msg["id"], fp)
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_floorplan_image",
-    vol.Required("image_base64"): str,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_floorplan_image",
+        vol.Required("image_base64"): str,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_image(
@@ -289,7 +301,9 @@ async def ws_save_floorplan_image(
     try:
         image_bytes = base64.b64decode(raw_b64, validate=True)
     except (binascii.Error, ValueError) as err:
-        connection.send_error(msg["id"], "invalid_base64", f"Could not decode image: {err}")
+        connection.send_error(
+            msg["id"], "invalid_base64", f"Could not decode image: {err}"
+        )
         return
 
     if len(image_bytes) > FLOORPLAN_MAX_BYTES:
@@ -325,29 +339,41 @@ async def ws_save_floorplan_image(
         await hass.async_add_executor_job(_write)
     except OSError as err:
         _LOGGER.error("Failed to write floorplan image to %s: %s", floorplan_file, err)
-        connection.send_error(msg["id"], "write_failed", f"Could not write image: {err}")
+        connection.send_error(
+            msg["id"], "write_failed", f"Could not write image: {err}"
+        )
         return
 
-    await store.async_save_floorplan_image(FLOORPLAN_URL_PATH, width, height, image_b64=raw_b64)
+    await store.async_save_floorplan_image(
+        FLOORPLAN_URL_PATH, width, height, image_b64=raw_b64
+    )
     _LOGGER.info(
         "Floorplan image saved (%dx%d, %d bytes) -> %s",
-        width, height, len(image_bytes), floorplan_file,
+        width,
+        height,
+        len(image_bytes),
+        floorplan_file,
     )
 
-    connection.send_result(msg["id"], {
-        "success": True,
-        ATTR_FLOORPLAN_IMAGE_URL: FLOORPLAN_URL_PATH,
-        ATTR_FLOORPLAN_WIDTH: width,
-        ATTR_FLOORPLAN_HEIGHT: height,
-    })
+    connection.send_result(
+        msg["id"],
+        {
+            "success": True,
+            ATTR_FLOORPLAN_IMAGE_URL: FLOORPLAN_URL_PATH,
+            ATTR_FLOORPLAN_WIDTH: width,
+            ATTR_FLOORPLAN_HEIGHT: height,
+        },
+    )
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/save_floorplan_markers",
-    vol.Optional("markers"): dict,
-    vol.Optional("rooms"): dict,
-    vol.Optional("openings"): list,
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/save_floorplan_markers",
+        vol.Optional("markers"): dict,
+        vol.Optional("rooms"): dict,
+        vol.Optional("openings"): list,
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_markers(
@@ -374,7 +400,9 @@ async def ws_save_floorplan_markers(
             return
         openings = msg.get("openings")
         if openings is not None and not isinstance(openings, list):
-            connection.send_error(msg["id"], "invalid_format", "openings must be a list")
+            connection.send_error(
+                msg["id"], "invalid_format", "openings must be a list"
+            )
             return
         await store.async_save_floorplan_rooms(rooms, openings)
         _LOGGER.debug(
@@ -388,15 +416,20 @@ async def ws_save_floorplan_markers(
         cleaned = _normalise_markers(msg.get("markers"))
         await store.async_save_floorplan_markers(cleaned)
         _LOGGER.debug("Floorplan markers saved: %d markers", len(cleaned))
-        connection.send_result(msg["id"], {
-            "success": True,
-            ATTR_FLOORPLAN_MARKERS: cleaned,
-        })
+        connection.send_result(
+            msg["id"],
+            {
+                "success": True,
+                ATTR_FLOORPLAN_MARKERS: cleaned,
+            },
+        )
 
 
-@websocket_api.websocket_command({
-    vol.Required("type"): f"{DOMAIN}/delete_floorplan",
-})
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_floorplan",
+    }
+)
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_floorplan(
@@ -419,12 +452,12 @@ async def ws_delete_floorplan(
         except FileNotFoundError:
             return False
         except OSError as err:
-            _LOGGER.warning("Could not delete floorplan file %s: %s", floorplan_file, err)
+            _LOGGER.warning(
+                "Could not delete floorplan file %s: %s", floorplan_file, err
+            )
             return False
 
     removed = await hass.async_add_executor_job(_unlink)
     await store.async_delete_floorplan()
     _LOGGER.info("Floorplan deleted (file_removed=%s)", removed)
     connection.send_result(msg["id"], {"success": True, "file_removed": removed})
-
-
