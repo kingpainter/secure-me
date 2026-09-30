@@ -1,5 +1,18 @@
 # Secure Me - Changelog
 
+## [2.0.1] - 2026-09-30
+
+### 🔧 Maintenance & Python 3.13 Compatibility
+
+**Hotfix Release:**
+- Updated version to 2.0.1 in coordinator.py and all version-tracking files
+- Added `from __future__ import annotations` to engine modules for full Python 3.13+ compatibility
+- Ensured consistent strict type hints across codebase
+- All CI checks passing (pytest, hassfest, version consistency)
+
+**No breaking changes** - fully backward compatible with existing automations and configurations.
+
+
 ## [2.0.0] - 2026-09-21
 
 ### 🎯 Major Refactoring: Type Safety & Engine Architecture
