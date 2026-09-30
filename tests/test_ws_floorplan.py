@@ -24,8 +24,9 @@ This file covers, in order of risk:
      with a fake connection, per the project's testing rule of using real
      production code rather than re-implemented mirrors.
 """
-# VERSION = "1.0.0"
+# VERSION = "1.1.0"
 
+import asyncio
 import base64
 import struct
 from unittest.mock import AsyncMock, MagicMock
@@ -37,6 +38,7 @@ from custom_components.secure_me.ws_floorplan import (
     _normalise_markers,
     _floorplan_paths,
     _legacy_floorplan_file,
+    _migrate_legacy_floorplan_file,
     ws_get_floorplan,
     ws_save_floorplan_image,
     ws_save_floorplan_markers,
@@ -506,3 +508,429 @@ class TestWsDeleteFloorplan:
 
         connection.send_error.assert_called_once()
         assert connection.send_error.call_args.args[1] == "store_not_ready"
+# =========================================================================
+# PHASE 1: Admin Permission Enforcement Tests
+# =========================================================================
+
+class TestWsSaveFloorplanImageAdminOnly:
+    """Regression guard: @websocket_api.require_admin must reject non-admin."""
+
+    @pytest.mark.asyncio
+    async def test_non_admin_save_image_rejected(self, hass, monkeypatch):
+        """Non-admin user attempting to save image must receive send_error."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=False)  # ← Key: non-admin
+
+        png_bytes = _make_png_bytes(400, 300)
+        b64 = base64.b64encode(png_bytes).decode()
+
+        # The @require_admin decorator should prevent this handler from running.
+        # If it runs anyway (decorator broken), store should not be called.
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
+
+        # Should send error, not save.
+        # NOTE: @require_admin decorator calls send_error internally before handler runs.
+        connection.send_error.assert_called()
+
+
+class TestWsSaveFloorplanMarkersAdminOnly:
+    """Regression guard: @websocket_api.require_admin must reject non-admin."""
+
+    @pytest.mark.asyncio
+    async def test_non_admin_save_markers_rejected(self, hass, monkeypatch):
+        """Non-admin user attempting to save markers must receive send_error."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=False)
+
+        await _call_ws_handler(
+            ws_save_floorplan_markers, hass, connection,
+            {"id": 1, "markers": {"binary_sensor.a": {"x_pct": 10, "y_pct": 10}}},
+        )
+
+        connection.send_error.assert_called()
+        store.async_save_floorplan_markers.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_non_admin_save_rooms_rejected(self, hass, monkeypatch):
+        """Non-admin user attempting to save rooms must receive send_error."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=False)
+
+        rooms = {"room1": {"name": "Living Room", "color": "#fff", "points": [], "sensors": []}}
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": rooms})
+
+        connection.send_error.assert_called()
+        store.async_save_floorplan_rooms.assert_not_awaited()
+
+
+class TestWsDeleteFloorplanAdminOnly:
+    """Regression guard: @websocket_api.require_admin must reject non-admin."""
+
+    @pytest.mark.asyncio
+    async def test_non_admin_delete_rejected(self, hass, monkeypatch):
+        """Non-admin user attempting to delete floorplan must receive send_error."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=False)
+
+        await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
+
+        connection.send_error.assert_called()
+        store.async_delete_floorplan.assert_not_awaited()
+
+
+# =========================================================================
+# PHASE 1: Legacy Floorplan File Migration Tests
+# =========================================================================
+
+class TestMigrateFloorplanFile:
+    """Test one-time migration from custom_components/secure_me/floorplan/ → www/."""
+
+    def test_migrates_legacy_file_to_www(self, hass, tmp_path, monkeypatch):
+        """If legacy file exists and new location is empty, move it."""
+        # Patch config paths to use tmp directories.
+        def patched_config_path(base, *args):
+            if args and "custom_components" in args:
+                return str(tmp_path / "custom_components" / "secure_me")
+            elif args and "www" in args:
+                return str(tmp_path / "www" / args[0])
+            return str(tmp_path / base)
+
+        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+
+        # Create legacy file.
+        legacy_dir = tmp_path / "custom_components" / "secure_me" / "floorplan"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        legacy_file = legacy_dir / "floorplan.png"
+        legacy_file.write_bytes(b"fake png data")
+
+        # Run migration.
+        result = _migrate_legacy_floorplan_file(hass)
+
+        assert result is True
+        assert not legacy_file.exists()
+        new_file = tmp_path / "www" / "secure_me_floorplan" / "floorplan.png"
+        assert new_file.exists()
+        assert new_file.read_bytes() == b"fake png data"
+
+    def test_no_migration_if_legacy_file_missing(self, hass, tmp_path, monkeypatch):
+        """If legacy file doesn't exist, return False (no-op)."""
+        def patched_config_path(base, *args):
+            if args and "custom_components" in args:
+                return str(tmp_path / "custom_components" / "secure_me")
+            elif args and "www" in args:
+                return str(tmp_path / "www" / args[0])
+            return str(tmp_path / base)
+
+        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+
+        result = _migrate_legacy_floorplan_file(hass)
+        assert result is False
+
+    def test_no_migration_if_new_location_exists(self, hass, tmp_path, monkeypatch):
+        """If new location already has a file, don't overwrite (never loses newer file)."""
+        def patched_config_path(base, *args):
+            if args and "custom_components" in args:
+                return str(tmp_path / "custom_components" / "secure_me")
+            elif args and "www" in args:
+                return str(tmp_path / "www" / args[0])
+            return str(tmp_path / base)
+
+        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+
+        # Create both legacy and new file (new one is "newer").
+        legacy_dir = tmp_path / "custom_components" / "secure_me" / "floorplan"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        legacy_file = legacy_dir / "floorplan.png"
+        legacy_file.write_bytes(b"old data")
+
+        new_dir = tmp_path / "www" / "secure_me_floorplan"
+        new_dir.mkdir(parents=True, exist_ok=True)
+        new_file = new_dir / "floorplan.png"
+        new_file.write_bytes(b"new data")
+
+        # Attempt migration.
+        result = _migrate_legacy_floorplan_file(hass)
+
+        assert result is False  # No migration happened
+        assert legacy_file.exists()  # Legacy untouched
+        assert new_file.read_bytes() == b"new data"  # New preserved
+
+
+# =========================================================================
+# PHASE 2: File I/O Error Handling Tests
+# =========================================================================
+
+class TestWsSaveFloorplanImageIOErrors:
+    """Test graceful degradation when file I/O fails."""
+
+    @pytest.mark.asyncio
+    async def test_write_oserror_returns_error(self, hass, monkeypatch):
+        """If file write fails (permission denied, disk full, etc.), send error."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection()
+
+        png_bytes = _make_png_bytes(400, 300)
+        b64 = base64.b64encode(png_bytes).decode()
+
+        # Mock hass.async_add_executor_job to raise OSError on write call.
+        original_add_executor = hass.async_add_executor_job
+        async def patched_add_executor(func, *args):
+            if func.__name__ == "_write":
+                raise OSError("Permission denied")
+            return await original_add_executor(func, *args)
+
+        monkeypatch.setattr(hass, "async_add_executor_job", patched_add_executor)
+
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
+
+        connection.send_error.assert_called_once()
+        assert connection.send_error.call_args.args[1] == "write_failed"
+        store.async_save_floorplan_image.assert_not_awaited()
+
+
+class TestWsDeleteFloorplanIOErrors:
+    """Test graceful degradation when file deletion fails."""
+
+    @pytest.mark.asyncio
+    async def test_unlink_oserror_still_clears_store(self, hass, monkeypatch):
+        """If unlink() fails (permission denied), still clear store, report file_removed=False."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection()
+
+        # Mock hass.async_add_executor_job to raise OSError on unlink.
+        original_add_executor = hass.async_add_executor_job
+        async def patched_add_executor(func, *args):
+            if func.__name__ == "_unlink":
+                raise OSError("Permission denied")
+            return await original_add_executor(func, *args)
+
+        monkeypatch.setattr(hass, "async_add_executor_job", patched_add_executor)
+
+        await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
+
+        # Should still call store and send success, but file_removed=False.
+        store.async_delete_floorplan.assert_awaited_once()
+        connection.send_result.assert_called_once()
+        result = connection.send_result.call_args.args[1]
+        assert result["success"] is True
+        assert result["file_removed"] is False
+
+
+# =========================================================================
+# PHASE 2: v1.6.0 Rooms/Openings Format Validation Tests
+# =========================================================================
+
+class TestWsSaveFloorplanMarkersRoomsValidation:
+    """Test v1.6.0 room/opening format validation and malformed input rejection."""
+
+    @pytest.mark.asyncio
+    async def test_rooms_with_missing_fields_still_save(self, hass, monkeypatch):
+        """Partial room data (missing 'color' or 'points') is still accepted.
+        The store is responsible for validation; the handler just passes it through."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        rooms = {
+            "room1": {"name": "Living Room"},  # Missing color, points, sensors
+        }
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": rooms})
+
+        store.async_save_floorplan_rooms.assert_awaited_once_with(rooms, None)
+        connection.send_result.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_openings_with_extra_fields_preserved(self, hass, monkeypatch):
+        """Extra fields in opening objects (e.g., custom metadata) are preserved."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        rooms = {"room1": {"name": "Living Room", "color": "#fff", "points": [], "sensors": []}}
+        openings = [
+            {"type": "door", "label": "Front", "points": [1, 2, 3, 4], "custom_field": "preserved"},
+        ]
+        await _call_ws_handler(
+            ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": rooms, "openings": openings}
+        )
+
+        store.async_save_floorplan_rooms.assert_awaited_once_with(rooms, openings)
+        # Custom field is preserved and passed to store.
+        call_args = store.async_save_floorplan_rooms.call_args
+        assert call_args.args[1][0]["custom_field"] == "preserved"
+
+    @pytest.mark.asyncio
+    async def test_empty_rooms_dict_accepted(self, hass, monkeypatch):
+        """Empty rooms dict (clearing all rooms) is valid."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        await _call_ws_handler(ws_save_floorplan_markers, hass, connection, {"id": 1, "rooms": {}})
+
+        store.async_save_floorplan_rooms.assert_awaited_once_with({}, None)
+        connection.send_result.assert_called_once()
+
+
+# =========================================================================
+# PHASE 3: Stress & Concurrency Tests
+# =========================================================================
+
+class TestLargeMarkerDict:
+    """Stress test: handler must cope with large marker dicts."""
+
+    def test_normalise_5000_markers(self):
+        """_normalise_markers() must handle 5000+ markers without degradation."""
+        raw = {
+            f"binary_sensor.sensor_{i}": {
+                "x_pct": 10.0 + (i % 90),
+                "y_pct": 20.0 + (i % 80),
+                "kind": ["motion", "door", "window"][i % 3],
+                "label": f"Sensor {i}",
+            }
+            for i in range(5000)
+        }
+
+        result = _normalise_markers(raw)
+
+        assert len(result) == 5000
+        assert result["binary_sensor.sensor_0"]["x_pct"] == 10.0
+        assert result["binary_sensor.sensor_4999"]["label"] == "Sensor 4999"
+
+    @pytest.mark.asyncio
+    async def test_save_image_with_large_base64_near_limit(self, hass, monkeypatch):
+        """Image at 95% of FLOORPLAN_MAX_BYTES must be accepted."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        # Create a PNG that's 95% of max size.
+        target_size = int(FLOORPLAN_MAX_BYTES * 0.95)
+        png_bytes = _make_png_bytes(400, 300, extra=b"\x00" * (target_size - 50))
+        b64 = base64.b64encode(png_bytes).decode()
+
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
+
+        connection.send_result.assert_called_once()
+        store.async_save_floorplan_image.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_save_image_exactly_at_limit(self, hass, monkeypatch):
+        """Image exactly at FLOORPLAN_MAX_BYTES must be accepted (boundary test)."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        # Create a PNG that's exactly FLOORPLAN_MAX_BYTES.
+        png_bytes = _make_png_bytes(400, 300, extra=b"\x00" * (FLOORPLAN_MAX_BYTES - 50))
+        b64 = base64.b64encode(png_bytes).decode()
+
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
+
+        connection.send_result.assert_called_once()
+        store.async_save_floorplan_image.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_save_image_one_byte_over_limit(self, hass, monkeypatch):
+        """Image one byte over FLOORPLAN_MAX_BYTES must be rejected."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+        connection = FakeConnection(is_admin=True)
+
+        # Create a PNG that's one byte over limit.
+        png_bytes = _make_png_bytes(400, 300, extra=b"\x00" * (FLOORPLAN_MAX_BYTES - 49))
+        b64 = base64.b64encode(png_bytes).decode()
+
+        await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
+
+        connection.send_error.assert_called_once()
+        assert connection.send_error.call_args.args[1] == "image_too_large"
+
+
+# =========================================================================
+# PHASE 3: Concurrent Access Simulation (Single-threaded Simulation)
+# =========================================================================
+
+class TestConcurrentFloorplanAccess:
+    """Simulate concurrent WebSocket handler calls.
+    
+    Note: True async concurrency is hard to test without real HA scheduler.
+    This simulates the dispatcher queuing multiple messages in rapid succession.
+    """
+
+    @pytest.mark.asyncio
+    async def test_get_and_save_interleaved(self, hass, monkeypatch, tmp_path):
+        """Simulate: get_floorplan called while save is in progress."""
+        store = FakeFloorplanStore(floorplan={
+            "image_url": None,
+            "width": 0,
+            "height": 0,
+            "markers": {},
+        })
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+
+        # Track call order.
+        call_order = []
+
+        async def tracked_save(*args, **kwargs):
+            call_order.append("save_start")
+            await store.async_save_floorplan_image(*args, **kwargs)
+            call_order.append("save_end")
+
+        store.async_save_floorplan_image = tracked_save
+
+        conn_get = FakeConnection()
+        conn_save = FakeConnection(is_admin=True)
+
+        png_bytes = _make_png_bytes(400, 300)
+        b64 = base64.b64encode(png_bytes).decode()
+
+        # Queue both calls (simulates dispatcher receiving both messages).
+        get_task = asyncio.create_task(
+            _call_ws_handler(ws_get_floorplan, hass, conn_get, {"id": 1})
+        )
+        save_task = asyncio.create_task(
+            _call_ws_handler(ws_save_floorplan_image, hass, conn_save, {"id": 2, "image_base64": b64})
+        )
+
+        await asyncio.gather(get_task, save_task)
+
+        # Both should complete without error.
+        conn_get.send_result.assert_called_once()
+        conn_save.send_result.assert_called_once()
+        # Save should have been called.
+        assert "save_start" in call_order
+
+    @pytest.mark.asyncio
+    async def test_two_concurrent_saves_both_succeed(self, hass, monkeypatch):
+        """Two simultaneous saves should both succeed (no blocking on store)."""
+        store = FakeFloorplanStore()
+        monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
+
+        conn1 = FakeConnection(is_admin=True)
+        conn2 = FakeConnection(is_admin=True)
+
+        png_bytes = _make_png_bytes(400, 300)
+        b64 = base64.b64encode(png_bytes).decode()
+
+        # Queue two saves.
+        save1 = asyncio.create_task(
+            _call_ws_handler(ws_save_floorplan_image, hass, conn1, {"id": 1, "image_base64": b64})
+        )
+        save2 = asyncio.create_task(
+            _call_ws_handler(ws_save_floorplan_image, hass, conn2, {"id": 2, "image_base64": b64})
+        )
+
+        await asyncio.gather(save1, save2)
+
+        # Both should send_result.
+        assert conn1.send_result.call_count == 1
+        assert conn2.send_result.call_count == 1
+        # Store should have been called twice.
+        assert store.async_save_floorplan_image.await_count == 2
