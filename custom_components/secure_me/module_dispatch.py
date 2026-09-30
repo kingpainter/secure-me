@@ -211,7 +211,7 @@ class ModuleDispatcher:
         try:
             self.modules[module_id] = cls(self.hass, config)
             return True
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.error("Failed to re-initialize module %s: %s", module_id, err)
             return False
 
@@ -233,7 +233,7 @@ class ModuleDispatcher:
             if module.enabled:
                 try:
                     await call(module)
-                except Exception as err:  # noqa: BLE001
+                except Exception as err:
                     _LOGGER.error("Module %s failed on %s: %s", mid, action, err)
                     self.hass.bus.async_fire(
                         EVENT_MODULE_ERROR,
@@ -330,5 +330,5 @@ class ModuleDispatcher:
         for mid, module in self.modules.items():
             try:
                 await module.async_cleanup()
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("Module %s cleanup failed: %s", mid, err)

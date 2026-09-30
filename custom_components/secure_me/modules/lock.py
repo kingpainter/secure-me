@@ -156,7 +156,7 @@ class LockModule(AlarmModule):
                         results["warnings"].append(
                             f"Lock {lock} battery low ({level}%)"
                         )
-                except (ValueError, TypeError):  # noqa: S110
+                except (ValueError, TypeError):
                     pass
 
             # Door sensor: skip the functional test if the door is open
@@ -213,7 +213,7 @@ class LockModule(AlarmModule):
                     if not lock_info["test_passed"]:
                         results["success"] = False
                         messages.append(f"Lock {lock} failed to lock")
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 lock_info["test_passed"] = False
                 lock_info["error"] = str(err)
                 results["success"] = False

@@ -53,6 +53,7 @@ from ..const import (
     HOME_ALONE_DEFAULT_ACTION_1,
     HOME_ALONE_DEFAULT_ACTION_2,
 )
+from ..notification_dispatcher import NotificationDispatcher
 from ..ws_helpers import _get_coordinator
 from .base_engine import BaseEngine
 
@@ -137,7 +138,7 @@ async def _send_push(
             svc_domain, svc_name, service_data, blocking=False
         )
         _LOGGER.debug("Push sent via %s (critical=%s): %s", service, critical, title)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Failed to send push via %s: %s", service, err)
 
 
@@ -165,7 +166,7 @@ async def _send_tts_to_user(
         await tts.announce_system(
             message, urgent=urgent, speaker_ids=speaker_ids or None
         )
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("TTS system announcement failed: %s", err)
 
 
@@ -403,7 +404,7 @@ async def dispatch_home_alone_door_trigger(
                 notify_service,
                 entity_id,
             )
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.error("Home Alone push failed for %s: %s", notify_service, err)
 
     # TTS announcement on configured speaker
@@ -429,7 +430,7 @@ async def dispatch_home_alone_door_trigger(
                     "Home Alone TTS skipped for %s -- TTS module not enabled",
                     speaker_entity,
                 )
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.error(
                 "Home Alone TTS failed for speaker %s: %s", speaker_entity, err
             )
@@ -492,7 +493,7 @@ async def handle_home_alone_quick_response(hass: HomeAssistant, action: str) -> 
             _LOGGER.debug(
                 "Home Alone quick response TTS skipped -- TTS module not enabled"
             )
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Home Alone quick response TTS failed: %s", err)
 
 
@@ -577,7 +578,7 @@ class NotificationEngine(BaseEngine):
         for unsub in self._unsubs:
             try:
                 unsub()
-            except Exception:  # noqa: BLE001  # noqa: S110
+            except Exception:  # noqa: S110
                 pass
         self._unsubs.clear()
 

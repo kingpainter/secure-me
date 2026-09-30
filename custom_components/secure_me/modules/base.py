@@ -134,7 +134,7 @@ class AlarmModule(ABC):
                 self._on_success(action)
                 return True
 
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.warning(
                     "%s: %s failed (attempt %d/%d): %s",
                     self.module_name,
@@ -172,7 +172,7 @@ class AlarmModule(ABC):
                 blocking=True,
             )
             return True
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.error(
                 "%s module failed to call service %s.%s: %s",
                 self.module_name,
@@ -204,7 +204,7 @@ class AlarmModule(ABC):
                     title="Secure Me - Recovery",
                     notification_id=f"{NOTIFY_ID_RECOVERY}_{self.module_name.lower()}",
                 )
-            except Exception as notify_err:  # noqa: BLE001
+            except Exception as notify_err:
                 _LOGGER.debug("Could not create recovery notification: %s", notify_err)
 
     def _on_failure(self, action: str) -> None:
@@ -232,7 +232,7 @@ class AlarmModule(ABC):
                 title="Secure Me - Module Error",
                 notification_id=f"{NOTIFY_ID_MODULE_ERROR}_{self.module_name.lower()}",
             )
-        except Exception as notify_err:  # noqa: BLE001
+        except Exception as notify_err:
             _LOGGER.debug("Could not create module error notification: %s", notify_err)
 
     # ── State backup / restore ───────────────────────────────────────────────

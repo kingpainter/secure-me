@@ -209,8 +209,8 @@ async def _async_register_lovelace_resources(
                label    — human-readable name for logging
     """
     try:
-        from homeassistant.components.lovelace import (
-            resources as ll_resources,  # type: ignore[import]
+        from homeassistant.components import (
+            lovelace,  # type: ignore[import]  # noqa: F401 - Availability check
         )
     except ImportError:
         _LOGGER.warning(
@@ -236,14 +236,14 @@ async def _async_register_lovelace_resources(
         # Load existing resources so we can check for duplicates
         try:
             await resources.async_load()
-        except Exception:  # noqa: BLE001  # noqa: S110
+        except Exception:  # noqa: S110
             pass
 
         existing_urls: set[str] = set()
         try:
             for item in resources.async_items():
                 existing_urls.add(item.get("url", "").split("?")[0])
-        except Exception:  # noqa: BLE001  # noqa: S110
+        except Exception:  # noqa: S110
             pass
 
         for url, fpath, label in cards:
@@ -263,12 +263,12 @@ async def _async_register_lovelace_resources(
                 _LOGGER.info(
                     "Secure Me: %s added to Lovelace resources at %s", label, url
                 )
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.warning(
                     "Secure Me: could not add %s to Lovelace resources: %s", label, err
                 )
 
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.warning(
             "Secure Me: Lovelace resource registration failed (%s) — "
             "add cards manually via Settings > Dashboards > Resources",

@@ -71,7 +71,7 @@ class SpeakerQueue:
                 coro = await asyncio.wait_for(self._queue.get(), timeout=30)
                 try:
                     await coro
-                except Exception as err:  # noqa: BLE001
+                except Exception as err:
                     _LOGGER.error(
                         "SpeakerQueue error on %s: %s",
                         self.profile.get("entity_id", "?"),
@@ -235,7 +235,7 @@ class TTSModule(AlarmModule):
             try:
                 await self._play_message(test_msg, test_mode=True)
                 results["details"]["test_announcement"] = True
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("TTS test failed: %s", err)
                 results["success"] = False
                 messages.append("TTS announcement test failed")
@@ -355,7 +355,7 @@ class TTSModule(AlarmModule):
                 continue
             try:
                 await self._play_message(msg)
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error(
                     "TTS custom message '%s' failed: %s",
                     msg.get("name", "?"),

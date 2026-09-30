@@ -316,7 +316,7 @@ class SecureMeStore:
             code_bytes = code.encode("utf-8")[:72]
             raw_hash = base64.b64decode(stored_hash.encode("utf-8"))
             return bcrypt.checkpw(code_bytes, raw_hash)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False
 
     # ─── Sensors ─────────────────────────────────────────────────────────────
@@ -358,7 +358,7 @@ class SecureMeStore:
             area_reg = ar.async_get(self.hass)
             area = area_reg.async_get_area(area_id)
             return area.name if area else "Andet"
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.debug("Area lookup failed for %s: %s", entity_id, err)
             return "Andet"
 
@@ -915,7 +915,7 @@ class SecureMeStore:
             return None
         try:
             image_bytes = _base64.b64decode(b64)
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.warning("Floorplan backup decode failed: %s", err)
             return None
 

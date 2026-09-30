@@ -56,7 +56,7 @@ def _discover_batteries(
             entry = ent_reg.async_get(eid)
             if entry and entry.device_id:
                 device_ids.add(entry.device_id)
-    except Exception:  # noqa: BLE001
+    except Exception:
         device_ids = set()
 
     batteries: list[dict] = []
@@ -71,12 +71,12 @@ def _discover_batteries(
                 entry = ent_reg.async_get(state.entity_id)
                 if not entry or entry.device_id not in device_ids:
                     continue
-            except Exception:  # noqa: BLE001  # noqa: S110
+            except Exception:  # noqa: S110
                 pass
         level = None
         try:
             level = int(float(state.state))
-        except (ValueError, TypeError):  # noqa: S110
+        except (ValueError, TypeError):
             pass
         batteries.append(
             {

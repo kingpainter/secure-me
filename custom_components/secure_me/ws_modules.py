@@ -210,7 +210,7 @@ async def ws_test_notification(
             try:
                 await dispatcher.dispatch_low_battery()
                 connection.send_result(msg["id"], {"success": True})
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("Failed to test low_battery notification: %s", err)
                 connection.send_result(msg["id"], {"success": False, "error": str(err)})
         else:
@@ -240,7 +240,7 @@ async def ws_test_notification(
             for svc in admin_services:
                 await _send_push(hass, svc, title, message)
             connection.send_result(msg["id"], {"success": True})
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             connection.send_result(msg["id"], {"success": False, "error": str(err)})
         return
 
@@ -268,7 +268,7 @@ async def ws_test_notification(
             for svc in admin_services:
                 await _send_push(hass, svc, title, message)
             connection.send_result(msg["id"], {"success": True})
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             connection.send_result(msg["id"], {"success": False, "error": str(err)})
         return
 
@@ -315,7 +315,7 @@ async def ws_test_notification(
                 _LOGGER.warning("TTS test: TTS module not enabled or not configured")
 
         connection.send_result(msg["id"], {"success": True})
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Failed to test notification: %s", err)
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
@@ -395,7 +395,7 @@ async def ws_test_tts(
             return
         await tts_module.announce_system(msg["message"], speaker_ids=speaker_ids)
         connection.send_result(msg["id"], {"success": True})
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("TTS test failed: %s", err)
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
@@ -512,7 +512,7 @@ async def ws_test_automation(
                 )
 
         connection.send_result(msg["id"], {"success": True})
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Failed to test automation: %s", err)
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
@@ -719,7 +719,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
                 # string mixed in with real failures.
                 for w in test_out.get("warnings", []):
                     results["warnings"].append(f"{mod_id}: {w}")
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 mod_result["test_result"] = {"success": False, "message": str(err)}
                 mod_result["status"] = "error"
             mod_result["duration_seconds"] = round(time.time() - _mod_start, 1)
@@ -1007,7 +1007,7 @@ async def ws_quick_test_siren(
     try:
         result = await siren_module.async_test()
         connection.send_result(msg["id"], result)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Quick siren test failed: %s", err)
         connection.send_result(
             msg["id"],
@@ -1122,7 +1122,7 @@ async def ws_quick_test_lights(
                 "details": {"lights_tested": tested},
             },
         )
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         _LOGGER.error("Quick lights test failed: %s", err)
         lights_module.clear_backup()
         connection.send_result(

@@ -211,7 +211,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
                     if (now_dt - last_dt).total_seconds() < 60:
                         continue
-                except ValueError:  # noqa: S110
+                except ValueError:
                     pass
 
             should_run = False
@@ -262,7 +262,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 if cfg.get("notify_on_fail", True) and overall in ("fail", "critical"):
                     await self._notify_scheduled_test_fail(cfg, result)
 
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("Scheduled test '%s' failed: %s", test_id, err)
                 await self.store.async_update_scheduled_test_result(
                     test_id, now_dt.strftime("%Y-%m-%d %H:%M:%S"), "error"
@@ -1168,7 +1168,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 title="Secure Me - Fake Presence",
                 notification_id=NOTIFY_ID_FAKE_PRESENCE,
             )
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             _LOGGER.warning("Could not create persistent notification: %s", err)
         self.hass.bus.async_fire(EVENT_FAKE_PRESENCE_CHANGED, {"active": active})
         _LOGGER.info("Fake presence set to %s", active)
@@ -1413,10 +1413,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 # that runs even while disarmed. stop_monitoring() alone
                 # leaves that listener leaked.
                 self.zone_manager.cleanup()
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("Zone manager cleanup failed: %s", err)
         if hasattr(self, "state_machine"):
             try:
                 self.state_machine.cleanup()
-            except Exception as err:  # noqa: BLE001
+            except Exception as err:
                 _LOGGER.error("State machine cleanup failed: %s", err)
