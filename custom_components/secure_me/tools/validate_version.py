@@ -125,7 +125,7 @@ def main():
 
     try:
         version = args[0] if args else get_manifest_version()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"ERROR: Could not read manifest.json: {e}")
         sys.exit(1)
 

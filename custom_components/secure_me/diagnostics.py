@@ -117,7 +117,7 @@ async def async_get_config_entry_diagnostics(
             level = int(float(state.state))
             if level < 20:
                 low_count += 1
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # noqa: S110
             pass
     battery_info = {
         "total_battery_sensors": battery_count,

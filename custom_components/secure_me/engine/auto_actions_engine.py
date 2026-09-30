@@ -870,7 +870,7 @@ class AutoActionsEngine(BaseEngine):
                     service_name,
                     {"title": title, "message": message},
                 )
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.warning("AutoActions: failed to notify via %s: %s", svc, err)
 
         _LOGGER.info(
@@ -1006,6 +1006,6 @@ class AutoActionsEngine(BaseEngine):
                 task.cancel()
                 try:
                     await task
-                except (asyncio.CancelledError, Exception):
+                except (asyncio.CancelledError, Exception):  # noqa: BLE001 - Task cancellation may include other exceptions  # noqa: S110
                     pass
         self._action_tasks.clear()

@@ -149,14 +149,14 @@ class AlarmStateMachine:
         for cb in self._state_change_callbacks:
             try:
                 await cb(self._current_state, self._countdown)
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.error("Error in state change callback: %s", err)
 
     async def _notify_countdown(self) -> None:
         for cb in self._countdown_callbacks:
             try:
                 await cb(self._countdown)
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.error("Error in countdown callback: %s", err)
 
     async def _set_state(self, new_state: str) -> None:
@@ -177,7 +177,7 @@ class AlarmStateMachine:
             task.cancel()
             try:
                 await task
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # noqa: S110
                 pass
         self._countdown_task = None
 
@@ -186,7 +186,7 @@ class AlarmStateMachine:
             task.cancel()
             try:
                 await task
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # noqa: S110
                 pass
         self._trigger_reset_task = None
 
@@ -229,7 +229,7 @@ class AlarmStateMachine:
             task.cancel()
             try:
                 await task
-            except asyncio.CancelledError:
+            except asyncio.CancelledError:  # noqa: S110
                 pass
             self._countdown_task = None
             self._countdown = 0
@@ -286,7 +286,7 @@ class AlarmStateMachine:
                     )
                     self._countdown = 0
                     await self._set_state(STATE_ALARM_DISARMED)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # noqa: S110
             pass
 
     # ── Public API ───────────────────────────────────────────────────────────

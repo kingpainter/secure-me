@@ -129,9 +129,9 @@ class SirenModule(AlarmModule):
             await asyncio.sleep(duration)
             await self._turn_off_entity(entity_id)
             _LOGGER.info("Siren module: auto-off after %ds for %s", duration, entity_id)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # noqa: S110
             pass
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Siren auto-off failed for %s: %s", entity_id, err)
 
     def _cancel_duration_tasks(self) -> None:
@@ -269,7 +269,7 @@ class SirenModule(AlarmModule):
                         messages.append(
                             f"Test failed for {entity_id} (unsupported domain or service call failed)"
                         )
-                except Exception as err:
+                except Exception as err:  # noqa: BLE001
                     _LOGGER.error("Siren entity test failed for %s: %s", entity_id, err)
                     results["success"] = False
                     messages.append(f"Test failed for {entity_id}")
@@ -308,7 +308,7 @@ class SirenModule(AlarmModule):
                     service_data={"gw_mac": self.gateway_mac},
                 )
                 results["details"]["sound_test"] = True
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.error("Siren sound test failed: %s", err)
                 results["success"] = False
                 messages.append("Siren sound test failed")
@@ -327,7 +327,7 @@ class SirenModule(AlarmModule):
                     "light", "turn_off", target={"entity_id": self.gateway_light}
                 )
                 results["details"]["light_test"] = True
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.error("Siren light test failed: %s", err)
 
         if messages:
@@ -349,7 +349,7 @@ class SirenModule(AlarmModule):
                     service_data={"gw_mac": self.gateway_mac},
                     blocking=False,
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001  # noqa: S110
                 pass
         await super().async_shutdown()
 
@@ -372,7 +372,7 @@ class SirenModule(AlarmModule):
                         "light", "turn_off", target={"entity_id": self.gateway_light}
                     )
                     await asyncio.sleep(0.5)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # noqa: S110
             pass
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Gateway light flash failed: %s", err)

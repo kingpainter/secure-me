@@ -31,7 +31,7 @@ def clean_file(filepath):
         print(f"✓ Cleaned: {filepath}")
         return True
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"✗ Error cleaning {filepath}: {e}")
         return False
 

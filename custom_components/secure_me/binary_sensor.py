@@ -477,7 +477,7 @@ def _discover_battery_levels(hass: HomeAssistant) -> list[dict[str, Any]]:
         level: int | None = None
         try:
             level = int(float(state.state))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # noqa: S110
             pass
         batteries.append(
             {

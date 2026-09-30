@@ -200,7 +200,7 @@ class LightsModule(AlarmModule):
                     "light", "turn_off", target={"entity_id": self.lights[0]}
                 )
                 results["details"]["emergency_flash"] = True
-            except Exception:
+            except Exception:  # noqa: BLE001  # noqa: S110
                 pass
 
         if messages:
@@ -259,7 +259,7 @@ class LightsModule(AlarmModule):
                         "light", "turn_off", target={"entity_id": self.lights}
                     )
                     await asyncio.sleep(FLASH_DELAY_MS / 1000)
-        except asyncio.CancelledError:
+        except asyncio.CancelledError:  # noqa: S110
             pass
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Emergency flash failed: %s", err)

@@ -236,14 +236,14 @@ async def _async_register_lovelace_resources(
         # Load existing resources so we can check for duplicates
         try:
             await resources.async_load()
-        except Exception:
+        except Exception:  # noqa: BLE001  # noqa: S110
             pass
 
         existing_urls: set[str] = set()
         try:
             for item in resources.async_items():
                 existing_urls.add(item.get("url", "").split("?")[0])
-        except Exception:
+        except Exception:  # noqa: BLE001  # noqa: S110
             pass
 
         for url, fpath, label in cards:
@@ -263,12 +263,12 @@ async def _async_register_lovelace_resources(
                 _LOGGER.info(
                     "Secure Me: %s added to Lovelace resources at %s", label, url
                 )
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.warning(
                     "Secure Me: could not add %s to Lovelace resources: %s", label, err
                 )
 
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _LOGGER.warning(
             "Secure Me: Lovelace resource registration failed (%s) — "
             "add cards manually via Settings > Dashboards > Resources",

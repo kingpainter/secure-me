@@ -72,7 +72,7 @@ class BaseEngine:
                 task = cleanup()
                 if isinstance(task, asyncio.Task):
                     task.cancel()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.logger.warning(f"Error during cleanup: {e}")
 
         self._cleanup_tasks.clear()

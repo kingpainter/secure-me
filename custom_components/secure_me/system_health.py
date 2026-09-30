@@ -145,7 +145,7 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
         # Arm history depth (confirms ring buffer is working)
         info["arm_history_events"] = len(getattr(coordinator, "_arm_history", []))
 
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         _LOGGER.error("Error getting system health info: %s", err)
         info["error"] = str(err)
 

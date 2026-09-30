@@ -271,7 +271,7 @@ class ZoneManager:
         if override is not None:
             try:
                 return int(override)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError):  # noqa: S110
                 pass
         return zone_default
 
@@ -517,7 +517,7 @@ class ZoneManager:
         """
         try:
             new_ready, new_blocked = self._compute_ready_modes()
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             # Defensive: never let ready-mode computation break the
             # state-change handler. Log and continue.
             _LOGGER.debug("ready_modes computation failed: %s", err)
@@ -557,7 +557,7 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception:
+            except Exception:  # noqa: BLE001  # noqa: S110
                 pass
             self._ready_modes_unsub = None
 
@@ -583,7 +583,7 @@ class ZoneManager:
         try:
             ready, _ = self._compute_ready_modes()
             self._ready_modes_cache = ready
-        except Exception:
+        except Exception:  # noqa: BLE001
             self._ready_modes_cache = set()
 
         _LOGGER.debug("Ready-modes listener subscribed to %d sensors", len(watched))
@@ -624,7 +624,7 @@ class ZoneManager:
                         f"{NOTIFY_ID_MODULE_ERROR}_sensor_{entity_id.replace('.', '_')}"
                     ),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001  # noqa: S110
                 pass
             changed = zone.update_sensor_state(entity_id, False)
             return changed, zone if changed else None
@@ -925,7 +925,7 @@ class ZoneManager:
         if unsub:
             try:
                 unsub()
-            except Exception:
+            except Exception:  # noqa: BLE001  # noqa: S110
                 pass
             self._ready_modes_unsub = None
 

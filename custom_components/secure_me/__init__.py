@@ -77,7 +77,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await coordinator.async_config_entry_first_refresh()
             _last_err = None
             break
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001 - Retry mechanism for transient init failures
             _last_err = err
             _LOGGER.warning(
                 "Secure Me first refresh failed (attempt %d/3): %s", _attempt + 1, err
@@ -127,7 +127,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await panel.async_register_panel(hass)
             hass.data[DOMAIN]["_panel_registered"] = True
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001 - Panel registration is optional
             _LOGGER.error("Panel registration failed: %s", err)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -180,13 +180,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if not remaining:
             try:
                 panel.async_unregister_panel(hass)
-            except Exception:
+            except Exception:  # noqa: BLE001 - Defensive: cleanup should not break unload  # noqa: S110
                 pass
             hass.data[DOMAIN]["_panel_registered"] = False
 
             try:
                 async_unregister_services(hass)
-            except Exception:
+            except Exception:  # noqa: BLE001 - Defensive: cleanup should not break unload  # noqa: S110
                 pass
             hass.data[DOMAIN]["_services_registered"] = False
 
@@ -201,7 +201,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if dispatcher:
                 try:
                     dispatcher.async_unload()
-                except Exception as err:
+                except Exception as err:  # noqa: BLE001 - Defensive cleanup with logging
                     _LOGGER.debug("Error unloading notification dispatcher: %s", err)
 
         hass.data[DOMAIN].pop(entry.entry_id)
