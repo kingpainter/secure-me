@@ -921,7 +921,6 @@ class ZoneManager:
 
     def is_monitoring(self) -> bool:
         """Return True if zone monitoring is currently active.
-        
         Used by coordinator to avoid redundant start_monitoring() calls
         and to maintain cleaner public API than checking private fields.
         """

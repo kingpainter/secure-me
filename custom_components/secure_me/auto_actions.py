@@ -66,11 +66,6 @@ from .const import (
     STATE_ALARM_DISARMED,
 )
 
-_LOGGER = logging.getLogger(__name__)
-
-
-
-
 
 class AutoActionsManager(BaseEngine):
     """Manages presence-based automatic actions for Secure Me.

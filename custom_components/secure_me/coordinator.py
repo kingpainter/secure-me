@@ -208,9 +208,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             last_run = cfg.get("last_run", "")
             if last_run:
                 try:
-                    last_dt = datetime.strptime(
-                        last_run, "%Y-%m-%d %H:%M:%S"
-                    ).replace(tzinfo=UTC)
+                    last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S").replace(
+                        tzinfo=UTC
+                    )
                     if (now_dt - last_dt).total_seconds() < 60:
                         continue
                 except ValueError:
@@ -498,6 +498,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 self._trigger_modules_executed = True
                 from datetime import UTC
                 from datetime import datetime as _dt
+
                 self._last_triggered = _dt.now(UTC).isoformat(timespec="seconds")
                 await self._execute_modules_trigger()
             self.hass.bus.async_fire(
