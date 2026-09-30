@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Floorplan Engine for Secure Me.
 
 Pure state machine for floorplan management:

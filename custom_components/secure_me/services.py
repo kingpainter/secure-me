@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Home Assistant services for Secure Me.
 # VERSION = "2.0.1"
 
@@ -21,29 +22,27 @@ frontend websocket command `secure_me/arm_home_alone`.
 """
 
 from __future__ import annotations
-from __future__ import annotations
 
 import logging
 
 import voluptuous as vol
-
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
-    DOMAIN,
-    SERVICE_ARM_AWAY,
-    SERVICE_ARM_HOME,
-    SERVICE_ARM_NIGHT,
-    SERVICE_ARM_VACATION,
-    SERVICE_ARM_HOME_ALONE,
-    SERVICE_DISARM,
-    SERVICE_TRIGGER,
-    SERVICE_RUN_TEST,
     ATTR_CODE,
     ATTR_TEST_TYPE,
-    EVENT_MODULE_ENABLED,
+    DOMAIN,
     EVENT_MODULE_DISABLED,
+    EVENT_MODULE_ENABLED,
+    SERVICE_ARM_AWAY,
+    SERVICE_ARM_HOME,
+    SERVICE_ARM_HOME_ALONE,
+    SERVICE_ARM_NIGHT,
+    SERVICE_ARM_VACATION,
+    SERVICE_DISARM,
+    SERVICE_RUN_TEST,
+    SERVICE_TRIGGER,
 )
 from .ws_helpers import _get_coordinator, _get_store
 

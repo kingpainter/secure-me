@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """WebSocket API — Arm, Disarm and Special Feature commands for Secure Me."""
 
 # VERSION = "2.0.1"
@@ -7,7 +8,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
@@ -18,7 +18,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-from .ws_helpers import _get_store, _get_coordinator  # noqa: F401
+from .ws_helpers import _get_coordinator, _get_store
 
 
 @websocket_api.websocket_command(

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # VERSION = "2.0.1"
 """Panel registration for Secure Me.
 
@@ -11,17 +12,17 @@ Follows the Energy Hub pattern:
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
 from .const import (
-    DOMAIN,
-    DEFAULT_SIDEBAR_TITLE,
     DEFAULT_SIDEBAR_ICON,
+    DEFAULT_SIDEBAR_TITLE,
+    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -208,7 +209,9 @@ async def _async_register_lovelace_resources(
                label    — human-readable name for logging
     """
     try:
-        from homeassistant.components.lovelace import resources as ll_resources  # type: ignore[import]
+        from homeassistant.components.lovelace import (
+            resources as ll_resources,  # type: ignore[import]
+        )
     except ImportError:
         _LOGGER.warning(
             "Secure Me: lovelace resources module not available — "

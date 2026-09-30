@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """WebSocket API — Sensor, Zone and User commands for Secure Me."""
 
 # VERSION = "2.0.1"
@@ -8,7 +9,6 @@ import uuid
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
@@ -16,8 +16,7 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-from .ws_helpers import _get_store, _get_coordinator
-
+from .ws_helpers import _get_coordinator, _get_store
 
 # SENSOR GROUPS (anti-masking) — v1.2.0
 #

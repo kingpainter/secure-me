@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Base engine class for Secure Me engines.
 
 All engines inherit from BaseEngine to provide:
@@ -10,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 

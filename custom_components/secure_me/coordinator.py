@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
@@ -6,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import timedelta
+from datetime import UTC, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,51 +18,51 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import (
-    DOMAIN,
-    STATE_MACHINE_UPDATE_INTERVAL,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_ARMING,
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
-    STATE_ALARM_ARMED_NIGHT,
-    STATE_ALARM_ARMED_VACATION,
-    STATE_ALARM_PENDING,
-    STATE_ALARM_TRIGGERED,
     CONF_CODE,
-    CONF_EXIT_DELAY,
     CONF_ENTRY_DELAY,
+    CONF_EXIT_DELAY,
     CONF_TRIGGER_TIME,
     DEFAULT_TRIGGER_TIME,
-    EVENT_ALARM_ARMED,
-    EVENT_ALARM_DISARMED,
-    EVENT_ALARM_TRIGGERED,
+    DOMAIN,
+    EVENT_ACTION_ARM_AWAY,
+    EVENT_ACTION_ARM_HOME,
+    EVENT_ACTION_ARM_HOME_ALONE,
+    EVENT_ACTION_ARM_NIGHT,
+    EVENT_ACTION_ARM_VACATION,
+    EVENT_ACTION_DISARM,
+    EVENT_ACTION_FORCE_ARM,
+    EVENT_ACTION_RETRY_ARM,
     # v1.4.3: rich error events
     EVENT_ALARM_ARM_FAILED,
-    EVENT_ALARM_INVALID_CODE,
+    EVENT_ALARM_ARMED,
     EVENT_ALARM_COMMAND_REJECTED,
-    NOTIFY_ID_FAKE_PRESENCE,
-    FAKE_PRESENCE_ON_EN,
-    FAKE_PRESENCE_OFF_EN,
+    EVENT_ALARM_DISARMED,
+    EVENT_ALARM_INVALID_CODE,
+    EVENT_ALARM_TRIGGERED,
     EVENT_FAKE_PRESENCE_CHANGED,
+    EVENT_HOME_ALONE_ACTION_1,
+    EVENT_HOME_ALONE_ACTION_2,
+    FAKE_PRESENCE_OFF_EN,
+    FAKE_PRESENCE_ON_EN,
+    NOTIFY_ID_FAKE_PRESENCE,
     # v1.2.0: push notification action constants
     PUSH_EVENT,
     PUSH_EVENT_ACTIONS,
-    EVENT_ACTION_FORCE_ARM,
-    EVENT_ACTION_RETRY_ARM,
-    EVENT_ACTION_DISARM,
-    EVENT_ACTION_ARM_AWAY,
-    EVENT_ACTION_ARM_HOME,
-    EVENT_ACTION_ARM_NIGHT,
-    EVENT_ACTION_ARM_VACATION,
-    EVENT_ACTION_ARM_HOME_ALONE,
+    STATE_ALARM_ARMED_AWAY,
+    STATE_ALARM_ARMED_HOME,
     STATE_ALARM_ARMED_HOME_ALONE,
-    EVENT_HOME_ALONE_ACTION_1,
-    EVENT_HOME_ALONE_ACTION_2,
+    STATE_ALARM_ARMED_NIGHT,
+    STATE_ALARM_ARMED_VACATION,
+    STATE_ALARM_ARMING,
+    STATE_ALARM_DISARMED,
+    STATE_ALARM_PENDING,
+    STATE_ALARM_TRIGGERED,
+    STATE_MACHINE_UPDATE_INTERVAL,
 )
-from .state_machine import AlarmStateMachine
-from .zones import ZoneManager
 from .engine import AutoActionsEngine
 from .module_dispatch import ModuleDispatcher, normalize_module_config
+from .state_machine import AlarmStateMachine
+from .zones import ZoneManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # during shutdown instead of letting them die mid-arm/disarm.
         # Set holds strong refs (asyncio docs warn that without strong refs
         # tasks can be garbage-collected mid-execution).
-        self._push_tasks: set["asyncio.Task"] = set()
+        self._push_tasks: set[asyncio.Task] = set()
 
         self._code = config_entry.data.get(CONF_CODE, "")
         exit_delay = config_entry.data.get(CONF_EXIT_DELAY, 30)
@@ -185,7 +186,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if not scheduled:
             return
 
-        now_dt = datetime.now()
+        now_dt = datetime.now(UTC)
         weekday = now_dt.weekday()  # 0=Mon, 6=Sun
         hour = now_dt.hour
         minute = now_dt.minute
@@ -207,7 +208,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             last_run = cfg.get("last_run", "")
             if last_run:
                 try:
-                    last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S")
+                    last_dt = datetime.strptime(last_run, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC)
                     if (now_dt - last_dt).total_seconds() < 60:
                         continue
                 except ValueError:
@@ -220,7 +221,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             elif mode == "interval":
                 interval_weeks = schedule.get("interval_weeks", 1)
                 # Calculate weeks since epoch, compare modulo interval
-                epoch = datetime(2024, 1, 7)  # a Sunday
+                epoch = datetime(2024, 1, 7, tzinfo=UTC)  # a Sunday
                 weeks_since = (now_dt - epoch).days // 7
                 should_run = (weeks_since % interval_weeks == 0) and (weekday == 6)
             elif mode == "daily":
@@ -493,9 +494,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             # path into STATE_ALARM_TRIGGERED is covered identically.
             if not self._trigger_modules_executed:
                 self._trigger_modules_executed = True
+                from datetime import UTC
                 from datetime import datetime as _dt
-
-                self._last_triggered = _dt.now().isoformat(timespec="seconds")
+                self._last_triggered = _dt.now(UTC).isoformat(timespec="seconds")
                 await self._execute_modules_trigger()
             self.hass.bus.async_fire(
                 EVENT_ALARM_TRIGGERED, {"triggered_by": self._triggered_by}
@@ -842,22 +843,21 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             all_sensors, arm_mode="away"
         )
 
-        if not force:
-            if self.zone_manager.check_for_open_sensors(
-                bypass_list=bypassed, arm_mode="away"
-            ):
-                open_list = self.zone_manager.get_all_open_sensors()
-                _LOGGER.warning("Cannot arm — open sensors: %s", open_list)
-                # v1.4.3: Fire failed_to_arm event so HA automations can react
-                self.hass.bus.async_fire(
-                    EVENT_ALARM_ARM_FAILED,
-                    {
-                        "command": "arm_away",
-                        "open_sensors": open_list,
-                        "bypassed_sensors": bypassed,
-                    },
-                )
-                return False
+        if not force and self.zone_manager.check_for_open_sensors(
+            bypass_list=bypassed, arm_mode="away"
+        ):
+            open_list = self.zone_manager.get_all_open_sensors()
+            _LOGGER.warning("Cannot arm — open sensors: %s", open_list)
+            # v1.4.3: Fire failed_to_arm event so HA automations can react
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARM_FAILED,
+                {
+                    "command": "arm_away",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                },
+            )
+            return False
 
         success = await self.state_machine.arm_away(skip_delay)
         if success:
@@ -893,21 +893,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             all_sensors, arm_mode="home"
         )
 
-        if not force:
-            if self.zone_manager.check_for_open_sensors(
-                bypass_list=bypassed, arm_mode="home"
-            ):
-                open_list = self.zone_manager.get_all_open_sensors()
-                _LOGGER.warning("Cannot arm home — open sensors: %s", open_list)
-                self.hass.bus.async_fire(
-                    EVENT_ALARM_ARM_FAILED,
-                    {
-                        "command": "arm_home",
-                        "open_sensors": open_list,
-                        "bypassed_sensors": bypassed,
-                    },
-                )
-                return False
+        if not force and self.zone_manager.check_for_open_sensors(
+            bypass_list=bypassed, arm_mode="home"
+        ):
+            open_list = self.zone_manager.get_all_open_sensors()
+            _LOGGER.warning("Cannot arm home — open sensors: %s", open_list)
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARM_FAILED,
+                {
+                    "command": "arm_home",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                },
+            )
+            return False
         success = await self.state_machine.arm_home(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -940,21 +939,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             all_sensors, arm_mode="night"
         )
 
-        if not force:
-            if self.zone_manager.check_for_open_sensors(
-                bypass_list=bypassed, arm_mode="night"
-            ):
-                open_list = self.zone_manager.get_all_open_sensors()
-                _LOGGER.warning("Cannot arm night — open sensors: %s", open_list)
-                self.hass.bus.async_fire(
-                    EVENT_ALARM_ARM_FAILED,
-                    {
-                        "command": "arm_night",
-                        "open_sensors": open_list,
-                        "bypassed_sensors": bypassed,
-                    },
-                )
-                return False
+        if not force and self.zone_manager.check_for_open_sensors(
+            bypass_list=bypassed, arm_mode="night"
+        ):
+            open_list = self.zone_manager.get_all_open_sensors()
+            _LOGGER.warning("Cannot arm night — open sensors: %s", open_list)
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARM_FAILED,
+                {
+                    "command": "arm_night",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                },
+            )
+            return False
         success = await self.state_machine.arm_night(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -989,21 +987,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             all_sensors, arm_mode="vacation"
         )
 
-        if not force:
-            if self.zone_manager.check_for_open_sensors(
-                bypass_list=bypassed, arm_mode="vacation"
-            ):
-                open_list = self.zone_manager.get_all_open_sensors()
-                _LOGGER.warning("Cannot arm vacation — open sensors: %s", open_list)
-                self.hass.bus.async_fire(
-                    EVENT_ALARM_ARM_FAILED,
-                    {
-                        "command": "arm_vacation",
-                        "open_sensors": open_list,
-                        "bypassed_sensors": bypassed,
-                    },
-                )
-                return False
+        if not force and self.zone_manager.check_for_open_sensors(
+            bypass_list=bypassed, arm_mode="vacation"
+        ):
+            open_list = self.zone_manager.get_all_open_sensors()
+            _LOGGER.warning("Cannot arm vacation — open sensors: %s", open_list)
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARM_FAILED,
+                {
+                    "command": "arm_vacation",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                },
+            )
+            return False
         success = await self.state_machine.arm_vacation(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)
@@ -1038,21 +1035,20 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             all_sensors, arm_mode="home_alone"
         )
 
-        if not force:
-            if self.zone_manager.check_for_open_sensors(
-                bypass_list=bypassed, arm_mode="home_alone"
-            ):
-                open_list = self.zone_manager.get_all_open_sensors()
-                _LOGGER.warning("Cannot arm home_alone — open sensors: %s", open_list)
-                self.hass.bus.async_fire(
-                    EVENT_ALARM_ARM_FAILED,
-                    {
-                        "command": "arm_home_alone",
-                        "open_sensors": open_list,
-                        "bypassed_sensors": bypassed,
-                    },
-                )
-                return False
+        if not force and self.zone_manager.check_for_open_sensors(
+            bypass_list=bypassed, arm_mode="home_alone"
+        ):
+            open_list = self.zone_manager.get_all_open_sensors()
+            _LOGGER.warning("Cannot arm home_alone — open sensors: %s", open_list)
+            self.hass.bus.async_fire(
+                EVENT_ALARM_ARM_FAILED,
+                {
+                    "command": "arm_home_alone",
+                    "open_sensors": open_list,
+                    "bypassed_sensors": bypassed,
+                },
+            )
+            return False
         success = await self.state_machine.arm_home_alone(skip_delay)
         if success:
             self._armed_by = self.identify_user(code)

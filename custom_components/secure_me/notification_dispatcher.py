@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Notification Dispatcher for Secure Me.
 
 SYSTEM NOTIFICATION ARCHITECTURE
@@ -28,31 +29,29 @@ User notification settings (on each user object):
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
 
-from __future__ import annotations
 # VERSION = "2.0.1"
-
 from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from homeassistant.core import HomeAssistant, Event, callback
+from homeassistant.core import Event, HomeAssistant, callback
 
 from .const import (
+    CONF_HOME_ALONE_ACTION_1,
+    CONF_HOME_ALONE_ACTION_2,
+    CONF_HOME_ALONE_CAMERA,
+    CONF_HOME_ALONE_SPEAKER,
     DOMAIN,
     EVENT_ALARM_ARMED,
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_TRIGGERED,
-    CONF_HOME_ALONE_CAMERA,
-    CONF_HOME_ALONE_SPEAKER,
-    CONF_HOME_ALONE_ACTION_1,
-    CONF_HOME_ALONE_ACTION_2,
-    HOME_ALONE_DEFAULT_ACTION_1,
-    HOME_ALONE_DEFAULT_ACTION_2,
     EVENT_HOME_ALONE_ACTION_1,
     EVENT_HOME_ALONE_ACTION_2,
+    HOME_ALONE_DEFAULT_ACTION_1,
+    HOME_ALONE_DEFAULT_ACTION_2,
 )
 from .ws_helpers import _get_coordinator
 
@@ -84,7 +83,7 @@ def _is_tts_quiet_now(user: dict) -> bool:
     end = user.get("tts_quiet_end")
     if start is None or end is None:
         return False
-    now_hour = datetime.now().hour
+    now_hour = datetime.now(UTC).hour
     if start <= end:
         return start <= now_hour < end
     # Wraps midnight: e.g. 22–07
@@ -839,11 +838,10 @@ class NotificationDispatcher:
                     await _send_tts_to_user(self.hass, user, msg)
                 sent = True
 
-            if not sent:
-                if CHANNEL_PUSH in channels:
-                    await _send_push(
-                        self.hass, notif.get("service", "notify.notify"), title, msg
-                    )
+            if not sent and CHANNEL_PUSH in channels:
+                await _send_push(
+                    self.hass, notif.get("service", "notify.notify"), title, msg
+                )
 
 
 def async_setup_dispatcher(hass: HomeAssistant) -> NotificationDispatcher:

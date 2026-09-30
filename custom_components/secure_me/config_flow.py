@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Config flow for Secure Me integration."""
@@ -8,14 +9,14 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
-    DOMAIN,
     CONF_CODE,
-    CONF_EXIT_DELAY,
     CONF_ENTRY_DELAY,
+    CONF_EXIT_DELAY,
     CONF_TRIGGER_TIME,
-    DEFAULT_EXIT_DELAY,
     DEFAULT_ENTRY_DELAY,
+    DEFAULT_EXIT_DELAY,
     DEFAULT_TRIGGER_TIME,
+    DOMAIN,
 )
 
 STEP_USER_DATA_SCHEMA = vol.Schema(

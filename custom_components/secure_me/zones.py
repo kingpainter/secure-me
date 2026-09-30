@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Zone management for Secure Me."""
@@ -12,11 +13,11 @@ from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
+    DOMAIN,
+    EVENT_READY_TO_ARM_MODES_CHANGED,
+    NOTIFY_ID_MODULE_ERROR,
     ZONE_TYPE_ENTRY,
     ZONE_TYPE_INSTANT,
-    NOTIFY_ID_MODULE_ERROR,
-    EVENT_READY_TO_ARM_MODES_CHANGED,
-    DOMAIN,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -284,10 +285,10 @@ class ZoneManager:
           home_alone_action_2 — text for push action button 2 (str)
         """
         from .const import (
-            CONF_HOME_ALONE_CAMERA,
-            CONF_HOME_ALONE_SPEAKER,
             CONF_HOME_ALONE_ACTION_1,
             CONF_HOME_ALONE_ACTION_2,
+            CONF_HOME_ALONE_CAMERA,
+            CONF_HOME_ALONE_SPEAKER,
             HOME_ALONE_DEFAULT_ACTION_1,
             HOME_ALONE_DEFAULT_ACTION_2,
         )

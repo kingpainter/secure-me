@@ -1,9 +1,9 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
-#!/usr/bin/env python3
 """Clean corrupted UTF-8 encoding in files."""
-import sys
 import re
+import sys
 
 
 def clean_file(filepath):

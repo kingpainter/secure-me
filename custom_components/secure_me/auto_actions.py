@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Auto Actions manager for Secure Me.
@@ -26,47 +27,47 @@ State machine per action:
 import asyncio
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
-    AA_LOCK_ENABLED,
-    AA_LOCK_DELAY,
-    AA_ALARM_ENABLED,
     AA_ALARM_DELAY,
-    AA_CAMERA_ENABLED,
-    AA_CAMERA_DELAY,
+    AA_ALARM_ENABLED,
     AA_ARRIVAL_DELAY,
+    AA_CAMERA_DELAY,
+    AA_CAMERA_ENABLED,
+    AA_LOCK_DELAY,
+    AA_LOCK_ENABLED,
     AA_NOTIFY_ALL,
-    AA_RECHECK_ON_DISARM,
-    DEFAULT_AA_RECHECK_ON_DISARM,
     AA_RECHECK_DELAY,
-    AA_RECHECK_MIN_AWAY_DURATION,
-    AA_RECHECK_INCLUDE_LOCK,
     AA_RECHECK_INCLUDE_ALARM,
     AA_RECHECK_INCLUDE_CAMERA,
+    AA_RECHECK_INCLUDE_LOCK,
+    AA_RECHECK_MIN_AWAY_DURATION,
+    AA_RECHECK_ON_DISARM,
     AA_STALE_TRACKER_TIMEOUT,
-    DEFAULT_AA_STALE_TRACKER_TIMEOUT,
+    DEFAULT_AA_ALARM_DELAY,
+    DEFAULT_AA_ARRIVAL_DELAY,
+    DEFAULT_AA_CAMERA_DELAY,
+    DEFAULT_AA_LOCK_DELAY,
     DEFAULT_AA_RECHECK_DELAY,
-    DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
-    DEFAULT_AA_RECHECK_INCLUDE_LOCK,
     DEFAULT_AA_RECHECK_INCLUDE_ALARM,
     DEFAULT_AA_RECHECK_INCLUDE_CAMERA,
-    FP_ACTIVE,
-    FP_BLOCK_ALARM,
-    FP_BLOCK_LOCKS,
-    FP_BLOCK_CAMERAS,
-    DEFAULT_AA_LOCK_DELAY,
-    DEFAULT_AA_ALARM_DELAY,
-    DEFAULT_AA_CAMERA_DELAY,
-    DEFAULT_AA_ARRIVAL_DELAY,
+    DEFAULT_AA_RECHECK_INCLUDE_LOCK,
+    DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
+    DEFAULT_AA_RECHECK_ON_DISARM,
+    DEFAULT_AA_STALE_TRACKER_TIMEOUT,
+    EVENT_ALARM_DISARMED,
+    EVENT_AUTO_ACTION_DONE,
     EVENT_HOME_EMPTY,
     EVENT_PERSON_HOME,
-    EVENT_AUTO_ACTION_DONE,
-    EVENT_ALARM_DISARMED,
+    FP_ACTIVE,
+    FP_BLOCK_ALARM,
+    FP_BLOCK_CAMERAS,
+    FP_BLOCK_LOCKS,
     NOTIFY_ID_AUTO_ACTIONS,
     STATE_ALARM_DISARMED,
 )
@@ -823,7 +824,7 @@ class AutoActionsManager:
                 lines.append(f"  Fake Presence blocked: {', '.join(fp_blocks)}")
 
         message = "\n".join(lines)
-        timestamp = datetime.now().strftime("%H:%M:%S")
+        timestamp = datetime.now(UTC).strftime("%H:%M:%S")
         title = f"Secure Me: Auto Actions ({timestamp})"
 
         # Determine recipients

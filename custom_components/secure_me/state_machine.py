@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """State machine for Secure Me alarm system."""
@@ -5,18 +6,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from homeassistant.core import HomeAssistant
 
 from .const import (
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_ARMING,
     STATE_ALARM_ARMED_AWAY,
     STATE_ALARM_ARMED_HOME,
+    STATE_ALARM_ARMED_HOME_ALONE,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
-    STATE_ALARM_ARMED_HOME_ALONE,
+    STATE_ALARM_ARMING,
+    STATE_ALARM_DISARMED,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
     ZONE_TYPE_ENTRY,

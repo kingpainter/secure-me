@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """TTS module for Secure Me alarm system — v1.4.0 multi-speaker engine."""

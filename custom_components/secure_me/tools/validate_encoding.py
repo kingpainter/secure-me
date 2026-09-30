@@ -1,13 +1,13 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
-#!/usr/bin/env python3
 """
 Secure Me - UTF-8 Encoding Validator
 Prevents garbled Unicode characters in JavaScript files
 """
 
-import sys
 import re
+import sys
 
 
 def validate_file(filepath):

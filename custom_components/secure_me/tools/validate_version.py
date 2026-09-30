@@ -1,6 +1,6 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
-#!/usr/bin/env python3
 """
 Secure Me - Version Consistency Validator
 Run before every commit to ensure all files have the same version.
@@ -10,9 +10,9 @@ Usage:
     python3 validate_version.py 1.1.0     # Validate against specific version
     python3 validate_version.py --fix     # Auto-fix all version mismatches
 """
-import sys
-import re
 import json
+import re
+import sys
 from pathlib import Path
 
 # Resolve to absolute path so relative execution (e.g. from repo root) works correctly.
@@ -129,7 +129,7 @@ def main():
         print(f"ERROR: Could not read manifest.json: {e}")
         sys.exit(1)
 
-    print(f"Secure Me - Version Consistency Check")
+    print("Secure Me - Version Consistency Check")
     print(f"Target version: {version}")
     print(f"Mode: {'AUTO-FIX' if fix_mode else 'CHECK'}")
     print("-" * 50)
@@ -167,7 +167,7 @@ def main():
         print(f"\nFAIL - {len(all_errors)} version mismatch(es) found:\n")
         for err in all_errors:
             print(err)
-        print(f"\nFix with:  python3 validate_version.py --fix")
+        print("\nFix with:  python3 validate_version.py --fix")
         sys.exit(1)
     else:
         print(f"\nPASS - All files consistent at version {version}")

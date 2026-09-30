@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Binary sensor platform for Secure Me - Health Monitoring & Battery Alerts."""
@@ -20,9 +21,9 @@ from .const import (
     DOMAIN,
     EVENT_PRESENCE_CHANGED,
     MODULE_CAMERA,
-    MODULE_LOCK,
-    MODULE_LIGHTS,
     MODULE_CLIMATE,
+    MODULE_LIGHTS,
+    MODULE_LOCK,
     MODULE_SIREN,
     MODULE_TTS,
     VERSION,
@@ -153,7 +154,7 @@ class SecureMeSystemHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     @property
     def is_on(self) -> bool:
         """Return True if there is a problem (any module unhealthy)."""
-        for module_id, module in self.coordinator.modules.items():
+        for module in self.coordinator.modules.values():
             if not module.enabled:
                 continue
             entities = _get_module_entities(module)
@@ -521,8 +522,7 @@ class SecureMeBatteryAlert(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
     def is_on(self) -> bool:
         """Return True if any battery is critically low."""
         for bat in self._get_batteries():
-            if bat["available"] and bat["level"] is not None:
-                if bat["level"] < BATTERY_THRESHOLD_CRITICAL:
+            if bat["available"] and bat["level"] is not None and bat["level"] < BATTERY_THRESHOLD_CRITICAL:
                     return True
         return False
 

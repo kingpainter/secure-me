@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Base module class for Secure Me alarm system."""
@@ -11,13 +12,13 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from ..const import (
-    DEFAULT_RETRY_MAX,
-    DEFAULT_RETRY_DELAY,
     DEFAULT_RETRY_BACKOFF,
+    DEFAULT_RETRY_DELAY,
+    DEFAULT_RETRY_MAX,
+    ERROR_RECOVERY_OK_EN,
+    ERROR_RETRY_EXHAUSTED_EN,
     NOTIFY_ID_MODULE_ERROR,
     NOTIFY_ID_RECOVERY,
-    ERROR_RETRY_EXHAUSTED_EN,
-    ERROR_RECOVERY_OK_EN,
 )
 
 _LOGGER = logging.getLogger(__name__)

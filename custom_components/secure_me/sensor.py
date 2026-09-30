@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
@@ -19,13 +20,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     COORDINATOR,
     DOMAIN,
-    STATE_ALARM_DISARMED,
-    STATE_ALARM_ARMING,
     STATE_ALARM_ARMED_AWAY,
     STATE_ALARM_ARMED_HOME,
+    STATE_ALARM_ARMED_HOME_ALONE,
     STATE_ALARM_ARMED_NIGHT,
     STATE_ALARM_ARMED_VACATION,
-    STATE_ALARM_ARMED_HOME_ALONE,
+    STATE_ALARM_ARMING,
+    STATE_ALARM_DISARMED,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
     VERSION,
@@ -250,7 +251,7 @@ class SecureMeHealthScore(SecureMeBaseSensor):
         total_entities = 0
         available_entities = 0
 
-        for module_id, module in self.coordinator.modules.items():
+        for module in self.coordinator.modules.values():
             if not module.enabled:
                 continue
             entities = _get_module_entities(module)

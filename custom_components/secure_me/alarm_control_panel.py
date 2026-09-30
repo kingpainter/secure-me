@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Alarm Control Panel platform for Secure Me."""
@@ -18,16 +19,16 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    ATTR_BYPASSED_SENSORS,
+    ATTR_CHANGED_BY,
+    ATTR_CODE_ARM_REQUIRED,
+    ATTR_LAST_TRIGGERED,
     COORDINATOR,
     DOMAIN,
+    EVENT_ALARM_INVALID_CODE,
     STATE_ALARM_ARMING,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
-    ATTR_CHANGED_BY,
-    ATTR_CODE_ARM_REQUIRED,
-    ATTR_BYPASSED_SENSORS,
-    ATTR_LAST_TRIGGERED,
-    EVENT_ALARM_INVALID_CODE,
     VERSION,
 )
 from .coordinator import SecureMeCoordinator

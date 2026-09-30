@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # VERSION = "2.0.1"
 """The Secure Me integration."""
 
@@ -5,24 +6,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import device_registry as dr, config_validation as cv
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
-    DOMAIN,
     COORDINATOR,
-    UNDO_UPDATE_LISTENER,
     DEFAULT_NAME,
-    VERSION,
+    DOMAIN,
     PLATFORMS,
+    UNDO_UPDATE_LISTENER,
+    VERSION,
 )
 from .coordinator import SecureMeCoordinator
+from .services import async_register_services, async_unregister_services
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
-from .services import async_register_services, async_unregister_services
 
 try:
     from . import panel
@@ -35,8 +37,6 @@ except Exception:  # noqa: BLE001
     panel.async_register_panel = None  # type: ignore[assignment]
     panel.async_unregister_panel = None  # type: ignore[assignment]
 
-if TYPE_CHECKING:
-    pass  # No TYPE_CHECKING imports currently needed
 
 _LOGGER = logging.getLogger(__name__)
 

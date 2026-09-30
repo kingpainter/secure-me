@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 """Data storage for Secure Me panel configuration."""
@@ -15,44 +16,44 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
-    DOMAIN,
-    STORAGE_VERSION_MAJOR,
-    STORAGE_VERSION_MINOR,
-    ATTR_FLOORPLAN_IMAGE_URL,
-    ATTR_FLOORPLAN_WIDTH,
-    ATTR_FLOORPLAN_HEIGHT,
-    ATTR_FLOORPLAN_MARKERS,
-    CONF_AUTO_ACTIONS,
-    AA_LOCK_ENABLED,
-    AA_LOCK_DELAY,
-    AA_ALARM_ENABLED,
     AA_ALARM_DELAY,
-    AA_CAMERA_ENABLED,
-    AA_CAMERA_DELAY,
+    AA_ALARM_ENABLED,
     AA_ARRIVAL_DELAY,
+    AA_CAMERA_DELAY,
+    AA_CAMERA_ENABLED,
+    AA_LOCK_DELAY,
+    AA_LOCK_ENABLED,
     AA_NOTIFY_ALL,
-    AA_RECHECK_ON_DISARM,
     AA_RECHECK_DELAY,
-    AA_RECHECK_MIN_AWAY_DURATION,
-    AA_RECHECK_INCLUDE_LOCK,
     AA_RECHECK_INCLUDE_ALARM,
     AA_RECHECK_INCLUDE_CAMERA,
+    AA_RECHECK_INCLUDE_LOCK,
+    AA_RECHECK_MIN_AWAY_DURATION,
+    AA_RECHECK_ON_DISARM,
     AA_STALE_TRACKER_TIMEOUT,
-    DEFAULT_AA_LOCK_DELAY,
+    ATTR_FLOORPLAN_HEIGHT,
+    ATTR_FLOORPLAN_IMAGE_URL,
+    ATTR_FLOORPLAN_MARKERS,
+    ATTR_FLOORPLAN_WIDTH,
+    CONF_AUTO_ACTIONS,
     DEFAULT_AA_ALARM_DELAY,
-    DEFAULT_AA_CAMERA_DELAY,
     DEFAULT_AA_ARRIVAL_DELAY,
-    DEFAULT_AA_RECHECK_ON_DISARM,
+    DEFAULT_AA_CAMERA_DELAY,
+    DEFAULT_AA_LOCK_DELAY,
     DEFAULT_AA_RECHECK_DELAY,
-    DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
-    DEFAULT_AA_RECHECK_INCLUDE_LOCK,
     DEFAULT_AA_RECHECK_INCLUDE_ALARM,
     DEFAULT_AA_RECHECK_INCLUDE_CAMERA,
+    DEFAULT_AA_RECHECK_INCLUDE_LOCK,
+    DEFAULT_AA_RECHECK_MIN_AWAY_DURATION,
+    DEFAULT_AA_RECHECK_ON_DISARM,
     DEFAULT_AA_STALE_TRACKER_TIMEOUT,
+    DOMAIN,
     FP_ACTIVE,
     FP_BLOCK_ALARM,
-    FP_BLOCK_LOCKS,
     FP_BLOCK_CAMERAS,
+    FP_BLOCK_LOCKS,
+    STORAGE_VERSION_MAJOR,
+    STORAGE_VERSION_MINOR,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -99,7 +100,7 @@ class _MigratableStore(Store):
                 data["sensor_groups"] = {}
 
             # Add new per-sensor fields with defaults
-            for entity_id, sensor_cfg in data.get("sensors", {}).items():
+            for sensor_cfg in data.get("sensors", {}).values():
                 sensor_cfg.setdefault("entry_delay", None)
                 sensor_cfg.setdefault("auto_bypass", False)
                 sensor_cfg.setdefault("arm_on_close", False)
@@ -111,7 +112,7 @@ class _MigratableStore(Store):
 
             # Users: mark existing codes as plaintext so we can re-hash on
             # next save. We do NOT re-hash here (no blocking crypto in migration).
-            for user_id, user_cfg in data.get("users", {}).items():
+            for user_cfg in data.get("users", {}).values():
                 if user_cfg.get("code") and not user_cfg.get("code_hashed"):
                     user_cfg["code_hashed"] = False  # flag for re-hash at next save
                 # v1.2.0+: backfill notification settings
@@ -337,7 +338,11 @@ class SecureMeStore:
         try:
             from homeassistant.helpers import (
                 area_registry as ar,
+            )
+            from homeassistant.helpers import (
                 device_registry as dr,
+            )
+            from homeassistant.helpers import (
                 entity_registry as er,
             )
 

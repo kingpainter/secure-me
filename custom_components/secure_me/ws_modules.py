@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """WebSocket API — Module, Notification, Test and Presence commands for Secure Me."""
 
 # VERSION = "2.0.1"
@@ -9,7 +10,6 @@ import uuid
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
@@ -20,9 +20,9 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-from .ws_helpers import _get_store, _get_coordinator, _discover_batteries  # noqa: F401
 from .module_dispatch import get_module_entity_ids as _get_module_entity_ids
 from .module_dispatch import normalize_module_config as _normalize_module_config
+from .ws_helpers import _discover_batteries, _get_coordinator, _get_store
 
 
 @websocket_api.websocket_command(
@@ -283,7 +283,7 @@ async def ws_test_notification(
             "sensor_list": "Test sensor",
             "count": "1",
         }
-        from .notification_dispatcher import _build_message, _send_push, _get_tts_module
+        from .notification_dispatcher import _build_message, _get_tts_module, _send_push
 
         message = _build_message(
             notif.get("message", "Test notification from Secure Me"), context_map
@@ -889,9 +889,9 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
                     )
 
             prev_unavail: set[str] = set()
-            for _mod_id, mod_data in prev.get("modules", {}).items():
+            for mod_data in prev.get("modules", {}).values():
                 prev_unavail.update(mod_data.get("unavailable", []) or [])
-            for _mod_id, mod_data in results["modules"].items():
+            for mod_data in results["modules"].values():
                 for eid in mod_data.get("unavailable", []) or []:
                     if eid not in prev_unavail:
                         trend["newly_unavailable"].append(eid)

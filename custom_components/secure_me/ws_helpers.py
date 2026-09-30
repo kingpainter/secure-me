@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Shared helpers for Secure Me WebSocket sub-modules."""
 
 # VERSION = "2.0.1"

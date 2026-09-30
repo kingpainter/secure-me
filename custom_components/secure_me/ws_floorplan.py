@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """WebSocket API — Floorplan commands for Secure Me."""
 
 # VERSION = "2.0.1"
@@ -11,32 +12,30 @@ import struct
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from .const import (
+    ATTR_FLOORPLAN_HEIGHT,
+    ATTR_FLOORPLAN_IMAGE_URL,
+    ATTR_FLOORPLAN_MARKERS,
+    ATTR_FLOORPLAN_WIDTH,
+    ATTR_MARKER_KIND,
+    ATTR_MARKER_LABEL,
+    ATTR_MARKER_X_PCT,
+    ATTR_MARKER_Y_PCT,
     DOMAIN,
     FLOORPLAN_DIR_NAME,
-    FLOORPLAN_WWW_DIR_NAME,
     FLOORPLAN_IMAGE_NAME,
     FLOORPLAN_MAX_BYTES,
     FLOORPLAN_URL_PATH,
-    ATTR_FLOORPLAN_IMAGE_URL,
-    ATTR_FLOORPLAN_WIDTH,
-    ATTR_FLOORPLAN_HEIGHT,
-    ATTR_FLOORPLAN_MARKERS,
-    ATTR_MARKER_X_PCT,
-    ATTR_MARKER_Y_PCT,
-    ATTR_MARKER_LABEL,
-    ATTR_MARKER_KIND,
+    FLOORPLAN_WWW_DIR_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
-from .ws_helpers import _get_store  # noqa: F401
-
+from .ws_helpers import _get_store
 
 # v1.5.3: the floorplan image lives on disk under config/www/secure_me_floorplan/
 # and is served natively by HA under /local/ -- a path HACS never touches on
