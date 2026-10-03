@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """TTS module for Secure Me alarm system — v1.4.0 multi-speaker engine."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import asyncio
 import logging

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Secure Me alarm system modules."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 from .base import AlarmModule
 from .camera import CameraModule

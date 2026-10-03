@@ -1,6 +1,6 @@
 """WebSocket API — Sensor, Zone and User commands for Secure Me."""
 
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 from __future__ import annotations
 
 import logging
@@ -460,7 +460,7 @@ async def ws_get_nfc_tags(
         return
 
     tags = store.get_nfc_tags()
-    connection.send_result(msg["id"], {"tags": tags})
+    connection.send_result(msg["id"], {"nfc_tags": tags})
 
 
 @websocket_api.websocket_command(
@@ -489,8 +489,9 @@ async def ws_register_nfc_tag(
     user_id = msg["user_id"]
     action = msg["action"]
     name = msg["name"]
+    requires_pin = msg.get("requires_pin", False)
 
-    await store.async_save_nfc_tag(tag_id, user_id, action, name)
+    await store.async_save_nfc_tag(tag_id, user_id, action, name, requires_pin)
     connection.send_result(msg["id"], {"success": True})
 
 
@@ -516,6 +517,117 @@ async def ws_delete_nfc_tag(
     tag_id = msg["tag_id"]
     await store.async_delete_nfc_tag(tag_id)
     connection.send_result(msg["id"], {"success": True})
+
+
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_ha_nfc_tags",
+    }
+)
+@websocket_api.async_response
+async def ws_get_ha_nfc_tags(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Get available NFC tags from Home Assistant."""
+    import json
+    from pathlib import Path
+    
+    tag_ids = []
+    tag_registry = None
+
+    # Method 1: Try to get from hass.data (if tag component is loaded)
+    for key in ["tag_registry", "tag", "tags"]:
+        potential_registry = hass.data.get(key)
+        if potential_registry:
+            tag_registry = potential_registry
+            break
+
+    # Method 2: Check if tag component is loaded and has registry
+    if not tag_registry:
+        try:
+            tag_component = hass.components.tag
+            if hasattr(tag_component, "registry"):
+                tag_registry = tag_component.registry
+        except (AttributeError, ImportError):
+            pass
+
+    # Extract from in-memory registry if found
+    if tag_registry:
+        if hasattr(tag_registry, "tags"):
+            try:
+                if isinstance(tag_registry.tags, dict):
+                    tag_ids = [tag.id for tag in tag_registry.tags.values()]
+                elif hasattr(tag_registry.tags, "__iter__"):
+                    tag_ids = [tag.id if hasattr(tag, "id") else tag for tag in tag_registry.tags]
+            except (AttributeError, TypeError):
+                pass
+        elif isinstance(tag_registry, dict):
+            tag_ids = list(tag_registry.keys())
+
+    # Method 3: Fallback - read directly from .storage/tag file
+    if not tag_ids:
+        try:
+            storage_path = Path(hass.config.path(".storage/tag"))
+            if storage_path.exists():
+                with open(storage_path, "r", encoding="utf-8") as f:
+                    storage_data = json.load(f)
+                    # Navigate the storage structure to find tags
+                    # Structure: { "data": { "items": [ { "id": "...", "name": "...", ... }, ... ] } }
+                    if "data" in storage_data and "items" in storage_data["data"]:
+                        items = storage_data["data"]["items"]
+                        if isinstance(items, list):
+                            # Extract IDs from list of tag objects
+                            tag_ids = [item.get("id") for item in items if isinstance(item, dict) and "id" in item]
+        except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError, Exception):
+            pass
+
+    connection.send_result(msg["id"], tag_ids)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/import_nfc_tag",
+        vol.Required("tag_id"): str,
+        vol.Required("action"): str,
+        vol.Optional("name"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_import_nfc_tag(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Import an NFC tag from Home Assistant into Secure Me."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    tag_id = msg.get("tag_id")
+    action = msg.get("action")
+    name = msg.get("name", tag_id)
+    requires_pin = msg.get("requires_pin", False)
+
+    if not tag_id or not action:
+        connection.send_error(msg["id"], "invalid_params", "Missing tag_id or action")
+        return
+
+    # Save the imported tag without assigning to a specific user yet
+    try:
+        await store.async_save_nfc_tag(tag_id, None, action, name, requires_pin)
+        coordinator = _get_coordinator(hass)
+        if coordinator:
+            coordinator.invalidate_battery_cache()
+        connection.send_result(msg["id"], {"success": True})
+    except Exception as e:
+        _LOGGER.error(f"Error importing NFC tag: {e}")
+        connection.send_error(msg["id"], "import_failed", str(e))
 
 
 @websocket_api.websocket_command(

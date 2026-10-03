@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """DataUpdateCoordinator for Secure Me with state machine and zones."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import asyncio
 import logging
@@ -1405,35 +1405,50 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             tag_config = nfc_tags.get(tag_id)
             
             if not tag_config:
-                _LOGGER.debug("NFC tag %s not registered", tag_id)
+                _LOGGER.warning("NFC tag scanned but not registered: %s", tag_id)
                 return
 
-            user_id = tag_config.get("user_id")
             action = tag_config.get("action")
             tag_name = tag_config.get("name", tag_id)
             
-            # Get user name from store
-            users = self.store.get_users()
-            user = users.get(user_id, {})
-            user_name = user.get("name", user_id)
+            _LOGGER.info("NFC tag '%s' (%s) scanned: attempting %s", tag_name, tag_id, action)
             
-            _LOGGER.info("NFC tag %s scanned by %s: executing %s", tag_name, user_name, action)
+            success = False
+            error_msg = None
+            final_state = self.alarm_state
             
-            # Execute action
-            if action == NFC_ACTION_DISARM:
-                await self.async_disarm(skip_delay=True)
-            elif action == NFC_ACTION_ARM_AWAY:
-                await self.async_arm_away(skip_delay=True, force=False)
+            try:
+                # Execute action (follow normal arm/disarm rules)
+                if action == NFC_ACTION_DISARM:
+                    await self.async_disarm()
+                    success = True
+                    _LOGGER.info("NFC disarm successful via tag '%s'", tag_name)
+                elif action == NFC_ACTION_ARM_AWAY:
+                    await self.async_arm_away()  # Will follow normal arm rules
+                    success = True
+                    _LOGGER.info("NFC arm away successful via tag '%s'", tag_name)
+                else:
+                    error_msg = f"Unknown NFC action: {action}"
+                    _LOGGER.error("NFC tag '%s': %s", tag_name, error_msg)
+                
+                final_state = self.alarm_state
+                
+            except Exception as err:
+                success = False
+                error_msg = str(err)
+                final_state = self.alarm_state
+                _LOGGER.error("NFC tag '%s' (%s) failed to execute %s: %s", tag_name, tag_id, action, error_msg)
             
-            # Fire custom event
+            # Fire custom event with full details
             self.hass.bus.async_fire(
                 EVENT_SECURE_ME_TAG_SCANNED,
                 {
                     "tag_id": tag_id,
                     "tag_name": tag_name,
-                    "user_id": user_id,
-                    "user_name": user_name,
                     "action": action,
+                    "success": success,
+                    "error": error_msg,
+                    "alarm_state": final_state,
                 }
             )
 
@@ -1447,6 +1462,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Unregister push event listener
         if hasattr(self, "_push_unsub") and self._push_unsub:
             self._push_unsub()
+
+        # Unregister NFC tag event listener
+        if hasattr(self, "_nfc_unsub") and self._nfc_unsub:
+            self._nfc_unsub()
 
         # v1.4.3: Wait for in-flight push action tasks to finish (or cancel
         # them if they take too long). Without this, HA can report

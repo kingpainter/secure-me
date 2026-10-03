@@ -16,7 +16,7 @@ State machine per action:
 
 from __future__ import annotations
 
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 import asyncio
 import logging
 import time

@@ -15,7 +15,7 @@ delegates the small set of methods external code already calls directly
 `coordinator.get_health_score()`, etc.) so nothing outside coordinator.py
 needs to change.
 """
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import logging
 import time

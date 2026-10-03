@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Base module class for Secure Me alarm system."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import asyncio
 import logging

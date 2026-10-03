@@ -28,7 +28,7 @@ User notification settings (on each user object):
   tts_quiet_end: int|None    — hour (0-23) end of TTS quiet period
 """
 
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 from __future__ import annotations
 
 import logging

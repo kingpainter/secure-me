@@ -1,4 +1,4 @@
-# VERSION = "2.1.0"
+# VERSION = "2.2.0"
 """Panel registration for Secure Me.
 
 Follows the Energy Hub pattern:
@@ -31,7 +31,7 @@ _LOGGER = logging.getLogger(__name__)
 # moved to 1.5.1 -- the two markers had drifted apart, meaning the panel's
 # cache-busting query param (?v=VERSION) was stale for a full release cycle.
 # Keeping both markers in sync going forward.
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 PANEL_URL = f"/api/{DOMAIN}-panel"
 PANEL_NAME = "secure-me-panel"
 PANEL_FOLDER = "frontend"

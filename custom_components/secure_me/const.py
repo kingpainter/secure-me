@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Constants for Secure Me integration."""
-# VERSION = "2.1.0"
+# VERSION = "2.2.0"
 
 from homeassistant.const import Platform
 
@@ -9,7 +9,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -245,7 +245,7 @@ TTS_LANG_EN = "en"
 
 # Storage versioning
 STORAGE_VERSION_MAJOR = 2
-STORAGE_VERSION_MINOR = 1
+STORAGE_VERSION_MINOR = 2
 
 # Sensor group constants
 ATTR_SENSOR_GROUP_ID = "group_id"

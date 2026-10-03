@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Climate module for Secure Me alarm system."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import logging
 from typing import Any

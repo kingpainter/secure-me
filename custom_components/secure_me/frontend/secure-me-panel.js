@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 
 // === Styles ===
 const panelStyles = `
@@ -596,10 +596,42 @@ class SecureMePanelCore extends HTMLElement {
   // === Web Socket Helpers ===
 
   // === Web Socket Helpers ===
+  async _promptForPIN(message = "Indtast PIN-kode:") {
+    return new Promise((resolve) => {
+      const pin = prompt(message, "");
+      resolve(pin || null);
+    });
+  }
+
+  _isRemoteConnection() {
+    // Detect if the current connection is remote (via HA Cloud/Nabu Casa)
+    // Returns true if connecting through cloud, false if local connection
+    if (!this._hass) return false;
+    
+    // hass.connection.url contains the connection URL
+    const url = this._hass.connection?.url || "";
+    
+    // Remote connections typically go through:
+    // - wss://xxx.nabu.casa/api/websocket (Nabu Casa cloud)
+    // - Other remote HA cloud URLs
+    // Local connections are typically: ws://localhost:8123/api/websocket or similar
+    
+    return url.includes("nabu.casa") || url.includes("cloud") || !url.includes("localhost") && !url.includes("127.0.0.1");
+  }
+
   async _callWS(type, data = {}) {
     if (!this._hass) return null;
     try {
-      const result = await this._hass.callWS({ type: `${DOMAIN}/${type}`, ...data });
+      // Check if this is a remote arm/disarm request that needs PIN
+    const armDisarmTypes = ['arm_away', 'arm_home', 'arm_night', 'arm_vacation', 'arm_home_alone', 'disarm'];
+    if (armDisarmTypes.includes(type) && this._isRemoteConnection() && !data.pin) {
+      const pin = await this._promptForPIN("PIN required for remote arm/disarm. Enter PIN:");
+      if (!pin) {
+        throw new Error("PIN required for remote arm/disarm");
+      }
+      data.pin = pin;
+    }
+    const result = await this._hass.callWS({ type: `${DOMAIN}/${type}`, ...data });
       // Connection succeeded — hide banner if it was visible
       if (!this._wsConnected) {
         this._wsConnected = true;
@@ -608,6 +640,14 @@ class SecureMePanelCore extends HTMLElement {
       }
       return result;
     } catch (err) {
+      // Handle invalid PIN errors specifically
+      if (err?.code === "invalid_pin") {
+        const errorMsg = err?.message || "Invalid PIN for remote arm/disarm";
+        this._toast(errorMsg, "error");
+        console.warn(`[Secure Me] PIN verification failed for ${type}:`, err);
+        return null;
+      }
+      
       console.error(`Secure Me WS error (${type}):`, err);
       // Show reconnecting banner for connection-level errors (not app errors)
       const isConnErr = err?.code === "connection_lost" || err?.message?.includes("Connection");
@@ -1792,6 +1832,33 @@ class SecureMePanelCore extends HTMLElement {
         </div>
       `).join("") || '<div class="sm-card" style="text-align:center;color:var(--sm-text-secondary)">Ingen brugere oprettet endnu. Klik "Tilføj bruger" for at starte.</div>'}
 
+      ${(() => {
+        const nfcTags = this._data.nfc_tags || {};
+        const tagsList = Object.entries(nfcTags).map(([tagId, tag]) => `
+          <div class="sm-card" style="padding:12px 14px;background:var(--sm-purple-dim);border:1px solid rgba(124,58,237,0.15)">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="color:var(--sm-purple);font-size:16px">${icon("nfc")}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:600;color:var(--sm-text)">${tag.name || "Unavngivet tag"}</div>
+                <div style="font-size:11px;color:var(--sm-text-secondary);font-family:'DM Mono',monospace;margin-top:2px;word-break:break-all">${tagId}</div>
+              </div>
+              <div style="text-align:right">
+                <span class="badge" style="background:var(--sm-purple);color:white;font-size:11px">${tag.action === "disarm" ? "Fjern alarm" : "Arm Away"}</span>
+              </div>
+            </div>
+          </div>
+        `).join("");
+        
+        return tagsList ? `
+          <div style="margin-bottom:16px">
+            <h4 style="font-size:12px;font-weight:700;color:var(--sm-text-secondary);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px 2px">Importerede NFC-tags</h4>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:8px">
+              ${tagsList}
+            </div>
+          </div>
+        ` : "";
+      })()}
+
       <div class="info-card info">
         <span style="color:var(--sm-blue)">${icon("nfc")}</span>
         <div style="flex:1">
@@ -2071,11 +2138,13 @@ class SecureMePanelCore extends HTMLElement {
         const tagName = prompt('Taggets navn (f.eks. "Nøgle, lommebog")', '') || tagId;
         
         // Save the tag
+        const requiresPin = confirm('Kræv PIN-kode ved scanning af dette tag?');
         const success = await this._callWS('register_nfc_tag', {
           tag_id: tagId,
           user_id: userId,
           action: action,
-          name: tagName
+          name: tagName,
+          requires_pin: requiresPin
         });
         
         if (success) {
@@ -2144,6 +2213,127 @@ class SecureMePanelCore extends HTMLElement {
     }
   }
 
+
+  async _importNFCTags() {
+    this._toast('Henter eksisterende NFC-tags fra Home Assistant...', 'info');
+    
+    // Call the WebSocket endpoint to get available HA tags
+    const haTags = await this._callWS('get_ha_nfc_tags', {});
+    
+    if (!haTags || haTags.length === 0) {
+      this._toast('Ingen NFC-tags fundet i Home Assistant', 'info');
+      return;
+    }
+
+    // Get already registered tags to avoid duplicates
+    const registeredTags = this._data.nfc_tags || {};
+    const unregisteredTags = haTags.filter(tag => !registeredTags[tag]);
+
+    if (unregisteredTags.length === 0) {
+      this._toast('Alle HA tags er allerede registreret', 'info');
+      return;
+    }
+
+    // Show import dialog
+    const html = `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog" style="max-width:500px">
+          <div class="dialog-header">
+            <span style="font-size:20px">${icon('nfc')}</span>
+            <div class="dialog-title">Importer NFC-tags</div>
+            <button class="dialog-close" data-action="close-import-dialog">${icon('close')}</button>
+          </div>
+          
+          <div style="padding:16px;border-bottom:1px solid var(--sm-border);max-height:300px;overflow-y:auto">
+            <div style="font-size:12px;color:var(--sm-text-tertiary);margin-bottom:12px">
+              ${unregisteredTags.length} nye tag(s) fundet. Vælg handling for hver tag:
+            </div>
+            <div id="import-tags-list" style="display:flex;flex-direction:column;gap:8px">
+              ${unregisteredTags.map((tagId, idx) => `
+                <div style="padding:10px;border:1px solid var(--sm-border);border-radius:8px;background:var(--sm-bg2)">
+                  <div style="font-weight:500;color:var(--sm-text);margin-bottom:8px;font-family:'DM Mono';font-size:12px">${tagId}</div>
+                  <div style="display:flex;gap:8px;margin-bottom:8px">
+                    <select class="import-tag-action" data-tag-id="${tagId}" style="flex:1;padding:6px;border-radius:4px;border:1px solid var(--sm-border);background:var(--sm-bg);color:var(--sm-text)">
+                      <option value="">-- Vælg handling --</option>
+                      <option value="disarm">Unlock (Disarm)</option>
+                      <option value="arm_away">Arm Away</option>
+                    </select>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sm-text)">
+                    <input type="checkbox" class="import-tag-requires-pin" data-tag-id="${tagId}" />
+                    <span>Kræv PIN</span>
+                  </label>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div class="dialog-footer">
+            <button class="btn-dialog cancel" data-action="close-import-dialog">Annuller</button>
+            <button class="btn-dialog primary" data-action="do-import-nfc">Importer</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this._showDialog = 'import-nfc';
+    this.shadowRoot.querySelector('.panel-topbar')?.insertAdjacentHTML('afterend', html);
+    
+    // Close handler
+    this.shadowRoot.querySelectorAll('[data-action="close-import-dialog"]').forEach(btn => {
+      btn.addEventListener("click", () => {
+        this.shadowRoot.querySelector('.config-dialog-overlay')?.remove();
+        this._showDialog = null;
+      });
+    });
+
+    // Import handler
+    const doImportBtn = this.shadowRoot.querySelector('[data-action="do-import-nfc"]');
+    if (doImportBtn) {
+      doImportBtn.addEventListener("click", async () => {
+        const selects = this.shadowRoot.querySelectorAll('.import-tag-action');
+        const tagsToImport = [];
+        
+        selects.forEach(sel => {
+          const action = sel.value;
+          if (action) {
+            tagsToImport.push({
+              tag_id: sel.dataset.tagId,
+              action: action
+            });
+          }
+        });
+
+        if (tagsToImport.length === 0) {
+          this._toast('Vælg mindst én handling', 'warning');
+          return;
+        }
+
+        // Import selected tags (without assigning to specific user yet)
+        for (const tagInfo of tagsToImport) {
+          // Get requires_pin checkbox state for this tag
+          const checkboxEl = this.shadowRoot.querySelector('.import-tag-requires-pin[data-tag-id="' + tagInfo.tag_id + '"]');
+          const requiresPin = checkboxEl?.checked || false;
+          
+          const success = await this._callWS('import_nfc_tag', {
+            tag_id: tagInfo.tag_id,
+            action: tagInfo.action,
+            name: tagInfo.tag_id,  // Use tag ID as default name
+            requires_pin: requiresPin
+          });
+
+          if (!success) {
+            this._toast(`Fejl ved import af ${tagInfo.tag_id}`, 'error');
+            return;
+          }
+        }
+
+        this._toast(`${tagsToImport.length} tag(s) importeret`, 'success');
+        this.shadowRoot.querySelector('[data-action="close-import-dialog"]')?.click();
+        await this._loadData();
+      });
+    }
+  }
   // ===
   // TAB: MODULES
   // ===
@@ -5761,6 +5951,14 @@ class SecureMePanelCore extends HTMLElement {
       });
     }
 
+
+    // Import NFC tags from Home Assistant
+    const btnImportNFC = root.querySelector("[data-action='import-nfc']");
+    if (btnImportNFC) {
+      btnImportNFC.addEventListener("click", () => {
+        this._importNFCTags();
+      });
+    }
     // Populate NFC tags list for current user
     const nfcList = root.querySelector("#nfc-tags-list");
     if (nfcList && this._data.nfc_tags) {

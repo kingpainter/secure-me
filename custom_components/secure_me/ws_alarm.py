@@ -1,6 +1,6 @@
 """WebSocket API — Arm, Disarm and Special Feature commands for Secure Me."""
 
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 from __future__ import annotations
 
 import logging
@@ -20,10 +20,41 @@ _LOGGER = logging.getLogger(__name__)
 from .ws_helpers import _get_coordinator, _get_store
 
 
+async def _verify_pin_for_remote_action(
+    store, pin: str | None, user_id: str | None = None
+) -> tuple[bool, dict | None, str | None]:
+    """Verify user PIN for remote arm/disarm actions.
+
+    Returns (success: bool, user_dict: dict | None, error: str | None).
+    If PIN is not provided, returns (True, None, None) — local requests.
+    If PIN is provided, authenticates against bcrypt-hashed PIN in store.
+    """
+    if not pin:
+        # Local request — no PIN verification needed
+        return True, None, None
+
+    result = store.authenticate_user_with_id(pin, user_id)
+    if not result:
+        _LOGGER.warning(
+            "Failed PIN verification for remote arm/disarm%s",
+            f" (user_id={user_id})" if user_id else "",
+        )
+        return False, None, "Invalid PIN"
+
+    user_id, user_dict = result
+    _LOGGER.info(
+        "Successful PIN verification for remote arm/disarm (user_id=%s)",
+        user_id,
+    )
+    return True, user_dict, None
+
+
+
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_away",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
         vol.Optional("force", default=False): bool,
     }
 )
@@ -36,6 +67,7 @@ async def ws_arm_away(
     """Arm in away mode via WebSocket.
 
     force=True skips the open-sensor check (bypass all open sensors).
+    Requires PIN if provided (for remote requests via HA cloud/app).
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
@@ -43,6 +75,21 @@ async def ws_arm_away(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     if not coordinator.validate_code(code):
         connection.send_error(msg["id"], "invalid_code", "Invalid code")
@@ -63,6 +110,7 @@ async def ws_arm_away(
     {
         vol.Required("type"): f"{DOMAIN}/arm_home",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
         vol.Optional("force", default=False): bool,
     }
 )
@@ -75,6 +123,7 @@ async def ws_arm_home(
     """Arm in home mode via WebSocket.
 
     force=True skips the open-sensor check (bypass all open sensors).
+    Requires PIN if provided (for remote requests via HA cloud/app).
     """
     coordinator = _get_coordinator(hass)
     if not coordinator:
@@ -82,6 +131,21 @@ async def ws_arm_home(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     if not coordinator.validate_code(code):
         connection.send_error(msg["id"], "invalid_code", "Invalid code")
@@ -102,6 +166,7 @@ async def ws_arm_home(
     {
         vol.Required("type"): f"{DOMAIN}/arm_night",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
     }
 )
 @websocket_api.async_response
@@ -110,13 +175,31 @@ async def ws_arm_night(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Arm in night mode via WebSocket."""
+    """Arm in night mode via WebSocket.
+    
+    Requires PIN if provided (for remote requests via HA cloud/app).
+    """
     coordinator = _get_coordinator(hass)
     if not coordinator:
         connection.send_error(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     if not coordinator.validate_code(code):
         connection.send_error(msg["id"], "invalid_code", "Invalid code")
@@ -129,6 +212,7 @@ async def ws_arm_night(
     {
         vol.Required("type"): f"{DOMAIN}/arm_vacation",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
     }
 )
 @websocket_api.async_response
@@ -137,13 +221,31 @@ async def ws_arm_vacation(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Arm in vacation mode via WebSocket."""
+    """Arm in vacation mode via WebSocket.
+    
+    Requires PIN if provided (for remote requests via HA cloud/app).
+    """
     coordinator = _get_coordinator(hass)
     if not coordinator:
         connection.send_error(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     if not coordinator.validate_code(code):
         connection.send_error(msg["id"], "invalid_code", "Invalid code")
@@ -156,6 +258,7 @@ async def ws_arm_vacation(
     {
         vol.Required("type"): f"{DOMAIN}/arm_home_alone",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
     }
 )
 @websocket_api.async_response
@@ -164,13 +267,31 @@ async def ws_arm_home_alone(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Arm in home alone mode via WebSocket."""
+    """Arm in home alone mode via WebSocket.
+    
+    Requires PIN if provided (for remote requests via HA cloud/app).
+    """
     coordinator = _get_coordinator(hass)
     if not coordinator:
         connection.send_error(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     if not coordinator.validate_code(code):
         connection.send_error(msg["id"], "invalid_code", "Invalid code")
@@ -183,6 +304,7 @@ async def ws_arm_home_alone(
     {
         vol.Required("type"): f"{DOMAIN}/disarm",
         vol.Optional("code"): str,
+        vol.Optional("pin"): str,
     }
 )
 @websocket_api.async_response
@@ -191,13 +313,31 @@ async def ws_disarm(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Disarm via WebSocket."""
+    """Disarm via WebSocket.
+    
+    Requires PIN if provided (for remote requests via HA cloud/app).
+    """
     coordinator = _get_coordinator(hass)
     if not coordinator:
         connection.send_error(
             msg["id"], "coordinator_not_ready", "Coordinator not initialized"
         )
         return
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    # PIN verification (optional, for remote requests)
+    pin = msg.get("pin")
+    if pin:
+        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+            store, pin
+        )
+        if not pin_valid:
+            connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
+            return
+
     code = msg.get("code")
     success = await coordinator.async_disarm(code=code)
     connection.send_result(msg["id"], {"success": success})

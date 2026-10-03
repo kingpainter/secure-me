@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Data storage for Secure Me panel configuration."""
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 
 import base64
 import concurrent.futures
@@ -108,6 +108,10 @@ class _MigratableStore(Store):
             # Add arm_modes to existing zones (default: away)
             for zone_cfg in data.get("zones", {}).values():
                 zone_cfg.setdefault("arm_modes", ["away"])
+
+            # Add requires_pin to existing NFC tags (default: False)
+            for tag_cfg in data.get("nfc_tags", {}).values():
+                tag_cfg.setdefault("requires_pin", False)
 
             # Users: mark existing codes as plaintext so we can re-hash on
             # next save. We do NOT re-hash here (no blocking crypto in migration).
@@ -261,7 +265,7 @@ class SecureMeStore:
                 ATTR_FLOORPLAN_HEIGHT: 0,
                 ATTR_FLOORPLAN_MARKERS: {},
             },
-            "nfc_tags": {},  # NFC tag registrations: {tag_id: {user_id, action, name, created_at}}
+            "nfc_tags": {},  # NFC tag registrations: {tag_id: {user_id, action, name, requires_pin, created_at}}
         }
 
     # ─── bcrypt helpers ───────────────────────────────────────────────────────
@@ -637,12 +641,12 @@ class SecureMeStore:
     def get_nfc_tags(self) -> dict[str, dict[str, Any]]:
         """Get registered NFC tags for this alarm.
         
-        Returns dict of {tag_id: {user_id, action, name, created_at}}
+        Returns dict of {tag_id: {user_id, action, name, requires_pin, created_at}}
         """
         return self._data.get("nfc_tags", {})
 
     async def async_save_nfc_tag(
-        self, tag_id: str, user_id: str, action: str, name: str
+        self, tag_id: str, user_id: str, action: str, name: str, requires_pin: bool = False
     ) -> None:
         """Register a new NFC tag.
         
@@ -651,12 +655,14 @@ class SecureMeStore:
             user_id: User ID that this tag is assigned to
             action: "disarm" or "arm_away"
             name: Display name for the tag
+            requires_pin: Whether PIN verification is required (default: False)
         """
         nfc_tags = self._data.setdefault("nfc_tags", {})
         nfc_tags[tag_id] = {
             "user_id": user_id,
             "action": action,
             "name": name,
+            "requires_pin": requires_pin,
             "created_at": time.time(),
         }
         self._schedule_save()
@@ -666,6 +672,19 @@ class SecureMeStore:
         nfc_tags = self._data.get("nfc_tags", {})
         nfc_tags.pop(tag_id, None)
         self._schedule_save()
+
+
+    async def async_update_nfc_tag_requires_pin(self, tag_id: str, requires_pin: bool) -> None:
+        """Update the requires_pin flag for an existing NFC tag.
+        
+        Args:
+            tag_id: HA tag ID from tag integration
+            requires_pin: Whether PIN verification is required
+        """
+        nfc_tags = self._data.get("nfc_tags", {})
+        if tag_id in nfc_tags:
+            nfc_tags[tag_id]["requires_pin"] = requires_pin
+            self._schedule_save()
 
     # ─── Modules ─────────────────────────────────────────────────────────────
 

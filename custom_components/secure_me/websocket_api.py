@@ -14,7 +14,7 @@ This file just imports and registers them, and starts the notification
 dispatcher.
 """
 
-# VERSION = "2.0.1"
+# VERSION = "2.2.0"
 from __future__ import annotations
 
 import logging
@@ -75,10 +75,12 @@ from .ws_modules import (
     ws_test_tts,
 )
 from .ws_sensors import (
+    ws_delete_nfc_tag,
     ws_delete_sensor_group,
     ws_delete_user,
     ws_delete_zone,
     ws_get_alarm_state,
+    ws_get_ha_nfc_tags,
     ws_get_nfc_tags,
     ws_get_persons,
     ws_get_sensor_groups,
@@ -86,6 +88,8 @@ from .ws_sensors import (
     ws_get_users,
     ws_get_zones,
     ws_hide_sensor,
+    ws_import_nfc_tag,
+    ws_register_nfc_tag,
     ws_save_sensor_group,
     ws_save_sensors,
     ws_save_user,
@@ -145,6 +149,10 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     _register(ws_save_user)
     _register(ws_delete_user)
     _register(ws_get_nfc_tags)
+    _register(ws_delete_nfc_tag)
+    _register(ws_register_nfc_tag)
+    _register(ws_get_ha_nfc_tags)
+    _register(ws_import_nfc_tag)
     _register(ws_get_persons)
     _register(ws_get_modules)
     _register(ws_save_module)
