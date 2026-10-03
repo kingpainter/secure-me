@@ -2,10 +2,14 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
-[![Version](https://img.shields.io/badge/version-1.5.5-green)](https://github.com/kingpainter/secure-me/releases)
+[![Version](https://img.shields.io/badge/version-2.2.0-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-400%2B-brightgreen)](tests/)
+[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
 
-A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, an interactive floorplan, real-time health monitoring, and a modern configuration panel.
+A comprehensive alarm system integration for Home Assistant with multi-zone support, 6 smart modules, NFC tag authentication, an interactive floorplan, advanced automation engine, and a modern configuration panel.
+
+**Version 2.2.0** adds NFC tag integration for PIN-less authentication. **Version 2.0+** features a complete engine-based architecture with pure state machines for offline testing, strict type hints, and 80%+ test coverage.
 
 ---
 
@@ -16,8 +20,15 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Configurable exit delay (arming countdown) and entry delay (entry countdown)
 - Auto-reset after trigger time — no permanent alarm state
 - bcrypt PIN hashing — user codes never stored in plaintext
-- State tracking: who armed, who disarmed, what triggered
+- State tracking: who armed, who disarmed, what triggered, when
 - State restore on HA restart — alarm stays armed, zone monitoring resumes immediately
+
+**NFC Tag Authentication (v2.1.0+)**
+- Register NFC tags (iPhone, AirTag, etc.) per user for PIN-less authentication
+- Secure Home Assistant `tag_scanned` event integration
+- Full audit trail: NFC tag linked to user identity
+- Localized NFC management UI (English, Dansk)
+- Perfect for quick arm/disarm without entering codes
 
 **Zone Management**
 - Multiple zone types: Entry, Instant, Interior, Perimeter
@@ -28,17 +39,17 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Sensor debouncing — prevents false alarms from flapping sensors
 - Graceful handling of unavailable/missing sensors
 
-**6 Smart Modules**
-| Module | Function |
-|--------|----------|
-| Camera | POE port control, recording mode management |
-| Lock | Smart lock automation with retry logic |
-| Lights | Auto control, emergency flash patterns, steady white mode |
-| Climate | Multi-zone heating/cooling management |
-| Siren | Alarm sounds with multiple patterns |
-| TTS | Voice notifications — supports cloud_say, google_say, piper, custom services, Alexa via script |
+**6 Smart Modules** with Health Scoring
+| Module | Function | Retry Logic |
+|--------|----------|-------------|
+| Camera | POE port control, recording mode management | Exponential backoff: 2s→4s→8s |
+| Lock | Smart lock automation with retry logic | Exponential backoff: 2s→4s→8s |
+| Lights | Auto control, emergency flash patterns, steady white mode | Exponential backoff: 2s→4s→8s |
+| Climate | Multi-zone heating/cooling management | Exponential backoff: 2s→4s→8s |
+| Siren | Alarm sounds with multiple patterns | Exponential backoff: 2s→4s→8s |
+| TTS | Voice notifications — supports cloud_say, google_say, piper, custom services, Alexa via script | Exponential backoff: 2s→4s→8s |
 
-**Floorplan (v1.5.0)**
+**Floorplan (v1.5.0+)**
 - Upload a PNG floor plan (up to 4 MB)
 - Draw rooms as rectangles or polygons directly on the map
 - Assign sensors to rooms — lights up when sensor activates in Home Alone mode
@@ -47,14 +58,24 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Keyboard shortcuts: Esc, Delete, R/P/O to switch tools
 - Touch support for tablets
 - Configuration survives HACS updates: PNG backed up in HA storage, auto-restored on startup
+- Sensor pin markers show live state with visual feedback (red pulse = active, green = inactive)
 
-**Auto Actions (v1.5.0, scoped to Secure Me users from v1.5.4)**
-- Watches the `person_entity` configured on each enabled Secure Me user (Users tab) -- not every `person.*` entity in your HA instance
-- When everyone tracked leaves: three independent action timers with individual delays -- lock, arm alarm, activate cameras
+**Auto Actions Engine (v2.0+, Pure State Machine)**
+- Presence-based automation: watches tracked person entities
+- When everyone tracked leaves: three independent action timers with individual delays — lock, arm alarm, activate cameras
 - Configurable per action with delay slider (defaults: lock 2 min, alarm 5 min, cameras immediately)
 - Arrival confirmation delay prevents GPS flicker from resetting timers
 - Selective Fake Presence v2: block alarm, locks, or cameras independently, re-checked both when the countdown starts and again right before each action fires
-- A single summary notification is sent once all scheduled actions have settled
+- Stale tracker timeout (30 min default, configurable): if GPS tracker goes `unknown`/`unavailable`, fail-safe kicks in
+- Initial-presence check on startup: if house already empty at boot, start timers immediately
+- Recheck-on-disarm option: if users still away after disarm, restart the automation cycle
+- A single summary notification sent once all scheduled actions have settled
+- Pure offline-testable state machine (no Home Assistant dependencies in the engine)
+
+**Notification Engine (v2.0+)**
+- User preference management: quiet hours, notification channels
+- Event routing rules for selective notifications
+- Per-user notification channels (mobile, webhook, etc.)
 
 **Monitoring**
 - System health score with per-module status
@@ -62,7 +83,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Low/critical battery warnings
 - Enhanced diagnostics download
 
-**Testing**
+**Testing** (37+ test files, 400+ tests, 80%+ coverage)
 - Three test levels: Quick (~30s), Standard (~60s), Full (~90s)
 - Scheduled tests with configurable day, time, and type
 - Test result history (last 10 runs)
@@ -77,6 +98,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Environmental sensors always-on section with forced notifications
 - Sensor hide/exclude for irrelevant device trackers and auto-hidden entries
 - User to person tracker binding for presence automation
+- NFC tag management (register, list, delete per user)
 - Per-arm-mode auto-bypass per sensor: choose which modes a sensor bypasses in
 - Mobile push actions: arm/disarm/force-arm from Companion app notification buttons
 - Live arming/pending countdown in sidebar status pill
@@ -84,10 +106,24 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 
 ---
 
+## Architecture (v2.0+)
+
+Secure Me uses a **layered engine architecture** for testability and maintainability:
+
+1. **Home Assistant Core** — Event bus, service registry, entity management
+2. **Coordinator** (1,512 lines) — Orchestration layer bridging HA to engines
+3. **Pure State Machines** — AutoActionsEngine, FloorplanEngine, NotificationEngine (no direct HA dependencies, fully offline testable)
+4. **Infrastructure** — StateMachine, ZoneManager, Store v2, module factories
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation and [test files](tests/) for offline engine testing patterns.
+
+---
+
 ## Requirements
 
 - Home Assistant 2025.1.1 or newer
-- Python 3.11 or newer
+- Python 3.13 or newer
+- bcrypt ≥4.0.0 (auto-installed)
 
 ---
 
@@ -114,6 +150,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 3. Enter your alarm code and configure exit/entry delays
 4. Open the **Secure Me** panel from the sidebar
 5. Configure zones, modules, and sensors
+6. (Optional) Register NFC tags in the Users tab
 
 ---
 
@@ -150,6 +187,19 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 
 All modules are configured via the **Modules tab** in the panel. Each module can be enabled/disabled independently. Configuration changes take effect immediately — no HA restart required.
 
+### Auto Actions Configuration
+
+Configure in the **Special Features** tab:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| Lock Delay | Minutes before auto-locking after everyone leaves | 2 |
+| Alarm Delay | Minutes before auto-arming in away mode | 5 |
+| Camera Delay | Minutes before activating cameras | 0 (immediately) |
+| Stale Tracker Timeout | GPS tracker unavailability threshold (minutes) | 30 |
+| Arrival Confirmation | Minutes to wait for confirmed arrival | 2 |
+| Recheck on Disarm | Re-start automation if users still away after disarm | Off |
+
 ---
 
 ## Floorplan Setup
@@ -180,10 +230,10 @@ All modules are configured via the **Modules tab** in the panel. Each module can
 | `secure_me.arm_home` | Arm in home mode (perimeter only) |
 | `secure_me.arm_night` | Arm in night mode (perimeter + entry) |
 | `secure_me.arm_vacation` | Arm in vacation mode (extended trigger) |
-| `secure_me.arm_home_alone` | Arm in Home Alone mode (cameras live, no motion trigger) |
+| `secure_me.arm_home_alone` | Arm in Home Alone mode (cameras live, sensor glow) |
 | `secure_me.disarm` | Disarm the alarm |
 | `secure_me.trigger` | Manually trigger alarm |
-| `secure_me.run_test` | Run a system test |
+| `secure_me.run_test` | Run a system test (quick/standard/full) |
 | `secure_me.enable_module` | Enable a specific module |
 | `secure_me.disable_module` | Disable a specific module |
 
@@ -192,7 +242,7 @@ All arm services accept optional `code` (string), `skip_delay` (boolean), and `f
 > **Full API contract:** See [API.md](API.md) for the complete alarm entity
 > attribute contract, which arm/disarm modes go through standard
 > `alarm_control_panel.*` services vs. `secure_me.*` services vs. websocket,
-> and the one deliberate non-standard exception (Home Alone mode).
+> NFC tag endpoints, and the one deliberate non-standard exception (Home Alone mode).
 
 ---
 
@@ -222,6 +272,7 @@ All arm services accept optional `code` (string), `skip_delay` (boolean), and `f
 | `secure_me_alarm_triggered` | `triggered_by` | Fired when alarm triggers |
 | `secure_me_arm_failed` | `command`, `open_sensors`, `bypassed_sensors` | Fired when arming fails due to open sensors |
 | `secure_me_module_error` | `module`, `action`, `error` | Fired when a module fails |
+| `secure_me_nfc_scanned` | `tag_id`, `user_id` | Fired when NFC tag scanned (v2.1.0+) |
 
 ---
 
@@ -359,11 +410,24 @@ Check that the module's entities are available in HA. An entity marked `unavaila
 **Exit/entry delay countdown not showing**
 The countdown updates every second. If it jumps (e.g. 30 → 25), this is by design — full entity refresh happens every 5 seconds for performance.
 
+**NFC tag not registering**
+1. Ensure you have Home Assistant Companion app configured on your iOS device
+2. Go to the Secure Me Users tab, NFC section
+3. Hold your device near the NFC tag for 30 seconds
+4. A notification should appear confirming registration
+5. Check HA logs for any `tag_scanned` event errors
+
 ---
 
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
+
+Key versions:
+- **v2.2.0** (2026-10-03): NFC tag integration, improved event handling
+- **v2.1.0** (2026-10-03): NFC tag support with user binding
+- **v2.0.1** (2026-09-30): Ruff linting compliance, Python 3.13 compatibility
+- **v2.0.0** (2026-09-21): Engine architecture, PEP 563 type hints, 28 new unit tests
 
 ---
 
@@ -372,5 +436,8 @@ See [CHANGELOG.md](CHANGELOG.md) for full version history.
 MIT License — see [LICENSE](LICENSE) for details.
 
 **Developer:** KingPainter
-**Version:** 1.5.3
+**Version:** 2.2.0
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)
+**Python:** 3.13+
+**Tests:** 400+ with 80%+ coverage
+
