@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "2.0.1";
+const VERSION = "2.1.0";
 
 // === Styles ===
 const panelStyles = `
@@ -634,7 +634,7 @@ class SecureMePanelCore extends HTMLElement {
     // PERF: Split into two phases.
     // Phase 1 — fast: 7 essential calls needed to render any tab immediately.
     // Phase 2 — lazy: health + test results are only needed on the Testing tab.
-    const [sensors, zones, users, modules, notifications, automations, state, fakePresence, speakerProfiles] =
+    const [sensors, zones, users, modules, notifications, automations, state, fakePresence, speakerProfiles, nfcTags] =
       await Promise.all([
         this._callWS("get_sensors"),
         this._callWS("get_zones"),
@@ -645,6 +645,7 @@ class SecureMePanelCore extends HTMLElement {
         this._callWS("get_alarm_state"),
         this._callWS("get_fake_presence"),
         this._callWS("get_speaker_profiles"),
+        this._callWS("get_nfc_tags"),
       ]);
 
     if (sensors) this._data.sensors = sensors.sensors || [];
@@ -664,6 +665,7 @@ class SecureMePanelCore extends HTMLElement {
       this._data.homeAloneCameras = fakePresence.home_alone_cameras || [];
     }
     if (speakerProfiles) this._speakerProfiles = speakerProfiles.profiles || [];
+    if (nfcTags) this._data.nfc_tags = nfcTags.nfc_tags || {};
 
     // Render immediately with essential data — no waiting for heavy tabs
     this._queueRender();
@@ -1580,6 +1582,17 @@ class SecureMePanelCore extends HTMLElement {
           '</div>'
         ) : '') +
 
+        // ── NFC Tags ──
+        '<div style="border-top:1px solid var(--sm-border);margin:12px 0 8px;padding-top:12px">' +
+          '<div style="font-size:13px;font-weight:600;color:var(--sm-text-secondary);margin-bottom:10px">' +
+            icon('nfc') + ' NFC-tags' +
+          '</div>' +
+          '<div id="nfc-tags-list" style="max-height:200px;overflow-y:auto;margin-bottom:10px"></div>' +
+          '<button class="sm-btn default sm" id="btn-register-nfc-tag" style="width:100%;margin-bottom:8px">' +
+            icon('plus') + ' Registrer NFC-tag' +
+          '</button>' +
+        '</div>' +
+
         '<div class="dialog-footer">' +
           '<button class="btn-dialog cancel" data-action="close-dialog">Annuller</button>' +
           '<button class="btn-dialog save" data-action="save-zone">Gem zone</button>' +
@@ -1987,6 +2000,148 @@ class SecureMePanelCore extends HTMLElement {
     await this._callWS('delete_user', { user_id: userId });
     this._toast('Bruger slettet', 'success');
     await this._loadData();
+  }
+
+  // === NFC TAGS ===
+  async _showNFCRegisterDialog(userId) {
+    if (!userId) {
+      this._toast('Gem brugeren først', 'warning');
+      return;
+    }
+
+    const actions = [
+      { value: 'disarm', label: '🔓 Disarm (lås op)' },
+      { value: 'arm_away', label: '🔒 Arm Away (lås)' }
+    ];
+
+    const html = `
+      <div class="config-dialog-overlay">
+        <div class="config-dialog" style="max-width:420px">
+          <div class="dialog-header">
+            <span style="font-size:20px">${icon('nfc')}</span>
+            <div class="dialog-title">Registrer NFC-tag</div>
+            <button class="dialog-close" data-action="close-nfc-dialog">${icon('close')}</button>
+          </div>
+          
+          <div style="padding:16px;border-bottom:1px solid var(--sm-border)">
+            <div style="font-size:12px;color:var(--sm-text-tertiary);margin-bottom:12px">Vælg en handling, og scan derefter tagget med dit iPhone</div>
+            <div style="display:flex;gap:8px;flex-direction:column">
+              ${actions.map(a => `
+                <button class="nfc-action-btn" data-nfc-action="${a.value}" 
+                  style="padding:12px;border-radius:8px;border:2px solid var(--sm-border);background:transparent;
+                  color:var(--sm-text);cursor:pointer;font-weight:500;transition:all 0.2s"
+                  onmouseover="this.style.borderColor='var(--sm-accent)';this.style.background='rgba(124,58,237,0.08)'"
+                  onmouseout="this.style.borderColor='var(--sm-border)';this.style.background='transparent'">
+                  ${a.label}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+          
+          <div id="nfc-status" style="padding:16px;text-align:center;color:var(--sm-text-tertiary);display:none">
+            <div style="font-size:13px;margin-bottom:12px">Venter på tag scan...</div>
+            <div style="font-size:12px">Hold dit iPhone tæt på tagget</div>
+          </div>
+          
+          <div class="dialog-footer" id="nfc-footer">
+            <button class="btn-dialog cancel" data-action="close-nfc-dialog">Annuller</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this._showDialog = 'nfc-register';
+    this.shadowRoot.querySelector('.panel-topbar')?.insertAdjacentHTML('afterend', html);
+    
+    // Attach action handlers
+    this.shadowRoot.querySelectorAll('.nfc-action-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.nfcAction;
+        btn.parentElement.style.display = 'none';
+        this.shadowRoot.querySelector('#nfc-status').style.display = 'block';
+        const tagId = await this._waitForNFCTagScan();
+        
+        if (!tagId) {
+          // User cancelled
+          this.shadowRoot.querySelector('[data-action="close-nfc-dialog"]')?.click();
+          return;
+        }
+        
+        // Ask for tag name
+        const tagName = prompt('Taggets navn (f.eks. "Nøgle, lommebog")', '') || tagId;
+        
+        // Save the tag
+        const success = await this._callWS('register_nfc_tag', {
+          tag_id: tagId,
+          user_id: userId,
+          action: action,
+          name: tagName
+        });
+        
+        if (success) {
+          this._toast('NFC-tag registreret', 'success');
+          this.shadowRoot.querySelector('[data-action="close-nfc-dialog"]')?.click();
+          await this._loadData();
+          // Refresh user dialog
+          const userBtn = this.shadowRoot.querySelector('[data-edit-user="' + userId + '"]');
+          if (userBtn) userBtn.click();
+        } else {
+          this._toast('Fejl ved registrering af tag', 'error');
+        }
+      });
+    });
+    
+    // Close handler
+    this.shadowRoot.querySelectorAll('[data-action="close-nfc-dialog"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.shadowRoot.querySelector('.config-dialog-overlay')?.remove();
+        this._showDialog = null;
+      });
+    });
+  }
+
+  async _waitForNFCTagScan() {
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        if (unsub) unsub();
+        this._toast('Tag scan timeout', 'warning');
+        resolve(null);
+      }, 30000); // 30 second timeout
+
+      let unsub;
+      
+      // Subscribe to tag_scanned events from Home Assistant
+      if (!this._hass) {
+        resolve(null);
+        return;
+      }
+
+      unsub = this._hass.connection.subscribeEvents(
+        (event) => {
+          clearTimeout(timeout);
+          if (unsub) unsub();
+          const tagId = event.data?.tag_id;
+          resolve(tagId || null);
+        },
+        'tag_scanned'
+      );
+    });
+  }
+
+  async _deleteNFCTag(userId, tagId) {
+    if (!await this._confirm('Dette NFC-tag vil blive fjernet.', 'Slet tag?')) return;
+    
+    const success = await this._callWS('delete_nfc_tag', { tag_id: tagId });
+    
+    if (success) {
+      this._toast('NFC-tag slettet', 'success');
+      await this._loadData();
+      // Refresh user dialog
+      const userBtn = this.shadowRoot.querySelector('[data-edit-user="' + userId + '"]');
+      if (userBtn) userBtn.click();
+    } else {
+      this._toast('Fejl ved sletning af tag', 'error');
+    }
   }
 
   // ===
@@ -5572,7 +5727,6 @@ class SecureMePanelCore extends HTMLElement {
           _userId: userId,
           name: existing.name || '',
           admin: existing.admin || false,
-          nfc_tag: existing.nfc_tag || null,
           person_entity: existing.person_entity || null,
           notification_settings: {
             notify_service:      existing.notify_service      ?? '',
@@ -5582,6 +5736,7 @@ class SecureMePanelCore extends HTMLElement {
             tts_quiet_start:     existing.tts_quiet_start     ?? '',
             tts_quiet_end:       existing.tts_quiet_end       ?? '',
           },
+          nfc_tags: {},  // Will be loaded from store
         };
         this._showDialog = 'user';
         if (!this._availablePersons) {
@@ -5598,14 +5753,48 @@ class SecureMePanelCore extends HTMLElement {
       btn.addEventListener("click", () => this._deleteUser(btn.dataset.deleteUser));
     });
 
-    // Still placeholder actions
-    root.querySelectorAll("[data-action='import-nfc'], [data-action='add-notification'], [data-action='add-automation']").forEach(btn => {
+    // NFC tag registration
+    const btnRegisterNFC = root.querySelector("#btn-register-nfc-tag");
+    if (btnRegisterNFC) {
+      btnRegisterNFC.addEventListener("click", () => {
+        this._showNFCRegisterDialog(this._tempConfig._userId);
+      });
+    }
+
+    // Populate NFC tags list for current user
+    const nfcList = root.querySelector("#nfc-tags-list");
+    if (nfcList && this._data.nfc_tags) {
+      const userId = this._tempConfig._userId;
+      const userTags = userId ? Object.entries(this._data.nfc_tags).filter(([_, cfg]) => cfg.user_id === userId) : [];
+      
+      if (userTags.length === 0) {
+        nfcList.innerHTML = '<div style="color:var(--sm-text-tertiary);font-size:12px;padding:8px">Ingen NFC-tags registreret</div>';
+      } else {
+        nfcList.innerHTML = userTags.map(([tagId, cfg]) => `
+          <div class="nfc-tag" style="padding:10px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:500;color:var(--sm-text)">${cfg.name || tagId}</div>
+              <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:'DM Mono';margin-top:4px">${tagId}</div>
+              <div style="font-size:11px;color:var(--sm-accent);margin-top:2px">${cfg.action === 'disarm' ? '🔓 Disarm' : '🔒 Arm Away'}</div>
+            </div>
+            <button class="sm-btn small danger" data-delete-nfc-tag="${tagId}" style="padding:6px 10px;font-size:12px">Slet</button>
+          </div>
+        `).join('');
+        
+        // Add delete handlers
+        nfcList.querySelectorAll("[data-delete-nfc-tag]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            this._deleteNFCTag(userId, btn.dataset.deleteNfcTag);
+          });
+        });
+      }
+    }
+
+    // Placeholder actions for other buttons
+    root.querySelectorAll("[data-action='add-notification'], [data-action='add-automation']").forEach(btn => {
       btn.addEventListener("click", () => {
         const action = btn.dataset.action;
         switch(action) {
-          case "import-nfc":
-            this._toast("Importér NFC-tags - kommer snart.", "info");
-            break;
           case "add-notification":
             this._openNotificationDialog();
             break;

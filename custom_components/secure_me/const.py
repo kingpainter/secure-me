@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """Constants for Secure Me integration."""
-# VERSION = "2.0.1"
+# VERSION = "2.1.0"
 
 from homeassistant.const import Platform
 
@@ -9,7 +9,7 @@ from homeassistant.const import Platform
 DOMAIN = "secure_me"
 
 # Version and device info
-VERSION = "2.0.1"
+VERSION = "2.1.0"
 MANUFACTURER = "KingPainter"
 MODEL = "Secure Me Alarm System"
 
@@ -129,6 +129,11 @@ EVENT_ALARM_TEST_COMPLETED = f"{DOMAIN}_test_completed"
 EVENT_MODULE_ENABLED = f"{DOMAIN}_module_enabled"
 EVENT_MODULE_DISABLED = f"{DOMAIN}_module_disabled"
 EVENT_MODULE_ERROR = f"{DOMAIN}_module_error"
+
+# v1.6.0: NFC tag integration
+EVENT_SECURE_ME_TAG_SCANNED = f"{DOMAIN}_tag_scanned"
+NFC_ACTION_DISARM = "disarm"
+NFC_ACTION_ARM_AWAY = "arm_away"
 
 # v1.4.3 rich error events
 EVENT_ALARM_ARM_FAILED = f"{DOMAIN}_arm_failed"

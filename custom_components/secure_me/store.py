@@ -261,6 +261,7 @@ class SecureMeStore:
                 ATTR_FLOORPLAN_HEIGHT: 0,
                 ATTR_FLOORPLAN_MARKERS: {},
             },
+            "nfc_tags": {},  # NFC tag registrations: {tag_id: {user_id, action, name, created_at}}
         }
 
     # ─── bcrypt helpers ───────────────────────────────────────────────────────
@@ -633,14 +634,38 @@ class SecureMeStore:
             return True
         return False
 
-    def get_nfc_tags(self) -> list[dict[str, str]]:
-        """Get available NFC tags from HA."""
-        tags = []
-        tag_registry = self.hass.data.get("tag")
-        if tag_registry and hasattr(tag_registry, "async_list_tags"):
-            for tag in tag_registry.async_list_tags():
-                tags.append({"id": tag.id, "name": tag.name or tag.id})
-        return tags
+    def get_nfc_tags(self) -> dict[str, dict[str, Any]]:
+        """Get registered NFC tags for this alarm.
+        
+        Returns dict of {tag_id: {user_id, action, name, created_at}}
+        """
+        return self._data.get("nfc_tags", {})
+
+    async def async_save_nfc_tag(
+        self, tag_id: str, user_id: str, action: str, name: str
+    ) -> None:
+        """Register a new NFC tag.
+        
+        Args:
+            tag_id: HA tag ID from tag integration
+            user_id: User ID that this tag is assigned to
+            action: "disarm" or "arm_away"
+            name: Display name for the tag
+        """
+        nfc_tags = self._data.setdefault("nfc_tags", {})
+        nfc_tags[tag_id] = {
+            "user_id": user_id,
+            "action": action,
+            "name": name,
+            "created_at": time.time(),
+        }
+        self._schedule_save()
+
+    async def async_delete_nfc_tag(self, tag_id: str) -> None:
+        """Delete a registered NFC tag."""
+        nfc_tags = self._data.get("nfc_tags", {})
+        nfc_tags.pop(tag_id, None)
+        self._schedule_save()
 
     # ─── Modules ─────────────────────────────────────────────────────────────
 

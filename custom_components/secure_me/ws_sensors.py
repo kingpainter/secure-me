@@ -442,12 +442,18 @@ async def ws_delete_user(
     }
 )
 @websocket_api.async_response
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
+    }
+)
+@websocket_api.async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Get available NFC tags from HA."""
+    """Get registered NFC tags for current user."""
     store = _get_store(hass)
     if not store:
         connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
@@ -455,6 +461,61 @@ async def ws_get_nfc_tags(
 
     tags = store.get_nfc_tags()
     connection.send_result(msg["id"], {"tags": tags})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/register_nfc_tag",
+        vol.Required("tag_id"): str,
+        vol.Required("user_id"): str,
+        vol.Required("action"): vol.In(["disarm", "arm_away"]),
+        vol.Required("name"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_register_nfc_tag(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Register a new NFC tag."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    tag_id = msg["tag_id"]
+    user_id = msg["user_id"]
+    action = msg["action"]
+    name = msg["name"]
+
+    await store.async_save_nfc_tag(tag_id, user_id, action, name)
+    connection.send_result(msg["id"], {"success": True})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/delete_nfc_tag",
+        vol.Required("tag_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_delete_nfc_tag(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Delete a registered NFC tag."""
+    store = _get_store(hass)
+    if not store:
+        connection.send_error(msg["id"], "store_not_ready", "Store not initialized")
+        return
+
+    tag_id = msg["tag_id"]
+    await store.async_delete_nfc_tag(tag_id)
+    connection.send_result(msg["id"], {"success": True})
 
 
 @websocket_api.websocket_command(

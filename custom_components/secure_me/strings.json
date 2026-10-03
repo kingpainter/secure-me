@@ -116,5 +116,19 @@
         }
       }
     }
+  },
+  "nfc": {
+    "title": "NFC Tags",
+    "register_new": "Register NFC Tag",
+    "tag_name": "Tag Name",
+    "tag_name_hint": "e.g. 'Flemming iPhone'",
+    "action": "Action",
+    "action_disarm": "Unlock (Disarm)",
+    "action_arm_away": "Arm Away",
+    "tag_registered": "Tag '{name}' registered!",
+    "tag_deleted": "Tag deleted",
+    "registering": "Scanning for NFC tag...",
+    "confirm_delete": "Delete this tag?",
+    "no_tags": "No NFC tags registered for this user"
   }
 }

@@ -116,5 +116,19 @@
         }
       }
     }
+  },
+  "nfc": {
+    "title": "NFC Tags",
+    "register_new": "Registrer NFC tag",
+    "tag_name": "Tagnavn",
+    "tag_name_hint": "f.eks. 'Flemming iPhone'",
+    "action": "Handling",
+    "action_disarm": "Lås op (Disarm)",
+    "action_arm_away": "Arm Væk",
+    "tag_registered": "Tag '{name}' registreret!",
+    "tag_deleted": "Tag slettet",
+    "registering": "Scanner efter NFC tag...",
+    "confirm_delete": "Slet dette tag?",
+    "no_tags": "Ingen NFC tags registreret for denne bruger"
   }
 }

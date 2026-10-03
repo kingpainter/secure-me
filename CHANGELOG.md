@@ -1,5 +1,35 @@
 # Secure Me - Changelog
 
+## [2.1.0] - 2026-10-03
+### NFC Tag Integration
+
+**New Feature:**
+- Added NFC tag support for quick-access alarm control
+- Users can register NFC tags (e.g., iPhone, AirTag) for disarm/arm-away actions
+- Tags are associated with individual users for audit tracking
+- Home Assistant tag_scanned events trigger corresponding alarm actions
+- Secure, PIN-less authentication via NFC scan
+- Full localization: English strings + Danish translations
+
+**Implementation:**
+- New NFC tab in user management dialog (secure-me-panel.js)
+- NFC tag registration flow with 30-second scan timeout
+- NFC tag list display with action and delete options
+- Coordinator-based event listener for tag_scanned events
+- WebSocket API: get_nfc_tags, register_nfc_tag, delete_nfc_tag
+- Store v2 persistence with auto-migration
+
+**Files Modified:**
+- `coordinator.py`: async_listen_nfc_events() for Home Assistant tag_scanned events
+- `secure-me-panel.js`: NFC UI components in user management dialog
+- `ws_sensors.py`: WebSocket endpoints for NFC tag CRUD
+- `store.py`: NFC tag persistence
+- `const.py`: NFC action constants and event type
+- `strings.json`, `translations/da.json`: Localization
+
+**Breaking Changes:** None - fully backward compatible
+
+
 ## [2.0.1] - 2026-09-30
 ### Linting Standards & Code Quality
 

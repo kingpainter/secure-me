@@ -38,6 +38,9 @@ from .const import (
     EVENT_ALARM_DISARMED,
     EVENT_ALARM_INVALID_CODE,
     EVENT_ALARM_TRIGGERED,
+    EVENT_SECURE_ME_TAG_SCANNED,
+    NFC_ACTION_ARM_AWAY,
+    NFC_ACTION_DISARM,
     EVENT_FAKE_PRESENCE_CHANGED,
     EVENT_HOME_ALONE_ACTION_1,
     EVENT_HOME_ALONE_ACTION_2,
@@ -138,6 +141,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         # v1.2.0: Register push notification listener
         self._push_unsub = hass.bus.async_listen(PUSH_EVENT, self._handle_push_event)
+
+        # NFC tag listener
+        self._nfc_unsub = None
 
         # Scheduled test runner — checks every minute
         from homeassistant.helpers.event import async_track_time_interval
@@ -1266,6 +1272,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         sensor_configs = store.get_sensors()
         self.zone_manager.load_sensor_configs(sensor_configs)
 
+        # NFC tag listener
+        await self.async_listen_nfc_events()
+
         # v1.4.0: Merge Home Alone per-sensor config (stored on zone level)
         # into sensor_configs so get_home_alone_sensor_config() can look it up.
         for zone_cfg in store.get_zones().values():
@@ -1380,6 +1389,56 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         }
 
     # ── Shutdown ─────────────────────────────────────────────────────────────
+
+    async def async_listen_nfc_events(self) -> None:
+        """Listen for tag_scanned events and execute corresponding actions."""
+        if self._nfc_unsub:
+            self._nfc_unsub()
+
+        async def handle_nfc_event(event):
+            """Handle tag_scanned event from Home Assistant."""
+            tag_id = event.data.get("tag_id")
+            if not tag_id:
+                return
+
+            nfc_tags = self.store.get_nfc_tags()
+            tag_config = nfc_tags.get(tag_id)
+            
+            if not tag_config:
+                _LOGGER.debug("NFC tag %s not registered", tag_id)
+                return
+
+            user_id = tag_config.get("user_id")
+            action = tag_config.get("action")
+            tag_name = tag_config.get("name", tag_id)
+            
+            # Get user name from store
+            users = self.store.get_users()
+            user = users.get(user_id, {})
+            user_name = user.get("name", user_id)
+            
+            _LOGGER.info("NFC tag %s scanned by %s: executing %s", tag_name, user_name, action)
+            
+            # Execute action
+            if action == NFC_ACTION_DISARM:
+                await self.async_disarm(skip_delay=True)
+            elif action == NFC_ACTION_ARM_AWAY:
+                await self.async_arm_away(skip_delay=True, force=False)
+            
+            # Fire custom event
+            self.hass.bus.async_fire(
+                EVENT_SECURE_ME_TAG_SCANNED,
+                {
+                    "tag_id": tag_id,
+                    "tag_name": tag_name,
+                    "user_id": user_id,
+                    "user_name": user_name,
+                    "action": action,
+                }
+            )
+
+        self._nfc_unsub = self.hass.bus.async_listen("tag_scanned", handle_nfc_event)
+        _LOGGER.debug("NFC event listener registered")
 
     async def async_shutdown(self) -> None:
         """Shutdown coordinator."""
