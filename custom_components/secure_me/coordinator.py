@@ -431,12 +431,32 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # the passive health polling interval. Reset the interval timer so the
         # next passive event is a full 30s away (avoids double-firing).
         self._last_health_event_time = _time_mod.monotonic()
+
+        # v2.2.0: Derive arm_mode for floorplan live-view (all armed modes, not just home_alone)
+        arm_mode = None
+        if new_state in (
+            STATE_ALARM_ARMED_AWAY,
+            STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_NIGHT,
+            STATE_ALARM_ARMED_VACATION,
+            STATE_ALARM_ARMED_HOME_ALONE,
+        ):
+            _mode_map = {
+                STATE_ALARM_ARMED_AWAY: "away",
+                STATE_ALARM_ARMED_HOME: "home",
+                STATE_ALARM_ARMED_NIGHT: "night",
+                STATE_ALARM_ARMED_VACATION: "vacation",
+                STATE_ALARM_ARMED_HOME_ALONE: "home_alone",
+            }
+            arm_mode = _mode_map.get(new_state)
+
         self.hass.bus.async_fire(
             f"{DOMAIN}_health_updated",
             {
                 "modules": self.get_module_health(),
                 "health_score": self.get_health_score(),
                 "alarm_state": new_state,
+                "arm_mode": arm_mode,
                 "triggered_by": self._triggered_by,
                 "open_sensors": self.zone_manager.get_all_open_sensors(),
                 "countdown": countdown,
@@ -572,12 +592,32 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             now = time.monotonic()
             if now - self._last_health_event_time >= self._health_event_interval:
                 self._last_health_event_time = now
+
+                # v2.2.0: Include arm_mode in passive health event (same logic as _state_changed)
+                arm_mode = None
+                if self.alarm_state in (
+                    STATE_ALARM_ARMED_AWAY,
+                    STATE_ALARM_ARMED_HOME,
+                    STATE_ALARM_ARMED_NIGHT,
+                    STATE_ALARM_ARMED_VACATION,
+                    STATE_ALARM_ARMED_HOME_ALONE,
+                ):
+                    _mode_map = {
+                        STATE_ALARM_ARMED_AWAY: "away",
+                        STATE_ALARM_ARMED_HOME: "home",
+                        STATE_ALARM_ARMED_NIGHT: "night",
+                        STATE_ALARM_ARMED_VACATION: "vacation",
+                        STATE_ALARM_ARMED_HOME_ALONE: "home_alone",
+                    }
+                    arm_mode = _mode_map.get(self.alarm_state)
+
                 self.hass.bus.async_fire(
                     f"{DOMAIN}_health_updated",
                     {
                         "modules": self.get_module_health(),
                         "health_score": self.get_health_score(),
                         "alarm_state": self.alarm_state,
+                        "arm_mode": arm_mode,
                         "triggered_by": self._triggered_by,
                         "open_sensors": self.zone_manager.get_all_open_sensors(),
                         "countdown": self.state_machine.countdown,

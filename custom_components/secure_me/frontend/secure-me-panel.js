@@ -352,6 +352,8 @@ class SecureMePanelCore extends HTMLElement {
     this._wsConnected = true;  // tracks WS connection health for banner
     this._fpUndoStack = [];       // undo stack: max 20 snapshots
     this._fpKeyboardCleanup = null; // keyboard handler cleanup ref
+    // v2.2.0 floorplan live-view toggle — persists in sessionStorage per session
+    this._fpLiveViewEnabled = this._restoreFpLiveViewToggle();
     // Tab render caches — invalidated on data save
     this._sensorsRenderCache   = null;
     this._sensorsRenderKey     = null;
@@ -446,13 +448,14 @@ class SecureMePanelCore extends HTMLElement {
       }
     }
 
-    // v1.5.0: Live floorplan refresh in Home Alone mode.
-    // Only re-render when (a) the Floorplan tab is open, (b) Home Alone is active,
-    // and (c) at least one marker's sensor state actually changed since last check.
-    // Without this gate every HA state update would trigger a full re-render.
+    // v2.2.0: Live floorplan refresh in all armed modes (away, home, night, vacation, home_alone).
+    // Only re-render when (a) the Floorplan tab is open, (b) any armed mode is active,
+    // (c) live-view toggle is enabled, and (d) at least one marker's sensor state actually
+    // changed since last check. Without this gate every HA state update would trigger a full re-render.
     if (
       this._activeTab === "floorplan"
-      && this._alarmState === "armed_home_alone"
+      && ["armed_away", "armed_home", "armed_night", "armed_vacation", "armed_home_alone"].includes(this._alarmState)
+      && this._fpLiveViewEnabled !== false  // Toggle defaults to true when armed
       && this._floorplanLoaded
       && this._data.floorplan?.image_url
       && !this._fpFlyoutActive()
@@ -1067,6 +1070,32 @@ class SecureMePanelCore extends HTMLElement {
       root.appendChild(overlay);
       okBtn.focus();
     });
+  }
+
+  // === Floorplan live-view toggle (v2.2.0) ===
+  // Manages the show/hide toggle for live-view in all armed modes.
+  // State persists in sessionStorage per session (cleared on page refresh).
+  _restoreFpLiveViewToggle() {
+    try {
+      const stored = sessionStorage.getItem("secure_me_fp_live_view_enabled");
+      return stored !== null ? stored === "true" : true; // Default to true if not set
+    } catch (e) {
+      return true; // Default to true if sessionStorage unavailable
+    }
+  }
+
+  _saveFpLiveViewToggle(enabled) {
+    try {
+      sessionStorage.setItem("secure_me_fp_live_view_enabled", enabled ? "true" : "false");
+    } catch (e) {
+      // Silently fail if sessionStorage unavailable
+    }
+  }
+
+  _toggleFpLiveView() {
+    this._fpLiveViewEnabled = !this._fpLiveViewEnabled;
+    this._saveFpLiveViewToggle(this._fpLiveViewEnabled);
+    this._queueRender();
   }
 
   // === Render — patches main-content only ===

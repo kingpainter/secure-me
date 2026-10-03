@@ -174,11 +174,39 @@ async def ws_get_floorplan(
     connection: websocket_api.ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
-    """Return the current floorplan config (image url + dimensions + markers).
+    """Return the current floorplan config (image url + dimensions + markers + arm_mode).
 
     image_url is None when no floorplan has been uploaded yet.
+
+    v2.2.0: Detects current arm_mode and includes it in response so UI can:
+    - Show live-view toggle for all armed modes (not just home_alone)
+    - Filter sensor visibility based on arm_mode (away/home/night/vacation/home_alone)
     """
     store = _get_store(hass)
+
+    # Detect current arm_mode from coordinator
+    arm_mode = None
+    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    if coordinator:
+        from .const import (
+            STATE_ALARM_ARMED_AWAY,
+            STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_NIGHT,
+            STATE_ALARM_ARMED_VACATION,
+            STATE_ALARM_ARMED_HOME_ALONE,
+        )
+        current_state = coordinator.alarm_state
+        if current_state == STATE_ALARM_ARMED_AWAY:
+            arm_mode = "away"
+        elif current_state == STATE_ALARM_ARMED_HOME:
+            arm_mode = "home"
+        elif current_state == STATE_ALARM_ARMED_NIGHT:
+            arm_mode = "night"
+        elif current_state == STATE_ALARM_ARMED_VACATION:
+            arm_mode = "vacation"
+        elif current_state == STATE_ALARM_ARMED_HOME_ALONE:
+            arm_mode = "home_alone"
+
     if not store:
         connection.send_result(
             msg["id"],
@@ -187,11 +215,15 @@ async def ws_get_floorplan(
                 ATTR_FLOORPLAN_WIDTH: 0,
                 ATTR_FLOORPLAN_HEIGHT: 0,
                 ATTR_FLOORPLAN_MARKERS: {},
+                "arm_mode": arm_mode,
             },
         )
         return
 
     fp = store.get_floorplan()
+    # Add arm_mode to floorplan response for live-view UI
+    if fp:
+        fp["arm_mode"] = arm_mode
 
     # One-time migration: pick up a file left over from before v1.5.3 moved
     # the floorplan image from custom_components/secure_me/floorplan/ to
