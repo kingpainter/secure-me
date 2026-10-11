@@ -235,6 +235,13 @@ class ZoneManager:
         # state_changed event during HA restore).
         self._active_arm_mode: str | None = None
 
+        # v2.2.0: TTL for Home Alone trigger context to prevent accumulation
+        # (5 minutes in seconds). Used to debounce repeated door triggers.
+        self._HOME_ALONE_TRIGGER_TTL: int = 300
+
+        # v1.4.3: Always-on ready-modes listener (active even while disarmed)
+        self._ready_modes_unsub = None
+
         _LOGGER.info("Zone manager initialized")
 
     # ── Properties ─────────────────────────────────────────────────────────
@@ -949,6 +956,8 @@ class ZoneManager:
             except Exception as err:
                 _LOGGER.error("Failed to unsubscribe ready modes listener: %s", err)
             self._ready_modes_unsub = None
+        # v2.2.0: Clear unavailable state memory to prevent unbounded accumulation
+        self._unavailable_state_mem.clear()
 
     def clear_all_triggers(self) -> None:
         for zone in self._zones.values():

@@ -102,6 +102,10 @@ class AutoActionsManager(BaseEngine):
         # v1.5.x: Delayed disarm-recheck task (see _handle_alarm_disarmed())
         self._recheck_task: asyncio.Task | None = None
 
+        # v2.2.0: Lock for protecting concurrent access to _done_actions and _action_results
+        # Race condition fix: these dicts are modified from multiple async contexts
+        # (_schedule_action, _run_action_after_delay) and must be protected
+        self._action_lock = asyncio.Lock()
         # Track which actions have already run in this "home empty" cycle
         self._done_actions: set[str] = set()
         # v1.5.x: Result text per action (for accurate summary notifications --
@@ -258,10 +262,16 @@ class AutoActionsManager(BaseEngine):
                 _LOGGER.error("Failed to unsubscribe: %s", err)
             self._unsub_stale_check = None
         await self._cancel_all_action_tasks()
-        if self._arrival_task and not self._arrival_task.done():
-            self._arrival_task.cancel()
-        if self._recheck_task and not self._recheck_task.done():
-            self._recheck_task.cancel()
+        # v2.2.0: Properly await task cancellation
+        for task_attr in ["_arrival_task", "_recheck_task"]:
+            task = getattr(self, task_attr, None)
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except (asyncio.CancelledError, Exception):
+                    pass
+            setattr(self, task_attr, None)
         _LOGGER.info("AutoActionsManager stopped")
 
     # -------------------------------------------------------------------------
@@ -339,6 +349,10 @@ class AutoActionsManager(BaseEngine):
         configured to e.g. only re-lock without re-arming. None (the normal,
         presence-triggered case) means "whatever's globally enabled".
         """
+        # v2.2.0: Guard against None alarm_state (defensive check)
+        if not self.coordinator.alarm_state:
+            _LOGGER.warning("AutoActions: alarm_state is None, cannot proceed")
+            return
         if self.coordinator.alarm_state != STATE_ALARM_DISARMED:
             _LOGGER.info(
                 "AutoActions: home empty but alarm already armed (state=%s) -- "
@@ -349,8 +363,10 @@ class AutoActionsManager(BaseEngine):
         if self._home_empty:
             return  # Already in empty state
         self._home_empty = True
-        self._done_actions.clear()
-        self._action_results.clear()
+        # v2.2.0: Protect shared state modification with lock
+        async with self._action_lock:
+            self._done_actions.clear()
+            self._action_results.clear()
         self._current_only_actions = only_actions
 
         self.hass.bus.async_fire(EVENT_HOME_EMPTY, {})
@@ -601,17 +617,21 @@ class AutoActionsManager(BaseEngine):
                     "AutoActions: %s aborted at execution time -- Fake Presence now blocks it",
                     action,
                 )
-                self._done_actions.add(action + "_skipped")
-                self._action_results[action] = "Fake Presence blocked it"
+                # v2.2.0: Protect shared state modification with lock
+                async with self._action_lock:
+                    self._done_actions.add(action + "_skipped")
+                    self._action_results[action] = "Fake Presence blocked it"
                 if self._all_actions_settled():
                     await self._send_summary_notification()
                 return
 
         _LOGGER.info("AutoActions: executing action '%s'", action)
         success, result = await self._execute_action(action)
-        self._action_results[action] = result
+        # v2.2.0: Protect shared state modification with lock
+        async with self._action_lock:
+            self._action_results[action] = result
 
-        # v1.5.x bugfix: previously self._done_actions.add(action) happened
+            # v1.5.x bugfix: previously self._done_actions.add(action) happened
         # unconditionally here, so a real arm/lock/camera FAILURE (e.g.
         # auto-arm blocked by an open sensor) was reported to the user as
         # "completed" in the summary notification -- the failure was only

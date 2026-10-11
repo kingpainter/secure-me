@@ -415,9 +415,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 if "arm" in new_state
                 else (
                     self._disarmed_by
-                    if new_state == "disarmed"
+                    if new_state == STATE_ALARM_DISARMED
                     else self._triggered_by
-                    if new_state == "triggered"
+                    if new_state == STATE_ALARM_TRIGGERED
                     else None
                 ),
                 "ts": int(_time_mod.time()),
@@ -737,6 +737,39 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         import hmac
 
         return hmac.compare_digest(code, self._code)
+
+    def _check_auth_rate_limit(self, user_id: str | None = None) -> bool:
+        """Check if user has exceeded authentication attempt rate limit.
+        
+        v2.2.0: Simple rate limiting - max 5 attempts per user per 5-minute window.
+        Returns True if rate limit is exceeded (reject auth attempt).
+        """
+        import time
+        
+        if not user_id:
+            user_id = "_unknown"
+        
+        now = time.monotonic()
+        # Clean old attempts outside the window
+        if user_id in self._auth_attempt_history:
+            cutoff = now - self._auth_attempt_window
+            self._auth_attempt_history[user_id] = [
+                ts for ts in self._auth_attempt_history[user_id] 
+                if ts > cutoff
+            ]
+        
+        # Check if limit exceeded
+        attempts = self._auth_attempt_history.get(user_id, [])
+        if len(attempts) >= self._auth_max_attempts:
+            _LOGGER.warning(
+                "Auth rate limit exceeded for %s (%d attempts in %ds window)",
+                user_id, len(attempts), self._auth_attempt_window
+            )
+            return True
+        
+        # Record this attempt
+        self._auth_attempt_history.setdefault(user_id, []).append(now)
+        return False
 
     def identify_user(self, code: str | None) -> str:
         """Return the user's name from code, or 'user' as fallback."""
@@ -1156,6 +1189,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             # v1.4.3: Clear bypassed sensors on disarm
             self._bypassed_sensors = []
             self.zone_manager.stop_monitoring()
+            # v2.2.0: Reset modules execution flag for next arm cycle
+            self._trigger_modules_executed = False
             await self._execute_modules_disarm()
         else:
             # v1.4.3: state machine refused (e.g. already disarmed)

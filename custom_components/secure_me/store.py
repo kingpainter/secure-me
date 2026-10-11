@@ -149,6 +149,9 @@ class SecureMeStore:
             minor_version=STORAGE_VERSION_MINOR,
         )
         self._data: dict[str, Any] = {}
+        # v2.2.0: Reusable ThreadPoolExecutor for bcrypt operations (max 4 workers)
+        # Avoids resource leak from creating a new executor on every authentication
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
     async def async_load(self) -> None:
         """Load data from storage."""
@@ -573,6 +576,11 @@ class SecureMeStore:
 
         Returns (user_id, user_dict) on success, None on failure.
         """
+        # v2.2.0: Validate input before attempting bcrypt operations
+        if not code or len(code) < 1:
+            _LOGGER.warning("Bcrypt: Empty or invalid code provided")
+            return None
+        
         users = self._data.get("users", {})
 
         def _check(item: tuple[str, dict]) -> tuple[str, dict] | None:
@@ -592,13 +600,12 @@ class SecureMeStore:
             return _check((user_id, user)) if user else None
 
         # Parallel check across all users (matches Alarmo approach)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {executor.submit(_check, item): item for item in users.items()}
-            for future in concurrent.futures.as_completed(futures):
-                result = future.result()
-                if result is not None:
-                    executor.shutdown(wait=False, cancel_futures=True)
-                    return result
+        # v2.2.0: Use reusable executor to avoid resource leak
+        futures = {self._executor.submit(_check, item): item for item in users.items()}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result is not None:
+                return result
         return None
 
     async def async_save_user(self, user_id: str, config: dict[str, Any]) -> None:
