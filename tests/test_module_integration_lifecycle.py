@@ -81,7 +81,7 @@ class TestModuleInitialization:
         assert module.module_name == "Camera"
         assert module.degraded is False
         assert len(module.poe_switches) == 1
-        assert module.poe_delay == 2
+        assert module.poe_delay == 30  # clamped to minimum (see camera.py)
 
     @pytest.mark.asyncio
     async def test_lock_module_initializes_with_config(

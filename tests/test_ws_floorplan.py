@@ -72,6 +72,7 @@ class FakeConnection:
         self.send_error = MagicMock()
         self.user = MagicMock()
         self.user.is_admin = is_admin
+        self.async_handle_exception = MagicMock()
 
 
 class FakeFloorplanStore:

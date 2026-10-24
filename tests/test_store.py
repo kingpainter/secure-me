@@ -19,7 +19,7 @@ class TestStoreDefaults:
                          "speaker_profiles",
                          "fake_presence", "home_alone_cameras",
                          "auto_actions",
-                         "floorplan"}
+                         "floorplan", "nfc_tags"}
         assert set(defaults.keys()) == expected_keys
 
     def test_default_fake_presence_is_dict_v2(self):
