@@ -447,12 +447,6 @@ async def ws_delete_user(
     }
 )
 @async_response
-@websocket_command(
-    {
-        vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
-    }
-)
-@async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
     connection: ActiveConnection,
@@ -552,7 +546,7 @@ async def ws_get_ha_nfc_tags(
     # Method 2: Check if tag component is loaded and has registry
     if not tag_registry:
         try:
-            tag_component = hass.components.tag
+            tag_component = getattr(hass, "components").tag
             if hasattr(tag_component, "registry"):
                 tag_registry = tag_component.registry
         except (AttributeError, ImportError):

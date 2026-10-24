@@ -6,8 +6,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from homeassistant.components.alarm_control_panel import (
-    AlarmControlPanelEntity,
+from homeassistant.components.alarm_control_panel import AlarmControlPanelEntity
+from homeassistant.components.alarm_control_panel.const import (
     AlarmControlPanelEntityFeature,
     CodeFormat,
 )
@@ -89,7 +89,7 @@ class SecureMeAlarmPanel(
         }
 
     @property
-    def alarm_state(self):
+    def alarm_state(self) -> Any:
         """Return the current alarm state.
 
         REVERT: 'armed_home_alone' previously mapped to HA's
@@ -115,7 +115,9 @@ class SecureMeAlarmPanel(
         The other five modes (disarmed/away/home/night/vacation) are
         untouched and continue to use HA's native enum values.
         """
-        from homeassistant.components.alarm_control_panel import AlarmControlPanelState
+        from homeassistant.components.alarm_control_panel.const import (
+            AlarmControlPanelState,
+        )
 
         state = self.coordinator.alarm_state
 
