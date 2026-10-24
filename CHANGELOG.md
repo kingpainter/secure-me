@@ -1,6 +1,9 @@
 # Secure Me - Changelog
 
 ## [2.2.0] - 2026-10-24
+### Security
+- Repeated wrong codes now lock code entry for 10 minutes (5 failures within 10 minutes). Applies to keypad, app, services and remote PIN checks. Trusted NFC tags without a PIN are not affected.
+
 ### Fixed
 - NFC: per-tag PIN check (`requires_pin`) is now enforced in the backend. A tag with a PIN only acts when the `tag_scanned` event carries a valid PIN in `code`.
 - NFC: disarm via tag no longer rejected when a global code is configured. Tags bypass the global code check; state machine rules still apply.
@@ -9,7 +12,8 @@
 
 ### Added
 - `secure_me_tag_scanned` event now includes `pin_required` and `pin_verified`.
-- Tests: `tests/test_nfc_tag_handling.py`.
+- Event `secure_me_code_locked` fires when a code lockout starts.
+- Tests: `tests/test_nfc_tag_handling.py`, `tests/test_code_attempts.py`.
 
 ## [2.1.0] - 2026-10-03
 ### NFC Tag Integration
