@@ -105,7 +105,7 @@ class TestBaseEngineTaskManagement:
         
         tasks = [asyncio.create_task(long_running()) for _ in range(3)]
         for task in tasks:
-            engine.register_cleanup(task)
+            engine.register_cleanup(lambda t=task: t)
         
         # All tasks should be running
         assert all(not task.done() for task in tasks)
@@ -196,8 +196,8 @@ class TestBaseEngineIntegration:
         task1 = asyncio.create_task(background_task())
         task2 = asyncio.create_task(background_task())
         
-        engine.register_cleanup(task1)
-        engine.register_cleanup(task2)
+        engine.register_cleanup(lambda: task1)
+        engine.register_cleanup(lambda: task2)
         
         assert len(engine._cleanup_tasks) == 2
         
