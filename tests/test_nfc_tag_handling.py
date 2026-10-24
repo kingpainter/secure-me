@@ -16,6 +16,7 @@ from custom_components.secure_me.const import (
     NFC_ACTION_ARM_AWAY,
     NFC_ACTION_DISARM,
 )
+from custom_components.secure_me.code_attempts import CodeAttemptLimiter
 from custom_components.secure_me.coordinator import SecureMeCoordinator
 
 
@@ -29,6 +30,7 @@ def _make_coordinator(tags: dict, auth_result=None, disarm_result=True):
     coord.state_machine = MagicMock(current_state="disarmed")
     coord.async_disarm = AsyncMock(return_value=disarm_result)
     coord.async_arm_away = AsyncMock(return_value=True)
+    coord.code_limiter = CodeAttemptLimiter()
     return coord
 
 
@@ -142,3 +144,22 @@ async def test_rejected_disarm_reports_failure():
 
     assert payload["success"] is False
     assert payload["error"] == "Command rejected by alarm state"
+
+
+async def test_locked_out_pin_tag_refuses_even_correct_pin():
+    tags = {
+        "t1": {
+            "action": NFC_ACTION_DISARM,
+            "name": "Keychain",
+            "requires_pin": True,
+        }
+    }
+    coord = _make_coordinator(tags, auth_result=("user-1", {"name": "Flemming"}))
+    for _ in range(5):
+        coord.code_limiter.record_result(False)
+
+    payload = await _scan(coord, "t1", {"code": "1234"})
+
+    coord.async_disarm.assert_not_called()
+    assert payload["success"] is False
+    assert payload["error"] == "Code entry is locked out"

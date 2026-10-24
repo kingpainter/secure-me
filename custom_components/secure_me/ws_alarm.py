@@ -3,6 +3,8 @@
 # VERSION = "2.2.0"
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import logging
 from typing import Any
 
@@ -19,9 +21,15 @@ _LOGGER = logging.getLogger(__name__)
 
 from .ws_helpers import _get_coordinator, _get_store
 
+if TYPE_CHECKING:
+    from .coordinator import SecureMeCoordinator
+
 
 async def _verify_pin_for_remote_action(
-    store, pin: str | None, user_id: str | None = None
+    store,
+    pin: str | None,
+    user_id: str | None = None,
+    coordinator: SecureMeCoordinator | None = None,
 ) -> tuple[bool, dict | None, str | None]:
     """Verify user PIN for remote arm/disarm actions.
 
@@ -33,7 +41,11 @@ async def _verify_pin_for_remote_action(
         # Local request — no PIN verification needed
         return True, None, None
 
+    if coordinator is not None and not coordinator.code_limiter.allow_attempt():
+        return False, None, "Code entry is locked out"
     result = store.authenticate_user_with_id(pin, user_id)
+    if coordinator is not None:
+        coordinator.record_code_result(result is not None)
     if not result:
         _LOGGER.warning(
             "Failed PIN verification for remote arm/disarm%s",
@@ -84,7 +96,7 @@ async def ws_arm_away(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
@@ -140,7 +152,7 @@ async def ws_arm_home(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
@@ -194,7 +206,7 @@ async def ws_arm_night(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
@@ -240,7 +252,7 @@ async def ws_arm_vacation(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
@@ -286,7 +298,7 @@ async def ws_arm_home_alone(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")
@@ -332,7 +344,7 @@ async def ws_disarm(
     pin = msg.get("pin")
     if pin:
         pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
-            store, pin
+            store, pin, coordinator=coordinator
         )
         if not pin_valid:
             connection.send_error(msg["id"], "invalid_pin", pin_error or "Invalid PIN")

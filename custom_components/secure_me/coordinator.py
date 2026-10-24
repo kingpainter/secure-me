@@ -16,11 +16,16 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .auto_actions import AutoActionsManager
+from .code_attempts import CodeAttemptLimiter
 from .const import (
     CONF_CODE,
     CONF_ENTRY_DELAY,
     CONF_EXIT_DELAY,
+    AUTH_FAILURE_WINDOW_SECONDS,
+    AUTH_LOCKOUT_SECONDS,
+    AUTH_MAX_FAILED_ATTEMPTS,
     CONF_TRIGGER_TIME,
+    EVENT_CODE_LOCKED,
     DEFAULT_TRIGGER_TIME,
     DOMAIN,
     EVENT_ACTION_ARM_AWAY,
@@ -113,6 +118,12 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Set holds strong refs (asyncio docs warn that without strong refs
         # tasks can be garbage-collected mid-execution).
         self._push_tasks: set[asyncio.Task] = set()
+        # Code-entry rate limiting; see validate_code() and code_attempts.py.
+        self.code_limiter = CodeAttemptLimiter(
+            max_failures=AUTH_MAX_FAILED_ATTEMPTS,
+            window=AUTH_FAILURE_WINDOW_SECONDS,
+            lockout=AUTH_LOCKOUT_SECONDS,
+        )
 
         self._code = config_entry.data.get(CONF_CODE, "")
         exit_delay = config_entry.data.get(CONF_EXIT_DELAY, 30)
@@ -721,55 +732,43 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     # ── Code validation ──────────────────────────────────────────────────────
 
     def validate_code(self, code: str | None) -> bool:
-        """Validate code. Uses bcrypt if store has hashed codes."""
+        """Validate code. Uses bcrypt if store has hashed codes.
+
+        Failed checks are counted by code_limiter. While it is locked out,
+        every check is refused without being evaluated. An empty global code
+        means no code is required, which is existing behaviour.
+        """
         if not self._code:
             return True
         if not code:
             return False
+        if not self.code_limiter.allow_attempt():
+            _LOGGER.warning("Code check refused: entry is locked out")
+            return False
         if hasattr(self, "store") and self.store:
-            result = self.store.authenticate_user(code)
-            return result is not None
-        # Legacy fallback: store not loaded yet (very early in startup), so
-        # compare against the single plaintext code from the config entry.
-        # hmac.compare_digest avoids a timing side-channel that a naive `==`
-        # comparison has (early-exit on first mismatched byte) -- low risk on
-        # a local home install, but a free, standard hardening here.
-        import hmac
+            ok = self.store.authenticate_user(code) is not None
+        else:
+            # Legacy fallback: store not loaded yet (very early in startup), so
+            # compare against the single plaintext code from the config entry.
+            # hmac.compare_digest avoids a timing side-channel that a naive `==`
+            # comparison has (early-exit on first mismatched byte).
+            import hmac
 
-        return hmac.compare_digest(code, self._code)
+            ok = hmac.compare_digest(code, self._code)
+        self.record_code_result(ok)
+        return ok
 
-    def _check_auth_rate_limit(self, user_id: str | None = None) -> bool:
-        """Check if user has exceeded authentication attempt rate limit.
-        
-        v2.2.0: Simple rate limiting - max 5 attempts per user per 5-minute window.
-        Returns True if rate limit is exceeded (reject auth attempt).
-        """
-        import time
-        
-        if not user_id:
-            user_id = "_unknown"
-        
-        now = time.monotonic()
-        # Clean old attempts outside the window
-        if user_id in self._auth_attempt_history:
-            cutoff = now - self._auth_attempt_window
-            self._auth_attempt_history[user_id] = [
-                ts for ts in self._auth_attempt_history[user_id] 
-                if ts > cutoff
-            ]
-        
-        # Check if limit exceeded
-        attempts = self._auth_attempt_history.get(user_id, [])
-        if len(attempts) >= self._auth_max_attempts:
+    def record_code_result(self, ok: bool) -> None:
+        """Feed a code check outcome to the limiter and announce new lockouts."""
+        if self.code_limiter.record_result(ok):
             _LOGGER.warning(
-                "Auth rate limit exceeded for %s (%d attempts in %ds window)",
-                user_id, len(attempts), self._auth_attempt_window
+                "Code entry locked out for %d seconds after repeated failures",
+                self.code_limiter.lockout_seconds,
             )
-            return True
-        
-        # Record this attempt
-        self._auth_attempt_history.setdefault(user_id, []).append(now)
-        return False
+            self.hass.bus.async_fire(
+                EVENT_CODE_LOCKED,
+                {"lockout_seconds": self.code_limiter.lockout_seconds},
+            )
 
     def identify_user(self, code: str | None) -> str:
         """Return the user's name from code, or 'user' as fallback."""
@@ -1509,12 +1508,19 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 if not supplied:
                     pin_verified = False
                     error_msg = "PIN required for this tag"
-                elif self.store.authenticate_user_with_id(str(supplied)):
-                    pin_verified = True
-                    pin_code = str(supplied)
-                else:
+                elif not self.code_limiter.allow_attempt():
                     pin_verified = False
-                    error_msg = "Invalid PIN"
+                    error_msg = "Code entry is locked out"
+                else:
+                    result = self.store.authenticate_user_with_id(str(supplied))
+                    ok = result is not None
+                    self.record_code_result(ok)
+                    if ok:
+                        pin_verified = True
+                        pin_code = str(supplied)
+                    else:
+                        pin_verified = False
+                        error_msg = "Invalid PIN"
                 _LOGGER.info(
                     "NFC tag '%s' (%s) PIN check: %s",
                     tag_name,
