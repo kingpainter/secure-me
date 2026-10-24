@@ -24,7 +24,7 @@ class TestBaseEngineInitialization:
         """Test __init__ creates logger."""
         engine = BaseEngine(mock_hass, {})
         assert engine.logger is not None
-        assert "BaseEngine" in str(engine.logger)
+        assert "base_engine" in engine.logger.name
 
     def test_init_sets_config(self, mock_hass):
         """Test __init__ stores config."""
@@ -111,7 +111,7 @@ class TestBaseEngineTaskManagement:
         assert all(not task.done() for task in tasks)
         
         # Cleanup should cancel them
-        await engine._cleanup_tasks()
+        await engine.async_stop()
         await asyncio.sleep(0.01)  # Give cancellation time
         
         # All tasks should be cancelled or done
@@ -129,14 +129,14 @@ class TestBaseEngineTaskManagement:
         engine.register_cleanup(task)
         
         # Should not raise exception
-        await engine._cleanup_tasks()
+        await engine.async_stop()
         assert task.done()
 
     @pytest.mark.asyncio
     async def test_cleanup_with_empty_task_list(self, engine):
         """Test cleanup with no registered tasks."""
         # Should not raise exception
-        await engine._cleanup_tasks()
+        await engine.async_stop()
         assert engine._cleanup_tasks == []
 
 
@@ -169,7 +169,7 @@ class TestBaseEngineErrorHandling:
         await asyncio.sleep(0.01)
         
         # Cleanup should handle failed tasks
-        await engine._cleanup_tasks()
+        await engine.async_stop()
 
 
 class TestBaseEngineIntegration:

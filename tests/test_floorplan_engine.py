@@ -12,7 +12,7 @@ class TestFloorplanEngine:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance for testing."""
-        return FloorplanEngine()
+        return FloorplanEngine(MagicMock())
 
     def test_init_creates_empty_state(self, engine):
         """Test __init__ creates empty rooms and openings."""
@@ -108,7 +108,7 @@ class TestFloorplanEngine:
         saved_state = engine.get_state()
         
         # Create new engine and load state
-        new_engine = FloorplanEngine()
+        new_engine = FloorplanEngine(MagicMock())
         new_engine.load_state(saved_state)
         
         # Verify state was restored

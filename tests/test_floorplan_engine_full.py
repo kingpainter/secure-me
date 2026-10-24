@@ -12,7 +12,7 @@ class TestFloorplanEngineBasics:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
-        return FloorplanEngine()
+        return FloorplanEngine(MagicMock())
 
     def test_init_empty_state(self, engine):
         """Test initialization creates empty state."""
@@ -58,7 +58,7 @@ class TestFloorplanEngineOpenings:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         engine.add_room("room_1", {"name": "Living Room"})
         return engine
 
@@ -124,7 +124,7 @@ class TestFloorplanEngineRoomStatus:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         engine.add_room("room_1", {"name": "Living Room"})
         return engine
 
@@ -200,7 +200,7 @@ class TestFloorplanEngineSummary:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         engine.add_room("room_1", {"name": "Living Room"})
         engine.add_room("room_2", {"name": "Bedroom"})
         engine.add_opening("opening_1", {
@@ -222,7 +222,7 @@ class TestFloorplanEngineSummary:
 
     def test_summary_empty(self):
         """Test summary of empty floorplan."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         summary = engine.get_summary()
         
         assert summary["rooms"] == {}
@@ -234,7 +234,7 @@ class TestFloorplanEnginePersistence:
 
     def test_save_and_load_state(self):
         """Test saving and loading state."""
-        engine1 = FloorplanEngine()
+        engine1 = FloorplanEngine(MagicMock())
         engine1.add_room("room_1", {"name": "Living Room"})
         engine1.add_opening("opening_1", {
             "room_id": "room_1",
@@ -246,7 +246,7 @@ class TestFloorplanEnginePersistence:
         saved = engine1.get_state()
         
         # Create new engine and load state
-        engine2 = FloorplanEngine()
+        engine2 = FloorplanEngine(MagicMock())
         engine2.load_state(saved)
         
         # Verify state was restored
@@ -256,7 +256,7 @@ class TestFloorplanEnginePersistence:
 
     def test_state_survives_modifications(self):
         """Test state remains intact after modifications."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         engine.add_room("room_1", {"name": "Living Room"})
         engine.add_opening("opening_1", {
             "room_id": "room_1",
@@ -283,7 +283,7 @@ class TestFloorplanEngineMarkers:
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
-        return FloorplanEngine()
+        return FloorplanEngine(MagicMock())
 
     def test_add_marker(self, engine):
         """Test adding a marker."""
@@ -308,7 +308,7 @@ class TestFloorplanEngineIntegration:
 
     def test_full_floorplan_workflow(self):
         """Test complete floorplan workflow."""
-        engine = FloorplanEngine()
+        engine = FloorplanEngine(MagicMock())
         
         # Add rooms
         engine.add_room("room_1", {"name": "Living Room"})
@@ -338,7 +338,7 @@ class TestFloorplanEngineIntegration:
         
         # Persist and restore
         saved = engine.get_state()
-        engine2 = FloorplanEngine()
+        engine2 = FloorplanEngine(MagicMock())
         engine2.load_state(saved)
         
         status2 = engine2.get_room_status("room_1")
