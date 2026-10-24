@@ -1,5 +1,16 @@
 # Secure Me - Changelog
 
+## [2.2.0] - 2026-10-24
+### Fixed
+- NFC: per-tag PIN check (`requires_pin`) is now enforced in the backend. A tag with a PIN only acts when the `tag_scanned` event carries a valid PIN in `code`.
+- NFC: disarm via tag no longer rejected when a global code is configured. Tags bypass the global code check; state machine rules still apply.
+- NFC: tag commands report the real result instead of always reporting success.
+- Version comments in `secure-me-alarm-card.js` and `services.yaml` corrected to 2.2.0.
+
+### Added
+- `secure_me_tag_scanned` event now includes `pin_required` and `pin_verified`.
+- Tests: `tests/test_nfc_tag_handling.py`.
+
 ## [2.1.0] - 2026-10-03
 ### NFC Tag Integration
 
