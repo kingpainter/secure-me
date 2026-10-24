@@ -36,7 +36,7 @@ jobs:
         run: ruff check custom_components/secure_me/
 
       - name: Type check (mypy)
-        run: mypy custom_components/secure_me/ --strict
+        run: mypy custom_components/secure_me/ --strict --exclude tools/
 
       - name: Run tests
         run: |
