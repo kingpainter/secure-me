@@ -69,8 +69,6 @@ async def _verify_pin_for_remote_action(
         vol.Optional("force", default=False): bool,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_arm_away(
     hass: HomeAssistant,
@@ -127,8 +125,6 @@ async def ws_arm_away(
         vol.Optional("force", default=False): bool,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_arm_home(
     hass: HomeAssistant,
@@ -184,8 +180,6 @@ async def ws_arm_home(
         vol.Optional("pin"): str,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_arm_night(
     hass: HomeAssistant,
@@ -232,8 +226,6 @@ async def ws_arm_night(
         vol.Optional("pin"): str,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_arm_vacation(
     hass: HomeAssistant,
@@ -280,8 +272,6 @@ async def ws_arm_vacation(
         vol.Optional("pin"): str,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_arm_home_alone(
     hass: HomeAssistant,
@@ -328,8 +318,6 @@ async def ws_arm_home_alone(
         vol.Optional("pin"): str,
     }
 )
-
-
 @websocket_api.async_response
 async def ws_disarm(
     hass: HomeAssistant,
@@ -371,8 +359,6 @@ async def ws_disarm(
         vol.Required("type"): f"{DOMAIN}/skip_delay",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_skip_delay(
     hass: HomeAssistant,
@@ -404,8 +390,6 @@ async def ws_skip_delay(
         vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_speaker_profiles(
     hass: HomeAssistant,
@@ -442,8 +426,6 @@ async def ws_get_speaker_profiles(
         vol.Required("profiles"): list,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_speaker_profiles(
@@ -488,8 +470,6 @@ async def ws_save_speaker_profiles(
         vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_home_alone_messages(
     hass: HomeAssistant,
@@ -534,8 +514,6 @@ async def ws_get_home_alone_messages(
         vol.Required("type"): f"{DOMAIN}/get_auto_actions",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_auto_actions(
     hass: HomeAssistant,
@@ -556,8 +534,6 @@ async def ws_get_auto_actions(
         vol.Required("config"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_auto_actions(
@@ -579,8 +555,6 @@ async def ws_save_auto_actions(
         vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_fake_presence_v2(
     hass: HomeAssistant,
@@ -601,8 +575,6 @@ async def ws_get_fake_presence_v2(
         vol.Required("config"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_fake_presence_v2(

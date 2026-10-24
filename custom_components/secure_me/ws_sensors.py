@@ -26,8 +26,6 @@ from .ws_helpers import _get_coordinator, _get_store
         vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_sensor_groups(
     hass: HomeAssistant,
@@ -49,8 +47,6 @@ async def ws_get_sensor_groups(
         vol.Required("config"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensor_group(
@@ -77,8 +73,6 @@ async def ws_save_sensor_group(
         vol.Required("group_id"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_sensor_group(
@@ -108,8 +102,6 @@ async def ws_delete_sensor_group(
         vol.Required("type"): f"{DOMAIN}/get_alarm_state",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_alarm_state(
     hass: HomeAssistant,
@@ -150,8 +142,6 @@ async def ws_get_alarm_state(
         vol.Required("type"): f"{DOMAIN}/get_sensors",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_sensors(
     hass: HomeAssistant,
@@ -174,8 +164,6 @@ async def ws_get_sensors(
         vol.Required("sensors"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_sensors(
@@ -214,8 +202,6 @@ async def ws_save_sensors(
         vol.Required("type"): f"{DOMAIN}/get_zones",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_zones(
     hass: HomeAssistant,
@@ -239,8 +225,6 @@ async def ws_get_zones(
         vol.Required("config"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_zone(
@@ -315,8 +299,6 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
         vol.Required("zone_id"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_zone(
@@ -357,8 +339,6 @@ async def ws_delete_zone(
         vol.Required("type"): f"{DOMAIN}/get_users",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_users(
     hass: HomeAssistant,
@@ -386,8 +366,6 @@ async def ws_get_users(
         vol.Required("config"): dict,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_user(
@@ -429,8 +407,6 @@ async def ws_save_user(
         vol.Required("user_id"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_user(
@@ -465,16 +441,12 @@ async def ws_delete_user(
         vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
     }
 )
-
-
 @websocket_api.async_response
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
@@ -500,8 +472,6 @@ async def ws_get_nfc_tags(
         vol.Required("name"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_register_nfc_tag(
@@ -531,8 +501,6 @@ async def ws_register_nfc_tag(
         vol.Required("tag_id"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_nfc_tag(
@@ -556,8 +524,6 @@ async def ws_delete_nfc_tag(
         vol.Required("type"): f"{DOMAIN}/get_ha_nfc_tags",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_ha_nfc_tags(
     hass: HomeAssistant,
@@ -641,8 +607,6 @@ async def ws_get_ha_nfc_tags(
         vol.Optional("name"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_import_nfc_tag(
@@ -682,8 +646,6 @@ async def ws_import_nfc_tag(
         vol.Required("type"): f"{DOMAIN}/get_persons",
     }
 )
-
-
 @websocket_api.async_response
 async def ws_get_persons(
     hass: HomeAssistant,
@@ -710,8 +672,6 @@ async def ws_get_persons(
         vol.Optional("hidden", default=True): bool,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_hide_sensor(
@@ -751,8 +711,6 @@ async def ws_hide_sensor(
         vol.Required("entity_id"): str,
     }
 )
-
-
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_unmark_environmental(
