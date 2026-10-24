@@ -10,7 +10,7 @@ Focus: Entity state changes, module internal state, mode transitions
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import MagicMock, AsyncMock, patch
 from homeassistant.core import HomeAssistant
 
 from custom_components.secure_me.modules.camera import CameraModule
@@ -46,7 +46,9 @@ class TestModuleStateTracking:
         module = CameraModule(mock_hass, config)
         mock_hass.services.async_call.return_value = None
 
-        result = await module.async_arm("away")
+        # Skip the real POE settle delay (120 s) so the test stays fast.
+        with patch("custom_components.secure_me.modules.camera.asyncio.sleep", new=AsyncMock()):
+            result = await module.async_arm("away")
         assert result is True
 
     @pytest.mark.asyncio

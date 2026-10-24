@@ -104,7 +104,12 @@ async def _call_ws_handler(handler, hass, connection, msg):
     test is to call it (fire-and-forget, as the real websocket_api dispatch
     loop does) and then let hass's task tracking settle before asserting.
     """
-    handler(hass, connection, msg)
+    from homeassistant.exceptions import Unauthorized
+
+    try:
+        handler(hass, connection, msg)
+    except Unauthorized:
+        connection.send_error(msg["id"], "unauthorized", "Unauthorized")
     await hass.async_block_till_done(wait_background_tasks=True)
 
 

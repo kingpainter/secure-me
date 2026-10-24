@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 from typing import Any
@@ -28,6 +29,7 @@ class MockHass:
         self.services.async_call = AsyncMock()
         self.config_entries = MagicMock()
         self.config_entries.async_update_entry = MagicMock()
+        self.async_create_task = lambda coro: asyncio.create_task(coro)
         self.http = MagicMock()
         self.http.async_register_static_paths = AsyncMock()
         self.config = MagicMock()

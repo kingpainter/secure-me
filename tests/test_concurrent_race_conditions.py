@@ -98,7 +98,7 @@ class TestStoreThreadPoolExecutorReuse:
         from custom_components.secure_me.store import Store
         
         hass = MockHass()
-        store = Store(hass)
+        store = Store(hass, 1, "secure_me_test")
         
         # Verify executor was created
         assert hasattr(store, "_executor")
