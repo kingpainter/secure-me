@@ -165,7 +165,7 @@ class TestScopedTracking:
         )
         coordinator = FakeAutoActionsCoordinator()
         manager = AutoActionsManager(hass, coordinator, store)
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)  # let the initial-presence check task run
 
         hass.states.async_set("person.guest", "not_home")
@@ -212,7 +212,7 @@ class TestRecheckGranularControls:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         coordinator.alarm_state = STATE_ALARM_DISARMED
@@ -240,7 +240,7 @@ class TestRecheckGranularControls:
         coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
         assert manager._all_away_since is not None  # just set moments ago
 
@@ -269,7 +269,7 @@ class TestRecheckGranularControls:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
         # Simulate the house having been empty for a long time already
         manager._all_away_since = time.monotonic() - 400
@@ -301,7 +301,7 @@ class TestRecheckGranularControls:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         coordinator.alarm_state = STATE_ALARM_DISARMED
@@ -330,7 +330,7 @@ class TestRecheckGranularControls:
         coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         coordinator.alarm_state = STATE_ALARM_DISARMED
@@ -358,7 +358,7 @@ class TestRecheckGranularControls:
         coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         coordinator.alarm_state = STATE_ALARM_DISARMED
@@ -396,7 +396,7 @@ class TestInitialPresenceCheck:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)  # let _check_initial_presence() + 0-delay action run
 
         assert manager._home_empty is True
@@ -415,7 +415,7 @@ class TestInitialPresenceCheck:
         coordinator = FakeAutoActionsCoordinator()
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         assert manager._home_empty is False
@@ -430,7 +430,7 @@ class TestInitialPresenceCheck:
         coordinator = FakeAutoActionsCoordinator()
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         assert manager._home_empty is False
@@ -462,7 +462,7 @@ class TestFakePresenceExecutionTimeRecheck:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)  # initial check runs; Fake Presence inactive -> action scheduled
 
         assert manager._home_empty is True
@@ -495,7 +495,7 @@ class TestFakePresenceExecutionTimeRecheck:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert coordinator.arm_away_calls == 1
@@ -615,7 +615,7 @@ class TestSkipAllWhenAlreadyArmed:
         coordinator.alarm_state = armed_state
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)  # let the initial-presence check run
 
         assert manager._home_empty is False
@@ -637,7 +637,7 @@ class TestSkipAllWhenAlreadyArmed:
         coordinator.alarm_state = STATE_ALARM_DISARMED
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert manager._home_empty is True
@@ -666,7 +666,7 @@ class TestRecheckOnDisarm:
         coordinator.alarm_state = STATE_ALARM_ARMED_AWAY
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
         assert manager._home_empty is False  # already armed -- skipped
 
@@ -691,7 +691,7 @@ class TestRecheckOnDisarm:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
         assert manager._home_empty is False  # already armed at startup -- skipped
 
@@ -716,7 +716,7 @@ class TestRecheckOnDisarm:
         coordinator.alarm_state = STATE_ALARM_ARMED_HOME
         manager = AutoActionsManager(hass, coordinator, store)
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
 
         coordinator.alarm_state = STATE_ALARM_DISARMED

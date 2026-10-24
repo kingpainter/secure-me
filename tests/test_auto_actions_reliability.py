@@ -152,7 +152,7 @@ class TestStaleTrackerTimeout:
         )
         coordinator = FakeReliabilityCoordinator()
         manager = AutoActionsManager(hass, coordinator, store)
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.05)
         assert "person.flemming" in manager._tracker_stale_since
 
@@ -250,7 +250,7 @@ class TestFailedAutoArmReporting:
         # Prevent the real retry from firing mid-test and double-counting calls.
         manager._retry_alarm_after_delay = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm_failed" in manager._done_actions
@@ -279,7 +279,7 @@ class TestFailedAutoArmReporting:
 
         manager._send_summary_notification = _capture_notification
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert sent_messages  # notification was triggered once all settled
@@ -299,7 +299,7 @@ class TestFailedAutoArmReporting:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm" in manager._done_actions
@@ -388,7 +388,7 @@ class TestAlarmRetry:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm_retry" in manager._action_tasks

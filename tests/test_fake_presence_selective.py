@@ -69,7 +69,7 @@ class TestSelectiveBlockingAtSchedulingTime:
     @pytest.mark.asyncio
     async def test_block_alarm_only_blocks_alarm(self, hass):
         manager, coordinator = _make_manager(hass, _fp(True, block_alarm=True))
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm_skipped" in manager._done_actions
@@ -82,7 +82,7 @@ class TestSelectiveBlockingAtSchedulingTime:
     @pytest.mark.asyncio
     async def test_block_locks_only_blocks_lock(self, hass):
         manager, coordinator = _make_manager(hass, _fp(True, block_locks=True))
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "lock_skipped" in manager._done_actions
@@ -95,7 +95,7 @@ class TestSelectiveBlockingAtSchedulingTime:
     @pytest.mark.asyncio
     async def test_block_cameras_only_blocks_camera(self, hass):
         manager, coordinator = _make_manager(hass, _fp(True, block_cameras=True))
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "camera_skipped" in manager._done_actions
@@ -112,7 +112,7 @@ class TestSelectiveBlockingAtSchedulingTime:
         manager, coordinator = _make_manager(
             hass, _fp(True, block_alarm=True, block_cameras=True)
         )
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm_skipped" in manager._done_actions
@@ -127,7 +127,7 @@ class TestSelectiveBlockingAtSchedulingTime:
         manager, coordinator = _make_manager(
             hass, _fp(True, block_alarm=True, block_locks=True, block_cameras=True)
         )
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm_skipped" in manager._done_actions
@@ -145,7 +145,7 @@ class TestSelectiveBlockingAtSchedulingTime:
         manager, coordinator = _make_manager(
             hass, _fp(False, block_alarm=True, block_locks=True, block_cameras=True)
         )
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         assert "alarm" in manager._done_actions
@@ -190,7 +190,7 @@ class TestSelectiveBlockingSummaryNotification:
         manager = AutoActionsManager(hass, coordinator, store)
         manager._send_summary_notification = AsyncMock()
 
-        manager.async_start()
+        await manager.async_start()
         await asyncio.sleep(0.1)
 
         # All three actions reached a settled state.

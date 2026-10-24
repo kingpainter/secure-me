@@ -1388,7 +1388,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             or self._auto_actions_manager is None
         ):
             self._auto_actions_manager = AutoActionsManager(self.hass, self, store)
-            self._auto_actions_manager.async_start()
+            await self._auto_actions_manager.async_start()
         else:
             # Store re-loaded (e.g. config entry reload) -- refresh the
             # tracked-user set in case profiles changed since the manager

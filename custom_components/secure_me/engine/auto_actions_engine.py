@@ -149,8 +149,7 @@ class AutoActionsEngine(BaseEngine):
     # Public lifecycle
     # -------------------------------------------------------------------------
 
-    @callback
-    def async_start(self) -> None:
+    async def async_start(self) -> None:
         """Register presence state listener and start monitoring.
 
         v1.5.4: Scoped to Secure Me users only (previously watched every

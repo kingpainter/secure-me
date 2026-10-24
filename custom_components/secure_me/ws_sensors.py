@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import voluptuous as vol
 from homeassistant.components.websocket_api.connection import ActiveConnection
@@ -546,7 +546,7 @@ async def ws_get_ha_nfc_tags(
     # Method 2: Check if tag component is loaded and has registry
     if not tag_registry:
         try:
-            tag_component = getattr(hass, "components").tag
+            tag_component = cast(Any, hass).components.tag
             if hasattr(tag_component, "registry"):
                 tag_registry = tag_component.registry
         except (AttributeError, ImportError):
