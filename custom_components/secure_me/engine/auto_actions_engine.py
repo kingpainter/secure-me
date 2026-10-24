@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -98,11 +99,11 @@ class AutoActionsEngine(BaseEngine):
         self.store = store
 
         # Pending asyncio tasks keyed by action name
-        self._action_tasks: dict[str, asyncio.Task] = {}
+        self._action_tasks: dict[str, asyncio.Task[None]] = {}
         # Arrival confirmation task
-        self._arrival_task: asyncio.Task | None = None
+        self._arrival_task: asyncio.Task[None] | None = None
         # v1.5.x: Delayed disarm-recheck task (see _handle_alarm_disarmed())
-        self._recheck_task: asyncio.Task | None = None
+        self._recheck_task: asyncio.Task[None] | None = None
 
         # Track which actions have already run in this "home empty" cycle
         self._done_actions: set[str] = set()
@@ -127,11 +128,11 @@ class AutoActionsEngine(BaseEngine):
         self._current_only_actions: set[str] | None = None
 
         # HA state listener cancel handle
-        self._unsub_listener = None
-        self._unsub_disarm_listener = None
+        self._unsub_listener: Callable[[], None] | None = None
+        self._unsub_disarm_listener: Callable[[], None] | None = None
         # v1.5.x: Periodic fallback timer for the stale-tracker timeout (see
         # _all_persons_away()/_periodic_stale_check()).
-        self._unsub_stale_check = None
+        self._unsub_stale_check: Callable[[], None] | None = None
 
         # v1.5.4: Scoped presence tracking -- only person_entity/tracker_entity
         # from enabled Secure Me user profiles, not every person.* entity in
@@ -895,7 +896,7 @@ class AutoActionsEngine(BaseEngine):
             self._all_away_since = time.monotonic()
 
     @callback
-    def _periodic_stale_check(self, now=None) -> None:
+    def _periodic_stale_check(self, now: Any = None) -> None:
         """Periodic fallback re-evaluation for the stale-tracker timeout.
 
         See async_start() docstring for why this timer exists: without it,

@@ -266,7 +266,7 @@ async def ws_save_zone(
     connection.send_result(msg["id"], {"success": True})
 
 
-def _reload_zones_into_coordinator(coordinator, store) -> None:
+def _reload_zones_into_coordinator(coordinator: Any, store: Any) -> None:
     """Rebuild zone_manager zones from store data."""
     zm = coordinator.zone_manager
     # Remove all existing zones cleanly
@@ -574,7 +574,7 @@ async def ws_get_ha_nfc_tags(
         elif isinstance(tag_registry, dict):
             tag_ids = list(tag_registry.keys())
 
-    def _read_tag_storage(path: Path) -> list[str]:
+    def _read_tag_storage(path: Path) -> list[Any]:
         """Read tag IDs from .storage/tag. Blocking; runs in the executor."""
         if not path.exists():
             return []

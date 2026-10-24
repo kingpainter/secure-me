@@ -64,11 +64,11 @@ CHANNEL_PUSH = "push"
 CHANNEL_TTS = "tts"
 
 
-def _get_store(hass: HomeAssistant):
+def _get_store(hass: HomeAssistant) -> Any:
     return hass.data.get(DOMAIN, {}).get("store")
 
 
-def _get_tts_module(hass: HomeAssistant):
+def _get_tts_module(hass: HomeAssistant) -> Any:
     """Get enabled TTS module from coordinator, if any."""
     for entry_data in hass.data.get(DOMAIN, {}).values():
         if isinstance(entry_data, dict) and "coordinator" in entry_data:
@@ -78,7 +78,7 @@ def _get_tts_module(hass: HomeAssistant):
     return None
 
 
-def _is_tts_quiet_now(user: dict) -> bool:
+def _is_tts_quiet_now(user: dict[str, Any]) -> bool:
     """Return True if current time is within the user's TTS quiet hours."""
     start = user.get("tts_quiet_start")
     end = user.get("tts_quiet_end")
@@ -86,9 +86,9 @@ def _is_tts_quiet_now(user: dict) -> bool:
         return False
     now_hour = datetime.now(UTC).hour
     if start <= end:
-        return start <= now_hour < end
+        return bool(start <= now_hour < end)
     # Wraps midnight: e.g. 22–07
-    return now_hour >= start or now_hour < end
+    return bool(now_hour >= start or now_hour < end)
 
 
 def _build_message(template: str, context: dict[str, str]) -> str:
@@ -117,7 +117,7 @@ async def _send_push(
     message: str,
     *,
     critical: bool = False,
-    actions: list | None = None,
+    actions: list[Any] | None = None,
 ) -> None:
     """Send a push notification via a notify service."""
     try:
@@ -143,10 +143,10 @@ async def _send_push(
 
 async def _send_tts_to_user(
     hass: HomeAssistant,
-    user: dict,
+    user: dict[str, Any],
     message: str,
     urgent: bool = False,
-    speaker_ids: list | None = None,
+    speaker_ids: list[Any] | None = None,
 ) -> None:
     """Send TTS announcement, respecting the user's quiet hours.
 
@@ -171,8 +171,8 @@ async def _send_tts_to_user(
 
 async def _dispatch_to_user(
     hass: HomeAssistant,
-    notif: dict,
-    user: dict | None,
+    notif: dict[str, Any],
+    user: dict[str, Any] | None,
     title: str,
     message: str,
     *,
@@ -354,7 +354,7 @@ async def dispatch_home_alone_door_trigger(
 
     # store.get_users() returns the in-memory user dict directly.
     # async_load() is void (loads from disk into self._data) — do NOT use its return value.
-    users: dict[str, dict] = store.get_users()
+    users: dict[str, dict[str, Any]] = store.get_users()
 
     camera_entity = sensor_cfg.get(CONF_HOME_ALONE_CAMERA)
     speaker_entity = sensor_cfg.get(CONF_HOME_ALONE_SPEAKER)
@@ -508,10 +508,12 @@ class NotificationEngine(BaseEngine):
     Always-on: smoke/water_leak fire regardless of notification toggle.
     """
 
-    def __init__(self, hass: HomeAssistant, config: dict | None = None) -> None:
+    def __init__(
+        self, hass: HomeAssistant, config: dict[str, Any] | None = None
+    ) -> None:
         """Initialize NotificationEngine."""
         super().__init__(hass, config or {})
-        self._unsubs: list = []
+        self._unsubs: list[Any] = []
         self._smoke_sensors: set[str] = set()
         self._moisture_sensors: set[str] = set()
 
@@ -559,7 +561,7 @@ class NotificationEngine(BaseEngine):
         # the coroutine, so on an installation with hundreds of entities this
         # cuts the vast majority of unnecessary callback invocations.
         @callback
-        def _is_binary_sensor_event(event_data: dict) -> bool:
+        def _is_binary_sensor_event(event_data: dict[str, Any]) -> bool:
             entity_id = event_data.get("entity_id", "")
             return isinstance(entity_id, str) and entity_id.startswith("binary_sensor.")
 

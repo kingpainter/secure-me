@@ -3,17 +3,19 @@
 # VERSION = "2.2.0"
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 
 
-def _get_store(hass: HomeAssistant):
+def _get_store(hass: HomeAssistant) -> Any:
     """Return the SecureMeStore instance, or None if not yet initialised."""
     return hass.data[DOMAIN].get("store")
 
 
-def _get_coordinator(hass: HomeAssistant):
+def _get_coordinator(hass: HomeAssistant) -> Any:
     """Return the active SecureMeCoordinator, or None if not found.
 
     Fix 2 (secure_me_implementering.md): prefers entry.runtime_data, the
@@ -36,8 +38,8 @@ def _get_coordinator(hass: HomeAssistant):
 
 def _discover_batteries(
     hass,
-    configured_entity_ids: set | None = None,
-) -> list[dict]:
+    configured_entity_ids: set[str] | None = None,
+) -> list[dict[str, Any]]:
     """Discover battery sensors for configured Secure Me sensors only.
 
     Moved here from websocket_api.py to avoid circular imports when
@@ -58,7 +60,7 @@ def _discover_batteries(
     except Exception:
         device_ids = set()
 
-    batteries: list[dict] = []
+    batteries: list[dict[str, Any]] = []
     for state in hass.states.async_all("sensor"):
         if state.attributes.get("device_class") != "battery":
             continue

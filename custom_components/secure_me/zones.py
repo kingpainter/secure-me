@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import Event, HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
@@ -198,7 +198,7 @@ class ZoneManager:
         self.hass = hass
         self._zones: dict[str, Zone] = {}
         self._sensor_to_zone: dict[str, str] = {}
-        self._unsubscribe_callbacks: list = []
+        self._unsubscribe_callbacks: list[Any] = []
         self._trigger_callback = None
         self._arm_on_close_callback = None  # called when arm_on_close sensor closes
 
@@ -240,7 +240,7 @@ class ZoneManager:
         self._HOME_ALONE_TRIGGER_TTL: int = 300
 
         # v1.4.3: Always-on ready-modes listener (active even while disarmed)
-        self._ready_modes_unsub = None
+        self._ready_modes_unsub: Any = None
 
         _LOGGER.info("Zone manager initialized")
 
@@ -250,10 +250,10 @@ class ZoneManager:
     def zones(self) -> dict[str, Zone]:
         return self._zones
 
-    def register_trigger_callback(self, callback_func) -> None:
+    def register_trigger_callback(self, callback_func: Any) -> None:
         self._trigger_callback = callback_func
 
-    def register_arm_on_close_callback(self, callback_func) -> None:
+    def register_arm_on_close_callback(self, callback_func: Any) -> None:
         """Register callback for arm_on_close events."""
         self._arm_on_close_callback = callback_func
 
@@ -578,7 +578,7 @@ class ZoneManager:
         from homeassistant.helpers.event import async_track_state_change_event
 
         @callback
-        def _on_state_change(event) -> None:
+        def _on_state_change(event: Event) -> None:
             self._check_ready_modes_changed()
 
         self._ready_modes_unsub = async_track_state_change_event(
@@ -672,7 +672,9 @@ class ZoneManager:
 
     # ── Monitoring ──────────────────────────────────────────────────────────
 
-    def start_monitoring(self, callback_func=None, arm_mode: str = "away") -> None:
+    def start_monitoring(
+        self, callback_func: Any = None, arm_mode: str = "away"
+    ) -> None:
         """Start monitoring sensors for a specific arm mode.
 
         Only zones that include the given arm_mode in their arm_modes list
@@ -715,7 +717,7 @@ class ZoneManager:
             return
 
         @callback
-        def _sensor_state_changed(event) -> None:
+        def _sensor_state_changed(event: Event) -> None:
             """Handle sensor state change event."""
             entity_id = event.data.get("entity_id")
             new_state = event.data.get("new_state")

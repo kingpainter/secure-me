@@ -46,7 +46,7 @@ class BaseEngine:
         self.config = config
         self.logger = logger or _LOGGER
         self._running = False
-        self._cleanup_tasks: list[Callable[[], asyncio.Task]] = []
+        self._cleanup_tasks: list[Callable[[], asyncio.Task[None]]] = []
 
     async def async_start(self) -> None:
         """Start the engine.
@@ -77,7 +77,7 @@ class BaseEngine:
         self._cleanup_tasks.clear()
         self.logger.debug(f"{self.__class__.__name__} stopped")
 
-    def register_cleanup(self, cleanup_fn: Callable[[], asyncio.Task]) -> None:
+    def register_cleanup(self, cleanup_fn: Callable[[], asyncio.Task[None]]) -> None:
         """Register a cleanup function to call on async_stop().
 
         Usage:

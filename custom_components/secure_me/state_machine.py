@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from homeassistant.core import HomeAssistant
 
@@ -63,11 +64,11 @@ class AlarmStateMachine:
         self._current_state = STATE_ALARM_DISARMED
         self._target_state: str | None = None
         self._countdown: int = 0
-        self._countdown_task: asyncio.Task | None = None
-        self._trigger_reset_task: asyncio.Task | None = None
+        self._countdown_task: asyncio.Task[None] | None = None
+        self._trigger_reset_task: asyncio.Task[None] | None = None
 
-        self._state_change_callbacks: list[Callable] = []
-        self._countdown_callbacks: list[Callable] = []
+        self._state_change_callbacks: list[Callable[..., Any]] = []
+        self._countdown_callbacks: list[Callable[..., Any]] = []
 
         # Lock to prevent race conditions on rapid arm/disarm
         self._transition_lock = asyncio.Lock()
@@ -136,10 +137,10 @@ class AlarmStateMachine:
             entry_delay,
         )
 
-    def add_state_change_callback(self, callback: Callable) -> None:
+    def add_state_change_callback(self, callback: Callable[..., Any]) -> None:
         self._state_change_callbacks.append(callback)
 
-    def add_countdown_callback(self, callback: Callable) -> None:
+    def add_countdown_callback(self, callback: Callable[..., Any]) -> None:
         self._countdown_callbacks.append(callback)
 
     # ── Internal ─────────────────────────────────────────────────────────────
