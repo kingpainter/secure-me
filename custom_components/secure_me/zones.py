@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Any
 
-from homeassistant.core import Event, HomeAssistant, State, callback
+from homeassistant.core import HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import (
@@ -578,7 +578,7 @@ class ZoneManager:
         from homeassistant.helpers.event import async_track_state_change_event
 
         @callback
-        def _on_state_change(event: Event) -> None:
+        def _on_state_change(event: Any) -> None:
             self._check_ready_modes_changed()
 
         self._ready_modes_unsub = async_track_state_change_event(
@@ -717,7 +717,7 @@ class ZoneManager:
             return
 
         @callback
-        def _sensor_state_changed(event: Event) -> None:
+        def _sensor_state_changed(event: Any) -> None:
             """Handle sensor state change event."""
             entity_id = event.data.get("entity_id")
             new_state = event.data.get("new_state")
