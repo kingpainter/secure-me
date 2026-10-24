@@ -52,8 +52,8 @@ class SirenModule(AlarmModule):
         self.flash_duration = config.get("flash_duration", DEFAULT_FLASH_DURATION)
         self.sound_on_trigger = config.get("sound_on_trigger", True)
         self.light_on_trigger = config.get("light_on_trigger", True)
-        self._flash_task = None
-        self._duration_tasks: list[asyncio.Task] = []
+        self._flash_task: asyncio.Task[None] | None = None
+        self._duration_tasks: list[asyncio.Task[None]] = []
 
     # ------------------------------------------------------------------
     # Helpers

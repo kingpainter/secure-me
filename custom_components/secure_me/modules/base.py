@@ -31,7 +31,7 @@ class AlarmModule(ABC):
         self.hass = hass
         self.config = config
         self._enabled = config.get("enabled", True)
-        self._state_backup = {}
+        self._state_backup: dict[str, Any] = {}
 
         # Retry configuration (can be overridden per module via config)
         self._retry_max: int = config.get("retry_max", DEFAULT_RETRY_MAX)
@@ -45,7 +45,7 @@ class AlarmModule(ABC):
     @property
     def enabled(self) -> bool:
         """Return if module is enabled."""
-        return self._enabled
+        return bool(self._enabled)
 
     @property
     def degraded(self) -> bool:

@@ -39,7 +39,7 @@ class LightsModule(AlarmModule):
         self.restore_on_disarm = config.get("restore_on_disarm", True)
         self.emergency_mode = config.get("emergency_mode", True)
         self.flash_duration = config.get("flash_duration", 300)
-        self._flash_task = None
+        self._flash_task: asyncio.Task[None] | None = None
 
     async def async_arm(self, mode: str) -> bool:
         """Backup light states and optionally turn off when arming."""

@@ -46,7 +46,7 @@ _MODULE_CLASSES = {
 }
 
 
-def get_module_entity_ids(module) -> list[str]:
+def get_module_entity_ids(module: Any) -> list[str]:
     """Extract every entity_id a module currently owns, for health/availability checks.
 
     Single source of truth for this logic -- previously ws_modules.py kept its
@@ -108,11 +108,11 @@ def get_module_entity_ids(module) -> list[str]:
     return list({e for e in entities if e and isinstance(e, str) and "." in e})
 
 
-def normalize_module_config(module_id: str, config: dict) -> dict:
+def normalize_module_config(module_id: str, config: dict[str, Any]) -> dict[str, Any]:
     """Normalize panel-saved config (objects) to module class format (flat strings)."""
     normalized = dict(config)
 
-    def extract_ids(items) -> list[str]:
+    def extract_ids(items: Any) -> list[str]:
         if not isinstance(items, list):
             return []
         result = []
@@ -177,7 +177,7 @@ class ModuleDispatcher:
         self.config_entry = config_entry
         self.modules: dict[str, Any] = {}
 
-        self._battery_cache: list[dict] | None = None
+        self._battery_cache: list[dict[str, Any]] | None = None
         self._battery_cache_time: float = 0.0
         self._battery_cache_ttl: float = 300.0  # 5-minute TTL
 
@@ -202,7 +202,7 @@ class ModuleDispatcher:
 
         _LOGGER.info("Modules initialized: %s", list(self.modules.keys()))
 
-    def update_module_config(self, module_id: str, config: dict) -> bool:
+    def update_module_config(self, module_id: str, config: dict[str, Any]) -> bool:
         """Re-initialize a module with updated configuration."""
         cls = _MODULE_CLASSES.get(module_id)
         if not cls:
@@ -218,7 +218,7 @@ class ModuleDispatcher:
     # Arm / disarm / trigger dispatch
     # -------------------------------------------------------------------------
 
-    async def _dispatch(self, action: str, call) -> None:
+    async def _dispatch(self, action: str, call: Any) -> None:
         """Call `call(module)` on every enabled module, firing EVENT_MODULE_ERROR
         for any that raise instead of letting one bad module abort the rest.
 
@@ -258,7 +258,7 @@ class ModuleDispatcher:
     # Health / battery
     # -------------------------------------------------------------------------
 
-    def get_batteries_cached(self, configured_eids: set[str]) -> list[dict]:
+    def get_batteries_cached(self, configured_eids: set[str]) -> list[dict[str, Any]]:
         """Return cached battery list; rebuilds every 5 minutes."""
         now = time.monotonic()
         if (
@@ -288,7 +288,7 @@ class ModuleDispatcher:
                     available += 1
         return round((available / total) * 100) if total > 0 else 100
 
-    def get_module_health(self) -> dict[str, dict]:
+    def get_module_health(self) -> dict[str, dict[str, Any]]:
         result = {}
         for mid, module in self.modules.items():
             if not module.enabled:
