@@ -1158,8 +1158,14 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
         return success
 
-    async def async_disarm(self, code: str | None = None) -> bool:
+    async def async_disarm(
+        self, code: str | None = None, skip_code: bool = False
+    ) -> bool:
         """Disarm the alarm.
+
+        skip_code=True is used by trusted NFC tags, where the physical tag is
+        the credential (and any PIN was already verified by the caller). It
+        bypasses only the global code check, not the state machine rules.
 
         v1.4.3: Fires EVENT_ALARM_INVALID_CODE on bad code and
         EVENT_ALARM_COMMAND_REJECTED if the state machine refuses
@@ -1168,7 +1174,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         but service-call paths bypass that layer entirely.
         """
         _LOGGER.info("Disarming alarm")
-        if not self.validate_code(code):
+        if not skip_code and not self.validate_code(code):
             _LOGGER.warning("Invalid code provided for disarm")
             self.hass.bus.async_fire(
                 EVENT_ALARM_INVALID_CODE,
@@ -1466,7 +1472,15 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     # ── Shutdown ─────────────────────────────────────────────────────────────
 
     async def async_listen_nfc_events(self) -> None:
-        """Listen for tag_scanned events and execute corresponding actions."""
+        """Listen for tag_scanned events and execute corresponding actions.
+
+        Tags with requires_pin=True act only when the tag_scanned event carries
+        a valid user PIN in event.data["code"] (an automation or dashboard must
+        supply it; a bare phone scan has no PIN). Tags without requires_pin act
+        on the scan alone, by design. Commands from tags bypass the global code
+        check on disarm (skip_code=True), because the tag is the credential.
+        The PIN itself is never logged or included in the fired event.
+        """
         if self._nfc_unsub:
             self._nfc_unsub()
 
@@ -1476,45 +1490,76 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             if not tag_id:
                 return
 
-            nfc_tags = self.store.get_nfc_tags()
-            tag_config = nfc_tags.get(tag_id)
-            
+            tag_config = self.store.get_nfc_tags().get(tag_id)
             if not tag_config:
                 _LOGGER.warning("NFC tag scanned but not registered: %s", tag_id)
                 return
 
             action = tag_config.get("action")
             tag_name = tag_config.get("name", tag_id)
-            
-            _LOGGER.info("NFC tag '%s' (%s) scanned: attempting %s", tag_name, tag_id, action)
-            
+            requires_pin = bool(tag_config.get("requires_pin", False))
+
+            pin_verified: bool | None = None
+            pin_code: str | None = None
+            error_msg: str | None = None
             success = False
-            error_msg = None
-            final_state = self.alarm_state
-            
-            try:
-                # Execute action (follow normal arm/disarm rules)
-                if action == NFC_ACTION_DISARM:
-                    await self.async_disarm()
-                    success = True
-                    _LOGGER.info("NFC disarm successful via tag '%s'", tag_name)
-                elif action == NFC_ACTION_ARM_AWAY:
-                    await self.async_arm_away()  # Will follow normal arm rules
-                    success = True
-                    _LOGGER.info("NFC arm away successful via tag '%s'", tag_name)
+
+            if requires_pin:
+                supplied = event.data.get("code")
+                if not supplied:
+                    pin_verified = False
+                    error_msg = "PIN required for this tag"
+                elif self.store.authenticate_user_with_id(str(supplied)):
+                    pin_verified = True
+                    pin_code = str(supplied)
                 else:
-                    error_msg = f"Unknown NFC action: {action}"
-                    _LOGGER.error("NFC tag '%s': %s", tag_name, error_msg)
-                
-                final_state = self.alarm_state
-                
-            except Exception as err:
-                success = False
-                error_msg = str(err)
-                final_state = self.alarm_state
-                _LOGGER.error("NFC tag '%s' (%s) failed to execute %s: %s", tag_name, tag_id, action, error_msg)
-            
-            # Fire custom event with full details
+                    pin_verified = False
+                    error_msg = "Invalid PIN"
+                _LOGGER.info(
+                    "NFC tag '%s' (%s) PIN check: %s",
+                    tag_name,
+                    tag_id,
+                    "passed" if pin_verified else "failed",
+                )
+
+            if requires_pin and not pin_verified:
+                _LOGGER.warning(
+                    "NFC tag '%s' (%s) rejected: %s", tag_name, tag_id, error_msg
+                )
+            else:
+                _LOGGER.info(
+                    "NFC tag '%s' (%s) scanned: attempting %s",
+                    tag_name,
+                    tag_id,
+                    action,
+                )
+                try:
+                    if action == NFC_ACTION_DISARM:
+                        success = await self.async_disarm(
+                            code=pin_code, skip_code=True
+                        )
+                    elif action == NFC_ACTION_ARM_AWAY:
+                        success = await self.async_arm_away(code=pin_code)
+                    else:
+                        error_msg = f"Unknown NFC action: {action}"
+                        _LOGGER.error("NFC tag '%s': %s", tag_name, error_msg)
+                    if (
+                        action in (NFC_ACTION_DISARM, NFC_ACTION_ARM_AWAY)
+                        and not success
+                    ):
+                        error_msg = error_msg or "Command rejected by alarm state"
+                        _LOGGER.warning("NFC tag '%s': %s", tag_name, error_msg)
+                except Exception as err:
+                    success = False
+                    error_msg = str(err)
+                    _LOGGER.error(
+                        "NFC tag '%s' (%s) failed to execute %s: %s",
+                        tag_name,
+                        tag_id,
+                        action,
+                        error_msg,
+                    )
+
             self.hass.bus.async_fire(
                 EVENT_SECURE_ME_TAG_SCANNED,
                 {
@@ -1523,8 +1568,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     "action": action,
                     "success": success,
                     "error": error_msg,
-                    "alarm_state": final_state,
-                }
+                    "alarm_state": self.alarm_state,
+                    "pin_required": requires_pin,
+                    "pin_verified": pin_verified,
+                },
             )
 
         self._nfc_unsub = self.hass.bus.async_listen("tag_scanned", handle_nfc_event)
