@@ -71,7 +71,7 @@ BCRYPT_ROUNDS = 10
 MAX_WORKERS = 4
 
 
-class _MigratableStore(Store):
+class _MigratableStore(Store[dict[str, Any]]):
     """HA Store subclass that can migrate data between schema versions."""
 
     async def _async_migrate_func(

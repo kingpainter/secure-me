@@ -696,8 +696,8 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
         unavail = [
             eid
             for eid in entities
-            if not hass.states.get(eid)
-            or hass.states.get(eid).state in ("unavailable", "unknown")
+            if (st := hass.states.get(eid)) is None
+            or st.state in ("unavailable", "unknown")
         ]
         mod_result: dict[str, Any] = {
             "status": "pass" if not unavail else "fail",

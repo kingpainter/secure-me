@@ -32,7 +32,7 @@ except Exception:
     # Provide a minimal stub so tests can patch custom_components.secure_me.panel.*
     import types as _types
 
-    panel = _types.ModuleType("secure_me.panel")  # type: ignore[assignment]
+    panel = _types.ModuleType("secure_me.panel")
     panel.async_register_panel = None  # type: ignore[assignment]
     panel.async_unregister_panel = None  # type: ignore[assignment]
 

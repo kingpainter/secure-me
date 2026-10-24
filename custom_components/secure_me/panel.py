@@ -209,7 +209,7 @@ async def _async_register_lovelace_resources(
     """
     try:
         from homeassistant.components import (
-            lovelace,  # type: ignore[import]  # noqa: F401 - Availability check
+            lovelace,  # noqa: F401 - Availability check
         )
     except ImportError:
         _LOGGER.warning(

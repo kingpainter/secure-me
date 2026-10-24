@@ -304,8 +304,8 @@ class ModuleDispatcher:
             unavail = [
                 eid
                 for eid in entities
-                if not self.hass.states.get(eid)
-                or self.hass.states.get(eid).state in ("unavailable", "unknown")
+                if (st := self.hass.states.get(eid)) is None
+                or st.state in ("unavailable", "unknown")
             ]
             result[mid] = {
                 "enabled": True,

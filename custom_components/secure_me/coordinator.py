@@ -118,7 +118,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # during shutdown instead of letting them die mid-arm/disarm.
         # Set holds strong refs (asyncio docs warn that without strong refs
         # tasks can be garbage-collected mid-execution).
-        self._push_tasks: set[asyncio.Task] = set()
+        self._push_tasks: set[asyncio.Task[None]] = set()
         # Code-entry rate limiting; see validate_code() and code_attempts.py.
         self.code_limiter = CodeAttemptLimiter(
             max_failures=AUTH_MAX_FAILED_ATTEMPTS,
@@ -126,7 +126,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             lockout=AUTH_LOCKOUT_SECONDS,
         )
 
-        self._code = config_entry.data.get(CONF_CODE, "")
+        self._code: str = config_entry.data.get(CONF_CODE, "")
         exit_delay = config_entry.data.get(CONF_EXIT_DELAY, 30)
         entry_delay = config_entry.data.get(CONF_ENTRY_DELAY, 30)
         trigger_time = config_entry.data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME)
@@ -155,7 +155,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         self._push_unsub = hass.bus.async_listen(PUSH_EVENT, self._handle_push_event)
 
         # NFC tag listener
-        self._nfc_unsub = None
+        self._nfc_unsub: Any = None
 
         # Scheduled test runner — checks every minute
         from homeassistant.helpers.event import async_track_time_interval
@@ -187,11 +187,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         # Ring buffer of recent arm/disarm/trigger events (max 20, newest first).
         # Must be initialized here so _state_changed() can safely insert on the
         # very first state transition after startup (before any restore call).
-        self._arm_history: list[dict] = []
+        self._arm_history: list[dict[str, Any]] = []
 
     # ── Scheduled test runner ────────────────────────────────────────────────
 
-    async def _check_scheduled_tests(self, now=None) -> None:
+    async def _check_scheduled_tests(self, now: Any = None) -> None:
         """Called every minute — runs any scheduled tests that are due."""
         if not hasattr(self, "store") or not self.store:
             return
@@ -286,7 +286,9 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                     test_id, now_dt.strftime("%Y-%m-%d %H:%M:%S"), "error"
                 )
 
-    async def _notify_scheduled_test_fail(self, cfg: dict, result: dict) -> None:
+    async def _notify_scheduled_test_fail(
+        self, cfg: dict[str, Any], result: dict[str, Any]
+    ) -> None:
         """Send push notification to admin users when a scheduled test fails."""
         from .notification_dispatcher import _send_push
 
@@ -318,7 +320,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     # ── Push notification handler (v1.2.0) ──────────────────────────────────
 
     @callback
-    def _handle_push_event(self, event) -> None:
+    def _handle_push_event(self, event: Any) -> None:
         """Handle mobile push notification action buttons.
 
         Allows arm/disarm from HA Companion push notifications without opening the app.
@@ -342,6 +344,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Received push action: %s", action)
 
         # Build the coroutine for the requested action
+        coro: Any
         if action == EVENT_ACTION_DISARM:
             coro = self.async_disarm()
         elif action == EVENT_ACTION_FORCE_ARM:
@@ -550,7 +553,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if countdown == 0 or countdown % 5 == 0:
             await self.async_request_refresh()
 
-    async def _zone_triggered(self, zone) -> None:
+    async def _zone_triggered(self, zone: Any) -> None:
         """Handle zone trigger."""
         current = self.state_machine.current_state
 
@@ -584,10 +587,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
         await self.state_machine.trigger_entry_delay(zone.zone_type)
 
-    async def _async_update_data(self) -> dict[str, bool | str]:
+    async def _async_update_data(self) -> dict[str, Any]:
         """Update data via library."""
         try:
-            data = {
+            data: dict[str, Any] = {
                 "state": self.state_machine.current_state,
                 "countdown": self.state_machine.countdown,
                 "armed_by": self._armed_by,
@@ -696,7 +699,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         return self.zone_manager.get_all_open_sensors()
 
     @property
-    def arm_history(self) -> list[dict]:
+    def arm_history(self) -> list[dict[str, Any]]:
         """Return recent arm/disarm/trigger events, newest first (max 20)."""
         return self._arm_history
 
@@ -727,7 +730,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     def fake_presence(self) -> bool:
         """Return the fake_presence."""
         if hasattr(self, "store") and self.store:
-            return self.store.get_fake_presence()
+            return bool(self.store.get_fake_presence())
         return False
 
     # ── Code validation ──────────────────────────────────────────────────────
@@ -796,7 +799,8 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if code and hasattr(self, "store") and self.store:
             result = self.store.authenticate_user_with_id(code)
             if result:
-                return result[0]
+                user_id: str = result[0]
+                return user_id
         return None
 
     async def async_restore_state(
@@ -1278,9 +1282,13 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     def update_config(self, config_data: dict[str, str | bool | int]) -> None:
         """Update configuration."""
         self._code = config_data.get(CONF_CODE, self._code)
-        exit_delay = config_data.get(CONF_EXIT_DELAY, self.state_machine.exit_delay)
-        entry_delay = config_data.get(CONF_ENTRY_DELAY, self.state_machine.entry_delay)
-        trigger_time = config_data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME)
+        exit_delay = int(
+            config_data.get(CONF_EXIT_DELAY, self.state_machine.exit_delay)
+        )
+        entry_delay = int(
+            config_data.get(CONF_ENTRY_DELAY, self.state_machine.entry_delay)
+        )
+        trigger_time = int(config_data.get(CONF_TRIGGER_TIME, DEFAULT_TRIGGER_TIME))
         self.state_machine.update_config(exit_delay, entry_delay, trigger_time)
 
     # ── Module management ───────────────────────────────────────────────────
@@ -1305,11 +1313,11 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     async def _execute_modules_trigger(self) -> None:
         await self.module_dispatcher.execute_trigger()
 
-    def update_module_config(self, module_id: str, config: dict) -> bool:
+    def update_module_config(self, module_id: str, config: dict[str, Any]) -> bool:
         """Re-initialize a module with updated configuration."""
         return self.module_dispatcher.update_module_config(module_id, config)
 
-    async def async_load_store_config(self, store) -> None:
+    async def async_load_store_config(self, store: Any) -> None:
         """Load module and sensor configs from store, re-initialize modules."""
         self.store = store
         stored = store.get_modules()
@@ -1399,7 +1407,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         """
         return self.module_dispatcher.modules
 
-    def get_batteries_cached(self, configured_eids: set[str]) -> list[dict]:
+    def get_batteries_cached(self, configured_eids: set[str]) -> list[dict[str, Any]]:
         """Return cached battery list; rebuilds every 5 minutes."""
         return self.module_dispatcher.get_batteries_cached(configured_eids)
 
@@ -1410,7 +1418,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     def get_health_score(self) -> int:
         return self.module_dispatcher.get_health_score()
 
-    def get_module_health(self) -> dict[str, dict]:
+    def get_module_health(self) -> dict[str, dict[str, Any]]:
         return self.module_dispatcher.get_module_health()
 
     def get_enabled_module_count(self) -> int:
@@ -1418,7 +1426,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     # ── Presence ──────────────────────────────────────────────────────────────
 
-    def get_presence_status(self) -> dict[str, bool | str]:
+    def get_presence_status(self) -> dict[str, Any]:
         """Return presence status derived from user tracker entities.
 
         Reads `person_entity` (canonical) or `tracker_entity` (legacy fallback)
@@ -1484,7 +1492,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         if self._nfc_unsub:
             self._nfc_unsub()
 
-        async def handle_nfc_event(event):
+        async def handle_nfc_event(event: Any) -> None:
             """Handle tag_scanned event from Home Assistant."""
             tag_id = event.data.get("tag_id")
             if not tag_id:
@@ -1587,7 +1595,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Shutting down coordinator")
 
         # Unregister push event listener
-        if hasattr(self, "_push_unsub") and self._push_unsub:
+        if hasattr(self, "_push_unsub") and self._push_unsub is not None:
             self._push_unsub()
 
         # Unregister NFC tag event listener
@@ -1614,7 +1622,10 @@ class SecureMeCoordinator(DataUpdateCoordinator):
             self._push_tasks.clear()
 
         # Unregister scheduled test timer
-        if hasattr(self, "_scheduled_test_unsub") and self._scheduled_test_unsub:
+        if (
+            hasattr(self, "_scheduled_test_unsub")
+            and self._scheduled_test_unsub is not None
+        ):
             self._scheduled_test_unsub()
 
         # v1.5.0: Teardown Auto Actions manager

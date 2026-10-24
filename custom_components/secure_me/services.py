@@ -208,7 +208,9 @@ def async_register_services(hass: HomeAssistant) -> None:
         # extraction (cameras/locks/climates/lights/media_players) the next
         # time it's used, since update_module_config() re-instantiates the
         # module class directly from whatever config it's given.
-        from .ws_modules import _normalize_module_config
+        from .module_dispatch import (
+            normalize_module_config as _normalize_module_config,
+        )
 
         normalized = _normalize_module_config(module_id, config)
         coordinator.update_module_config(module_id, normalized)
