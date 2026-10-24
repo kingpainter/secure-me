@@ -1541,9 +1541,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
                 )
                 try:
                     if action == NFC_ACTION_DISARM:
-                        success = await self.async_disarm(
-                            code=pin_code, skip_code=True
-                        )
+                        success = await self.async_disarm(code=pin_code, skip_code=True)
                     elif action == NFC_ACTION_ARM_AWAY:
                         success = await self.async_arm_away(code=pin_code)
                     else:

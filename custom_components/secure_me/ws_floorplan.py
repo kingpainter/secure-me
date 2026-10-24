@@ -168,6 +168,8 @@ def _normalise_markers(
         vol.Required("type"): f"{DOMAIN}/get_floorplan",
     }
 )
+
+
 @websocket_api.async_response
 async def ws_get_floorplan(
     hass: HomeAssistant,
@@ -195,6 +197,7 @@ async def ws_get_floorplan(
             STATE_ALARM_ARMED_VACATION,
             STATE_ALARM_ARMED_HOME_ALONE,
         )
+
         current_state = coordinator.alarm_state
         if current_state == STATE_ALARM_ARMED_AWAY:
             arm_mode = "away"
@@ -305,6 +308,8 @@ async def ws_get_floorplan(
         vol.Required("image_base64"): str,
     }
 )
+
+
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_image(
@@ -404,6 +409,8 @@ async def ws_save_floorplan_image(
         vol.Optional("openings"): list,
     }
 )
+
+
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_save_floorplan_markers(
@@ -460,6 +467,8 @@ async def ws_save_floorplan_markers(
         vol.Required("type"): f"{DOMAIN}/delete_floorplan",
     }
 )
+
+
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_delete_floorplan(

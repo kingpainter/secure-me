@@ -580,7 +580,7 @@ class SecureMeStore:
         if not code or len(code) < 1:
             _LOGGER.warning("Bcrypt: Empty or invalid code provided")
             return None
-        
+
         users = self._data.get("users", {})
 
         def _check(item: tuple[str, dict]) -> tuple[str, dict] | None:
@@ -647,16 +647,21 @@ class SecureMeStore:
 
     def get_nfc_tags(self) -> dict[str, dict[str, Any]]:
         """Get registered NFC tags for this alarm.
-        
+
         Returns dict of {tag_id: {user_id, action, name, requires_pin, created_at}}
         """
         return self._data.get("nfc_tags", {})
 
     async def async_save_nfc_tag(
-        self, tag_id: str, user_id: str, action: str, name: str, requires_pin: bool = False
+        self,
+        tag_id: str,
+        user_id: str,
+        action: str,
+        name: str,
+        requires_pin: bool = False,
     ) -> None:
         """Register a new NFC tag.
-        
+
         Args:
             tag_id: HA tag ID from tag integration
             user_id: User ID that this tag is assigned to
@@ -681,9 +686,11 @@ class SecureMeStore:
         self._schedule_save()
 
 
-    async def async_update_nfc_tag_requires_pin(self, tag_id: str, requires_pin: bool) -> None:
+    async def async_update_nfc_tag_requires_pin(
+        self, tag_id: str, requires_pin: bool
+    ) -> None:
         """Update the requires_pin flag for an existing NFC tag.
-        
+
         Args:
             tag_id: HA tag ID from tag integration
             requires_pin: Whether PIN verification is required
