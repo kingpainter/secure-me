@@ -685,7 +685,6 @@ class SecureMeStore:
         nfc_tags.pop(tag_id, None)
         self._schedule_save()
 
-
     async def async_update_nfc_tag_requires_pin(
         self, tag_id: str, requires_pin: bool
     ) -> None:
