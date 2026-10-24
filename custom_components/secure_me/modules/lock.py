@@ -94,7 +94,7 @@ class LockModule(AlarmModule):
         - Door sensor reports open: functional test is skipped entirely (locking an
           open door proves nothing and risks spurious retry/degraded notifications).
         """
-        results = {
+        results: dict[str, Any] = {
             "success": True,
             "message": "Lock module test passed",
             "warnings": [],

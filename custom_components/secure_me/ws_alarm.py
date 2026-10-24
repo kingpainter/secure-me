@@ -29,11 +29,11 @@ if TYPE_CHECKING:
 
 
 async def _verify_pin_for_remote_action(
-    store,
+    store: Any,
     pin: str | None,
     user_id: str | None = None,
     coordinator: SecureMeCoordinator | None = None,
-) -> tuple[bool, dict | None, str | None]:
+) -> tuple[bool, dict[str, Any] | None, str | None]:
     """Verify user PIN for remote arm/disarm actions.
 
     Returns (success: bool, user_dict: dict | None, error: str | None).

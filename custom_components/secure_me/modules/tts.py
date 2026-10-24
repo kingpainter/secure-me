@@ -52,14 +52,14 @@ class SpeakerQueue:
     def __init__(self, hass: HomeAssistant, profile: dict[str, Any]) -> None:
         self.hass = hass
         self.profile = profile
-        self._queue: asyncio.Queue = asyncio.Queue()
-        self._task: asyncio.Task | None = None
+        self._queue: asyncio.Queue[Any] = asyncio.Queue()
+        self._task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
         if self._task is None or self._task.done():
             self._task = self.hass.async_create_task(self._worker())
 
-    async def enqueue(self, coro) -> None:
+    async def enqueue(self, coro: Any) -> None:
         """Add a coroutine to the speaker queue."""
         await self._queue.put(coro)
         self.start()
@@ -246,7 +246,7 @@ class TTSModule(AlarmModule):
 
     # -- Internal ------------------------------------------------------------
 
-    def _get_queue(self, entity_id: str, profile: dict) -> SpeakerQueue:
+    def _get_queue(self, entity_id: str, profile: dict[str, Any]) -> SpeakerQueue:
         if entity_id not in self._queues:
             self._queues[entity_id] = SpeakerQueue(self.hass, profile)
         return self._queues[entity_id]
@@ -260,7 +260,7 @@ class TTSModule(AlarmModule):
     ) -> None:
         """Parallel across speakers, queued per speaker."""
 
-        async def _speak_on(profile: dict) -> None:
+        async def _speak_on(profile: dict[str, Any]) -> None:
             volume = float(profile.get("volume", DEFAULT_VOLUME))
             if urgent:
                 volume = min(volume * 1.3, 1.0)

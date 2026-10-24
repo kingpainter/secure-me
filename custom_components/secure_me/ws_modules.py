@@ -526,7 +526,7 @@ async def ws_test_automation(
 #
 
 
-def _classify_module_status(module, unavail: list) -> str:
+def _classify_module_status(module: Any, unavail: list[Any]) -> str:
     """Classify a module's health badge status for the frontend.
 
     Precedence: disabled > degraded > error (unavailable entities) > ok.
@@ -699,7 +699,7 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
             if not hass.states.get(eid)
             or hass.states.get(eid).state in ("unavailable", "unknown")
         ]
-        mod_result = {
+        mod_result: dict[str, Any] = {
             "status": "pass" if not unavail else "fail",
             "entities_total": len(entities),
             "entities_available": len(entities) - len(unavail),
