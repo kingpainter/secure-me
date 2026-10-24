@@ -4,7 +4,7 @@ from __future__ import annotations
 # VERSION = "2.2.0"
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -67,7 +67,7 @@ STATE_ICONS = {
 }
 
 
-def _get_module_entities(module) -> list[str]:
+def _get_module_entities(module: Any) -> list[str]:
     """Extract all configured entity IDs from a module.
 
     Delegates to module_dispatch.get_module_entity_ids() -- see
@@ -83,7 +83,7 @@ def _check_entity_availability(hass: HomeAssistant, entity_id: str) -> bool:
     return state is not None and state.state not in ("unavailable", "unknown")
 
 
-def _get_configured_battery_scope(coordinator) -> set[str]:
+def _get_configured_battery_scope(coordinator: Any) -> set[str]:
     """Return entity_ids of sensors and module entities actually used by
     Secure Me (enabled alarm sensors + entities from enabled modules).
 
@@ -109,7 +109,7 @@ def _get_configured_battery_scope(coordinator) -> set[str]:
     return configured
 
 
-def _get_battery_summary(hass: HomeAssistant, coordinator) -> dict[str, Any]:
+def _get_battery_summary(hass: HomeAssistant, coordinator: Any) -> dict[str, Any]:
     """Get a complete battery summary, scoped to Secure Me's own sensors.
 
     Fix: previously scanned every device_class='battery' sensor in the
@@ -239,7 +239,7 @@ class SecureMeHealthScore(SecureMeBaseSensor):
     _attr_icon = "mdi:heart-pulse"
     _attr_suggested_display_precision = 0
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize health score sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_health_score"
@@ -296,7 +296,7 @@ class SecureMeAlarmStatus(SecureMeBaseSensor):
 
     _attr_name = "Alarm Status"
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize alarm status sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_alarm_status"
@@ -349,7 +349,7 @@ class SecureMeActiveModules(SecureMeBaseSensor):
     _attr_icon = "mdi:puzzle"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize active modules sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_active_modules"
@@ -385,7 +385,7 @@ class SecureMeOpenSensors(SecureMeBaseSensor):
     _attr_icon = "mdi:door-open"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize open sensors counter."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_open_sensors"
@@ -415,7 +415,7 @@ class SecureMeLastArmedBy(SecureMeBaseSensor):
     _attr_name = "Last Armed By"
     _attr_icon = "mdi:account-lock"
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize last armed by sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_last_armed_by"
@@ -441,7 +441,7 @@ class SecureMeLastTriggeredBy(SecureMeBaseSensor):
     _attr_name = "Last Triggered By"
     _attr_icon = "mdi:alert-circle"
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize last triggered by sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_last_triggered_by"
@@ -491,7 +491,7 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_icon = "mdi:battery-alert-variant-outline"
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize lowest battery sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_lowest_battery"
@@ -514,7 +514,7 @@ class SecureMeLowestBattery(SecureMeBaseSensor):
     @property
     def native_value(self) -> int | None:
         """Return the lowest battery level."""
-        return self._get_summary()["lowest_level"]
+        return cast(int | None, self._get_summary()["lowest_level"])
 
     @property
     def icon(self) -> str:
@@ -579,7 +579,7 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     _attr_icon = "mdi:battery-alert"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, config_entry) -> None:
+    def __init__(self, coordinator: Any, config_entry: Any) -> None:
         """Initialize low battery count sensor."""
         super().__init__(coordinator, config_entry)
         self._attr_unique_id = f"{config_entry.entry_id}_low_battery_count"
@@ -602,7 +602,7 @@ class SecureMeLowBatteryCount(SecureMeBaseSensor):
     @property
     def native_value(self) -> int:
         """Return count of batteries below low threshold."""
-        return self._get_summary()["low_count"]
+        return cast(int, self._get_summary()["low_count"])
 
     @property
     def icon(self) -> str:

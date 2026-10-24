@@ -71,7 +71,7 @@ MODULE_INFO = {
 }
 
 
-def _get_module_entities(module) -> list[str]:
+def _get_module_entities(module: Any) -> list[str]:
     """Extract all configured entity IDs from a module.
 
     Delegates to module_dispatch.get_module_entity_ids() -- the single,
@@ -247,7 +247,7 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
             "sw_version": VERSION,
         }
         # Subscriptions to tracker entity state changes
-        self._tracker_unsubs: list = []
+        self._tracker_unsubs: list[Any] = []
         self._last_anyone_home: bool | None = None
 
     async def async_added_to_hass(self) -> None:
@@ -287,7 +287,7 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
         from homeassistant.helpers.event import async_track_state_change_event
 
         @callback
-        def _tracker_state_changed(event) -> None:
+        def _tracker_state_changed(event: Any) -> None:
             """Fire when any tracked person entity changes state."""
             self._update_and_fire()
 
@@ -314,7 +314,7 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
         self.async_write_ha_state()
 
         if anyone_home != self._last_anyone_home:
-            self._last_anyone_home = anyone_home
+            self._last_anyone_home = bool(anyone_home)
             self.hass.bus.async_fire(
                 EVENT_PRESENCE_CHANGED,
                 {
@@ -334,7 +334,7 @@ class SecureMePresence(CoordinatorEntity[SecureMeCoordinator], BinarySensorEntit
     @property
     def is_on(self) -> bool:
         """Return True if anyone is home (presence ON)."""
-        return self.coordinator.get_presence_status()["anyone_home"]
+        return bool(self.coordinator.get_presence_status()["anyone_home"])
 
     @property
     def icon(self) -> str:
@@ -400,7 +400,7 @@ class SecureMeModuleHealth(CoordinatorEntity[SecureMeCoordinator], BinarySensorE
         }
 
     @property
-    def _module(self):
+    def _module(self) -> Any:
         """Get the module instance."""
         return self.coordinator.modules.get(self._module_id)
 

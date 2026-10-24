@@ -7,6 +7,7 @@ import asyncio
 import logging
 import time
 from datetime import UTC, timedelta
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -1389,7 +1390,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
     # ── Health ───────────────────────────────────────────────────────────────
 
     @property
-    def modules(self) -> dict[str, object]:
+    def modules(self) -> dict[str, Any]:
         """Kept as a property (rather than a plain dict attribute) so external
         code -- ws_modules.py, diagnostics.py, binary_sensor.py, sensor.py,
         auto_actions.py, notification_dispatcher.py -- keeps working with
