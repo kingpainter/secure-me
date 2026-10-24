@@ -191,9 +191,9 @@ async def ws_get_floorplan(
         from .const import (
             STATE_ALARM_ARMED_AWAY,
             STATE_ALARM_ARMED_HOME,
+            STATE_ALARM_ARMED_HOME_ALONE,
             STATE_ALARM_ARMED_NIGHT,
             STATE_ALARM_ARMED_VACATION,
-            STATE_ALARM_ARMED_HOME_ALONE,
         )
 
         current_state = coordinator.alarm_state

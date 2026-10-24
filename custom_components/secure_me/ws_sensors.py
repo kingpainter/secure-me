@@ -569,32 +569,25 @@ async def ws_get_ha_nfc_tags(
         elif isinstance(tag_registry, dict):
             tag_ids = list(tag_registry.keys())
 
+    def _read_tag_storage(path: Path) -> list[str]:
+        """Read tag IDs from .storage/tag. Blocking; runs in the executor."""
+        if not path.exists():
+            return []
+        try:
+            with open(path, encoding="utf-8") as f:
+                items = json.load(f)["data"]["items"]
+        except Exception:
+            return []
+        if not isinstance(items, list):
+            return []
+        return [
+            item.get("id") for item in items if isinstance(item, dict) and "id" in item
+        ]
+
     # Method 3: Fallback - read directly from .storage/tag file
     if not tag_ids:
-        try:
-            storage_path = Path(hass.config.path(".storage/tag"))
-            if storage_path.exists():
-                with open(storage_path, "r", encoding="utf-8") as f:
-                    storage_data = json.load(f)
-                    # Navigate the storage structure to find tags
-                    # Structure: { "data": { "items": [ { "id": "...", "name": "...", ... }, ... ] } }
-                    if "data" in storage_data and "items" in storage_data["data"]:
-                        items = storage_data["data"]["items"]
-                        if isinstance(items, list):
-                            # Extract IDs from list of tag objects
-                            tag_ids = [
-                                item.get("id")
-                                for item in items
-                                if isinstance(item, dict) and "id" in item
-                            ]
-        except (
-            FileNotFoundError,
-            json.JSONDecodeError,
-            KeyError,
-            TypeError,
-            Exception,
-        ):
-            pass
+        storage_path = Path(hass.config.path(".storage/tag"))
+        tag_ids = await hass.async_add_executor_job(_read_tag_storage, storage_path)
 
     connection.send_result(msg["id"], tag_ids)
 

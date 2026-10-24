@@ -3,10 +3,8 @@
 # VERSION = "2.2.0"
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
@@ -94,7 +92,7 @@ async def ws_arm_away(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
@@ -150,7 +148,7 @@ async def ws_arm_home(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
@@ -204,7 +202,7 @@ async def ws_arm_night(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
@@ -250,7 +248,7 @@ async def ws_arm_vacation(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
@@ -296,7 +294,7 @@ async def ws_arm_home_alone(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
@@ -342,7 +340,7 @@ async def ws_disarm(
     # PIN verification (optional, for remote requests)
     pin = msg.get("pin")
     if pin:
-        pin_valid, user_dict, pin_error = await _verify_pin_for_remote_action(
+        pin_valid, _user_dict, pin_error = await _verify_pin_for_remote_action(
             store, pin, coordinator=coordinator
         )
         if not pin_valid:
