@@ -28,7 +28,6 @@ from custom_components.secure_me.const import (
     AA_LOCK_DELAY,
     AA_ALARM_DELAY,
     AA_CAMERA_DELAY,
-    AA_ARRIVAL_CONFIRMATION_DELAY,
     DEFAULT_AA_LOCK_DELAY,
     DEFAULT_AA_ALARM_DELAY,
     DEFAULT_AA_CAMERA_DELAY,
