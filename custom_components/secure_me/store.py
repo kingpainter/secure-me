@@ -8,7 +8,7 @@ import concurrent.futures
 import logging
 import time
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import bcrypt
 from homeassistant.core import HomeAssistant
@@ -78,8 +78,8 @@ class _MigratableStore(Store):
         self,
         old_major_version: int,
         old_minor_version: int,
-        data: dict,
-    ) -> dict:
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
         """Migrate storage data from old schema to current schema.
 
         v1 -> v2: Add sensor group support, per-sensor entry_delay / auto_bypass /
@@ -274,7 +274,7 @@ class SecureMeStore:
     # ─── bcrypt helpers ───────────────────────────────────────────────────────
 
     @staticmethod
-    def _default_auto_actions() -> dict:
+    def _default_auto_actions() -> dict[str, Any]:
         """Return default Auto Actions v2 configuration."""
         return {
             AA_LOCK_ENABLED: True,
@@ -295,7 +295,7 @@ class SecureMeStore:
         }
 
     @staticmethod
-    def _default_fake_presence_v2() -> dict:
+    def _default_fake_presence_v2() -> dict[str, Any]:
         """Return default Fake Presence v2 configuration."""
         return {
             FP_ACTIVE: False,
@@ -333,7 +333,7 @@ class SecureMeStore:
 
     def get_sensors(self) -> dict[str, Any]:
         """Get all configured sensors."""
-        return self._data.get("sensors", {})
+        return cast(dict[str, Any], self._data.get("sensors", {}))
 
     def _get_area_name(self, entity_id: str) -> str:
         """Return the HA area/room name for an entity, or 'Andet' if none assigned.
@@ -495,7 +495,7 @@ class SecureMeStore:
 
     def get_sensor_groups(self) -> dict[str, Any]:
         """Get all sensor groups."""
-        return self._data.get("sensor_groups", {})
+        return cast(dict[str, Any], self._data.get("sensor_groups", {}))
 
     async def async_save_sensor_group(
         self, group_id: str | None, config: dict[str, Any]
@@ -525,7 +525,7 @@ class SecureMeStore:
 
     def get_zones(self) -> dict[str, Any]:
         """Get all zones."""
-        return self._data.get("zones", {})
+        return cast(dict[str, Any], self._data.get("zones", {}))
 
     async def async_save_zone(self, zone_id: str, config: dict[str, Any]) -> None:
         """Save zone configuration."""
@@ -544,9 +544,11 @@ class SecureMeStore:
 
     def get_users(self) -> dict[str, Any]:
         """Get all users. Codes are stored as bcrypt hashes — never returned raw."""
-        return self._data.get("users", {})
+        return cast(dict[str, Any], self._data.get("users", {}))
 
-    def authenticate_user(self, code: str, user_id: str | None = None) -> dict | None:
+    def authenticate_user(
+        self, code: str, user_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Authenticate a user by code.
 
         Uses bcrypt.checkpw in a ThreadPoolExecutor (parallelised across
@@ -563,7 +565,7 @@ class SecureMeStore:
 
     def authenticate_user_with_id(
         self, code: str, user_id: str | None = None
-    ) -> tuple[str, dict] | None:
+    ) -> tuple[str, dict[str, Any]] | None:
         """Authenticate a user by code, also returning their user_id.
 
         Same bcrypt-in-ThreadPoolExecutor logic as authenticate_user() --
@@ -583,7 +585,9 @@ class SecureMeStore:
 
         users = self._data.get("users", {})
 
-        def _check(item: tuple[str, dict]) -> tuple[str, dict] | None:
+        def _check(
+            item: tuple[str, dict[str, Any]],
+        ) -> tuple[str, dict[str, Any]] | None:
             uid, user = item
             if not user.get("enabled", True):
                 return None
@@ -650,7 +654,7 @@ class SecureMeStore:
 
         Returns dict of {tag_id: {user_id, action, name, requires_pin, created_at}}
         """
-        return self._data.get("nfc_tags", {})
+        return cast(dict[str, dict[str, Any]], self._data.get("nfc_tags", {}))
 
     async def async_save_nfc_tag(
         self,
@@ -703,7 +707,9 @@ class SecureMeStore:
 
     def get_modules(self) -> dict[str, Any]:
         """Get all module configurations."""
-        return self._data.get("modules", self._default_data()["modules"])
+        return cast(
+            dict[str, Any], self._data.get("modules", self._default_data()["modules"])
+        )
 
     async def async_save_module(self, module_id: str, config: dict[str, Any]) -> None:
         """Save module configuration."""
@@ -727,7 +733,7 @@ class SecureMeStore:
 
     def get_speaker_profiles(self) -> list[dict[str, Any]]:
         """Get all speaker profiles."""
-        return self._data.get("speaker_profiles", [])
+        return cast(list[dict[str, Any]], self._data.get("speaker_profiles", []))
 
     async def async_save_speaker_profiles(self, profiles: list[dict[str, Any]]) -> None:
         """Save the full speaker profile list."""
@@ -738,7 +744,7 @@ class SecureMeStore:
 
     def get_notifications(self) -> dict[str, Any]:
         """Get all notification configurations."""
-        return self._data.get("notifications", {})
+        return cast(dict[str, Any], self._data.get("notifications", {}))
 
     async def async_save_notification(
         self, notif_id: str, config: dict[str, Any]
@@ -759,7 +765,7 @@ class SecureMeStore:
 
     def get_automations(self) -> dict[str, Any]:
         """Get all automation configurations."""
-        return self._data.get("automations", {})
+        return cast(dict[str, Any], self._data.get("automations", {}))
 
     async def async_save_automation(self, auto_id: str, config: dict[str, Any]) -> None:
         """Save automation configuration."""
@@ -778,7 +784,7 @@ class SecureMeStore:
 
     def get_scheduled_tests(self) -> dict[str, Any]:
         """Get all scheduled test configurations."""
-        return self._data.get("scheduled_tests", {})
+        return cast(dict[str, Any], self._data.get("scheduled_tests", {}))
 
     async def async_save_scheduled_test(
         self, test_id: str | None, config: dict[str, Any]
@@ -818,7 +824,7 @@ class SecureMeStore:
 
     def get_home_alone_cameras(self) -> list[str]:
         """Get configured Home Alone Monitor camera entity IDs."""
-        return self._data.get("home_alone_cameras", [])
+        return cast(list[str], self._data.get("home_alone_cameras", []))
 
     async def async_save_home_alone_cameras(self, cameras: list[str]) -> None:
         """Save Home Alone Monitor camera entity IDs."""
@@ -931,11 +937,11 @@ class SecureMeStore:
         fp[ATTR_FLOORPLAN_HEIGHT] = 0
         await self.async_save()
 
-    def get_test_history(self) -> list[dict]:
+    def get_test_history(self) -> list[dict[str, Any]]:
         """Return test result history (newest first, max 10)."""
-        return self._data.get("test_history", [])
+        return cast(list[dict[str, Any]], self._data.get("test_history", []))
 
-    async def async_append_test_result(self, result: dict) -> None:
+    async def async_append_test_result(self, result: dict[str, Any]) -> None:
         """Prepend a test result and keep only the last 10 entries."""
         history = self._data.get("test_history", [])
         history.insert(0, result)
@@ -953,7 +959,7 @@ class SecureMeStore:
         self._data['floorplan']['image_b64'] (see async_save_floorplan_image),
         so read from there directly.
         """
-        return self._data.get("floorplan", {}).get("image_b64")
+        return cast(str | None, self._data.get("floorplan", {}).get("image_b64"))
 
     async def async_restore_floorplan_image_from_backup(
         self, image_url: str
@@ -1014,13 +1020,13 @@ class SecureMeStore:
 
     # Auto Actions v2
 
-    def get_auto_actions(self) -> dict:
+    def get_auto_actions(self) -> dict[str, Any]:
         """Get current Auto Actions configuration with defaults for missing keys."""
         stored = self._data.get(CONF_AUTO_ACTIONS, {})
         defaults = self._default_auto_actions()
         return {**defaults, **stored}
 
-    async def async_save_auto_actions(self, config: dict) -> None:
+    async def async_save_auto_actions(self, config: dict[str, Any]) -> None:
         """Save Auto Actions configuration."""
         current = self._data.get(CONF_AUTO_ACTIONS, {})
         current.update(config)
@@ -1029,7 +1035,7 @@ class SecureMeStore:
 
     # Fake Presence v2
 
-    def get_fake_presence_v2(self) -> dict:
+    def get_fake_presence_v2(self) -> dict[str, Any]:
         """Get Fake Presence v2 config dict. Always returns a full dict."""
         fp = self._data.get("fake_presence", {})
         if not isinstance(fp, dict):
@@ -1041,7 +1047,7 @@ class SecureMeStore:
         """Get whether Fake Presence is currently active (v1 compat)."""
         fp = self._data.get("fake_presence", False)
         if isinstance(fp, dict):
-            return fp.get(FP_ACTIVE, False)
+            return bool(fp.get(FP_ACTIVE, False))
         return bool(fp)
 
     async def async_set_fake_presence(self, active: bool) -> None:
@@ -1053,7 +1059,7 @@ class SecureMeStore:
         self._data["fake_presence"] = fp
         self._schedule_save()
 
-    async def async_save_fake_presence_v2(self, config: dict) -> None:
+    async def async_save_fake_presence_v2(self, config: dict[str, Any]) -> None:
         """Save full Fake Presence v2 config dict."""
         fp = self._data.get("fake_presence", {})
         if not isinstance(fp, dict):
