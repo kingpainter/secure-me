@@ -37,7 +37,7 @@ def _get_coordinator(hass: HomeAssistant) -> Any:
 
 
 def _discover_batteries(
-    hass,
+    hass: HomeAssistant,
     configured_entity_ids: set[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Discover battery sensors for configured Secure Me sensors only.

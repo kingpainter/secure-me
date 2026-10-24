@@ -278,7 +278,7 @@ async def _dispatch_for_trigger(
 
 async def _send_critical_to_all_users(
     hass: HomeAssistant,
-    store,
+    store: Any,
     title: str,
     message: str,
 ) -> None:
@@ -561,7 +561,7 @@ class NotificationEngine(BaseEngine):
         # the coroutine, so on an installation with hundreds of entities this
         # cuts the vast majority of unnecessary callback invocations.
         @callback
-        def _is_binary_sensor_event(event_data: dict[str, Any]) -> bool:
+        def _is_binary_sensor_event(event_data: Any) -> bool:
             entity_id = event_data.get("entity_id", "")
             return isinstance(entity_id, str) and entity_id.startswith("binary_sensor.")
 
