@@ -3,9 +3,10 @@ from __future__ import annotations
 """Config flow for Secure Me integration."""
 # VERSION = "2.2.0"
 
+from typing import TYPE_CHECKING, Any
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResult
 
 from .const import (
     CONF_CODE,
@@ -17,6 +18,9 @@ from .const import (
     DEFAULT_TRIGGER_TIME,
     DOMAIN,
 )
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigFlowResult
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -39,7 +43,9 @@ class SecureMeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         if self._async_current_entries():
             return self.async_abort(reason="single_instance_allowed")

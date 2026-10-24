@@ -18,6 +18,7 @@ dispatcher.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
@@ -104,7 +105,7 @@ def async_register_websocket_api(hass: HomeAssistant) -> None:
     """Register all websocket commands and start the notification dispatcher."""
     _registered_types: list[str] = []
 
-    def _register(handler) -> None:
+    def _register(handler: Any) -> None:
         """Register a command and record its type string for diagnostics.py.
 
         Fix: diagnostics.py has always read

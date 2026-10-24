@@ -1281,7 +1281,7 @@ class SecureMeCoordinator(DataUpdateCoordinator):
 
     def update_config(self, config_data: dict[str, str | bool | int]) -> None:
         """Update configuration."""
-        self._code = config_data.get(CONF_CODE, self._code)
+        self._code = str(config_data.get(CONF_CODE, self._code))
         exit_delay = int(
             config_data.get(CONF_EXIT_DELAY, self.state_machine.exit_delay)
         )

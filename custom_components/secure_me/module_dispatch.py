@@ -36,7 +36,7 @@ from .modules import (
 
 _LOGGER = logging.getLogger(__name__)
 
-_MODULE_CLASSES = {
+_MODULE_CLASSES: dict[str, Any] = {
     "camera": CameraModule,
     "lock": LockModule,
     "lights": LightsModule,
