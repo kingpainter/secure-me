@@ -11,7 +11,12 @@ import struct
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.components import websocket_api
+from homeassistant.components.websocket_api.connection import ActiveConnection
+from homeassistant.components.websocket_api.decorators import (
+    async_response,
+    require_admin,
+    websocket_command,
+)
 from homeassistant.core import HomeAssistant
 
 from .const import (
@@ -163,15 +168,15 @@ def _normalise_markers(
     return out
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_floorplan",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_floorplan(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Return the current floorplan config (image url + dimensions + markers + arm_mode).
@@ -300,17 +305,17 @@ async def ws_get_floorplan(
     connection.send_result(msg["id"], fp)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_floorplan_image",
         vol.Required("image_base64"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_floorplan_image(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Decode a base64-encoded PNG and write it to disk.
@@ -397,7 +402,7 @@ async def ws_save_floorplan_image(
     )
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_floorplan_markers",
         vol.Optional("markers"): dict,
@@ -405,11 +410,11 @@ async def ws_save_floorplan_image(
         vol.Optional("openings"): list,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_floorplan_markers(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Replace the full floorplan data (rooms, openings, or legacy markers).
@@ -456,16 +461,16 @@ async def ws_save_floorplan_markers(
         )
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_floorplan",
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_floorplan(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete the floorplan image from disk and clear the store."""

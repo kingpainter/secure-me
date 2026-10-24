@@ -7,7 +7,12 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-from homeassistant.components import websocket_api
+from homeassistant.components.websocket_api.connection import ActiveConnection
+from homeassistant.components.websocket_api.decorators import (
+    async_response,
+    require_admin,
+    websocket_command,
+)
 from homeassistant.core import HomeAssistant
 
 from .const import (
@@ -59,7 +64,7 @@ async def _verify_pin_for_remote_action(
     return True, user_dict, None
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_away",
         vol.Optional("code"): str,
@@ -67,10 +72,10 @@ async def _verify_pin_for_remote_action(
         vol.Optional("force", default=False): bool,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_arm_away(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Arm in away mode via WebSocket.
@@ -115,7 +120,7 @@ async def ws_arm_away(
     )
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_home",
         vol.Optional("code"): str,
@@ -123,10 +128,10 @@ async def ws_arm_away(
         vol.Optional("force", default=False): bool,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_arm_home(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Arm in home mode via WebSocket.
@@ -171,17 +176,17 @@ async def ws_arm_home(
     )
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_night",
         vol.Optional("code"): str,
         vol.Optional("pin"): str,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_arm_night(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Arm in night mode via WebSocket.
@@ -217,17 +222,17 @@ async def ws_arm_night(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_vacation",
         vol.Optional("code"): str,
         vol.Optional("pin"): str,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_arm_vacation(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Arm in vacation mode via WebSocket.
@@ -263,17 +268,17 @@ async def ws_arm_vacation(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/arm_home_alone",
         vol.Optional("code"): str,
         vol.Optional("pin"): str,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_arm_home_alone(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Arm in home alone mode via WebSocket.
@@ -309,17 +314,17 @@ async def ws_arm_home_alone(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/disarm",
         vol.Optional("code"): str,
         vol.Optional("pin"): str,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_disarm(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Disarm via WebSocket.
@@ -352,15 +357,15 @@ async def ws_disarm(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/skip_delay",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_skip_delay(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Skip active exit/entry countdown via WebSocket (v1.4.3).
@@ -383,15 +388,15 @@ async def ws_skip_delay(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_speaker_profiles(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all speaker profiles."""
@@ -418,17 +423,17 @@ async def ws_get_speaker_profiles(
     connection.send_result(msg["id"], {"profiles": enriched})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_speaker_profiles",
         vol.Required("profiles"): list,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_speaker_profiles(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save speaker profiles and reload TTS module config."""
@@ -463,15 +468,15 @@ async def ws_save_speaker_profiles(
     connection.send_result(msg["id"], {"success": True, "count": len(profiles)})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_home_alone_messages(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get Home Alone quick messages for the alarm card.
@@ -507,15 +512,15 @@ async def ws_get_home_alone_messages(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_auto_actions",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_auto_actions(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get Auto Actions v2 configuration."""
@@ -526,17 +531,17 @@ async def ws_get_auto_actions(
     connection.send_result(msg["id"], {"config": store.get_auto_actions()})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_auto_actions",
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_auto_actions(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save Auto Actions v2 configuration."""
@@ -548,15 +553,15 @@ async def ws_save_auto_actions(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_fake_presence_v2(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get Fake Presence v2 configuration dict."""
@@ -567,17 +572,17 @@ async def ws_get_fake_presence_v2(
     connection.send_result(msg["id"], {"config": store.get_fake_presence_v2()})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_fake_presence_v2",
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_fake_presence_v2(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save Fake Presence v2 configuration dict."""

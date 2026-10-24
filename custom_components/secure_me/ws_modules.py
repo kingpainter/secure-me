@@ -9,7 +9,12 @@ import uuid
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.components import websocket_api
+from homeassistant.components.websocket_api.connection import ActiveConnection
+from homeassistant.components.websocket_api.decorators import (
+    async_response,
+    require_admin,
+    websocket_command,
+)
 from homeassistant.core import HomeAssistant
 
 from .const import (
@@ -24,15 +29,15 @@ from .module_dispatch import normalize_module_config as _normalize_module_config
 from .ws_helpers import _discover_batteries, _get_coordinator, _get_store
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_modules",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_modules(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all module configurations."""
@@ -45,18 +50,18 @@ async def ws_get_modules(
     connection.send_result(msg["id"], {"modules": modules})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_module",
         vol.Required("module_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_module(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save module configuration."""
@@ -79,16 +84,16 @@ async def ws_save_module(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_module_entities",
         vol.Required("domain"): str,
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_module_entities(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get available entities for a module domain."""
@@ -106,15 +111,15 @@ async def ws_get_module_entities(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_notifications",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_notifications(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all notifications."""
@@ -127,18 +132,18 @@ async def ws_get_notifications(
     connection.send_result(msg["id"], {"notifications": notifications})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_notification",
         vol.Required("notification_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_notification(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save a notification."""
@@ -152,17 +157,17 @@ async def ws_save_notification(
     connection.send_result(msg["id"], {"success": True, "notification_id": notif_id})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_notification",
         vol.Required("notification_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_notification(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a notification."""
@@ -175,17 +180,17 @@ async def ws_delete_notification(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/test_notification",
         vol.Required("notification_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_test_notification(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Test a notification by sending it."""
@@ -319,15 +324,15 @@ async def ws_test_notification(
         connection.send_result(msg["id"], {"success": False, "error": str(err)})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_notify_services",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_notify_services(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Return all available notify services from HA.
@@ -344,18 +349,18 @@ async def ws_get_notify_services(
     connection.send_result(msg["id"], {"services": services})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/test_tts",
         vol.Required("message"): str,
         vol.Optional("speaker_ids"): list,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_test_tts(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Test TTS by playing a message immediately via the TTS module.
@@ -404,15 +409,15 @@ async def ws_test_tts(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_automations",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_automations(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all automations."""
@@ -425,18 +430,18 @@ async def ws_get_automations(
     connection.send_result(msg["id"], {"automations": automations})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_automation",
         vol.Required("automation_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_automation(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save an automation."""
@@ -450,17 +455,17 @@ async def ws_save_automation(
     connection.send_result(msg["id"], {"success": True, "automation_id": auto_id})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_automation",
         vol.Required("automation_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_automation(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete an automation."""
@@ -473,17 +478,17 @@ async def ws_delete_automation(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/test_automation",
         vol.Required("automation_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_test_automation(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Test an automation by executing its actions."""
@@ -537,15 +542,15 @@ def _classify_module_status(module, unavail: list) -> str:
     return "ok"
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_health_summary",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_health_summary(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get comprehensive health summary for the testing dashboard."""
@@ -936,17 +941,17 @@ async def _run_test_internal(hass: HomeAssistant, test_type: str) -> dict[str, A
     return results
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/run_test",
         vol.Required("test_type"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_run_test(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Run a system test and return results."""
@@ -964,16 +969,16 @@ async def ws_run_test(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/quick_test_siren",
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_quick_test_siren(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Run a quick 2s siren test using the configured siren entities."""
@@ -1022,16 +1027,16 @@ async def ws_quick_test_siren(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/quick_test_lights",
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_quick_test_lights(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Run a quick 2s emergency flash test on all configured lights."""
@@ -1138,15 +1143,15 @@ async def ws_quick_test_lights(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_scheduled_tests",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_scheduled_tests(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all scheduled test configurations."""
@@ -1157,18 +1162,18 @@ async def ws_get_scheduled_tests(
     connection.send_result(msg["id"], {"scheduled_tests": store.get_scheduled_tests()})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_scheduled_test",
         vol.Optional("test_id", default=""): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_scheduled_test(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save (create or update) a scheduled test."""
@@ -1181,17 +1186,17 @@ async def ws_save_scheduled_test(
     connection.send_result(msg["id"], {"success": True, "test_id": saved_id})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_scheduled_test",
         vol.Required("test_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_scheduled_test(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a scheduled test."""
@@ -1203,17 +1208,17 @@ async def ws_delete_scheduled_test(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/run_scheduled_test_now",
         vol.Required("test_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_run_scheduled_test_now(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Run a scheduled test immediately (manual trigger)."""
@@ -1241,15 +1246,15 @@ async def ws_run_scheduled_test_now(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_test_results",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_test_results(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get stored test result history."""
@@ -1267,15 +1272,15 @@ async def ws_get_test_results(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_fake_presence",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_fake_presence(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get current fake presence state."""
@@ -1291,17 +1296,17 @@ async def ws_get_fake_presence(
     )
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/set_fake_presence",
         vol.Required("active"): vol.Boolean(),
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_set_fake_presence(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Set fake presence state."""
@@ -1319,15 +1324,15 @@ async def ws_set_fake_presence(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_home_alone_cameras",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_home_alone_cameras(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get configured Home Alone Monitor cameras."""
@@ -1351,17 +1356,17 @@ async def ws_get_home_alone_cameras(
     connection.send_result(msg["id"], {"cameras": cameras})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_home_alone_cameras",
         vol.Required("cameras"): list,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_home_alone_cameras(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save Home Alone Monitor camera selection."""

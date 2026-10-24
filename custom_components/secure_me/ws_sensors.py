@@ -8,7 +8,12 @@ import uuid
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.components import websocket_api
+from homeassistant.components.websocket_api.connection import ActiveConnection
+from homeassistant.components.websocket_api.decorators import (
+    async_response,
+    require_admin,
+    websocket_command,
+)
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
@@ -21,15 +26,15 @@ from .ws_helpers import _get_coordinator, _get_store
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_sensor_groups(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all sensor groups."""
@@ -40,18 +45,18 @@ async def ws_get_sensor_groups(
     connection.send_result(msg["id"], {"sensor_groups": store.get_sensor_groups()})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_sensor_group",
         vol.Optional("group_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_sensor_group(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Create or update a sensor group."""
@@ -67,17 +72,17 @@ async def ws_save_sensor_group(
     connection.send_result(msg["id"], {"success": True, "group_id": group_id})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_sensor_group",
         vol.Required("group_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_sensor_group(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a sensor group."""
@@ -97,15 +102,15 @@ async def ws_delete_sensor_group(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_alarm_state",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_alarm_state(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get current alarm state."""
@@ -137,15 +142,15 @@ async def ws_get_alarm_state(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_sensors",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_sensors(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all available sensors."""
@@ -158,17 +163,17 @@ async def ws_get_sensors(
     connection.send_result(msg["id"], {"sensors": sensors})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_sensors",
         vol.Required("sensors"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_sensors(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save sensor configurations (bulk)."""
@@ -197,15 +202,15 @@ async def ws_save_sensors(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_zones",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_zones(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all zones."""
@@ -218,18 +223,18 @@ async def ws_get_zones(
     connection.send_result(msg["id"], {"zones": zones})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_zone",
         vol.Required("zone_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_zone(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save a zone."""
@@ -293,17 +298,17 @@ def _reload_zones_into_coordinator(coordinator, store) -> None:
     zm.load_sensor_configs(sensor_configs)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_zone",
         vol.Required("zone_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_zone(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a zone."""
@@ -334,15 +339,15 @@ async def ws_delete_zone(
 #
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_users",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_users(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all users."""
@@ -359,18 +364,18 @@ async def ws_get_users(
     connection.send_result(msg["id"], {"users": masked})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/save_user",
         vol.Required("user_id"): str,
         vol.Required("config"): dict,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_save_user(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Save a user."""
@@ -401,17 +406,17 @@ async def ws_save_user(
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_user",
         vol.Required("user_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_user(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a user."""
@@ -436,21 +441,21 @@ async def ws_delete_user(
     connection.send_result(msg["id"], {"success": success})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
     }
 )
-@websocket_api.async_response
-@websocket_api.websocket_command(
+@async_response
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get registered NFC tags for current user."""
@@ -463,7 +468,7 @@ async def ws_get_nfc_tags(
     connection.send_result(msg["id"], {"nfc_tags": tags})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/register_nfc_tag",
         vol.Required("tag_id"): str,
@@ -472,11 +477,11 @@ async def ws_get_nfc_tags(
         vol.Required("name"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_register_nfc_tag(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Register a new NFC tag."""
@@ -495,17 +500,17 @@ async def ws_register_nfc_tag(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/delete_nfc_tag",
         vol.Required("tag_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_delete_nfc_tag(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Delete a registered NFC tag."""
@@ -519,15 +524,15 @@ async def ws_delete_nfc_tag(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_ha_nfc_tags",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_ha_nfc_tags(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get available NFC tags from Home Assistant."""
@@ -592,7 +597,7 @@ async def ws_get_ha_nfc_tags(
     connection.send_result(msg["id"], tag_ids)
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/import_nfc_tag",
         vol.Required("tag_id"): str,
@@ -600,11 +605,11 @@ async def ws_get_ha_nfc_tags(
         vol.Optional("name"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_import_nfc_tag(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Import an NFC tag from Home Assistant into Secure Me."""
@@ -634,15 +639,15 @@ async def ws_import_nfc_tag(
         connection.send_error(msg["id"], "import_failed", str(e))
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/get_persons",
     }
 )
-@websocket_api.async_response
+@async_response
 async def ws_get_persons(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Get all person entities from HA for user-tracker binding."""
@@ -658,18 +663,18 @@ async def ws_get_persons(
     connection.send_result(msg["id"], {"persons": persons})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/hide_sensor",
         vol.Required("entity_id"): str,
         vol.Optional("hidden", default=True): bool,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_hide_sensor(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Mark a sensor as excluded (hidden) from the panel."""
@@ -698,17 +703,17 @@ async def ws_hide_sensor(
     connection.send_result(msg["id"], {"success": True})
 
 
-@websocket_api.websocket_command(
+@websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/unmark_environmental",
         vol.Required("entity_id"): str,
     }
 )
-@websocket_api.require_admin
-@websocket_api.async_response
+@require_admin
+@async_response
 async def ws_unmark_environmental(
     hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
+    connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Remove environmental classification from a sensor (user corrected mis-classification)."""
