@@ -65,11 +65,9 @@ from ..const import (
     NOTIFY_ID_AUTO_ACTIONS,
     STATE_ALARM_DISARMED,
 )
+from .base_engine import BaseEngine
 
 _LOGGER = logging.getLogger(__name__)
-
-
-from .base_engine import BaseEngine
 
 
 class AutoActionsEngine(BaseEngine):

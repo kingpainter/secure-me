@@ -1,6 +1,6 @@
 """WebSocket API — Sensor, Zone and User commands for Secure Me."""
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 import logging
@@ -17,10 +17,9 @@ from homeassistant.components.websocket_api.decorators import (
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+from .ws_helpers import _get_coordinator, _get_store
 
 _LOGGER = logging.getLogger(__name__)
-
-from .ws_helpers import _get_coordinator, _get_store
 
 # SENSOR GROUPS (anti-masking) — v1.2.0
 #
@@ -31,6 +30,7 @@ from .ws_helpers import _get_coordinator, _get_store
         vol.Required("type"): f"{DOMAIN}/get_sensor_groups",
     }
 )
+@require_admin
 @async_response
 async def ws_get_sensor_groups(
     hass: HomeAssistant,
@@ -107,6 +107,7 @@ async def ws_delete_sensor_group(
         vol.Required("type"): f"{DOMAIN}/get_alarm_state",
     }
 )
+@require_admin
 @async_response
 async def ws_get_alarm_state(
     hass: HomeAssistant,
@@ -147,6 +148,7 @@ async def ws_get_alarm_state(
         vol.Required("type"): f"{DOMAIN}/get_sensors",
     }
 )
+@require_admin
 @async_response
 async def ws_get_sensors(
     hass: HomeAssistant,
@@ -207,6 +209,7 @@ async def ws_save_sensors(
         vol.Required("type"): f"{DOMAIN}/get_zones",
     }
 )
+@require_admin
 @async_response
 async def ws_get_zones(
     hass: HomeAssistant,
@@ -344,6 +347,7 @@ async def ws_delete_zone(
         vol.Required("type"): f"{DOMAIN}/get_users",
     }
 )
+@require_admin
 @async_response
 async def ws_get_users(
     hass: HomeAssistant,
@@ -446,6 +450,7 @@ async def ws_delete_user(
         vol.Required("type"): f"{DOMAIN}/get_nfc_tags",
     }
 )
+@require_admin
 @async_response
 async def ws_get_nfc_tags(
     hass: HomeAssistant,
@@ -524,6 +529,7 @@ async def ws_delete_nfc_tag(
         vol.Required("type"): f"{DOMAIN}/get_ha_nfc_tags",
     }
 )
+@require_admin
 @async_response
 async def ws_get_ha_nfc_tags(
     hass: HomeAssistant,
@@ -640,6 +646,7 @@ async def ws_import_nfc_tag(
         vol.Required("type"): f"{DOMAIN}/get_persons",
     }
 )
+@require_admin
 @async_response
 async def ws_get_persons(
     hass: HomeAssistant,

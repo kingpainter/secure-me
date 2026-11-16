@@ -1,6 +1,14 @@
 # Secure Me - Changelog
 
-## [Unreleased] - 2026-11-16
+## [2.3.0] - 2026-11-16
+### Security
+- `skip_delay` websocket command requires an admin user. Previously any Home Assistant user could finish arming during exit delay or trigger the alarm during entry delay without a code.
+- All 23 read-only `get_*` websocket commands require an admin user (includes `get_users`, `get_sensors`, `get_nfc_tags`, `get_persons`, `get_alarm_state`, `get_health_summary`). Non-admin frontends will receive an authorization error for these.
+
+### Changed
+- Minimum Home Assistant version raised to 2026.1 in `hacs.json`.
+- API.md documents the remote PIN rule: with a global code set, `code` is still required alongside `pin`.
+
 ### Fixed
 - Auto Actions: a stale tracker's grace period in `_all_persons_away()` no longer expires after a single check. The entry stays until the tracker recovers, so the grace holds for as long as the tracker is stuck.
 - NFC: `requires_pin` is declared in the websocket schemas for `register_nfc_tag` and `import_nfc_tag`. Not yet verified by CI.

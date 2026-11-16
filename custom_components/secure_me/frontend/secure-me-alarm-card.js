@@ -1,6 +1,6 @@
 // secure-me-alarm-card.js
 // Secure Me — Alarm control card
-// VERSION = "2.2.0"
+// VERSION = "2.3.0"
 
 function _smEsc(s) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");

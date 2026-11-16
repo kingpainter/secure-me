@@ -1,8 +1,8 @@
+"""Camera module for Secure Me alarm system."""
+
 from __future__ import annotations
 
-"""Camera module for Secure Me alarm system."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import asyncio
 import logging
 from typing import Any

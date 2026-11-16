@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """
 Secure Me - Version Consistency Validator
 Run before every commit to ensure all files have the same version.
@@ -9,6 +7,9 @@ Usage:
     python3 validate_version.py 1.1.0     # Validate against specific version
     python3 validate_version.py --fix     # Auto-fix all version mismatches
 """
+
+from __future__ import annotations
+
 import json
 import re
 import sys

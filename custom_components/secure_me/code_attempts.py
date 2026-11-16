@@ -1,4 +1,4 @@
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 """Failed-code rate limiter for Secure Me.
 
 Pure Python with no Home Assistant imports, so it can be tested offline.

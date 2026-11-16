@@ -1,8 +1,8 @@
+"""Config flow for Secure Me integration."""
+
 from __future__ import annotations
 
-"""Config flow for Secure Me integration."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol

@@ -1,8 +1,8 @@
+"""Data storage for Secure Me panel configuration."""
+
 from __future__ import annotations
 
-"""Data storage for Secure Me panel configuration."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import base64
 import concurrent.futures
 import logging
@@ -688,20 +688,6 @@ class SecureMeStore:
         nfc_tags = self._data.get("nfc_tags", {})
         nfc_tags.pop(tag_id, None)
         self._schedule_save()
-
-    async def async_update_nfc_tag_requires_pin(
-        self, tag_id: str, requires_pin: bool
-    ) -> None:
-        """Update the requires_pin flag for an existing NFC tag.
-
-        Args:
-            tag_id: HA tag ID from tag integration
-            requires_pin: Whether PIN verification is required
-        """
-        nfc_tags = self._data.get("nfc_tags", {})
-        if tag_id in nfc_tags:
-            nfc_tags[tag_id]["requires_pin"] = requires_pin
-            self._schedule_save()
 
     # ─── Modules ─────────────────────────────────────────────────────────────
 

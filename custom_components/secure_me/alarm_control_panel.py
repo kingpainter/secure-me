@@ -1,8 +1,8 @@
+"""Alarm Control Panel platform for Secure Me."""
+
 from __future__ import annotations
 
-"""Alarm Control Panel platform for Secure Me."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import logging
 from typing import Any
 

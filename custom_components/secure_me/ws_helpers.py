@@ -1,6 +1,6 @@
 """Shared helpers for Secure Me WebSocket sub-modules."""
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 from typing import Any

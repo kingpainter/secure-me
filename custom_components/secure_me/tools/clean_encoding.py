@@ -1,6 +1,7 @@
+"""Clean corrupted UTF-8 encoding in files."""
+
 from __future__ import annotations
 
-"""Clean corrupted UTF-8 encoding in files."""
 import re
 import sys
 

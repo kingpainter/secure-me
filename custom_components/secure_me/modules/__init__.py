@@ -1,8 +1,8 @@
+"""Secure Me alarm system modules."""
+
 from __future__ import annotations
 
-"""Secure Me alarm system modules."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 from .base import AlarmModule
 from .camera import CameraModule
 from .climate import ClimateModule

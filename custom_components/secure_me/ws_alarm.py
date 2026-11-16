@@ -1,6 +1,6 @@
 """WebSocket API — Arm, Disarm and Special Feature commands for Secure Me."""
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 import logging
@@ -18,11 +18,9 @@ from homeassistant.core import HomeAssistant
 from .const import (
     DOMAIN,
 )
+from .ws_helpers import _get_coordinator, _get_store
 
 _LOGGER = logging.getLogger(__name__)
-
-
-from .ws_helpers import _get_coordinator, _get_store
 
 if TYPE_CHECKING:
     from .coordinator import SecureMeCoordinator
@@ -362,6 +360,7 @@ async def ws_disarm(
         vol.Required("type"): f"{DOMAIN}/skip_delay",
     }
 )
+@require_admin
 @async_response
 async def ws_skip_delay(
     hass: HomeAssistant,
@@ -393,6 +392,7 @@ async def ws_skip_delay(
         vol.Required("type"): f"{DOMAIN}/get_speaker_profiles",
     }
 )
+@require_admin
 @async_response
 async def ws_get_speaker_profiles(
     hass: HomeAssistant,
@@ -473,6 +473,7 @@ async def ws_save_speaker_profiles(
         vol.Required("type"): f"{DOMAIN}/get_home_alone_messages",
     }
 )
+@require_admin
 @async_response
 async def ws_get_home_alone_messages(
     hass: HomeAssistant,
@@ -517,6 +518,7 @@ async def ws_get_home_alone_messages(
         vol.Required("type"): f"{DOMAIN}/get_auto_actions",
     }
 )
+@require_admin
 @async_response
 async def ws_get_auto_actions(
     hass: HomeAssistant,
@@ -558,6 +560,7 @@ async def ws_save_auto_actions(
         vol.Required("type"): f"{DOMAIN}/get_fake_presence_v2",
     }
 )
+@require_admin
 @async_response
 async def ws_get_fake_presence_v2(
     hass: HomeAssistant,

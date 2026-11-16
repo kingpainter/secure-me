@@ -1,8 +1,8 @@
+"""Base module class for Secure Me alarm system."""
+
 from __future__ import annotations
 
-"""Base module class for Secure Me alarm system."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import asyncio
 import logging
 from abc import ABC, abstractmethod

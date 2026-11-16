@@ -1,9 +1,9 @@
-from __future__ import annotations
-
 """
 Secure Me - UTF-8 Encoding Validator
 Prevents garbled Unicode characters in JavaScript files
 """
+
+from __future__ import annotations
 
 import re
 import sys

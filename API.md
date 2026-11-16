@@ -89,6 +89,13 @@ ingen anden ledig plads at låne. Derfor:
 
 Bemærk: `alarm_control_panel.alarm_trigger` kræver en gyldig kode, ligesom arm og disarm. Uden kode afvises kaldet, og eventet `secure_me_invalid_code` udsendes.
 
+### Websocket: PIN og global kode
+
+- Når en global kode er sat, kræver remote arm/disarm via websocket feltet `code`, også når der sendes en gyldig `pin`. En PIN alene afvises med `invalid_code`. `pin` verificeres først og tæller som kodeforsøg. `code` accepterer både den globale kode og en brugers PIN.
+- Når ingen global kode er sat, er `pin` nok til remote arm/disarm.
+- `skip_delay` via websocket kræver admin.
+
+
 ## 4. Registrerede HA-Services (v1.5.0+)
 
 Alle disse services er tilgængelige i automations/scripts via
@@ -142,7 +149,7 @@ NFC tags kan registreres per bruger for PIN-less authentication. Home Assistant
 }
 ```
 
-Kræver ikke admin. Returnerer alle tags, ikke kun den aktuelle brugers.
+Kræver admin. Returnerer alle tags, ikke kun den aktuelle brugers.
 
 **Response:**
 ```json
@@ -218,7 +225,7 @@ Svaret indeholder ikke tag-objektet. Læs det via `get_nfc_tags`.
 
 #### `get_ha_nfc_tags` — Hent tags kendt af Home Assistant
 
-Returnerer en liste af tag-ID'er fra HA's tag-register (eller `.storage/tag` som fallback). Bruges af panelet til at importere tags. Kræver ikke admin.
+Returnerer en liste af tag-ID'er fra HA's tag-register (eller `.storage/tag` som fallback). Bruges af panelet til at importere tags. Kræver admin.
 
 #### `import_nfc_tag` — Importer et HA-tag til Secure Me (kræver admin)
 
@@ -286,6 +293,7 @@ blev introduceret.
 
 | Version | Dato | Vigtigste ændringer |
 |---------|------|---------------------|
+| 2.3.0 | 2026-11-16 | `skip_delay` og alle `get_*`-websocket-kommandoer kræver admin. Remote PIN med global kode dokumenteret (kræver stadig `code`). |
 | 2.2.0 | 2026-10-24 | NFC per-tag PIN håndhævet i backend (`requires_pin`), kode-lockout, `secure_me_tag_scanned` med PIN-felter. NFC-endpoints og events dokumenteret i denne version. |
 | 2.1.0 | 2026-10-03 | Tilføjet NFC tag integration (endpoints, `secure_me_tag_scanned`-listener) |
 | 1.5.0 | 2026-07-19 | Formaliseret alarm entity contract, service-definitioner |

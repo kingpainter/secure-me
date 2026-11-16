@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Module dispatch and health/battery tracking for Secure Me.
 
 Extracted from coordinator.py (v1.5.5) following the same composition
@@ -15,8 +13,10 @@ delegates the small set of methods external code already calls directly
 `coordinator.get_health_score()`, etc.) so nothing outside coordinator.py
 needs to change.
 """
-# VERSION = "2.2.0"
 
+from __future__ import annotations
+
+# VERSION = "2.3.0"
 import logging
 import time
 from typing import Any

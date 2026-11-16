@@ -8,7 +8,7 @@
  */
 
 const DOMAIN = "secure_me";
-const VERSION = "2.2.0";
+const VERSION = "2.3.0";
 
 // === Styles ===
 const panelStyles = `

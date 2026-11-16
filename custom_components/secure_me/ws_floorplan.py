@@ -1,6 +1,6 @@
 """WebSocket API — Floorplan commands for Secure Me."""
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 import base64
@@ -36,11 +36,9 @@ from .const import (
     FLOORPLAN_URL_PATH,
     FLOORPLAN_WWW_DIR_NAME,
 )
+from .ws_helpers import _get_store
 
 _LOGGER = logging.getLogger(__name__)
-
-
-from .ws_helpers import _get_store
 
 # v1.5.3: the floorplan image lives on disk under config/www/secure_me_floorplan/
 # and is served natively by HA under /local/ -- a path HACS never touches on
@@ -174,6 +172,7 @@ def _normalise_markers(
         vol.Required("type"): f"{DOMAIN}/get_floorplan",
     }
 )
+@require_admin
 @async_response
 async def ws_get_floorplan(
     hass: HomeAssistant,

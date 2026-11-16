@@ -1,8 +1,8 @@
+"""TTS module for Secure Me alarm system — v1.4.0 multi-speaker engine."""
+
 from __future__ import annotations
 
-"""TTS module for Secure Me alarm system — v1.4.0 multi-speaker engine."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import asyncio
 import logging
 from typing import Any
@@ -147,19 +147,6 @@ class TTSModule(AlarmModule):
             speakers = [s for s in speakers if s.get("entity_id") in speaker_ids]
         if not speakers:
             _LOGGER.debug("TTS: no speakers available, skipping")
-            return
-        await self._play_on_speakers(message, speakers, urgent=urgent)
-
-    async def announce_on_profiles(
-        self,
-        message: str,
-        profile_names: list[str],
-        urgent: bool = False,
-    ) -> None:
-        """Play a message on speakers matched by profile name."""
-        speakers = [s for s in self.get_speakers() if s.get("name") in profile_names]
-        if not speakers:
-            _LOGGER.debug("TTS: no speakers matched profiles %s", profile_names)
             return
         await self._play_on_speakers(message, speakers, urgent=urgent)
 

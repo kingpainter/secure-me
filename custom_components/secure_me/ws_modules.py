@@ -1,6 +1,6 @@
 """WebSocket API — Module, Notification, Test and Presence commands for Secure Me."""
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 import asyncio
@@ -20,13 +20,11 @@ from homeassistant.core import HomeAssistant
 from .const import (
     DOMAIN,
 )
-
-_LOGGER = logging.getLogger(__name__)
-
-
 from .module_dispatch import get_module_entity_ids as _get_module_entity_ids
 from .module_dispatch import normalize_module_config as _normalize_module_config
 from .ws_helpers import _discover_batteries, _get_coordinator, _get_store
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @websocket_command(
@@ -34,6 +32,7 @@ from .ws_helpers import _discover_batteries, _get_coordinator, _get_store
         vol.Required("type"): f"{DOMAIN}/get_modules",
     }
 )
+@require_admin
 @async_response
 async def ws_get_modules(
     hass: HomeAssistant,
@@ -90,6 +89,7 @@ async def ws_save_module(
         vol.Required("domain"): str,
     }
 )
+@require_admin
 @async_response
 async def ws_get_module_entities(
     hass: HomeAssistant,
@@ -116,6 +116,7 @@ async def ws_get_module_entities(
         vol.Required("type"): f"{DOMAIN}/get_notifications",
     }
 )
+@require_admin
 @async_response
 async def ws_get_notifications(
     hass: HomeAssistant,
@@ -329,6 +330,7 @@ async def ws_test_notification(
         vol.Required("type"): f"{DOMAIN}/get_notify_services",
     }
 )
+@require_admin
 @async_response
 async def ws_get_notify_services(
     hass: HomeAssistant,
@@ -414,6 +416,7 @@ async def ws_test_tts(
         vol.Required("type"): f"{DOMAIN}/get_automations",
     }
 )
+@require_admin
 @async_response
 async def ws_get_automations(
     hass: HomeAssistant,
@@ -547,6 +550,7 @@ def _classify_module_status(module: Any, unavail: list[Any]) -> str:
         vol.Required("type"): f"{DOMAIN}/get_health_summary",
     }
 )
+@require_admin
 @async_response
 async def ws_get_health_summary(
     hass: HomeAssistant,
@@ -1148,6 +1152,7 @@ async def ws_quick_test_lights(
         vol.Required("type"): f"{DOMAIN}/get_scheduled_tests",
     }
 )
+@require_admin
 @async_response
 async def ws_get_scheduled_tests(
     hass: HomeAssistant,
@@ -1251,6 +1256,7 @@ async def ws_run_scheduled_test_now(
         vol.Required("type"): f"{DOMAIN}/get_test_results",
     }
 )
+@require_admin
 @async_response
 async def ws_get_test_results(
     hass: HomeAssistant,
@@ -1277,6 +1283,7 @@ async def ws_get_test_results(
         vol.Required("type"): f"{DOMAIN}/get_fake_presence",
     }
 )
+@require_admin
 @async_response
 async def ws_get_fake_presence(
     hass: HomeAssistant,
@@ -1329,6 +1336,7 @@ async def ws_set_fake_presence(
         vol.Required("type"): f"{DOMAIN}/get_home_alone_cameras",
     }
 )
+@require_admin
 @async_response
 async def ws_get_home_alone_cameras(
     hass: HomeAssistant,

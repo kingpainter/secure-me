@@ -1,8 +1,8 @@
+"""Zone management for Secure Me."""
+
 from __future__ import annotations
 
-"""Zone management for Secure Me."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import asyncio
 import logging
 import time
@@ -15,8 +15,6 @@ from .const import (
     DOMAIN,
     EVENT_READY_TO_ARM_MODES_CHANGED,
     NOTIFY_ID_MODULE_ERROR,
-    ZONE_TYPE_ENTRY,
-    ZONE_TYPE_INSTANT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -109,17 +107,6 @@ class Zone:
     def is_active_for_mode(self, arm_mode: str) -> bool:
         """Return True if this zone should be active for the given arm mode."""
         return arm_mode in self.arm_modes
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "zone_id": self.zone_id,
-            "zone_type": self.zone_type,
-            "sensors": self.sensors,
-            "enabled": self.enabled,
-            "arm_modes": self.arm_modes,
-            "is_triggered": self.is_triggered,
-            "open_sensors": self._open_sensors,
-        }
 
 
 class SensorGroup:
@@ -441,12 +428,6 @@ class ZoneManager:
 
     def get_triggered_zones(self) -> list[Zone]:
         return [z for z in self._zones.values() if z.is_triggered]
-
-    def get_entry_zones(self) -> list[Zone]:
-        return [z for z in self._zones.values() if z.zone_type == ZONE_TYPE_ENTRY]
-
-    def get_instant_zones(self) -> list[Zone]:
-        return [z for z in self._zones.values() if z.zone_type == ZONE_TYPE_INSTANT]
 
     def get_all_open_sensors(self) -> list[str]:
         open_sensors: list[str] = []

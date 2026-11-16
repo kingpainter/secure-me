@@ -1,8 +1,8 @@
+"""Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
+
 from __future__ import annotations
 
-"""Sensor platform for Secure Me - Health Metrics, Status & Battery Tracking."""
-# VERSION = "2.2.0"
-
+# VERSION = "2.3.0"
 import logging
 from typing import Any, cast
 

@@ -14,7 +14,7 @@ This file just imports and registers them, and starts the notification
 dispatcher.
 """
 
-# VERSION = "2.2.0"
+# VERSION = "2.3.0"
 from __future__ import annotations
 
 import logging
