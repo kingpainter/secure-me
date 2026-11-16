@@ -68,7 +68,9 @@ class _Connection:
 def test_protected_list_is_complete() -> None:
     """Guard against the list drifting: 23 get_* commands plus skip_delay."""
     assert len(PROTECTED_HANDLERS) == 24
-    get_commands = [name for _, name in PROTECTED_HANDLERS if name.startswith("ws_get_")]
+    get_commands = [
+        name for _, name in PROTECTED_HANDLERS if name.startswith("ws_get_")
+    ]
     assert len(get_commands) == 23
 
 

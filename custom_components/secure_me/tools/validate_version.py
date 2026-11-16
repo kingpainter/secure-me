@@ -35,7 +35,10 @@ def fix_file(path: Path, version: str, replacements: list[tuple]) -> bool:
     for pattern, replacement in replacements:
         flags = re.MULTILINE if pattern.startswith("^") else 0
         content = re.sub(
-            pattern, replacement.replace('"VERSION"', f'"{version}"'), content, flags=flags
+            pattern,
+            replacement.replace('"VERSION"', f'"{version}"'),
+            content,
+            flags=flags,
         )
 
     if content != original:
