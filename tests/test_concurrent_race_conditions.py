@@ -95,10 +95,10 @@ class TestStoreThreadPoolExecutorReuse:
 
     def test_executor_instance_reused(self):
         """Verify ThreadPoolExecutor is created once in __init__ and reused."""
-        from custom_components.secure_me.store import Store
+        from custom_components.secure_me.store import SecureMeStore
         
         hass = MockHass()
-        store = Store(hass, 1, "secure_me_test")
+        store = SecureMeStore(hass)
         
         # Verify executor was created
         assert hasattr(store, "_executor")

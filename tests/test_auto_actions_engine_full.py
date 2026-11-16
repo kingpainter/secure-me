@@ -7,6 +7,23 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 from custom_components.secure_me.auto_actions import AutoActionsManager
 
 
+def _set_trackers(engine, states):
+    """Point the manager at tracker states the way the real code reads them.
+
+    AutoActionsManager keeps the tracked Secure Me entity ids in
+    _tracker_entities and reads each state from hass.states.
+    """
+    engine._tracker_entities = set(states)
+    engine._tracker_stale_since = {}
+
+    def _get(entity_id):
+        if entity_id not in states:
+            return None
+        return MagicMock(state=states[entity_id])
+
+    engine.hass.states.get.side_effect = _get
+
+
 class TestAutoActionsManagerInitialization:
     """Test AutoActionsManager initialization."""
 
@@ -44,7 +61,7 @@ class TestAutoActionsManagerInitialization:
     def test_init_sets_tracker_states_empty(self, fixtures):
         """Test __init__ initializes tracker states."""
         engine = AutoActionsManager(**fixtures)
-        assert engine._tracker_states == {}
+        assert engine._tracker_entities == set()
 
     def test_init_sets_all_away_since_none(self, fixtures):
         """Test __init__ initializes all_away_since to None."""
@@ -64,36 +81,35 @@ class TestAutoActionsManagerPersonTracking:
 
     def test_all_persons_away_true_when_all_not_home(self, engine):
         """Test _all_persons_away returns True when all persons not home."""
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "not_home",
             "person.bob": "not_home",
             "person.charlie": "not_home"
-        }
+        })
         assert engine._all_persons_away() is True
 
     def test_all_persons_away_false_when_any_home(self, engine):
         """Test _all_persons_away returns False when any person home."""
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "home",
             "person.bob": "not_home"
-        }
+        })
         assert engine._all_persons_away() is False
 
-    def test_all_persons_away_true_with_no_trackers(self, engine):
-        """Test _all_persons_away returns True with empty tracker list."""
-        engine._tracker_states = {}
-        assert engine._all_persons_away() is True
+    def test_all_persons_away_false_with_no_trackers(self, engine):
+        """No tracked users means 'away' is not proven: fail safe (False)."""
+        _set_trackers(engine, {})
+        assert engine._all_persons_away() is False
 
     def test_all_persons_away_with_mixed_states(self, engine):
         """Test _all_persons_away with various state values."""
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "not_home",
             "person.bob": "not_home",
             "person.charlie": "unknown"  # Should be treated as not home
-        }
-        # Logic: only "home" = home
-        any_home = any(s == "home" for s in engine._tracker_states.values())
-        assert any_home is False
+        })
+        # "unknown" is not "home", but it still blocks until the stale timeout.
+        assert engine._all_persons_away() is False
 
     def test_arrival_confirmation_pending(self, engine):
         """Test arrival confirmation prevents immediate re-trigger."""
@@ -284,7 +300,7 @@ class TestAutoActionsManagerGPSFlickerProtection:
         engine._home_empty = False
         
         # GPS glitch sends "not_home" again
-        engine._tracker_states = {"person.alice": "not_home"}
+        _set_trackers(engine, {"person.alice": "not_home"})
         
         # Arrival confirmation should prevent re-triggering
         # (would be in pending window time check in real implementation)
@@ -304,24 +320,24 @@ class TestAutoActionsManagerIntegration:
     def test_full_home_empty_cycle(self, engine):
         """Test complete home empty detection cycle."""
         # Initial state: home occupied
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "home",
             "person.bob": "home"
-        }
+        })
         assert engine._all_persons_away() is False
         
         # All leave
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "not_home",
             "person.bob": "not_home"
-        }
+        })
         assert engine._all_persons_away() is True
         
         # Mark action done
         engine._done_actions.add("alarm")
         
         # Someone returns
-        engine._tracker_states["person.alice"] = "home"
+        _set_trackers(engine, {"person.alice": "home", "person.bob": "not_home"})
         assert engine._all_persons_away() is False
 
     def test_multiple_persons_tracking(self, engine):
@@ -332,11 +348,11 @@ class TestAutoActionsManagerIntegration:
             "person.charlie": "not_home",
             "person.david": "not_home"
         }
-        engine._tracker_states = persons
+        _set_trackers(engine, persons)
         assert engine._all_persons_away() is True
         
         # One person arrives
-        engine._tracker_states["person.bob"] = "home"
+        _set_trackers(engine, {**persons, "person.bob": "home"})
         assert engine._all_persons_away() is False
 
 

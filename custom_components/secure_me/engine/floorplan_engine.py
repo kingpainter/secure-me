@@ -10,6 +10,7 @@ State is persisted by store.py, engine is the computation layer.
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -77,10 +78,12 @@ class FloorplanEngine(BaseEngine):
         Returns:
             Dict ready for store.py
         """
+        # Deep copy: the snapshot must not share mutable dicts with the live
+        # state, or later edits silently change what load_state() restores.
         return {
-            "rooms": self.rooms,
-            "openings": self.openings,
-            "markers": self.markers,
+            "rooms": copy.deepcopy(self.rooms),
+            "openings": copy.deepcopy(self.openings),
+            "markers": copy.deepcopy(self.markers),
             "image_url": self.floorplan_image_url,
             "width": self.floorplan_width,
             "height": self.floorplan_height,

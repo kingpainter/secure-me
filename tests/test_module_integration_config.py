@@ -66,7 +66,7 @@ class TestModuleConfigurationDefaults:
         config = {}
         module = ClimateModule(mock_hass, config)
         assert module.enabled is True
-        assert module.climate_entities == []
+        assert module.climates == []
 
     @pytest.mark.asyncio
     async def test_siren_module_defaults(self, mock_hass):
@@ -82,8 +82,8 @@ class TestModuleConfigurationDefaults:
         config = {}
         module = TTSModule(mock_hass, config)
         assert module.enabled is True
-        assert module.tts_entity == ""
-        assert module.speaker_entity == ""
+        assert module._legacy_entity == "tts.home_assistant_cloud"
+        assert module._speaker_profiles == []
 
 
 class TestModuleConfigurationValidation:
@@ -115,19 +115,14 @@ class TestModuleConfigurationValidation:
         """Module-specific config overrides are applied."""
         config = {
             "locks": ["lock.front", "lock.back", "lock.garage"],
-            "pre_arm_lock_delay": 3,
         }
         module = LockModule(mock_hass, config)
         assert len(module.locks) == 3
-        assert module.pre_arm_lock_delay == 3
+        assert module.lock_on_arm is True
 
     @pytest.mark.asyncio
-    async def test_lights_brightness_from_config(self, mock_hass):
-        """Lights module stores brightness preference."""
-        config = {
-            "brightness": 75,
-            "color_temp": 4000,
-        }
+    async def test_lights_flash_duration_from_config(self, mock_hass):
+        """Lights module reads flash duration from config."""
+        config = {"flash_duration": 120}
         module = LightsModule(mock_hass, config)
-        assert module.brightness == 75
-        assert module.color_temp == 4000
+        assert module.flash_duration == 120

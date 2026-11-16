@@ -126,19 +126,17 @@ class TestModulePropertyUpdates:
         assert len(module.locks) == 2
 
     @pytest.mark.asyncio
-    async def test_lights_brightness_property(self, mock_hass):
-        """Lights module exposes brightness setting."""
-        config = {"brightness": 128}
+    async def test_lights_flash_duration_property(self, mock_hass):
+        """Lights module exposes its flash duration setting."""
+        config = {"flash_duration": 128}
         module = LightsModule(mock_hass, config)
-        assert module.brightness == 128
+        assert module.flash_duration == 128
 
     @pytest.mark.asyncio
     async def test_climate_temperature_property(self, mock_hass):
         """Climate module exposes temperature settings."""
         config = {
             "away_temperature": 14,
-            "home_temperature": 22,
         }
         module = ClimateModule(mock_hass, config)
         assert module.away_temperature == 14
-        assert module.home_temperature == 22

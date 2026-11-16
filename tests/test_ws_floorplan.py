@@ -598,14 +598,7 @@ class TestMigrateFloorplanFile:
     def test_migrates_legacy_file_to_www(self, hass, tmp_path, monkeypatch):
         """If legacy file exists and new location is empty, move it."""
         # Patch config paths to use tmp directories.
-        def patched_config_path(base, *args):
-            if args and "custom_components" in args:
-                return str(tmp_path / "custom_components" / "secure_me")
-            elif args and "www" in args:
-                return str(tmp_path / "www" / args[0])
-            return str(tmp_path / base)
-
-        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+        monkeypatch.setattr(hass.config, "path", lambda *parts: str(tmp_path.joinpath(*parts)))
 
         # Create legacy file.
         legacy_dir = tmp_path / "custom_components" / "secure_me" / "floorplan"
@@ -624,28 +617,14 @@ class TestMigrateFloorplanFile:
 
     def test_no_migration_if_legacy_file_missing(self, hass, tmp_path, monkeypatch):
         """If legacy file doesn't exist, return False (no-op)."""
-        def patched_config_path(base, *args):
-            if args and "custom_components" in args:
-                return str(tmp_path / "custom_components" / "secure_me")
-            elif args and "www" in args:
-                return str(tmp_path / "www" / args[0])
-            return str(tmp_path / base)
-
-        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+        monkeypatch.setattr(hass.config, "path", lambda *parts: str(tmp_path.joinpath(*parts)))
 
         result = _migrate_legacy_floorplan_file(hass)
         assert result is False
 
     def test_no_migration_if_new_location_exists(self, hass, tmp_path, monkeypatch):
         """If new location already has a file, don't overwrite (never loses newer file)."""
-        def patched_config_path(base, *args):
-            if args and "custom_components" in args:
-                return str(tmp_path / "custom_components" / "secure_me")
-            elif args and "www" in args:
-                return str(tmp_path / "www" / args[0])
-            return str(tmp_path / base)
-
-        monkeypatch.setattr("homeassistant.core.Config.path", patched_config_path)
+        monkeypatch.setattr(hass.config, "path", lambda *parts: str(tmp_path.joinpath(*parts)))
 
         # Create both legacy and new file (new one is "newer").
         legacy_dir = tmp_path / "custom_components" / "secure_me" / "floorplan"
@@ -709,14 +688,11 @@ class TestWsDeleteFloorplanIOErrors:
         monkeypatch.setattr("custom_components.secure_me.ws_floorplan._get_store", lambda h: store)
         connection = FakeConnection()
 
-        # Mock hass.async_add_executor_job to raise OSError on unlink.
-        original_add_executor = hass.async_add_executor_job
-        async def patched_add_executor(func, *args):
-            if func.__name__ == "_unlink":
-                raise OSError("Permission denied")
-            return await original_add_executor(func, *args)
-
-        monkeypatch.setattr(hass, "async_add_executor_job", patched_add_executor)
+        # The handler catches OSError from os.unlink inside its executor job.
+        import os
+        def _deny(path):
+            raise PermissionError("Permission denied")
+        monkeypatch.setattr(os, "unlink", _deny)
 
         await _call_ws_handler(ws_delete_floorplan, hass, connection, {"id": 1})
 
@@ -850,7 +826,9 @@ class TestLargeMarkerDict:
         connection = FakeConnection(is_admin=True)
 
         # Create a PNG that's one byte over limit.
-        png_bytes = _make_png_bytes(400, 300, extra=b"\x00" * (FLOORPLAN_MAX_BYTES - 49))
+        png_bytes = _make_png_bytes(400, 300, extra=b"")
+        png_bytes += b"\x00" * (FLOORPLAN_MAX_BYTES + 1 - len(png_bytes))
+        assert len(png_bytes) == FLOORPLAN_MAX_BYTES + 1
         b64 = base64.b64encode(png_bytes).decode()
 
         await _call_ws_handler(ws_save_floorplan_image, hass, connection, {"id": 1, "image_base64": b64})
@@ -884,9 +862,11 @@ class TestConcurrentFloorplanAccess:
         # Track call order.
         call_order = []
 
+        original_save = store.async_save_floorplan_image
+
         async def tracked_save(*args, **kwargs):
             call_order.append("save_start")
-            await store.async_save_floorplan_image(*args, **kwargs)
+            await original_save(*args, **kwargs)
             call_order.append("save_end")
 
         store.async_save_floorplan_image = tracked_save

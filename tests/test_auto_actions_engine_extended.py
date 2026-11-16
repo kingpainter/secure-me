@@ -6,6 +6,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from custom_components.secure_me.auto_actions import AutoActionsManager
 
 
+def _set_trackers(engine, states):
+    """Point the manager at tracker states the way the real code reads them.
+
+    AutoActionsManager keeps the tracked Secure Me entity ids in
+    _tracker_entities and reads each state from hass.states.
+    """
+    engine._tracker_entities = set(states)
+    engine._tracker_stale_since = {}
+
+    def _get(entity_id):
+        if entity_id not in states:
+            return None
+        return MagicMock(state=states[entity_id])
+
+    engine.hass.states.get.side_effect = _get
+
+
 class TestAutoActionsManagerLogic:
     """Test AutoActionsManager state machine logic."""
 
@@ -47,24 +64,24 @@ class TestAutoActionsManagerLogic:
 
     def test_all_persons_away_returns_true_when_all_not_home(self, engine):
         """Test _all_persons_away returns True when all persons away."""
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "not_home",
             "person.bob": "not_home"
-        }
+        })
         assert engine._all_persons_away() is True
 
     def test_all_persons_away_returns_false_when_any_home(self, engine):
         """Test _all_persons_away returns False when any person home."""
-        engine._tracker_states = {
+        _set_trackers(engine, {
             "person.alice": "home",
             "person.bob": "not_home"
-        }
+        })
         assert engine._all_persons_away() is False
 
-    def test_all_persons_away_returns_true_with_empty_trackers(self, engine):
-        """Test _all_persons_away returns True with no trackers."""
-        engine._tracker_states = {}
-        assert engine._all_persons_away() is True
+    def test_all_persons_away_returns_false_with_empty_trackers(self, engine):
+        """No tracked users means 'away' is not proven: fail safe (False)."""
+        _set_trackers(engine, {})
+        assert engine._all_persons_away() is False
 
     def test_arrival_confirmation_pending_state(self, engine):
         """Test arrival confirmation window prevents immediate action."""

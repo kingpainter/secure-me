@@ -81,7 +81,7 @@ class TestFloorplanEngine:
         assert len(status["openings"]) == 1
 
     def test_get_summary(self, engine):
-        """Test get_summary returns full state."""
+        """Test get_summary returns counts for the WebSocket client."""
         engine.add_room("room_1", {"name": "Living Room"})
         engine.add_opening("opening_1", {
             "room_id": "room_1",
@@ -90,9 +90,9 @@ class TestFloorplanEngine:
         })
         
         summary = engine.get_summary()
-        assert "rooms" in summary
-        assert "openings" in summary
-        assert summary["rooms"]["room_1"]["name"] == "Living Room"
+        assert summary["rooms"] == 1
+        assert summary["openings"] == 1
+        assert summary["openings_open"] == 0
 
     def test_load_and_save_state(self, engine):
         """Test state can be loaded and saved."""

@@ -8,6 +8,7 @@ import binascii
 import logging
 import os
 import struct
+import uuid
 from typing import Any
 
 import voluptuous as vol
@@ -365,8 +366,11 @@ async def ws_save_floorplan_image(
     def _write() -> None:
         os.makedirs(floorplan_dir, exist_ok=True)
         # Atomic-ish write: tmp file then rename so a half-written file
-        # never gets served by the static handler.
-        tmp_path = floorplan_file + ".tmp"
+        # never gets served by the static handler. The tmp name is unique
+        # per call: two concurrent uploads sharing one ".tmp" path would
+        # race, and the first os.replace() would remove the file the second
+        # one is about to rename.
+        tmp_path = f"{floorplan_file}.{uuid.uuid4().hex}.tmp"
         with open(tmp_path, "wb") as fh:
             fh.write(image_bytes)
         os.replace(tmp_path, floorplan_file)

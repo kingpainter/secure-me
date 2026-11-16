@@ -46,16 +46,12 @@ class TestNotificationEngineBasics:
     @pytest.fixture
     def engine(self, mock_hass, mock_coordinator, mock_store):
         """Create NotificationEngine instance for testing."""
-        return NotificationEngine(
-            mock_hass,
-            mock_coordinator,
-            mock_store
-        )
+        return NotificationEngine(mock_hass, {})
 
     def test_init_sets_required_attributes(self, engine):
         """Test __init__ sets up engine."""
-        assert engine.coordinator is not None
-        assert engine.store is not None
+        assert engine.hass is not None
+        assert engine.config == {}
 
     def test_init_inherits_from_base_engine(self, engine):
         """Test NotificationEngine inherits BaseEngine properties."""
@@ -225,7 +221,7 @@ class TestUserPreferences:
     @pytest.fixture
     def engine(self, mock_hass, mock_coordinator, mock_store):
         """Create NotificationEngine instance."""
-        return NotificationEngine(mock_hass, mock_coordinator, mock_store)
+        return NotificationEngine(mock_hass, {})
 
     def test_user_notifications_enabled(self):
         """Test user with notifications enabled."""
@@ -454,7 +450,7 @@ class TestNotificationIntegration:
     @pytest.fixture
     def engine(self, mock_hass, mock_coordinator, mock_store):
         """Create NotificationEngine instance."""
-        return NotificationEngine(mock_hass, mock_coordinator, mock_store)
+        return NotificationEngine(mock_hass, {})
 
     def test_scenario_single_user_armed_confirmation(self, engine):
         """Test arm confirmation for single user."""

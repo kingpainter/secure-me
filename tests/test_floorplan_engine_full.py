@@ -189,9 +189,7 @@ class TestFloorplanEngineRoomStatus:
 
     def test_room_status_nonexistent_room(self, engine):
         """Test room status for nonexistent room."""
-        status = engine.get_room_status("nonexistent")
-        assert status["room_id"] == "nonexistent"
-        assert status["any_open"] is False
+        assert engine.get_room_status("nonexistent") == {}
 
 
 class TestFloorplanEngineSummary:
@@ -214,19 +212,17 @@ class TestFloorplanEngineSummary:
         """Test getting floorplan summary."""
         summary = engine.get_summary()
         
-        assert "rooms" in summary
-        assert "openings" in summary
-        assert "markers" in summary
-        assert len(summary["rooms"]) == 2
-        assert len(summary["openings"]) == 1
+        assert summary["rooms"] == 2
+        assert summary["openings"] == 1
+        assert summary["markers"] == 0
 
     def test_summary_empty(self):
         """Test summary of empty floorplan."""
         engine = FloorplanEngine(MagicMock())
         summary = engine.get_summary()
         
-        assert summary["rooms"] == {}
-        assert summary["openings"] == {}
+        assert summary["rooms"] == 0
+        assert summary["openings"] == 0
 
 
 class TestFloorplanEnginePersistence:
@@ -278,28 +274,22 @@ class TestFloorplanEnginePersistence:
 
 
 class TestFloorplanEngineMarkers:
-    """Test marker management."""
+    """Test marker management (set_markers replaces the whole marker dict)."""
 
     @pytest.fixture
     def engine(self):
         """Create FloorplanEngine instance."""
         return FloorplanEngine(MagicMock())
 
-    def test_add_marker(self, engine):
-        """Test adding a marker."""
-        engine.add_marker("marker_1", {
-            "x": 100,
-            "y": 200,
-            "label": "Entry Point"
-        })
-        
+    def test_set_markers(self, engine):
+        """Test setting markers stores them."""
+        engine.set_markers({"marker_1": {"x": 100, "y": 200, "label": "Entry Point"}})
         assert "marker_1" in engine.markers
 
-    def test_remove_marker(self, engine):
-        """Test removing a marker."""
-        engine.add_marker("marker_1", {"x": 100, "y": 200})
-        engine.remove_marker("marker_1")
-        
+    def test_clear_markers(self, engine):
+        """Test replacing markers with an empty dict removes them."""
+        engine.set_markers({"marker_1": {"x": 100, "y": 200}})
+        engine.set_markers({})
         assert "marker_1" not in engine.markers
 
 
@@ -328,8 +318,8 @@ class TestFloorplanEngineIntegration:
         
         # Get summary
         summary = engine.get_summary()
-        assert len(summary["rooms"]) == 2
-        assert len(summary["openings"]) == 2
+        assert summary["rooms"] == 2
+        assert summary["openings"] == 2
         
         # Update states
         engine.update_opening_state("door_1", "open")

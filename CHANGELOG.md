@@ -4,8 +4,11 @@
 ### Fixed
 - Auto Actions: a stale tracker's grace period in `_all_persons_away()` no longer expires after a single check. The entry stays until the tracker recovers, so the grace holds for as long as the tracker is stuck.
 - NFC: `requires_pin` is declared in the websocket schemas for `register_nfc_tag` and `import_nfc_tag`. Not yet verified by CI.
+- Floorplan: two concurrent image uploads no longer collide on one shared `.tmp` file; each write uses a unique tmp name.
+- Floorplan engine: `get_state()` returns copies, so a saved snapshot no longer changes when the live state is edited.
 
 ### Changed
+- Test suite brought in line with the current code: stale attribute names and API shapes were updated, and tests for empty tracker lists now expect `False` (fail-safe). No behaviour change in these cases.
 - Documentation (README, API.md, ARCHITECTURE.md, STATUS.md, `quality_scale.yaml`, `docs/TEST_DESCRIPTION.md`) corrected against the code. Several earlier claims were removed because they did not exist in the code, including a PIN prompt, `secure_me_nfc_scanned`, scan rate limiting and an audit log.
 
 ## [2.2.0] - 2026-10-24
