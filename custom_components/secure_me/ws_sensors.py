@@ -401,11 +401,13 @@ async def ws_save_user(
     # the old presence-monitor refresh call, now that PresenceMonitor has
     # been removed and Auto Actions v2 is the sole presence-based system.)
     coordinator = _get_coordinator(hass)
-    if (
-        coordinator is not None
-        and getattr(coordinator, "_auto_actions_manager", None) is not None
-    ):
-        coordinator._auto_actions_manager.async_refresh_trackers()
+    manager = (
+        getattr(coordinator, "_auto_actions_manager", None)
+        if coordinator is not None
+        else None
+    )
+    if manager is not None:
+        manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": True, "user_id": user_id})
 
@@ -436,11 +438,13 @@ async def ws_delete_user(
     # replaces the old presence-monitor refresh call.)
     if success:
         coordinator = _get_coordinator(hass)
-        if (
-            coordinator is not None
-            and getattr(coordinator, "_auto_actions_manager", None) is not None
-        ):
-            coordinator._auto_actions_manager.async_refresh_trackers()
+        manager = (
+            getattr(coordinator, "_auto_actions_manager", None)
+            if coordinator is not None
+            else None
+        )
+        if manager is not None:
+            manager.async_refresh_trackers()
 
     connection.send_result(msg["id"], {"success": success})
 

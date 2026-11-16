@@ -18,7 +18,10 @@ fakes -- not mirrors of services.py's own logic, just data-layer stand-ins.
 """
 # VERSION = "1.5.5"
 
-from unittest.mock import AsyncMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+from homeassistant.config_entries import ConfigEntryState
 
 import pytest
 
@@ -85,12 +88,21 @@ class FakeServicesStore:
 
 
 def _wire(hass, coordinator=None, store=None):
-    """Populate hass.data[DOMAIN] the way ws_helpers._get_coordinator/_get_store expect."""
+    """Populate hass.data and loaded entries the way ws_helpers expects."""
     hass.data[DOMAIN] = {}
     if store is not None:
         hass.data[DOMAIN]["store"] = store
+    entries = []
     if coordinator is not None:
-        hass.data[DOMAIN]["some_entry_id"] = {"coordinator": coordinator}
+        entries.append(
+            SimpleNamespace(
+                entry_id="some_entry_id",
+                # NOT_LOADED keeps the HA test-teardown from unloading this stub.
+                state=ConfigEntryState.NOT_LOADED,
+                runtime_data=SimpleNamespace(coordinator=coordinator),
+            )
+        )
+    hass.config_entries.async_entries = MagicMock(return_value=entries)
 
 
 # -----------------------------------------------------------------------------

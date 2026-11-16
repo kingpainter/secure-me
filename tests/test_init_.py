@@ -1,6 +1,8 @@
 """Tests for Secure Me integration initialization."""
 # VERSION = "1.4.0"
 
+from types import SimpleNamespace
+
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from homeassistant.core import HomeAssistant
@@ -80,12 +82,10 @@ async def test_unload_entry_success(hass: HomeAssistant, mock_config_entry, mock
 
     mock_coordinator.async_shutdown = AsyncMock()
 
-    hass.data["secure_me"] = {
-        mock_config_entry.entry_id: {
-            COORDINATOR: mock_coordinator,
-            "undo_update_listener": MagicMock(),
-        }
-    }
+    mock_config_entry.runtime_data = SimpleNamespace(
+        coordinator=mock_coordinator, undo_update_listener=MagicMock()
+    )
+    hass.data["secure_me"] = {}
 
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
@@ -105,12 +105,10 @@ async def test_unload_entry_cleans_up(hass: HomeAssistant, mock_config_entry, mo
     mock_coordinator.async_shutdown = AsyncMock()
     mock_listener = MagicMock()
 
-    hass.data["secure_me"] = {
-        mock_config_entry.entry_id: {
-            COORDINATOR: mock_coordinator,
-            "undo_update_listener": mock_listener,
-        }
-    }
+    mock_config_entry.runtime_data = SimpleNamespace(
+        coordinator=mock_coordinator, undo_update_listener=mock_listener
+    )
+    hass.data["secure_me"] = {}
 
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
@@ -131,13 +129,10 @@ async def test_unload_entry_calls_dispatcher_async_unload(hass: HomeAssistant, m
     mock_coordinator.async_shutdown = AsyncMock()
     mock_dispatcher = MagicMock()
 
-    hass.data["secure_me"] = {
-        mock_config_entry.entry_id: {
-            COORDINATOR: mock_coordinator,
-            "undo_update_listener": MagicMock(),
-        },
-        "_notification_dispatcher": mock_dispatcher,
-    }
+    mock_config_entry.runtime_data = SimpleNamespace(
+        coordinator=mock_coordinator, undo_update_listener=MagicMock()
+    )
+    hass.data["secure_me"] = {"_notification_dispatcher": mock_dispatcher}
 
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
@@ -157,13 +152,10 @@ async def test_unload_entry_dispatcher_unload_error_does_not_crash(hass: HomeAss
     mock_dispatcher = MagicMock()
     mock_dispatcher.async_unload.side_effect = Exception("boom")
 
-    hass.data["secure_me"] = {
-        mock_config_entry.entry_id: {
-            COORDINATOR: mock_coordinator,
-            "undo_update_listener": MagicMock(),
-        },
-        "_notification_dispatcher": mock_dispatcher,
-    }
+    mock_config_entry.runtime_data = SimpleNamespace(
+        coordinator=mock_coordinator, undo_update_listener=MagicMock()
+    )
+    hass.data["secure_me"] = {"_notification_dispatcher": mock_dispatcher}
 
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
 

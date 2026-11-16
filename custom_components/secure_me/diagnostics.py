@@ -12,7 +12,6 @@ from homeassistant.core import HomeAssistant
 
 from .const import (
     CONF_CODE,
-    COORDINATOR,
     DOMAIN,
     VERSION,
 )
@@ -38,8 +37,8 @@ async def async_get_config_entry_diagnostics(
     This is shown when the user clicks "Download diagnostics"
     in Settings -> Devices & Services -> Secure Me -> 3-dot menu.
     """
-    entry_data = hass.data.get(DOMAIN, {}).get(config_entry.entry_id, {})
-    coordinator = entry_data.get(COORDINATOR)
+    runtime = getattr(config_entry, "runtime_data", None)
+    coordinator = runtime.coordinator if runtime is not None else None
     store = hass.data.get(DOMAIN, {}).get("store")
 
     # --- Config entry info (redacted) ---

@@ -17,7 +17,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
-    COORDINATOR,
     DOMAIN,
     STATE_ALARM_ARMED_AWAY,
     STATE_ALARM_ARMED_HOME,
@@ -175,9 +174,7 @@ async def async_setup_entry(
     """Set up Secure Me sensors for health metrics, status, and battery tracking."""
     _LOGGER.info("Setting up Secure Me health metric and battery sensors")
 
-    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][
-        COORDINATOR
-    ]
+    coordinator: SecureMeCoordinator = config_entry.runtime_data.coordinator
 
     entities: list[SensorEntity] = [
         # Health & status sensors

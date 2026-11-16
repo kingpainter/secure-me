@@ -36,7 +36,7 @@ from .const import (
     FLOORPLAN_URL_PATH,
     FLOORPLAN_WWW_DIR_NAME,
 )
-from .ws_helpers import _get_store
+from .ws_helpers import _get_coordinator, _get_store
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ async def ws_get_floorplan(
 
     # Detect current arm_mode from coordinator
     arm_mode = None
-    coordinator = hass.data.get(DOMAIN, {}).get("coordinator")
+    coordinator = _get_coordinator(hass)
     if coordinator:
         from .const import (
             STATE_ALARM_ARMED_AWAY,

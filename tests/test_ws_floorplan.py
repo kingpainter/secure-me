@@ -920,3 +920,40 @@ class TestConcurrentFloorplanAccess:
         assert conn2.send_result.call_count == 1
         # Store should have been called twice.
         assert store.async_save_floorplan_image.await_count == 2
+
+
+class TestWsGetFloorplanArmMode:
+    """arm_mode must come from the loaded coordinator.
+
+    Before 2.3.0 ws_get_floorplan read a hass.data key that was never set,
+    so arm_mode was always None.
+    """
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("alarm_state", "expected"),
+        [
+            ("armed_away", "away"),
+            ("armed_home_alone", "home_alone"),
+        ],
+    )
+    async def test_arm_mode_comes_from_coordinator(
+        self, hass, monkeypatch, alarm_state, expected
+    ):
+        store = FakeFloorplanStore()
+        monkeypatch.setattr(
+            "custom_components.secure_me.ws_floorplan._get_store", lambda h: store
+        )
+        coordinator = MagicMock()
+        coordinator.alarm_state = alarm_state
+        monkeypatch.setattr(
+            "custom_components.secure_me.ws_floorplan._get_coordinator",
+            lambda h: coordinator,
+        )
+        connection = FakeConnection()
+
+        await _call_ws_handler(ws_get_floorplan, hass, connection, {"id": 1})
+
+        connection.send_result.assert_called_once()
+        result = connection.send_result.call_args.args[1]
+        assert result["arm_mode"] == expected

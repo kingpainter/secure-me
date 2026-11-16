@@ -14,14 +14,13 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 
 from .const import (
-    COORDINATOR,
     DEFAULT_NAME,
     DOMAIN,
     PLATFORMS,
-    UNDO_UPDATE_LISTENER,
     VERSION,
 )
 from .coordinator import SecureMeCoordinator
+from .runtime import SecureMeConfigEntry, SecureMeRuntimeData
 from .services import async_register_services, async_unregister_services
 from .store import SecureMeStore
 from .websocket_api import async_register_websocket_api
@@ -49,7 +48,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: SecureMeConfigEntry) -> bool:
     """Set up Secure Me from a config entry."""
     _LOGGER.debug("Setting up Secure Me integration")
 
@@ -88,14 +87,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.error("Secure Me setup failed after 3 attempts: %s", _last_err)
         raise ConfigEntryNotReady from _last_err
 
-    # Fix 2 (secure_me_implementering.md): entry.runtime_data is the modern
-    # HA pattern for per-entry runtime objects. hass.data[DOMAIN][entry_id] is
-    # kept alongside it for backwards-compat with any code path not yet
-    # migrated to runtime_data (see ws_helpers._get_coordinator()).
-    entry.runtime_data = coordinator
-    hass.data[DOMAIN][entry.entry_id] = {
-        COORDINATOR: coordinator,
-    }
+    # Per-entry runtime objects live in entry.runtime_data (see runtime.py).
+    entry.runtime_data = SecureMeRuntimeData(coordinator=coordinator)
 
     # Register device
     device_registry = dr.async_get(hass)
@@ -132,8 +125,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    undo_listener = entry.add_update_listener(async_update_options)
-    hass.data[DOMAIN][entry.entry_id][UNDO_UPDATE_LISTENER] = undo_listener
+    entry.runtime_data.undo_update_listener = entry.add_update_listener(
+        async_update_options
+    )
 
     _LOGGER.info("Secure Me integration setup complete")
     return True
@@ -144,38 +138,28 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: SecureMeConfigEntry) -> bool:
     """Unload a config entry."""
     _LOGGER.debug("Unloading Secure Me integration")
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is not None:
+            # Shutdown coordinator
+            await runtime.coordinator.async_shutdown()
 
-        # Shutdown coordinator
-        coordinator = entry_data.get(COORDINATOR)
-        if coordinator:
-            await coordinator.async_shutdown()
+            # Remove update listener
+            if runtime.undo_update_listener:
+                runtime.undo_update_listener()
 
-        # Remove update listener
-        undo_listener = entry_data.get(UNDO_UPDATE_LISTENER)
-        if undo_listener:
-            undo_listener()
-
-        # Unregister panel if last entry
+        # Unregister panel if last entry (other loaded entries keep it)
         remaining = [
-            k
-            for k in hass.data[DOMAIN]
-            if k
-            not in (
-                entry.entry_id,
-                "store",
-                "_websocket_registered",
-                "_panel_registered",
-                "_notification_dispatcher",
-                "_services_registered",
-            )
+            other
+            for other in hass.config_entries.async_entries(DOMAIN)
+            if other.entry_id != entry.entry_id
+            and getattr(other, "runtime_data", None) is not None
         ]
         if not remaining:
             try:
@@ -204,7 +188,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 except Exception as err:
                     _LOGGER.debug("Error unloading notification dispatcher: %s", err)
 
-        hass.data[DOMAIN].pop(entry.entry_id)
         _LOGGER.info("Secure Me integration unloaded successfully")
 
     return unload_ok

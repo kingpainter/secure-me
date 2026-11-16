@@ -22,7 +22,6 @@ from .const import (
     ATTR_CHANGED_BY,
     ATTR_CODE_ARM_REQUIRED,
     ATTR_LAST_TRIGGERED,
-    COORDINATOR,
     DOMAIN,
     EVENT_ALARM_INVALID_CODE,
     STATE_ALARM_ARMING,
@@ -44,9 +43,7 @@ async def async_setup_entry(
     _LOGGER.info("Setting up Secure Me alarm control panel")
 
     # Get coordinator
-    coordinator: SecureMeCoordinator = hass.data[DOMAIN][config_entry.entry_id][
-        COORDINATOR
-    ]
+    coordinator: SecureMeCoordinator = config_entry.runtime_data.coordinator
 
     # Create alarm panel entity
     async_add_entities([SecureMeAlarmPanel(coordinator, config_entry)])

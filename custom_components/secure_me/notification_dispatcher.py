@@ -68,11 +68,13 @@ def _get_store(hass: HomeAssistant) -> Any:
 
 def _get_tts_module(hass: HomeAssistant) -> Any:
     """Get enabled TTS module from coordinator, if any."""
-    for entry_data in hass.data.get(DOMAIN, {}).values():
-        if isinstance(entry_data, dict) and "coordinator" in entry_data:
-            tts = entry_data["coordinator"].modules.get("tts")
-            if tts and tts.enabled:
-                return tts
+    for config_entry in hass.config_entries.async_entries(DOMAIN):
+        runtime = getattr(config_entry, "runtime_data", None)
+        if runtime is None:
+            continue
+        tts = runtime.coordinator.modules.get("tts")
+        if tts and tts.enabled:
+            return tts
     return None
 
 

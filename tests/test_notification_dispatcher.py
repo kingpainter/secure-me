@@ -2,6 +2,7 @@
 # VERSION = "1.5.0"
 
 import time
+from types import SimpleNamespace
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -37,7 +38,11 @@ class TestHomeAloneQuickResponse:
         if tts_module is not None:
             coordinator = MagicMock()
             coordinator.modules = {"tts": tts_module}
-            hass.data[DOMAIN]["entry1"] = {"coordinator": coordinator}
+            entry = SimpleNamespace(
+                entry_id="entry1",
+                runtime_data=SimpleNamespace(coordinator=coordinator),
+            )
+            hass.config_entries.async_entries = MagicMock(return_value=[entry])
         return hass
 
     def _make_tts_module(self, enabled=True):

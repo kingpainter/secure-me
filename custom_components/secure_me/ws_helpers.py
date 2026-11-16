@@ -3,11 +3,15 @@
 # VERSION = "2.3.0"
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
+
+if TYPE_CHECKING:
+    from .coordinator import SecureMeCoordinator
+    from .runtime import SecureMeRuntimeData
 
 
 def _get_store(hass: HomeAssistant) -> Any:
@@ -15,24 +19,14 @@ def _get_store(hass: HomeAssistant) -> Any:
     return hass.data[DOMAIN].get("store")
 
 
-def _get_coordinator(hass: HomeAssistant) -> Any:
-    """Return the active SecureMeCoordinator, or None if not found.
-
-    Fix 2 (secure_me_implementering.md): prefers entry.runtime_data, the
-    modern HA pattern for per-entry runtime objects (set in
-    async_setup_entry()). Falls back to the legacy hass.data[DOMAIN][entry_id]
-    dict lookup for backwards-compat, in case some entry was set up before
-    runtime_data was introduced and never reloaded since.
-    """
+def _get_coordinator(hass: HomeAssistant) -> SecureMeCoordinator | None:
+    """Return the coordinator of the first loaded Secure Me entry, or None."""
     for config_entry in hass.config_entries.async_entries(DOMAIN):
-        runtime_data = getattr(config_entry, "runtime_data", None)
-        if runtime_data is not None:
-            return runtime_data
-
-    domain_data = hass.data.get(DOMAIN, {})
-    for value in domain_data.values():
-        if isinstance(value, dict) and "coordinator" in value:
-            return value["coordinator"]
+        runtime: SecureMeRuntimeData | None = getattr(
+            config_entry, "runtime_data", None
+        )
+        if runtime is not None:
+            return runtime.coordinator
     return None
 
 
