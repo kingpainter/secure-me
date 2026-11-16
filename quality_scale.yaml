@@ -1,42 +1,42 @@
 # Secure Me - HACS Quality Scale Assessment
 # Reference: https://hacs.xyz/docs/publish/include/quality
-# Generated: September 21, 2026 | Version: 2.0.0
+# Last reviewed: 2026-11-16 | Version: 2.2.0 (lines marked 'not re-verified' were not checked)
 
 ---
 quality: silver
 
-# BRONZE TIER - ACHIEVED ✅
+# BRONZE TIER - self-assessed, not re-verified
 # Basic Home Assistant integration with core functionality
 # - Config flow implementation
 # - Service definitions
 # - Basic integration lifecycle
 
-# SILVER TIER - ACHIEVED ✅
+# SILVER TIER - self-assessed, not re-verified
 # Production-ready quality with comprehensive code organization
 
 code_quality:
-  - PEP 563 forward references: ✅ All 34 files
-  - Return type hints: ✅ ~95% coverage
-  - Parameter type hints: ✅ ~95% coverage
-  - Docstring coverage: ✅ All public methods
-  - Code style: ✅ PEP 8 compliant
+  - PEP 563 forward references: ✅ present in the component files read (file count not re-verified)
+  - Return type hints: present on most functions (percentage not measured)
+  - Parameter type hints: present on most functions (percentage not measured)
+  - Docstrings: present on many public methods (not exhaustively checked)
+  - Code style: ruff lint status not re-verified (see CHANGELOG 2.0.1)
 
 testing:
   - Unit test framework: ✅ pytest
-  - Test count: ✅ 75+ passing tests
-  - Test coverage: ✅ ~80%+ achieved
-  - Engine-specific tests: ✅ 16+23+22+40 = 101 tests
+  - Test count: 41 test files under tests/ (CI is authoritative for counts)
+  - Test coverage: not re-verified; see CI
+  - Engine-specific tests: see tests/test_*engine*.py (count not re-verified)
   - Integration tests: ✅ WebSocket, services, config flow
-  - Edge case coverage: ✅ Comprehensive
+  - Edge case coverage: not measured
 
 architecture:
-  - Modular design: ✅ Engine-based architecture
-  - BaseEngine pattern: ✅ Lifecycle management
+  - Modular design: ✅ Module classes in modules/ with a dispatcher (module_dispatch.py); Auto Actions runs in AutoActionsManager, engine/ is an offline copy
+  - BaseEngine pattern: exists in engine/ (offline copy); lifecycle not re-verified
   - Separation of concerns: ✅ Auto-actions, Floorplan, Notifications
   - No monolithic code: ✅ Well-organized modules
   - Async/await patterns: ✅ Throughout codebase
-  - No blocking calls: ✅ Full async I/O
-  - Dependency injection: ✅ Proper DI patterns
+  - Blocking calls: bcrypt runs in a thread pool; other blocking calls not audited
+  - Dependency injection: not assessed
 
 error_handling:
   - Exception handling: ✅ Try/catch throughout
@@ -45,17 +45,17 @@ error_handling:
   - Error messages: ✅ Descriptive and actionable
 
 documentation:
-  - README.md: ✅ 13.9K comprehensive guide
-  - CHANGELOG.md: ✅ 4.5K version history
-  - ARCHITECTURE.md: ✅ 9.3K technical design
-  - API.md: ✅ 8.2K public API reference
-  - Inline documentation: ✅ Docstrings on all public methods
+  - README.md: ✅ comprehensive guide
+  - CHANGELOG.md: ✅ version history
+  - ARCHITECTURE.md: ✅ technical design
+  - API.md: ✅ public API reference
+  - Inline documentation: docstrings on many public methods (not exhaustively checked)
 
 dependencies:
-  - External packages: ✅ Minimal (only bcrypt>=4.0.0)
-  - Home Assistant version: ✅ 2026.1+
-  - Version pinning: ✅ Appropriate constraints
-  - No deprecated packages: ✅ All current
+  - External packages: manifest.json declares none; store.py imports bcrypt directly
+  - Home Assistant version: 2026.2+ (CI pins HA Core 2026.2.3)
+  - Version pinning: no requirements in manifest.json; CI pins pytest-homeassistant-custom-component==0.13.316
+  - No deprecated packages: not assessed
 
 # GOLD TIER - FUTURE ENHANCEMENT
 # Advanced optimization and best practices

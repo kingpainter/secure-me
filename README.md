@@ -1,7 +1,7 @@
 # Secure Me — Professional Home Alarm Manager
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![HA Version](https://img.shields.io/badge/Home%20Assistant-2025.1.1%2B-blue)](https://www.home-assistant.io/)
+[![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.2%2B-blue)](https://www.home-assistant.io/)
 [![Version](https://img.shields.io/badge/version-2.2.0-green)](https://github.com/kingpainter/secure-me/releases)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-400%2B-brightgreen)](tests/)
@@ -60,7 +60,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Configuration survives HACS updates: PNG backed up in HA storage, auto-restored on startup
 - Sensor pin markers show live state with visual feedback (red pulse = active, green = inactive)
 
-**Auto Actions Engine (v2.0+, Pure State Machine)**
+**Auto Actions (v2)**
 - Presence-based automation: watches tracked person entities
 - When everyone tracked leaves: three independent action timers with individual delays — lock, arm alarm, activate cameras
 - Configurable per action with delay slider (defaults: lock 2 min, alarm 5 min, cameras immediately)
@@ -70,7 +70,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Initial-presence check on startup: if house already empty at boot, start timers immediately
 - Recheck-on-disarm option: if users still away after disarm, restart the automation cycle
 - A single summary notification sent once all scheduled actions have settled
-- Pure offline-testable state machine (no Home Assistant dependencies in the engine)
+- Runtime logic lives in `auto_actions.py`. The offline-testable engine copy is in `engine/`
 
 **Notification Engine (v2.0+)**
 - User preference management: quiet hours, notification channels
@@ -83,7 +83,7 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 - Low/critical battery warnings
 - Enhanced diagnostics download
 
-**Testing** (37+ test files, 400+ tests, 80%+ coverage)
+**Testing** (41 test files; test count and coverage are verified by CI)
 - Three test levels: Quick (~30s), Standard (~60s), Full (~90s)
 - Scheduled tests with configurable day, time, and type
 - Test result history (last 10 runs)
@@ -111,9 +111,9 @@ A comprehensive alarm system integration for Home Assistant with multi-zone supp
 Secure Me uses a **layered engine architecture** for testability and maintainability:
 
 1. **Home Assistant Core** — Event bus, service registry, entity management
-2. **Coordinator** (1,512 lines) — Orchestration layer bridging HA to engines
-3. **Pure State Machines** — AutoActionsEngine, FloorplanEngine, NotificationEngine (no direct HA dependencies, fully offline testable)
-4. **Infrastructure** — StateMachine, ZoneManager, Store v2, module factories
+2. **Coordinator** — Orchestration layer bridging HA to the rest of the integration
+3. **Auto Actions** — `AutoActionsManager` in `auto_actions.py` runs presence-based actions at runtime. `engine/` holds `BaseEngine` (base class for it), `FloorplanEngine`, `NotificationEngine` and a standalone `AutoActionsEngine` that can be tested without HA
+4. **Infrastructure** — StateMachine, ZoneManager, Store v2, `ModuleDispatcher` (in `module_dispatch.py`)
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation and [test files](tests/) for offline engine testing patterns.
 
@@ -121,7 +121,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed documentation and [test file
 
 ## Requirements
 
-- Home Assistant 2025.1.1 or newer
+- Home Assistant 2026.2 or newer (CI tests against HA Core 2026.2.3; older versions are not tested)
 - Python 3.13 or newer
 - bcrypt ≥4.0.0 (auto-installed)
 
@@ -267,12 +267,15 @@ All arm services accept optional `code` (string), `skip_delay` (boolean), and `f
 
 | Event | Data | Description |
 |-------|------|-------------|
-| `secure_me_alarm_armed` | `mode`, `armed_by` | Fired when alarm is armed |
-| `secure_me_alarm_disarmed` | `disarmed_by` | Fired when alarm is disarmed |
-| `secure_me_alarm_triggered` | `triggered_by` | Fired when alarm triggers |
+| `secure_me_armed` | `mode`, `armed_by`, `armed_by_id` | Fired when alarm is armed |
+| `secure_me_disarmed` | `disarmed_by`, `disarmed_by_id` | Fired when alarm is disarmed |
+| `secure_me_triggered` | `triggered_by` | Fired when alarm triggers |
 | `secure_me_arm_failed` | `command`, `open_sensors`, `bypassed_sensors` | Fired when arming fails due to open sensors |
 | `secure_me_module_error` | `module`, `action`, `error` | Fired when a module fails |
-| `secure_me_nfc_scanned` | `tag_id`, `user_id` | Fired when NFC tag scanned (v2.1.0+) |
+| `secure_me_tag_scanned` | `tag_id`, `tag_name`, `action`, `success`, `error`, `alarm_state`, `pin_required`, `pin_verified` | Fired when a registered NFC tag is scanned. Secure Me handles the tag itself; no automation is needed |
+| `secure_me_code_locked` | `lockout_seconds` | Code entry locked after repeated wrong codes (5 failures in 10 min, locked for 10 min) |
+
+See [API.md](API.md) for the full list of events and their data.
 
 ---
 
@@ -283,16 +286,16 @@ All arm services accept optional `code` (string), `skip_delay` (boolean), and `f
 ```yaml
 automation:
   alias: "Secure Me - Auto arm away"
-  trigger:
-    - platform: state
+  triggers:
+    - trigger: state
       entity_id: binary_sensor.secure_me_anyone_home
       to: "off"
-  condition:
+  conditions:
     - condition: state
       entity_id: alarm_control_panel.secure_me
       state: "disarmed"
-  action:
-    - service: secure_me.arm_away
+  actions:
+    - action: secure_me.arm_away
       data:
         skip_delay: false
 ```
@@ -302,20 +305,21 @@ automation:
 ```yaml
 automation:
   alias: "Secure Me - Auto disarm on arrival"
-  trigger:
-    - platform: state
+  triggers:
+    - trigger: state
       entity_id: person.your_name
       to: "home"
-  condition:
+  conditions:
     - condition: state
       entity_id: alarm_control_panel.secure_me
       state:
         - "armed_away"
         - "armed_vacation"
-  action:
-    - service: secure_me.disarm
+  actions:
+    - action: secure_me.disarm
       data:
-        code: "1234"
+        # Keep the real code out of YAML: store it in secrets.yaml
+        code: !secret secure_me_disarm_code
 ```
 
 ### Night mode at bedtime
@@ -323,8 +327,8 @@ automation:
 ```yaml
 automation:
   alias: "Secure Me - Night mode"
-  trigger:
-    - platform: time
+  triggers:
+    - trigger: time
       at: "23:00:00"
   condition:
     - condition: state
@@ -352,8 +356,8 @@ automation:
 ```yaml
 automation:
   alias: "Secure Me - Trigger notification"
-  trigger:
-    - platform: state
+  triggers:
+    - trigger: state
       entity_id: alarm_control_panel.secure_me
       to: "triggered"
   action:
@@ -416,6 +420,7 @@ The countdown updates every second. If it jumps (e.g. 30 → 25), this is by des
 3. Hold your device near the NFC tag for 30 seconds
 4. A notification should appear confirming registration
 5. Check HA logs for any `tag_scanned` event errors
+6. If a tag with a PIN is accepted without asking for one, check the tag's `requires_pin` flag in the Users tab. In v2.2.0 this field is read by the backend without being declared in the websocket schema, so verify it after registering a tag
 
 ---
 
@@ -424,8 +429,8 @@ The countdown updates every second. If it jumps (e.g. 30 → 25), this is by des
 See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 Key versions:
-- **v2.2.0** (2026-10-03): NFC tag integration, improved event handling
-- **v2.1.0** (2026-10-03): NFC tag support with user binding
+- **v2.2.0** (2026-10-24): Per-tag PIN enforced in the backend, code lockout after repeated wrong codes, NFC endpoints documented
+- **v2.1.0** (2026-10-03): NFC tag integration (registration, `tag_scanned` handling)
 - **v2.0.1** (2026-09-30): Ruff linting compliance, Python 3.13 compatibility
 - **v2.0.0** (2026-09-21): Engine architecture, PEP 563 type hints, 28 new unit tests
 
@@ -439,5 +444,5 @@ MIT License — see [LICENSE](LICENSE) for details.
 **Version:** 2.2.0
 **Repository:** [github.com/kingpainter/secure-me](https://github.com/kingpainter/secure-me)
 **Python:** 3.13+
-**Tests:** 400+ with 80%+ coverage
+**Tests:** 41 test files (CI is authoritative for count and coverage)
 

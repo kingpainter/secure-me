@@ -1,31 +1,29 @@
 # Secure Me — Development Status
 
-## Current version: 2.2.0 (committed 2026-10-03)
+## Current version: 2.2.0 (release date 2026-10-24 as recorded in README and API.md; not checked against git tags)
 
 ---
 
-## What is in 2.2.0 (2026-10-03)
+## What is in 2.2.0 (2026-10-24)
 
 ### NFC Tag Integration
-- Users can register NFC tags (iPhone, AirTag, etc.) for PIN-less authentication
-- Tags are user-bound for audit trail and security
+- Users can register NFC tags (iPhone, AirTag, etc.). Each tag can optionally require a PIN
+- Tags are bound to a user (`user_id` is stored on the tag). No audit log is implemented
 - Home Assistant `tag_scanned` events trigger alarm actions
-- Full localization: English + Dansk
-- New WebSocket endpoints: `get_nfc_tags`, `register_nfc_tag`, `delete_nfc_tag`
+- WebSocket endpoints: `get_nfc_tags`, `register_nfc_tag`, `delete_nfc_tag`, `get_ha_nfc_tags`, `import_nfc_tag`
 - NFC tags persisted in Store v2 with auto-migration support
-- Frontend: new NFC tab in user management dialog with registration flow and tag listing
+- Frontend: new NFC tab in user management dialog with registration flow and tag listing (not re-verified in this pass)
 - Backend: `async_listen_nfc_events()` in coordinator listens for tag scan events
 
 ### Quality & Robustness
 - Zero linting violations (Ruff verified)
 - Python 3.13+ strict compatibility
 - Full PEP 563 type hints across all 34 custom files
-- 400+ tests across 37+ test files
-- 80%+ code coverage
-- All tests passing on Python 3.13
+- 41 test files under `tests/` (CI is authoritative for counts and coverage)
+- Test status on Python 3.13 not re-verified locally
 
 ### Status
-- Committed 2026-10-03. CI: all green. Production ready.
+- Commit and CI result not re-verified in this pass.
 
 ---
 
@@ -218,23 +216,12 @@ Three independent engines extracted from monolithic coordinator:
 
 ## Test Suite Status (v2.2.0)
 
-- **400+ tests** across 37+ test files
-- **80%+ code coverage**
-- All passing on Python 3.13
-- GitHub Actions: HACS validation, Hassfest compliance
-- Zero linting violations (Ruff verified)
+- 41 test files under `tests/` (counted by directory listing)
+- Test counts and coverage were not re-verified locally. CI is authoritative
+- GitHub Actions: HACS validation and Hassfest compliance (from earlier notes; not re-verified)
+- Zero linting violations (Ruff) from earlier notes; not re-verified in this pass
 
-### Test File Categories
-
-| Category | Files | Tests | Coverage |
-|----------|-------|-------|----------|
-| Engine Tests | 10 | 100+ | 90%+ |
-| WebSocket Tests | 8 | 150+ | 85%+ |
-| Coordinator Tests | 6 | 80+ | 80%+ |
-| Module Tests | 7 | 50+ | 85%+ |
-| Zone/Sensor Tests | 4 | 20+ | 80%+ |
-| Other | 2 | 10+ | 75%+ |
-| **Total** | **37+** | **400+** | **80%+** |
+The per-category test table that used to be here was not based on a count and has been removed.
 
 ### Recent Test Additions (Phase C, 2026-10-03)
 - `test_module_integration_lifecycle.py`: 12 tests
@@ -249,27 +236,20 @@ Three independent engines extracted from monolithic coordinator:
 ## Ready to commit?
 
 ### Current Status
-- ✅ All known bugs fixed
-- ✅ Full test suite green in CI (400+ tests)
-- ✅ Zero linting violations (Ruff)
-- ✅ Python 3.13 verified
-- ✅ Engine architecture complete and tested
-- ✅ NFC integration complete and tested
-- ✅ Type hints across all 34 files
-- ✅ Production ready
+- Open code issues (not fixed): stale-tracker grace handling in `auto_actions._all_persons_away()`; `requires_pin` not declared in the websocket schema for NFC register/import
+- Test suite, CI, linting and type-hint claims from earlier notes were not re-verified in this pass
 
 ### Documentation Status
-- ✅ README.md — updated to v2.2.0
-- ✅ CHANGELOG.md — up-to-date through v2.2.0
-- ⚠️  API.md — v1.5.0 (should be v2.2.0, needs NFC endpoints)
-- ⚠️  ARCHITECTURE.md — v2.0.0 (should be v2.2.0, needs NFC section)
-- ⚠️  STATUS.md — now v2.2.0 (newly updated)
+- README.md — updated to v2.2.0 in this pass
+- API.md — updated to v2.2.0 in this pass
+- ARCHITECTURE.md — updated in this pass; NFC section rewritten to match the code
+- STATUS.md — updated in this pass
+- CHANGELOG.md — not re-checked in this pass
 
 ### Next Steps (Optional)
-1. Update API.md to v2.2.0 with NFC endpoints and complete service documentation
-2. Complete ARCHITECTURE.md with NotificationEngine details and NFC architecture
-3. Create ENGINES.md documenting the engine pattern and offline testing
-4. Create WEBSOCKET_API.md for centralized endpoint reference
+1. Update `quality_scale.yaml` (stale test counts, HA version, doc sizes). Two copies exist (root and `custom_components/secure_me/`); decide which is canonical
+2. Fix the open code issues above, after explicit approval
+3. Optional: ENGINES.md and WEBSOCKET_API.md if still wanted
 
 ---
 
@@ -277,8 +257,8 @@ Three independent engines extracted from monolithic coordinator:
 
 | Version | Date | Key Features |
 |---------|------|--------------|
-| 2.2.0 | 2026-10-03 | NFC tag integration |
-| 2.1.0 | 2026-10-03 | NFC tag support |
+| 2.2.0 | 2026-10-24 | Per-tag PIN enforced in backend, code lockout, NFC endpoints documented |
+| 2.1.0 | 2026-10-03 | NFC tag integration (first release) |
 | 2.0.1 | 2026-09-30 | Ruff linting, Python 3.13 |
 | 2.0.0 | 2026-09-21 | Engine architecture, type hints |
 | 1.5.4 | 2026-08-23 | Auto Actions consolidation |

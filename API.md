@@ -87,6 +87,8 @@ ingen anden ledig plads at låne. Derfor:
 
 ---
 
+Bemærk: `alarm_control_panel.alarm_trigger` kræver en gyldig kode, ligesom arm og disarm. Uden kode afvises kaldet, og eventet `secure_me_invalid_code` udsendes.
+
 ## 4. Registrerede HA-Services (v1.5.0+)
 
 Alle disse services er tilgængelige i automations/scripts via
@@ -119,6 +121,7 @@ Alle disse services er tilgængelige i automations/scripts via
 | `target_mode`       | string                | Kun under `arming`                       | Hvilken `armed_*`-tilstand vi er på vej til. |
 | `bypassed_sensors`  | list[string]          | Når sensorer er auto-bypassed            | Tomt array hvis ingen. |
 | `code_arm_required` | bool                  | Altid                                    | Altid `true` — koden valideres via bcrypt. |
+| `open_sensors`      | list[string]          | Når der er åbne sensorer                 | Sensorer der er åbne lige nu. |
 
 ---
 
@@ -129,59 +132,73 @@ NFC tags kan registreres per bruger for PIN-less authentication. Home Assistant
 
 ### WebSocket Endpoints (Frontend → Backend)
 
-#### `get_nfc_tags` — Hent brugerens NFC tags
+#### `get_nfc_tags` — Hent alle registrerede NFC tags
 
 **Request:**
 ```json
 {
-  "type": "secure_me/get_nfc_tags",
-  "user_id": "user_123"
+  "id": 1,
+  "type": "secure_me/get_nfc_tags"
 }
 ```
+
+Kræver ikke admin. Returnerer alle tags, ikke kun den aktuelle brugers.
 
 **Response:**
 ```json
 {
-  "type": "secure_me/get_nfc_tags",
+  "id": 1,
+  "type": "result",
   "success": true,
-  "tags": [
-    {
-      "tag_id": "nfc_abc123",
-      "user_id": "user_123",
-      "name": "iPhone",
-      "created_at": "2026-10-03T10:30:00Z"
+  "result": {
+    "nfc_tags": {
+      "04FA123456789ABC": {
+        "user_id": "user_123",
+        "action": "disarm",
+        "name": "iPhone",
+        "requires_pin": false,
+        "created_at": 1790000000.0
+      }
     }
-  ]
-}
-```
-
-#### `register_nfc_tag` — Registrer nyt NFC tag
-
-**Request:**
-```json
-{
-  "type": "secure_me/register_nfc_tag",
-  "user_id": "user_123",
-  "tag_id": "HA_TAG_ID_FROM_SCAN",
-  "name": "iPhone"
-}
-```
-
-**Response:**
-```json
-{
-  "type": "secure_me/register_nfc_tag",
-  "success": true,
-  "tag": {
-    "tag_id": "HA_TAG_ID_FROM_SCAN",
-    "user_id": "user_123",
-    "name": "iPhone",
-    "created_at": "2026-10-03T10:30:00Z"
   }
 }
 ```
 
-#### `delete_nfc_tag` — Slet NFC tag
+`nfc_tags` er et dict nøglet på `tag_id`. `created_at` er et Unix-tidsstempel (sekunder), ikke ISO-tekst.
+
+#### `register_nfc_tag` — Registrer nyt NFC tag (kræver admin)
+
+**Request:**
+```json
+{
+  "id": 2,
+  "type": "secure_me/register_nfc_tag",
+  "tag_id": "HA_TAG_ID_FROM_SCAN",
+  "user_id": "user_123",
+  "action": "disarm",
+  "name": "iPhone",
+  "requires_pin": false
+}
+```
+
+- `tag_id`, `user_id`, `action` (`disarm` eller `arm_away`) og `name` er påkrævet.
+- `requires_pin` er valgfri (standard `false`). Se bemærkningen om schema nedenfor.
+
+**Response:**
+```json
+{
+  "id": 2,
+  "type": "result",
+  "success": true,
+  "result": {
+    "success": true
+  }
+}
+```
+
+Svaret indeholder ikke tag-objektet. Læs det via `get_nfc_tags`.
+
+#### `delete_nfc_tag` — Slet NFC tag (kræver admin)
 
 **Request:**
 ```json
@@ -199,25 +216,41 @@ NFC tags kan registreres per bruger for PIN-less authentication. Home Assistant
 }
 ```
 
+#### `get_ha_nfc_tags` — Hent tags kendt af Home Assistant
+
+Returnerer en liste af tag-ID'er fra HA's tag-register (eller `.storage/tag` som fallback). Bruges af panelet til at importere tags. Kræver ikke admin.
+
+#### `import_nfc_tag` — Importer et HA-tag til Secure Me (kræver admin)
+
+```json
+{
+  "id": 3,
+  "type": "secure_me/import_nfc_tag",
+  "tag_id": "04FA123456789ABC",
+  "action": "disarm",
+  "name": "Hoveddør"
+}
+```
+
+Taget gemmes uden brugerbinding (`user_id` = `null`).
+
 ### Home Assistant Event Integration
 
-Når en registreret NFC tag scannes, affyrer Home Assistant en `tag_scanned`
-event med tag-IDet. Secure Me lytter på disse events og kan udløse arm/disarm
-baseret på tag-brugerbinding:
+Secure Me lytter selv på HA's `tag_scanned`-event, når et tag er registreret. Der skal **ikke** oprettes en separat automation for registrerede tags. En sådan automation ville køre sammen med den indbyggede håndtering og give dobbelte kald.
+
+For tags med `requires_pin: true` skal PIN'en leveres i eventets `code`-felt. Et tag uden PIN handler på scanningen alene.
+
+Tags uden PIN virker dermed uden kode, også når en global kode er sat op. Det er bevidst: tagget er legitimationen.
+
+> **Bemærk:** I v2.2.0 læser koden `requires_pin` i `register_nfc_tag` og `import_nfc_tag` uden at feltet står i schemaet. Verificér, at PIN-kravet faktisk gemmes, efter du registrerer et tag.
 
 ```yaml
-# Example automation (user-created, ikke Secure Me-genereret)
-automation:
-  alias: "Disarm on NFC scan"
-  trigger:
-    platform: event
-    event_type: tag_scanned
-    event_data:
-      tag_id: "04FA123456789ABC"
-  action:
-    service: secure_me.disarm
-    data:
-      code: "1234"  # or trigger without code for known users
+# Ingen automation nødvendig for registrerede tags (se ovenfor).
+# Hvis du alligevel vil lave en egen automation, skal den bruge en
+# pladsholder-kode, ikke en hardcoded kode i YAML. Eksempel:
+#   service: secure_me.disarm
+#   data:
+#     code: !secret secure_me_disarm_code
 ```
 
 ---
@@ -226,12 +259,20 @@ automation:
 
 | Event | Data | Beskrivelse |
 |-------|------|-------------|
-| `secure_me_alarm_armed` | `mode` (str), `armed_by` (str) | Alarmen blev armeret |
-| `secure_me_alarm_disarmed` | `disarmed_by` (str) | Alarmen blev disarmeret |
-| `secure_me_alarm_triggered` | `triggered_by` (str) | Alarmen blev udløst |
+| `secure_me_armed` | `mode` (str), `armed_by` (str), `armed_by_id` (str \| null) | Alarmen blev armeret |
+| `secure_me_disarmed` | `disarmed_by` (str), `disarmed_by_id` (str \| null) | Alarmen blev disarmeret |
+| `secure_me_triggered` | `triggered_by` (str) | Alarmen blev udløst |
 | `secure_me_arm_failed` | `command` (str), `open_sensors` (list), `bypassed_sensors` (list) | Arm mislykkedes grundet åbne sensorer |
 | `secure_me_module_error` | `module` (str), `action` (str), `error` (str) | Modul fejlede under udførelse |
-| `secure_me_nfc_scanned` | `tag_id` (str), `user_id` (str) | NFC tag blev scannet og registreret (v2.1.0+) |
+| `secure_me_tag_scanned` | `tag_id`, `tag_name`, `action`, `success`, `error`, `alarm_state`, `pin_required`, `pin_verified` | Et registreret NFC tag blev scannet. `pin_verified` er `null` når tagget ikke kræver PIN. PIN-koden logges eller sendes aldrig i eventet. |
+| `secure_me_code_locked` | `lockout_seconds` (int) | Kodeindtastning er låst efter gentagne fejl (5 fejl på 10 min, låst i 10 min) |
+| `secure_me_invalid_code` | `command`, `entity_id` (valgfri) | Forkert kode ved arm, disarm eller trigger |
+| `secure_me_command_rejected` | `command`, `current_state` | Tilstandsmaskinen afviste kommandoen (fx disarm når allerede disarmed) |
+| `secure_me_module_enabled` / `secure_me_module_disabled` | `module` | Et modul blev slået til/fra |
+| `secure_me_home_empty` | — | Auto Actions: alle sporede brugere er væk |
+| `secure_me_person_home` | `entity_id` | Auto Actions: en sporet bruger er kommet hjem |
+| `secure_me_auto_action_done` | `action`, `result`, `success` | Auto Actions: en handling (lock, alarm, camera) er færdig |
+| `secure_me_fake_presence_changed` | `active` (bool) | Fake Presence blev slået til eller fra |
 
 ---
 
@@ -245,47 +286,35 @@ blev introduceret.
 
 | Version | Dato | Vigtigste ændringer |
 |---------|------|---------------------|
-| 2.2.0 | 2026-10-03 | Tilføjet NFC tag endpoints, komplette service-definitioner |
-| 2.1.0 | 2026-10-03 | Tilføjet NFC tag integration |
+| 2.2.0 | 2026-10-24 | NFC per-tag PIN håndhævet i backend (`requires_pin`), kode-lockout, `secure_me_tag_scanned` med PIN-felter. NFC-endpoints og events dokumenteret i denne version. |
+| 2.1.0 | 2026-10-03 | Tilføjet NFC tag integration (endpoints, `secure_me_tag_scanned`-listener) |
 | 1.5.0 | 2026-07-19 | Formaliseret alarm entity contract, service-definitioner |
 
 ---
 
 ## 9. Eksempler
 
-### Automation: NFC tag-baseret disarm
+### NFC tag-baseret disarm
 
-```yaml
-automation:
-  alias: "Secure Me - Disarm on NFC"
-  trigger:
-    platform: event
-    event_type: tag_scanned
-    event_data:
-      tag_id: "04FA123456789ABC"
-  action:
-    service: secure_me.disarm
-    data:
-      code: "1234"
-```
+Ingen automation er nødvendig. Registrér tagget i panelet (Users → NFC), så håndterer Secure Me `tag_scanned` selv. Se afsnittet om events ovenfor.
 
 ### Automation: Arm away når ingen hjemme
 
 ```yaml
 automation:
   alias: "Secure Me - Auto arm away"
-  trigger:
-    platform: state
-    entity_id: binary_sensor.secure_me_anyone_home
-    to: "off"
-  condition:
-    condition: state
-    entity_id: alarm_control_panel.secure_me
-    state: "disarmed"
-  action:
-    service: secure_me.arm_away
-    data:
-      skip_delay: false
+  triggers:
+    - trigger: state
+      entity_id: binary_sensor.secure_me_anyone_home
+      to: "off"
+  conditions:
+    - condition: state
+      entity_id: alarm_control_panel.secure_me
+      state: "disarmed"
+  actions:
+    - action: secure_me.arm_away
+      data:
+        skip_delay: false
 ```
 
 ### Script: Force arm regardless of open sensors

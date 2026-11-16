@@ -469,6 +469,7 @@ async def ws_get_nfc_tags(
         vol.Required("user_id"): str,
         vol.Required("action"): vol.In(["disarm", "arm_away"]),
         vol.Required("name"): str,
+        vol.Optional("requires_pin", default=False): bool,
     }
 )
 @require_admin
@@ -597,6 +598,7 @@ async def ws_get_ha_nfc_tags(
         vol.Required("tag_id"): str,
         vol.Required("action"): str,
         vol.Optional("name"): str,
+        vol.Optional("requires_pin", default=False): bool,
     }
 )
 @require_admin

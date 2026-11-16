@@ -984,9 +984,10 @@ class AutoActionsManager(BaseEngine):
                     return False
                 if now - stale_since < timeout:
                     return False
-                # v1.5.6 bugfix: Remove stale entry after timeout to prevent
-                # accumulation in _tracker_stale_since dict
-                self._tracker_stale_since.pop(entity_id, None)
+                # Keep the entry. _handle_state_changed() removes it as soon
+                # as the tracker recovers, so the grace stays in effect for as
+                # long as the tracker is stuck. Entries are bounded by the
+                # number of tracked entities.
                 _LOGGER.info(
                     "AutoActions: tracker %s stuck %s for >= %ds -- no longer "
                     "blocking the 'home empty' check",

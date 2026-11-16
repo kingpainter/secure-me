@@ -1,5 +1,13 @@
 # Secure Me - Changelog
 
+## [Unreleased] - 2026-11-16
+### Fixed
+- Auto Actions: a stale tracker's grace period in `_all_persons_away()` no longer expires after a single check. The entry stays until the tracker recovers, so the grace holds for as long as the tracker is stuck.
+- NFC: `requires_pin` is declared in the websocket schemas for `register_nfc_tag` and `import_nfc_tag`. Not yet verified by CI.
+
+### Changed
+- Documentation (README, API.md, ARCHITECTURE.md, STATUS.md, `quality_scale.yaml`, `docs/TEST_DESCRIPTION.md`) corrected against the code. Several earlier claims were removed because they did not exist in the code, including a PIN prompt, `secure_me_nfc_scanned`, scan rate limiting and an audit log.
+
 ## [2.2.0] - 2026-10-24
 ### Security
 - Repeated wrong codes now lock code entry for 10 minutes (5 failures within 10 minutes). Applies to keypad, app, services and remote PIN checks. Trusted NFC tags without a PIN are not affected.
@@ -21,7 +29,7 @@
 **New Feature:**
 - Added NFC tag support for quick-access alarm control
 - Users can register NFC tags (e.g., iPhone, AirTag) for disarm/arm-away actions
-- Tags are associated with individual users for audit tracking
+- Tags are associated with individual users (no audit log is implemented)
 - Home Assistant tag_scanned events trigger corresponding alarm actions
 - Secure, PIN-less authentication via NFC scan
 - Full localization: English strings + Danish translations

@@ -1,7 +1,7 @@
 # Secure Me — Architecture & Design
 
 **Version:** 2.2.0  
-**Date:** 2026-10-03  
+**Date:** 2026-11-16  
 **Status:** Production Ready (v2.2.0)
 
 ---
@@ -10,16 +10,16 @@
 
 Secure Me is a multi-zone Home Assistant alarm system designed around **pure state machines** and **engine-based architecture**. All state logic is decoupled from Home Assistant dependencies, enabling offline unit testing and maintainability.
 
-Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while maintaining the core engine pattern and 80%+ test coverage.
+Version 2.2.0 adds **NFC tag control** (each tag can optionally require a PIN) while keeping the engine pattern. Test counts are in CI.
 
 ### Core Design Principles
 
 1. **State Machine as Source of Truth** — All state transitions (arm, disarm, trigger) are explicit, testable events
 2. **Engine Pattern** — Extracted logic into standalone, injectable state machines (`BaseEngine`)
 3. **Minimal HA Coupling** — Engines operate independently; only coordinators bridge to HA
-4. **Testability First** — 80%+ unit test coverage with zero mocked HA instances for engines
+4. **Testability First** — engine tests run without an HA instance (coverage: see CI)
 5. **Async-Only I/O** — No blocking calls; full `asyncio` compliance
-6. **Security by Default** — bcrypt PIN hashing, NFC tag binding, audit logging
+6. **Security by Default** — bcrypt PIN hashing, optional per-tag PIN, code lockout after repeated failures
 
 ---
 
@@ -38,8 +38,8 @@ Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while mainta
                             │
 ┌─────────────────────────────────────────────────────────────┐
 │ Coordinator Layer (HA Bridge)                              │
-│ • coordinator.py (1,512 lines) — Orchestration            │
-│ • module_dispatch.py (333 lines) — Module instantiation   │
+│ • coordinator.py — Orchestration            │
+│ • module_dispatch.py — Module instantiation   │
 │ • Services entry point (hass.services.async_register)    │
 │ • NFC event listener (async_listen_nfc_events)           │
 └─────────────────────────────────────────────────────────────┘
@@ -49,13 +49,13 @@ Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while mainta
 ┌─────────────────────────────────────────────────────────────┐
 │ State Machine Engine Layer (Pure Logic)                    │
 │ ┌──────────────────────────────────────────────────────┐  │
-│ │ BaseEngine (91 lines)                               │  │
+│ │ BaseEngine                               │  │
 │ │ • async_start(), async_stop(), cleanup             │  │
 │ │ • Task lifecycle management                         │  │
 │ └──────────────────────────────────────────────────────┘  │
 │                                                             │
 │ ┌──────────────────────────────────────────────────────┐  │
-│ │ AutoActionsEngine (1,010 lines)                      │  │
+│ │ AutoActionsEngine (offline copy)                      │  │
 │ │ • Presence-based automation                         │  │
 │ │ • Tracks person entities (home/away state)         │  │
 │ │ • Manages lock/alarm/camera action delays          │  │
@@ -64,7 +64,7 @@ Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while mainta
 │ └──────────────────────────────────────────────────────┘  │
 │                                                             │
 │ ┌──────────────────────────────────────────────────────┐  │
-│ │ FloorplanEngine (207 lines)                          │  │
+│ │ FloorplanEngine                          │  │
 │ │ • Room & opening state tracking                     │  │
 │ │ • Live-view coordinates                             │  │
 │ │ • No HA dependencies                                │  │
@@ -72,7 +72,7 @@ Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while mainta
 │ └──────────────────────────────────────────────────────┘  │
 │                                                             │
 │ ┌──────────────────────────────────────────────────────┐  │
-│ │ NotificationEngine (859 lines)                       │  │
+│ │ NotificationEngine                       │  │
 │ │ • Event routing rules                               │  │
 │ │ • User preferences (quiet hours, channels)          │  │
 │ │ • Dispatcher pattern for delivery                   │  │
@@ -88,7 +88,7 @@ Version 2.2.0 adds **NFC tag authentication** for PIN-less control, while mainta
 │ • ZoneManager (sensor debouncing, grouping)               │
 │ • Store v2 (bcrypt, NFC tags, data persistence)           │
 │ • ModuleDispatcher (6 module factories + health scoring)  │
-│ • NFCManager (tag registration, user binding)             │
+│ • NFC tags stored in Store (top-level nfc_tags)             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -120,41 +120,43 @@ class BaseEngine:
 - Testable without HA instance
 - Zero HA dependencies in engine implementation
 
-### 3.2 AutoActionsEngine
+### 3.2 Auto Actions
+
+**Runtime:** `AutoActionsManager` in `auto_actions.py` is what the coordinator uses. `engine/auto_actions_engine.py` is a standalone copy of the same logic without HA dependencies, used for offline tests. The table below describes `AutoActionsManager`.
 
 **Purpose:** Presence-based automation — arm/disarm/lock/camera actions triggered by person entity state changes.
 
 **Key Components:**
 
-| Component | Lines | Purpose |
-|-----------|-------|---------|
-| `_on_home_empty()` | 60 | Entry point: all persons went away |
-| `_all_persons_away()` | 40 | Check if all tracked persons are `not_home` (fail-safe if tracker stale) |
-| `_run_action_after_delay()` | 50 | Queue lock/alarm/camera actions with per-action delays |
-| `_execute_action()` | 80 | Dispatch to `coordinator._do_lock()`, `_do_alarm()`, `_do_camera()` |
-| `_cancel_all_action_tasks()` | 30 | User returns home: cancel all queued actions |
-| `_send_summary_notification()` | 40 | Report action results to user |
+| Method | Purpose |
+|--------|---------|
+| `_on_home_empty()` | Entry point: all persons went away |
+| `_all_persons_away()` | Check if all tracked persons are `not_home` (fail-safe if tracker stale) |
+| `_run_action_after_delay()` | Queue lock/alarm/camera actions with per-action delays |
+| `_execute_action()` | Dispatch to `_do_lock()`, `_do_alarm()`, `_do_camera()` in `auto_actions.py` |
+| `_cancel_all_action_tasks()` | User returns home: cancel all queued actions |
+| `_send_summary_notification()` | Report action results to user |
 
-**State:** Maintains `_persons_state`, `_action_tasks`, `_tracker_stale_since`, `_action_results`
+**State:** `_tracker_entities`, `_action_tasks`, `_done_actions`, `_action_results`, `_tracker_stale_since`, `_all_away_since`
 
 **Configuration Parameters:**
 - `lock_delay` (int, seconds) — Delay before auto-locking (default: 120)
 - `alarm_delay` (int, seconds) — Delay before auto-arming (default: 300)
 - `camera_delay` (int, seconds) — Delay before activating cameras (default: 0)
-- `stale_tracker_timeout` (int, minutes) — GPS tracker unavailability threshold (default: 30)
-- `arrival_confirmation` (int, minutes) — Grace period for confirmed arrival (default: 2)
+- `stale_tracker_timeout` (int, seconds) — GPS tracker unavailability threshold (default: 1800)
+- `arrival_confirmation_delay` (int, seconds) — Wait before confirming arrival (default: 60)
 
 **Input Events:**
-- `state_changed` (hass event bus): tracked person entity state changed
-- `timer_update` (internal): Action delay expired
-- `user_returns` (coordinator callback): Someone came home, cancel everything
+- `state_changed` (hass event bus): a tracker of a Secure Me user changed state
+- `secure_me_disarmed` event: optional recheck (only when `recheck_on_disarm` is on)
+- asyncio timers: per-action delays and the arrival confirmation window
 
 **Output:**
-- Coordinator method calls: `async_arm_away()`, `async_lock_all()`, `async_trigger_camera()`
-- User notifications: Success/failure summary
-- Internal events: `auto_actions_completed`, `auto_actions_failed`
+- Coordinator call: `coordinator.async_arm_away(skip_delay=True)`. Lock goes through the lock module's retrying service call. Camera goes through `CameraModule.async_arm("away")`
+- User notifications: one summary when all scheduled actions have settled
+- HA events: `secure_me_home_empty`, `secure_me_person_home`, `secure_me_auto_action_done`
 
-**Offline Testability:** ✅ Yes — pure state machine, no HA dependencies  
+**Offline Testability:** the `engine/` copy has no HA dependencies. `AutoActionsManager` in `auto_actions.py` does import HA and is not offline-testable  
 **Test Files:** 
 - `test_auto_actions_engine.py` (2 tests)
 - `test_auto_actions_engine_extended.py` (9 tests)
@@ -222,88 +224,44 @@ class BaseEngine:
 
 ---
 
-## 4. NFC Tag Integration (v2.1.0+)
+## 4. NFC Tag Integration
 
-### 4.1 NFC Architecture
+### 4.1 Flow
 
-NFC tags enable PIN-less, user-bound authentication for quick arm/disarm:
+Secure Me listens on the Home Assistant event bus for `tag_scanned` (`coordinator.async_listen_nfc_events()`). For each event:
 
-```
-Home Assistant tag_scanned event
-  ↓
-coordinator.async_listen_nfc_events()
-  ↓
-Lookup tag in store → get associated user_id
-  ↓
-Check if tag requires PIN (optional per-tag setting)
-  ├─ If yes: await PIN verification from user
-  └─ If no: proceed directly
-  ↓
-Verify user is admin or has permission for requested action
-  ↓
-Execute action: arm_away / disarm / trigger
-  ↓
-Log event with user_id + tag_id (audit trail)
-  ↓
-Fire secure_me_nfc_scanned event to HA
-```
+1. Look up `tag_id` in the top-level `nfc_tags` dict in the store. Unregistered tags are logged and ignored.
+2. If the tag has `requires_pin`, the event must carry the PIN in `data.code`. A missing or wrong PIN rejects the scan. The check goes through `code_limiter`.
+3. Run the tag's action. `disarm` calls `async_disarm(skip_code=True)`. `arm_away` calls `async_arm_away()`. Any other value is rejected.
+4. Fire `secure_me_tag_scanned` with the outcome, whether it succeeded or not.
 
-### 4.2 Store v2 NFC Data
+Secure Me does not prompt the user for a PIN and does not send a confirmation notification of its own.
+
+### 4.2 Storage
+
+Registered tags live at the top level of the store, keyed by `tag_id` (not nested under users). Illustrative shape:
 
 ```python
-{
-  "users": {
-    "user_123": {
-      "name": "Flemming",
-      "pin_hash": "...(bcrypt)...",
-      "nfc_tags": [
-        {
-          "tag_id": "04FA123456789ABC",
-          "name": "iPhone",
-          "requires_pin": False,
-          "created_at": "2026-10-03T10:30:00Z"
-        }
-      ]
+store["nfc_tags"] = {
+    "04FA123456789ABC": {
+        "user_id": "user_123",
+        "action": "disarm",
+        "name": "iPhone",
+        "requires_pin": False,
+        "created_at": 1761300000.0,  # Unix time
     }
-  }
 }
 ```
 
-### 4.3 NFC Event Flow
+### 4.3 Event
 
-```
-NFC Scan: User taps iPhone against reader
-  ↓
-Home Assistant receives tag_scanned event with tag_id
-  ↓
-coordinator._on_tag_scanned()
-  ↓
-Store lookup: Find tag in user's nfc_tags
-  ↓
-If tag.requires_pin == True:
-  ├─ Send notification to user: "Enter PIN to disarm"
-  ├─ Start 2-min timeout
-  ├─ Await PIN from mobile app / panel
-  └─ If timeout: cancel, log security event
-  ├─ If wrong PIN: log failed attempt, retry allowed
-  └─ If correct PIN: proceed to action
-  ↓
-Execute: coordinator.async_disarm() or async_arm_away()
-  ↓
-Fire secure_me_nfc_scanned(tag_id, user_id, success=True)
-  ↓
-Send confirmation notification to user
-```
+`secure_me_tag_scanned` carries `tag_id`, `tag_name`, `action`, `success`, `error`, `alarm_state`, `pin_required` and `pin_verified`. `pin_verified` is `null` when the tag does not require a PIN. The PIN itself is never put in the event or logged.
 
-### 4.4 Security Considerations
+### 4.4 Security Notes
 
-- **Tag Binding:** Each tag is bound to a specific user (audit trail)
-- **Per-Tag PIN:** Optional per-tag enforcement (some tags bypass PIN)
-- **HA Tag Events:** NFC integration relies on Home Assistant's native tag scanning
-  - Requires HA Companion app (iOS) or RFID reader
-  - Events fire over HA event bus (same transport as state_changed)
-- **Rate Limiting:** Rapid repeated scans (>10 in 1 min) log security event
-- **Audit Trail:** All NFC events logged with tag_id + user_id + action + result
+- A tag without a PIN is the credential. Disarming by tag skips the global code check (`skip_code=True`).
+- Failed PIN checks count toward the code lockout in `code_attempts.py`. Tags without a PIN never reach that limiter.
+- The following were described in earlier drafts of this document but are **not implemented** in the code: a PIN prompt with a 2-minute timeout, a per-user permission check, rate limiting of scans, an audit log of tag events, and a `secure_me_nfc_scanned` event.
 
 ---
 
@@ -318,23 +276,20 @@ Send confirmation notification to user
 3. **Module Dispatch** — Calls ModuleDispatcher for siren/camera/lock/etc. execution
 4. **State Machine** — Tracks alarm state (armed/disarmed/triggered)
 5. **Health Scoring** — Aggregates module health into diagnostics
-6. **NFC Listening** — Monitors `tag_scanned` events, verifies user + tag binding
+6. **NFC Listening** — Handles `tag_scanned` events and checks the PIN when a tag requires one
 
 ### 5.2 Startup Sequence
 
 ```
 hass.setup_entry()
-  → coordinator = Coordinator(hass, store, config_entry)
-  → AutoActionsEngine.__init__()
-  → FloorplanEngine.__init__()
-  → NotificationEngine.__init__()
-  → coordinator.async_config_entry_first_refresh()
-    → coordinator.async_start() ← triggers engine.async_start() for each
-      → AutoActionsEngine._check_initial_presence() ← if house empty, start timers
-      → FloorplanEngine.load_state()
-      → NotificationEngine.load_preferences()
-  → hass.services.async_register() ← register arm_away, disarm, trigger, etc.
-  → hass.bus.async_listen("tag_scanned", ...) ← start NFC listener
+  → SecureMeCoordinator.__init__()    ← creates code_limiter, state_machine, zone_manager, module_dispatcher
+  → coordinator.async_load_store_config(store)
+    → modules, zones, sensors and sensor groups loaded from store
+    → async_listen_nfc_events()        ← subscribes to tag_scanned
+    → AutoActionsManager.async_start() ← subscribes to state_changed, then _check_initial_presence()
+  → services registered (arm_away, disarm, trigger, ...)
+
+(FloorplanEngine and NotificationEngine are not started by the coordinator; see section 3.)
 ```
 
 ### 5.3 Event Flow Example: "Person Goes Away"
@@ -346,45 +301,39 @@ state_changed(entity_id="person.alice", new_state="not_home")
   ↓
 coordinator._state_changed_listener()
   ↓
-AutoActionsEngine._on_person_state_changed()
+AutoActionsManager._handle_state_changed()
   ↓
 _all_persons_away() → True (all tracked persons now away)
   ↓
-_on_home_empty() ← START 2-minute lock delay timer
+_on_home_empty() ← schedules lock / alarm / camera timers, each with its own delay
   ↓
-_run_action_after_delay("lock", delay=120)
+_run_action_after_delay("lock", delay)
   ↓
-[2 minutes pass]
+[delay passes, house still empty]
   ↓
 _execute_action("lock")
   ↓
-coordinator._do_lock() ← call actual Home Assistant services
+_do_lock() ← skips doors that are open and locks that are already locked
   ↓
-ModuleDispatcher.lock_module.async_lock_all()
-  ↓
-hass.services.async_call("lock", "lock", {...})
+lock module async_call_service_with_retry("lock", "lock", ...)
 ```
 
 ### 5.4 Event Flow Example: "NFC Tag Scan"
 
 ```
-Home Assistant tag_scanned event
+Home Assistant tag_scanned event (data: tag_id, optional code)
   ↓
-coordinator._on_tag_scanned(tag_id="04FA123456789ABC")
+handle_nfc_event() inside async_listen_nfc_events()
   ↓
-Store lookup: find tag in users
+store.get_nfc_tags()[tag_id] → action, requires_pin
   ↓
-Found: tag belongs to user_123, requires_pin=False
+requires_pin == False → no PIN check
   ↓
-coordinator.async_disarm() ← no PIN check needed
+async_disarm(skip_code=True)
   ↓
-state_machine.disarm()
+state_machine.disarm() → secure_me_disarmed fired by _state_changed()
   ↓
-hass.bus.async_fire("secure_me_alarm_disarmed", {"disarmed_by": "user_123"})
-  ↓
-hass.bus.async_fire("secure_me_nfc_scanned", {"tag_id": "04FA...", "user_id": "user_123"})
-  ↓
-NotificationEngine routes confirmation to user
+secure_me_tag_scanned fired with success=True, pin_verified=None
 ```
 
 ---
@@ -421,14 +370,14 @@ The `StateMachine` class manages the five alarm modes and automatic transitions:
         └──────────────┘
               ↓
         ┌──────────────┐
-        │  DISARMED    │ (manual disarm or 15-min auto-reset)
+        │  DISARMED    │ (manual disarm, or after trigger_time)
         └──────────────┘
 ```
 
 **Key Transitions:**
 - **Entry Delay** (armed_away): When sensor triggers, countdown starts (default 30s). User disarms within window → no alarm. Timeout → fire siren.
 - **Exit Delay** (all modes): After arming, 30s grace period. Exit a sensor during this → no trigger (bypass until door closes).
-- **Auto-Reset** (triggered): After 15 minutes, auto-disarm (configurable).
+- **Trigger time** (triggered): the alarm stays in `triggered` for `trigger_time` seconds (default 300, set in the config flow). What happens after that is defined in `state_machine.py`, which I did not re-verify in this pass.
 
 ---
 
@@ -468,7 +417,8 @@ Handles auto-migration from v1→v2 on first load:
 ```
 Store schema v2:
 ├── zones: {zone_id: {name, sensors: [...], entry_delay, ...}}
-├── users: {user_id: {name, pin_hash (bcrypt), nfc_tags: [...], ...}}
+├── users: {user_id: {name, pin_hash (bcrypt), ...}}
+├── nfc_tags: {tag_id: {user_id, action, name, requires_pin, created_at}}
 ├── modules: {module_name: {enabled, entity_ids, ...}}
 ├── floorplan: {rooms: [...], openings: [...], image_b64: ...}
 ├── auto_actions: {enabled, timers, fake_presence_v2, ...}
@@ -476,23 +426,16 @@ Store schema v2:
 └── [other config fields]
 ```
 
-**NFC Tags in Store:**
-```python
-user["nfc_tags"] = [
-    {
-        "tag_id": "04FA123456789ABC",
-        "name": "iPhone",
-        "requires_pin": False,
-        "created_at": "2026-10-03T10:30:00Z"
-    }
-]
-```
+**NFC Tags in Store:** top-level `nfc_tags` dict keyed by `tag_id` (see section 4.2).
 
 ### 8.2 Security: bcrypt PIN Hashing
 
-- **Algorithm:** bcrypt with 10 rounds (NIST recommended)
+The code sample below is illustrative only. See `store.py` for the real implementation.
+
+- **Algorithm:** bcrypt with 10 rounds
+- **Code lockout:** `code_attempts.py` (`CodeAttemptLimiter`) counts failed code checks. 5 failures within 10 minutes refuse all code checks for 10 minutes. The limiter is global, not per user. NFC tags that skip the code check never reach it. Which call sites use it was not re-verified in this pass
 - **Threading:** `ThreadPoolExecutor` for parallel user authentication
-- **Validation:** Called on every NFC/code entry attempt + auto-actions startup
+- **Validation:** code checks that go through the limiter, and NFC tags that require a PIN
 
 ```python
 async def authenticate_user(self, user_id, pin):
@@ -516,18 +459,21 @@ The frontend (`secure-me-panel.js`) communicates with the backend over WebSocket
 ### 9.1 API Structure
 
 ```
-Request:  { id, type, payload: {...} }
-Response: { id, success, result: {...} or error }
+Request:  { "id": 1, "type": "secure_me/<command>", ...command fields }
+Response: { "id": 1, "type": "result", "success": true, "result": {...} }
+Error:    { "id": 1, "type": "result", "success": false, "error": {"code": "...", "message": "..."} }
 ```
 
-### 9.2 Endpoints (5 modules, 30+ total endpoints)
+### 9.2 Endpoints (command names; see `websocket_api.py` for the full list)
+
+The panel-config API is internal to `secure-me-panel.js`. API.md documents only the NFC endpoints and the arm/disarm commands.
 
 | Module | Endpoints | Purpose |
 |--------|-----------|---------|
-| **ws_sensors.py** | `ws_get_sensors`, `ws_save_sensor`, `delete_sensor`, `get_nfc_tags`, `register_nfc_tag`, `delete_nfc_tag` | Sensor + NFC management |
-| **ws_modules.py** | `ws_get_modules`, `ws_enable_module`, `ws_test_module`, `ws_run_test` | Module management |
-| **ws_alarm.py** | `ws_arm_away`, `ws_disarm`, `ws_save_auto_actions`, `ws_trigger` | Alarm control |
-| **ws_floorplan.py** | `ws_get_floorplan`, `ws_save_floorplan_image`, `ws_save_floorplan_markers` | Floorplan CRUD |
+| **ws_sensors.py** | `secure_me/get_sensors`, `save_sensors`, `hide_sensor`, `unmark_environmental`, `get_zones`, `save_zone`, `delete_zone`, `get_users`, `save_user`, `delete_user`, `get_nfc_tags`, `register_nfc_tag`, `delete_nfc_tag`, `get_ha_nfc_tags`, `import_nfc_tag`, `get_persons`, `get_alarm_state`, sensor-group commands | Sensors, zones, users, NFC |
+| **ws_modules.py** | `secure_me/get_modules`, `save_module`, `get_module_entities`, `run_test`, `get_health_summary`, notification, automation, scheduled test and home alone camera commands | Modules, tests, notifications |
+| **ws_alarm.py** | `secure_me/arm_away`, `arm_home`, `arm_night`, `arm_vacation`, `arm_home_alone`, `disarm`, `skip_delay`, `get_auto_actions`, `save_auto_actions`, `get_fake_presence_v2`, `save_fake_presence_v2`, speaker profile commands | Alarm control, Auto Actions, Fake Presence v2 |
+| **ws_floorplan.py** | `secure_me/get_floorplan`, `save_floorplan_image`, `save_floorplan_markers`, `delete_floorplan` | Floorplan |
 | **ws_helpers.py** | Shared `_get_coordinator()`, `_get_store()` | Helper utilities |
 
 ---
@@ -535,6 +481,8 @@ Response: { id, success, result: {...} or error }
 ## 10. Testing Strategy
 
 ### 10.1 Test Categories
+
+The numbers below are estimates and were not re-verified in this pass. CI is authoritative.
 
 | Category | Files | Tests | Coverage |
 |----------|-------|-------|----------|
@@ -550,7 +498,7 @@ Response: { id, success, result: {...} or error }
 ### 10.2 Offline Test Example
 
 ```python
-# No HA instance needed — pure state machine test
+# Illustrative only: method names differ from the real tests. See tests/test_auto_actions_engine.py
 @pytest.mark.asyncio
 async def test_auto_actions_all_persons_away():
     """AutoActionsEngine starts timers when all persons leave."""
@@ -573,6 +521,8 @@ async def test_auto_actions_all_persons_away():
 ---
 
 ## 11. Performance Characteristics
+
+The figures below are estimates, not measurements.
 
 ### 11.1 Latency (Typical)
 
@@ -615,7 +565,6 @@ logger:
     custom_components.secure_me: debug
     custom_components.secure_me.coordinator: debug
     custom_components.secure_me.auto_actions: debug
-    custom_components.secure_me.engine.auto_actions_engine: debug
 ```
 
 ### 12.2 Common Issues
@@ -625,30 +574,14 @@ logger:
 | NFC tag doesn't trigger | Tag not registered or user not found | Go to Users tab, register tag in NFC section |
 | NFC PIN check fails | Wrong PIN hashing or bcrypt error | Check logs for PIN verification errors, restart integration |
 | Siren doesn't sound on trigger | Module not assigned or entity unavailable | Check **System Health** tab → module health |
-| Auto-lock doesn't happen after arm | AutoActionsEngine not started | Check logs for `async_start()` errors |
+| Auto-lock doesn't happen after arm | AutoActionsManager not started, or house not marked empty | Check logs for `AutoActionsManager started` |
 | Zone sensor stuck "unknown" | Sensor not integrated, or state_changed event not firing | Restart HA, verify sensor entity exists |
 
 ### 12.3 Test NFC Locally
 
-```python
-# Quick offline test
-from custom_components.secure_me.coordinator import Coordinator
-from tests.conftest import MockStore, MockHA
+The example that used to be here called methods that do not exist. See `tests/test_nfc_tag_handling.py` for the real NFC tests.
 
-async def test_nfc():
-    store = MockStore({"users": {
-        "user_123": {"name": "Test", "nfc_tags": [
-            {"tag_id": "04FA...", "requires_pin": False}
-        ]}
-    }})
-    coordinator = Coordinator(MockHA(), store, {})
-    
-    # Simulate NFC scan
-    await coordinator._on_tag_scanned("04FA...")
-    
-    # Assert disarmed
-    assert coordinator.state_machine.state == "disarmed"
-```
+The real NFC tests are in `tests/test_nfc_tag_handling.py`. The old snippet was removed because it called a method and a state attribute that do not exist in the code.
 
 ---
 
@@ -681,14 +614,14 @@ async def test_nfc():
 - **STATUS.md** — Version history & release notes
 - **CHANGELOG.md** — Detailed changelog
 - **quality_scale.yaml** — HACS Silver/Gold tier requirements
-- **tests/** — 400+ passing unit + integration tests
+- **tests/** — 41 test files (CI is authoritative for counts)
 - **test_auto_actions_engine.py** — Engine pattern example
 
 ---
 
 **Maintained by:** Secure Me Team  
-**Last Updated:** 2026-10-03  
+**Last Updated:** 2026-11-16  
 **Status:** Production Ready (v2.2.0)  
-**Test Coverage:** 80%+ (400+ tests)  
+**Test Coverage:** see CI (not re-verified locally)  
 **Code Quality:** Zero linting violations (Ruff), strict type hints (PEP 563)
 

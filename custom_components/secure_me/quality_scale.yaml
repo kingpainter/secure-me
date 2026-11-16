@@ -49,10 +49,10 @@ requirements:
 code_quality:
   type_checking:
     status: done
-    description: "PEP 563 + return type hints across all 34 files"
+    description: "PEP 563 + return type hints across component files (file count not re-verified)"
   testing:
     status: in_progress
-    description: "Engine unit tests targeting 80%+ coverage"
+    description: "Engine unit tests (coverage not re-verified)"
   ci_enforcement:
     status: in_progress
     description: "ruff + mypy checks in GitHub Actions"
