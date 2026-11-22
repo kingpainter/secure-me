@@ -350,8 +350,6 @@ class SecureMePanelCore extends HTMLElement {
     this._fpSaveDebounce = null;
     this._floorplanUploading = false;
     this._wsConnected = true;  // tracks WS connection health for banner
-    this._fpUndoStack = [];       // undo stack: max 20 snapshots
-    this._fpKeyboardCleanup = null; // keyboard handler cleanup ref
     // v2.2.0 floorplan live-view toggle — persists in sessionStorage per session
     this._fpLiveViewEnabled = this._restoreFpLiveViewToggle();
     // Tab render caches — invalidated on data save
@@ -911,70 +909,6 @@ class SecureMePanelCore extends HTMLElement {
 
   _fpFlyoutActive() {
     return !!(this._fpActiveFlyout && this._fpActiveFlyout.style.display === "block");
-  }
-
-  _fpSnapshotForUndo() {
-    const fp = this._data.floorplan;
-    if (!fp) return;
-    this._fpUndoStack.push({
-      rooms:    JSON.parse(JSON.stringify(fp.rooms    || {})),
-      openings: JSON.parse(JSON.stringify(fp.openings || [])),
-    });
-    if (this._fpUndoStack.length > 20) this._fpUndoStack.shift();
-  }
-
-  _fpUndo() {
-    if (!this._fpUndoStack.length) { this._toast("Ingen handlinger at fortryde", "info"); return; }
-    const snap = this._fpUndoStack.pop();
-    if (!this._data.floorplan) return;
-    this._data.floorplan.rooms    = snap.rooms;
-    this._data.floorplan.openings = snap.openings;
-    this._floorplanSelectedRoom    = null;
-    this._floorplanSelectedOpening = null;
-    this._floorplanDrawing         = null;
-    this._render();
-    this._fpSaveRooms();
-    this._toast("Fortryd", "success");
-  }
-
-  _fpAttachKeyboard() {
-    if (this._fpKeyboardCleanup) return;
-    const handler = e => {
-      const tag = (e.target?.tagName || "").toLowerCase();
-      if (["input","textarea","select"].includes(tag)) return;
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (this._floorplanDrawing) { this._floorplanDrawing = null; this._render(); }
-        else if (this._floorplanSelectedRoom || this._floorplanSelectedOpening !== null) {
-          this._floorplanSelectedRoom = null; this._floorplanSelectedOpening = null; this._render();
-        } else { this._floorplanEditMode = false; this._floorplanSelectedRoom = null; this._fpDetachKeyboard(); this._render(); }
-        return;
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (this._floorplanSelectedRoom) {
-          e.preventDefault(); this._fpSnapshotForUndo();
-          delete this._data.floorplan.rooms[this._floorplanSelectedRoom];
-          this._floorplanSelectedRoom = null; this._render(); this._fpSaveRooms(); return;
-        }
-        if (this._floorplanSelectedOpening !== null) {
-          e.preventDefault(); this._fpSnapshotForUndo();
-          this._data.floorplan.openings.splice(this._floorplanSelectedOpening, 1);
-          this._floorplanSelectedOpening = null; this._render(); this._fpSaveRooms(); return;
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); this._fpUndo(); return; }
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.key === "r" || e.key === "R") { this._floorplanDrawTool = "rect";    this._floorplanDrawing = null; this._render(); }
-        else if (e.key === "p" || e.key === "P") { this._floorplanDrawTool = "polygon"; this._floorplanDrawing = null; this._render(); }
-        else if (e.key === "o" || e.key === "O") { this._floorplanDrawTool = "opening"; this._floorplanDrawing = null; this._render(); }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    this._fpKeyboardCleanup = () => document.removeEventListener("keydown", handler);
-  }
-
-  _fpDetachKeyboard() {
-    if (this._fpKeyboardCleanup) { this._fpKeyboardCleanup(); this._fpKeyboardCleanup = null; }
   }
 
   // === Toast notifications (v1.4.3) ===
@@ -2106,8 +2040,8 @@ class SecureMePanelCore extends HTMLElement {
     }
 
     const actions = [
-      { value: 'disarm', label: '🔓 Disarm (lås op)' },
-      { value: 'arm_away', label: '🔒 Arm Away (lås)' }
+      { value: 'disarm', label: 'Disarm (lås op)' },
+      { value: 'arm_away', label: 'Arm Away (lås)' }
     ];
 
     const html = `
@@ -6002,7 +5936,7 @@ class SecureMePanelCore extends HTMLElement {
             <div>
               <div style="font-weight:500;color:var(--sm-text)">${cfg.name || tagId}</div>
               <div style="font-size:11px;color:var(--sm-text-tertiary);font-family:'DM Mono';margin-top:4px">${tagId}</div>
-              <div style="font-size:11px;color:var(--sm-accent);margin-top:2px">${cfg.action === 'disarm' ? '🔓 Disarm' : '🔒 Arm Away'}</div>
+              <div style="font-size:11px;color:var(--sm-accent);margin-top:2px">${cfg.action === 'disarm' ? 'Disarm' : 'Arm Away'}</div>
             </div>
             <button class="sm-btn small danger" data-delete-nfc-tag="${tagId}" style="padding:6px 10px;font-size:12px">Slet</button>
           </div>
